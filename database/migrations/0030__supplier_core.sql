@@ -4,15 +4,17 @@ KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
 ================================================================================
 Migration Version: 30
 Migration Name:    SUPPLIER_CORE
-Description:       Create SUPPLIER_GROUPS, SUPPLIERS tables, add SUPPLIER_ID
-                   to STOCK_DOCUMENTS, seed standard supplier groups for KAZUKO.
+Description:       Create SUPPLIER_GROUPS, SUPPLIERS tables, partial unique
+                   index for single active default, add SUPPLIER_ID to
+                   STOCK_DOCUMENTS, seed standard supplier groups for KAZUKO.
 Target Database:   Firebird 5.0 (Dialect 3, UTF8)
 ================================================================================
 */
 
--- Step 1: Create temporary exception for pre-flight checks
+SET AUTODDL OFF;
+
+-- Step 1: Create temporary exception for pre-flight and post-flight checks
 CREATE EXCEPTION EX_MIGRATION_CHECK 'Migration validation error';
-COMMIT;
 
 -- Step 2: Pre-flight validations
 SET TERM ^ ;
@@ -51,7 +53,6 @@ BEGIN
         EXCEPTION EX_MIGRATION_CHECK 'Cot SUPPLIER_ID da ton tai trong STOCK_DOCUMENTS.';
 END^
 SET TERM ; ^
-COMMIT;
 
 -- Step 3: Create SUPPLIER_GROUPS table
 CREATE TABLE SUPPLIER_GROUPS (
@@ -76,7 +77,10 @@ CREATE TABLE SUPPLIER_GROUPS (
 );
 
 CREATE INDEX IX_SUPPLIER_GROUPS_ACTIVE ON SUPPLIER_GROUPS (COMPANY_ID, IS_ACTIVE, DISPLAY_ORDER);
-COMMIT;
+
+-- Enforce at database engine level: exactly at most one active default group per company
+CREATE UNIQUE INDEX UQ_SUPPLIER_GROUPS_ONE_DEFAULT ON SUPPLIER_GROUPS (COMPANY_ID)
+    WHERE IS_DEFAULT = TRUE AND IS_ACTIVE = TRUE;
 
 -- Step 4: Create SUPPLIERS table
 CREATE TABLE SUPPLIERS (
@@ -113,16 +117,16 @@ CREATE INDEX IX_SUPPLIERS_COMPANY_ACTIVE ON SUPPLIERS (COMPANY_ID, IS_ACTIVE);
 CREATE INDEX IX_SUPPLIERS_GROUP ON SUPPLIERS (COMPANY_ID, SUPPLIER_GROUP_ID);
 CREATE INDEX IX_SUPPLIERS_PHONE ON SUPPLIERS (COMPANY_ID, PHONE);
 CREATE INDEX IX_SUPPLIERS_TAX_CODE ON SUPPLIERS (COMPANY_ID, TAX_CODE);
-COMMIT;
 
 -- Step 5: Alter STOCK_DOCUMENTS table
 ALTER TABLE STOCK_DOCUMENTS ADD SUPPLIER_ID BIGINT;
-COMMIT;
 
 ALTER TABLE STOCK_DOCUMENTS ADD CONSTRAINT FK_STOCK_DOC_SUPPLIER
     FOREIGN KEY (COMPANY_ID, SUPPLIER_ID) REFERENCES SUPPLIERS (COMPANY_ID, ID);
 
 CREATE INDEX IX_STOCK_DOC_SUPPLIER ON STOCK_DOCUMENTS (COMPANY_ID, SUPPLIER_ID);
+
+-- Publish DDL schema changes so that subsequent DML can compile against new tables
 COMMIT;
 
 -- Step 6: Seed Supplier Groups for company KAZUKO
@@ -141,7 +145,6 @@ FROM COMPANIES WHERE CODE = 'KAZUKO';
 INSERT INTO SUPPLIER_GROUPS (COMPANY_ID, CODE, NAME, DESCRIPTION, IS_ACTIVE, IS_DEFAULT, DISPLAY_ORDER)
 SELECT ID, 'KHAC', 'Khác', 'Nhà cung cấp vật tư, phụ kiện và dịch vụ khác', TRUE, FALSE, 4
 FROM COMPANIES WHERE CODE = 'KAZUKO';
-COMMIT;
 
 -- Step 7: Post-seed verification
 SET TERM ^ ;
@@ -164,15 +167,6 @@ BEGIN
         EXCEPTION EX_MIGRATION_CHECK 'Loi schema: cot SUPPLIER_ID chua duoc them vao STOCK_DOCUMENTS.';
 END^
 SET TERM ; ^
-COMMIT;
 
 -- Step 8: Clean up temporary exception
 DROP EXCEPTION EX_MIGRATION_CHECK;
-COMMIT;
-
--- Step 9: Record migration ledger in SCHEMA_MIGRATIONS
--- Payload Checksum (SHA-256 of Steps 1-8): ED312F73F4CA762E9E1219A9E10C10C85444FD56B54BE9441DE066642C3026D5
-INSERT INTO SCHEMA_MIGRATIONS (VERSION_NO, MIGRATION_NAME, CHECKSUM_VALUE, APPLIED_AT)
-VALUES (30, 'SUPPLIER_CORE', 'ED312F73F4CA762E9E1219A9E10C10C85444FD56B54BE9441DE066642C3026D5', CURRENT_TIMESTAMP);
-COMMIT;
-
