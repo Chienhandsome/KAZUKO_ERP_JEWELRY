@@ -1,0 +1,116 @@
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
+using Kazuko.Core.Updates;
+
+namespace Kazuko.Infrastructure.Updates;
+
+internal static class ModulePackagePathRules
+{
+    private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+
+    private static readonly Regex SafeRelativeSegment = new(
+        @"^[A-Za-z0-9][A-Za-z0-9._\- ]*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    public static string NormalizeManifestPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ModulePackageValidationException("Đường dẫn payload không được để trống.");
+
+        var normalized = path.Replace('\\', '/').Trim();
+        while (normalized.StartsWith("./", StringComparison.Ordinal))
+            normalized = normalized[2..];
+
+        ValidateRelativePath(normalized, allowEmpty: false);
+        return normalized;
+    }
+
+    public static void ValidateRelativePath(string path, bool allowEmpty)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            if (allowEmpty)
+                return;
+            throw new ModulePackageValidationException("Đường dẫn trong gói không hợp lệ.");
+        }
+
+        var normalized = path.Replace('\\', '/');
+        if (normalized.Contains(':', StringComparison.Ordinal))
+            throw new ModulePackageValidationException("Đường dẫn chứa ký tự không được phép.");
+
+        if (normalized.StartsWith('/') || normalized.StartsWith('\\'))
+            throw new ModulePackageValidationException("Không chấp nhận đường dẫn tuyệt đối trong gói.");
+
+        if (normalized.Contains("://", StringComparison.OrdinalIgnoreCase))
+            throw new ModulePackageValidationException("Không chấp nhận URI trong đường dẫn gói.");
+
+        var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+            throw new ModulePackageValidationException("Đường dẫn trong gói không hợp lệ.");
+
+        foreach (var segment in segments)
+        {
+            if (segment is "." or "..")
+                throw new ModulePackageValidationException("Đường dẫn có thành phần không an toàn.");
+
+            var withoutTrailingDots = segment.TrimEnd('.', ' ');
+            var device = withoutTrailingDots.Split('.')[0];
+            if (ReservedDeviceNames.Contains(device))
+                throw new ModulePackageValidationException("Đường dẫn dùng tên thiết bị Windows bị cấm.");
+
+            if (!SafeRelativeSegment.IsMatch(segment))
+                throw new ModulePackageValidationException("Đường dẫn chứa ký tự không được phép.");
+        }
+    }
+
+    public static string ResolveUnderRoot(string stagingRoot, string relativePath)
+    {
+        ValidateRelativePath(relativePath, allowEmpty: false);
+        var rootFull = Path.GetFullPath(stagingRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        var combined = Path.GetFullPath(Path.Combine(stagingRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+        if (!combined.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+            throw new ModulePackageValidationException("Đường dẫn thoát khỏi thư mục staging.");
+        return combined;
+    }
+
+    public static bool LooksLikeSymlink(ZipArchiveEntryAttributes attributes) =>
+        attributes.IsSymlink;
+}
+
+internal readonly struct ZipArchiveEntryAttributes(int externalAttributes)
+{
+    // ZIP "Unix" mode sits in the high 16 bits of ExternalAttributes.
+    private const int UnixSymlinkMask = 0xA000;
+
+    public bool IsSymlink => ((externalAttributes >> 16) & 0xF000) == UnixSymlinkMask;
+}
+
+internal sealed class ModulePackageValidationException(string message) : Exception(message);
+
+internal static class CryptographicEquals
+{
+    public static bool HexSha256Equals(string expectedHex, byte[] actualHash)
+    {
+        if (string.IsNullOrWhiteSpace(expectedHex) || actualHash.Length != 32)
+            return false;
+
+        try
+        {
+            var expected = Convert.FromHexString(expectedHex.Trim());
+            if (expected.Length != 32)
+                return false;
+            return CryptographicOperations.FixedTimeEquals(expected, actualHash);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+}

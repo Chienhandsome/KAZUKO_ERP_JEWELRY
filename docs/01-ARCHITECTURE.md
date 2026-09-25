@@ -51,6 +51,16 @@ Các route placeholder dùng để dựng khung giao diện trước khi module 
 - Module nghiệp vụ không tham chiếu lẫn nhau. Dialog/use case dùng chung (ví dụ khách hàng) expose contract WPF-neutral trong Core (`ICustomerEditorService`, `CustomerEditResult`) và implementation nằm trong module sở hữu.
 - SQL chỉ ở Infrastructure (`FirebirdCustomerRepository`). Module Customers tham chiếu Core + Shared.UI; repository được App đăng ký tại composition root.
 
+## Module package updates (TASK-007A)
+
+Core contracts trong `Kazuko.Core.Updates`:
+
+- `IModulePackageInstaller` — validate + stage only (không load DLL).
+- `ITrustedPublicKeyStore` / `IHostVersionProvider` / `IModulePackageSignatureVerifier`.
+- Manifest v2: `packageFormatVersion`, payload allow-list (path/sha256/length), publisher/keyId, `RSASSA-PSS-SHA256`.
+
+Infrastructure `ModulePackageInstaller` thực hiện kiểm tra ZIP an toàn và staging. Activation, migration và UI Import thuộc task sau.
+
 ## Form động
 
 Database chỉ lưu mô tả đã giới hạn:
