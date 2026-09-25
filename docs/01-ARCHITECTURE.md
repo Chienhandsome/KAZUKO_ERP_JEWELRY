@@ -59,7 +59,9 @@ Core contracts trong `Kazuko.Core.Updates`:
 - `ITrustedPublicKeyStore` / `IHostVersionProvider` / `IModulePackageSignatureVerifier`.
 - Manifest v2: `packageFormatVersion`, payload allow-list (path/sha256/length), publisher/keyId, `RSASSA-PSS-SHA256`.
 
-Infrastructure `ModulePackageInstaller` thực hiện kiểm tra ZIP an toàn và staging. Activation, migration và UI Import thuộc task sau.
+Infrastructure `ModulePackageInstaller` thực hiện kiểm tra ZIP an toàn và staging.
+`IModuleActivationCatalog` (TASK-007B1) promote staging → Installed và ghi `PendingActivation`.
+Cold-start activation, migration và UI Import thuộc task sau.
 
 ## Form động
 

@@ -66,9 +66,9 @@ Manifest tối thiểu (v2):
 
 Không load assembly mới vào process trước khi các bước kiểm tra hoàn tất. Không cho phép module tự ghi file ngoài thư mục dữ liệu được cấp.
 
-## Trạng thái hiện tại (sau TASK-007A)
+## Trạng thái hiện tại (sau TASK-007B1)
 
-`ModulePackageInstaller` đã có:
+`ModulePackageInstaller` (007A):
 
 - Strict manifest v2 + payload allow-list
 - ZIP path safety (traversal, absolute, ADS, reserved names, symlink metadata, duplicate canonical path)
@@ -78,11 +78,18 @@ Không load assembly mới vào process trước khi các bước kiểm tra ho�
 - Host compatibility qua `IHostVersionProvider`
 - Staging an toàn (temp → staged, cleanup khi lỗi)
 
-**Đây vẫn chưa phải installer production hoàn chỉnh.** Còn thiếu (TASK-007B trở đi):
+`IModuleActivationCatalog` (007B1):
 
-- Provisioning public key production và quy trình ký phát hành
-- Firebird backup, migration ledger, activation và rollback
-- Audit log và giao diện Import/Update
+- Promote thư mục `.staged` → `Modules/Installed/{moduleId}/{version}`
+- Ghi `activation-state.json` atomic (+ `.bak`) với trạng thái `PendingActivation`
+- Khóa `activation.lock` exclusive cross-process
+- Kiểm tra lại hash payload khi promote; từ chối cùng version khác nội dung
+
+**Đây vẫn chưa phải installer production hoàn chỉnh.** Còn thiếu (TASK-007B2+):
+
 - Dynamic module discovery / `AssemblyLoadContext`
+- Firebird backup (`gbak`), migration ledger runner, cold-start activation và rollback
+- Provisioning public key production và quy trình ký phát hành
+- Audit log và giao diện Import/Update
 
-Agent không được mô tả TASK-007A là cơ chế cập nhật production hoàn chỉnh.
+Agent không được mô tả TASK-007A/B1 là cơ chế cập nhật production hoàn chỉnh.

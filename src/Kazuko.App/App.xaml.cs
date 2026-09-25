@@ -1,4 +1,3 @@
-using System.IO;
 using System.Windows;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
@@ -10,6 +9,7 @@ using Kazuko.Infrastructure.Authentication;
 using Kazuko.Infrastructure.Customers;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Updates;
+using Kazuko.Infrastructure.Updates.Activation;
 using Kazuko.Modules.Authentication;
 using Kazuko.Modules.Customers;
 using Kazuko.Modules.Dashboard;
@@ -38,8 +38,14 @@ public partial class App : Application
         IAppearanceService appearance = new AppearanceService(preferences);
         IAuthenticationService authentication = new FirebirdAuthenticationService();
         INavigationService navigation = new NavigationService();
-        IModulePackageInstaller packageInstaller = new ModulePackageInstaller(
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KazukoERP", "Updates"));
+        var moduleLayout = ModuleLayoutPaths.CreateDefaultLocalAppData();
+        moduleLayout.EnsureCreated();
+        IModulePackageInstaller packageInstaller = new ModulePackageInstaller(moduleLayout.StagingRoot);
+        IModuleActivationLockFactory activationLocks = new ModuleActivationLockFactory(moduleLayout);
+        IModuleActivationCatalog activationCatalog = new ModuleActivationCatalog(
+            moduleLayout,
+            activationLocks,
+            new FixedHostVersionProvider(1));
         ICustomerRepository customers = new FirebirdCustomerRepository();
 
         _services.AddSingleton(preferences);
@@ -47,6 +53,9 @@ public partial class App : Application
         _services.AddSingleton(authentication);
         _services.AddSingleton(navigation);
         _services.AddSingleton(packageInstaller);
+        _services.AddSingleton<IModuleLayoutPaths>(moduleLayout);
+        _services.AddSingleton(activationLocks);
+        _services.AddSingleton(activationCatalog);
         _services.AddSingleton<IModuleNavigationRegistry>(_navigation);
         _services.AddSingleton(_sessionAccessor);
         _services.AddSingleton(customers);

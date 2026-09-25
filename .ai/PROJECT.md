@@ -13,9 +13,9 @@ The approved legacy WinForms application at `D:\Working\KAZUKO_ERP_JEWELRY_UI_AP
 - A small in-repository MVVM foundation: `ObservableObject`, `RelayCommand`, and `AsyncRelayCommand`.
 - A custom singleton `ServiceRegistry` for composition and constructor injection; no external DI package is installed.
 - JSON in LocalAppData for appearance preferences.
-- ZIP-based `.kazuko-module` **secure validation/staging** (TASK-007A): strict manifest v2, full payload SHA-256/length, RSA-PSS-SHA256 signature, ZIP path safety, resource limits. Not a complete production installer (no activation/migration/UI yet).
+- ZIP-based `.kazuko-module` **secure validation/staging** (TASK-007A) plus **activation catalog** (TASK-007B1): promote Staging → `Installed/{moduleId}/{version}`, atomic `activation-state.json`, cross-process lock, PendingActivation queue. Still no cold-start activation, migration, or Import UI (007B2–B4 / 007C).
 - Firebird Embedded via `FirebirdSql.Data.FirebirdClient` 10.3.4 (Infrastructure only).
-- Test project: `tests/Kazuko.Infrastructure.Tests` (xUnit) for package security cases.
+- Test project: `tests/Kazuko.Infrastructure.Tests` (xUnit) for package security and activation catalog cases.
 
 ## Architecture
 
@@ -76,7 +76,8 @@ Cross-module customer create/edit: resolve `ICustomerEditorService` from Core; d
 - Format: `.kazuko-module` ZIP; `module.json` + `signature.sig` + declared payload only.
 - Signature: RSA-PSS-SHA256 over raw `module.json` bytes; public keys from `ITrustedPublicKeyStore` (empty by default until provisioned).
 - Private signing keys must never enter this repository.
-- Default composition still constructs `ModulePackageInstaller(stagingRoot)` with host version 1 and empty key store — packages fail closed without trusted keys.
+- Default composition constructs `ModulePackageInstaller` against `IModuleLayoutPaths.StagingRoot`, plus `IModuleActivationCatalog` for Staged→Installed→PendingActivation (no DLL load yet).
+- Default composition still uses host version 1 and empty key store for package validation — packages fail closed without trusted keys.
 
 ## Development Priorities
 
