@@ -13,6 +13,11 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
         ModulePackageFormat.SignatureFileName
     };
 
+    /// <summary>
+    /// Optional await point before extract for tests to observe mid-staging cancellation.
+    /// </summary>
+    internal static Func<CancellationToken, Task>? StagingDelayForTests { get; set; }
+
     private readonly string _stagingRoot;
     private readonly IHostVersionProvider _hostVersionProvider;
     private readonly ITrustedPublicKeyStore _publicKeyStore;
@@ -56,9 +61,12 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
 
         string? tempStaging = null;
         string? finalStaging = null;
+        var stagingSucceeded = false;
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             using var archive = ZipFile.OpenRead(packagePath);
             var entries = archive.Entries.ToList();
             if (entries.Count == 0)
@@ -99,6 +107,8 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
 
             await VerifyPayloadIntegrityAsync(entries, manifest, cancellationToken);
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             Directory.CreateDirectory(_stagingRoot);
             var safeId = SanitizeForDirectory(manifest.ModuleId);
             var safeVersion = SanitizeForDirectory(manifest.ModuleVersion);
@@ -110,6 +120,10 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
                 $"{safeId}-{safeVersion}-{Guid.NewGuid():N}.staged");
 
             Directory.CreateDirectory(tempStaging);
+
+            if (StagingDelayForTests is not null)
+                await StagingDelayForTests(cancellationToken);
+
             await ExtractPayloadAsync(entries, manifest, tempStaging, cancellationToken);
 
             // Persist signed metadata for later activation tasks (not loaded here).
@@ -126,6 +140,7 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
                 Directory.Delete(finalStaging, recursive: true);
             Directory.Move(tempStaging, finalStaging);
             tempStaging = null;
+            stagingSucceeded = true;
 
             var totalBytes = manifest.Payload.Sum(p => p.Length);
             var summary = new ModuleValidationSummary(
@@ -143,41 +158,41 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
                 manifest.ModuleVersion,
                 summary);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (ModulePackageValidationException ex)
         {
-            Cleanup(tempStaging);
-            Cleanup(finalStaging);
             return Fail(ex.Message);
         }
         catch (InvalidDataException)
         {
-            Cleanup(tempStaging);
-            Cleanup(finalStaging);
             return Fail("Tệp không phải gói cập nhật hợp lệ.");
         }
         catch (JsonException)
         {
-            Cleanup(tempStaging);
-            Cleanup(finalStaging);
             return Fail("module.json không đúng định dạng.");
         }
         catch (IOException)
         {
-            Cleanup(tempStaging);
-            Cleanup(finalStaging);
             return Fail("Không thể chuẩn bị vùng chờ cho gói cập nhật.");
         }
         catch (UnauthorizedAccessException)
         {
-            Cleanup(tempStaging);
-            Cleanup(finalStaging);
             return Fail("Không thể chuẩn bị vùng chờ cho gói cập nhật.");
         }
         catch (CryptographicException)
         {
-            Cleanup(tempStaging);
-            Cleanup(finalStaging);
             return Fail("Không thể xác minh chữ ký số của gói.");
+        }
+        finally
+        {
+            if (!stagingSucceeded)
+            {
+                Cleanup(tempStaging);
+                Cleanup(finalStaging);
+            }
         }
     }
 
@@ -197,15 +212,16 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
 
             ModulePackagePathRules.ValidateRelativePath(name, allowEmpty: false);
 
+            // Symlink/reparse must be rejected even for directory-marker entries.
+            if (ModulePackagePathRules.LooksLikeSymlink(new ZipArchiveEntryAttributes(entry.ExternalAttributes)))
+                throw new ModulePackageValidationException("Gói chứa mục symlink không được phép.");
+
             if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
             {
                 if (entry.Length != 0)
                     throw new ModulePackageValidationException("Thư mục trong gói không được chứa dữ liệu.");
                 continue;
             }
-
-            if (ModulePackagePathRules.LooksLikeSymlink(new ZipArchiveEntryAttributes(entry.ExternalAttributes)))
-                throw new ModulePackageValidationException("Gói chứa mục symlink không được phép.");
 
             if (!seenCanonical.Add(name))
                 throw new ModulePackageValidationException("Gói chứa đường dẫn trùng.");
@@ -292,6 +308,7 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
             long total = 0;
             while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
                 if (read == 0)
                     break;
@@ -299,6 +316,7 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
                 if (total > payload.Length || total > _limits.MaxEntryBytes)
                     throw new ModulePackageValidationException("Kích thước payload không khớp manifest.");
                 hasher.AppendData(buffer, 0, read);
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             if (total != payload.Length)
@@ -318,6 +336,7 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
     {
         foreach (var payload in manifest.Payload)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var entry = entries.First(e =>
                 string.Equals(NormalizeEntryName(e.FullName), payload.Path, StringComparison.OrdinalIgnoreCase));
             var destination = ModulePackagePathRules.ResolveUnderRoot(stagingDirectory, payload.Path);
@@ -333,7 +352,16 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
                 FileShare.None,
                 81920,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
-            await source.CopyToAsync(target, cancellationToken);
+
+            var buffer = new byte[81920];
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+                if (read == 0)
+                    break;
+                await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            }
         }
     }
 

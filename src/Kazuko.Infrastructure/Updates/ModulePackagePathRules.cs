@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-using Kazuko.Core.Updates;
 
 namespace Kazuko.Infrastructure.Updates;
 
@@ -23,9 +22,6 @@ internal static class ModulePackagePathRules
             throw new ModulePackageValidationException("Đường dẫn payload không được để trống.");
 
         var normalized = path.Replace('\\', '/').Trim();
-        while (normalized.StartsWith("./", StringComparison.Ordinal))
-            normalized = normalized[2..];
-
         ValidateRelativePath(normalized, allowEmpty: false);
         return normalized;
     }
@@ -49,12 +45,21 @@ internal static class ModulePackagePathRules
         if (normalized.Contains("://", StringComparison.OrdinalIgnoreCase))
             throw new ModulePackageValidationException("Không chấp nhận URI trong đường dẫn gói.");
 
-        var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length == 0)
-            throw new ModulePackageValidationException("Đường dẫn trong gói không hợp lệ.");
+        // Reject empty segments / repeated separators explicitly (do not collapse silently).
+        if (normalized.Contains("//", StringComparison.Ordinal) ||
+            normalized.StartsWith('/') ||
+            normalized.EndsWith('/'))
+        {
+            throw new ModulePackageValidationException("Đường dẫn chứa phân đoạn rỗng hoặc dấu phân cách lặp.");
+        }
+
+        var segments = normalized.Split('/');
+        if (segments.Length == 0 || segments.Any(string.IsNullOrEmpty))
+            throw new ModulePackageValidationException("Đường dẫn chứa phân đoạn rỗng hoặc dấu phân cách lặp.");
 
         foreach (var segment in segments)
         {
+            // Do not silently drop "." — two different spellings must not map to one destination.
             if (segment is "." or "..")
                 throw new ModulePackageValidationException("Đường dẫn có thành phần không an toàn.");
 
@@ -73,13 +78,25 @@ internal static class ModulePackagePathRules
 
     public static string ResolveUnderRoot(string stagingRoot, string relativePath)
     {
+        // Re-validate the exact relative form; callers must not pass pre-collapsed aliases.
         ValidateRelativePath(relativePath, allowEmpty: false);
+
         var rootFull = Path.GetFullPath(stagingRoot)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
-        var combined = Path.GetFullPath(Path.Combine(stagingRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+
+        var combined = Path.GetFullPath(
+            Path.Combine(stagingRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+
         if (!combined.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
             throw new ModulePackageValidationException("Đường dẫn thoát khỏi thư mục staging.");
+
+        // Ensure GetFullPath did not collapse a different spelling into another destination.
+        var expectedRelative = relativePath.Replace('/', Path.DirectorySeparatorChar);
+        var actualRelative = combined[rootFull.Length..];
+        if (!string.Equals(actualRelative, expectedRelative, StringComparison.OrdinalIgnoreCase))
+            throw new ModulePackageValidationException("Đường dẫn bị chuẩn hóa khác với khai báo gốc.");
+
         return combined;
     }
 

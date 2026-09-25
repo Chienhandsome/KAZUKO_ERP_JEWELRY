@@ -63,24 +63,33 @@ internal static class ModulePackageTestFactory
         if (options.ExtraManifestPayload is not null)
             payloadJson.Add(options.ExtraManifestPayload);
 
-        var manifestObject = new Dictionary<string, object?>
+        byte[] manifestBytes;
+        if (options.RawManifestUtf8 is not null)
         {
-            ["packageFormatVersion"] = options.PackageFormatVersion,
-            ["moduleId"] = options.ModuleId,
-            ["displayName"] = options.DisplayName,
-            ["moduleVersion"] = options.ModuleVersion,
-            ["minimumHostVersion"] = options.MinimumHostVersion,
-            ["entryAssembly"] = options.EntryAssembly,
-            ["publisher"] = options.Publisher ?? keys.Publisher,
-            ["keyId"] = options.KeyId ?? keys.KeyId,
-            ["signatureAlgorithm"] = options.SignatureAlgorithm,
-            ["payload"] = payloadJson
-        };
+            manifestBytes = options.RawManifestUtf8;
+        }
+        else
+        {
+            var manifestObject = new Dictionary<string, object?>
+            {
+                ["packageFormatVersion"] = options.PackageFormatVersion,
+                ["moduleId"] = options.ModuleId,
+                ["displayName"] = options.DisplayName,
+                ["moduleVersion"] = options.ModuleVersion,
+                ["minimumHostVersion"] = options.MinimumHostVersion,
+                ["entryAssembly"] = options.EntryAssembly,
+                ["publisher"] = options.Publisher ?? keys.Publisher,
+                ["keyId"] = options.KeyId ?? keys.KeyId,
+                ["signatureAlgorithm"] = options.SignatureAlgorithm,
+                ["payload"] = payloadJson
+            };
 
-        foreach (var pair in options.ExtraManifestFields)
-            manifestObject[pair.Key] = pair.Value;
+            foreach (var pair in options.ExtraManifestFields)
+                manifestObject[pair.Key] = pair.Value;
 
-        var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifestObject);
+            manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifestObject);
+        }
+
         var signatureBytes = options.InvalidSignature
             ? Encoding.UTF8.GetBytes("not-a-valid-signature")
             : keys.SignManifest(manifestBytes);
@@ -147,6 +156,7 @@ internal static class ModulePackageTestFactory
         public string? CorruptLengthFor { get; set; }
         public Dictionary<string, object?> ExtraManifestFields { get; } = new();
         public object? ExtraManifestPayload { get; set; }
+        public byte[]? RawManifestUtf8 { get; set; }
         public Action<ZipArchive>? MutateArchive { get; set; }
         public List<PayloadFile> PayloadFiles { get; } =
         [

@@ -423,6 +423,178 @@ public sealed class ModulePackageInstallerTests
         Assert.Contains("kích thước", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Rejects_duplicate_root_json_property()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            var dll = options.PayloadFiles[0];
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(dll.Content));
+            options.RawManifestUtf8 = Encoding.UTF8.GetBytes(
+                $$"""
+                {
+                  "packageFormatVersion": 2,
+                  "moduleId": "Kazuko.Warehouse",
+                  "moduleId": "Kazuko.Other",
+                  "displayName": "Kho",
+                  "moduleVersion": "2.1.0",
+                  "minimumHostVersion": 1,
+                  "entryAssembly": "bin/Kazuko.Modules.Warehouse.dll",
+                  "publisher": "Kazuko",
+                  "keyId": "test-key-001",
+                  "signatureAlgorithm": "RSASSA-PSS-SHA256",
+                  "payload": [
+                    { "path": "bin/Kazuko.Modules.Warehouse.dll", "sha256": "{{hash}}", "length": {{dll.Content.Length}} }
+                  ]
+                }
+                """);
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("trùng", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Rejects_duplicate_payload_json_property()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            var dll = options.PayloadFiles[0];
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(dll.Content));
+            options.RawManifestUtf8 = Encoding.UTF8.GetBytes(
+                $$"""
+                {
+                  "packageFormatVersion": 2,
+                  "moduleId": "Kazuko.Warehouse",
+                  "displayName": "Kho",
+                  "moduleVersion": "2.1.0",
+                  "minimumHostVersion": 1,
+                  "entryAssembly": "bin/Kazuko.Modules.Warehouse.dll",
+                  "publisher": "Kazuko",
+                  "keyId": "test-key-001",
+                  "signatureAlgorithm": "RSASSA-PSS-SHA256",
+                  "payload": [
+                    {
+                      "path": "bin/Kazuko.Modules.Warehouse.dll",
+                      "sha256": "{{hash}}",
+                      "length": {{dll.Content.Length}},
+                      "length": 1
+                    }
+                  ]
+                }
+                """);
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("trùng", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Rejects_entry_assembly_without_dll_extension()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin/Kazuko.Modules.Warehouse.exe",
+                Encoding.UTF8.GetBytes("not-a-dll")));
+            options.EntryAssembly = "bin/Kazuko.Modules.Warehouse.exe";
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains(".dll", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Rejects_empty_path_segment_from_repeated_separator()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin//Kazuko.Modules.Warehouse.dll",
+                Encoding.UTF8.GetBytes("content")));
+            options.EntryAssembly = "bin//Kazuko.Modules.Warehouse.dll";
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("phân đoạn", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Rejects_dot_segment_without_silent_canonicalize()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin/./Kazuko.Modules.Warehouse.dll",
+                Encoding.UTF8.GetBytes("content")));
+            options.EntryAssembly = "bin/./Kazuko.Modules.Warehouse.dll";
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("không an toàn", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Cancellation_does_not_leave_tmp_or_staged_directories()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin/Kazuko.Modules.Warehouse.dll",
+                new byte[512_000]));
+            options.EntryAssembly = "bin/Kazuko.Modules.Warehouse.dll";
+        });
+
+        Directory.CreateDirectory(harness.StagingRoot);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var ex = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => harness.Installer.ValidateAndStageAsync(harness.PackagePath, cts.Token));
+        Assert.True(ex is OperationCanceledException);
+
+        Assert.Empty(Directory.GetDirectories(harness.StagingRoot, ".tmp-*", SearchOption.TopDirectoryOnly));
+        Assert.Empty(Directory.GetDirectories(harness.StagingRoot, "*.staged", SearchOption.TopDirectoryOnly));
+    }
+
+    [Fact]
+    public async Task Mid_extract_cancellation_cleans_tmp_and_rethrows()
+    {
+        using var harness = await PackageHarness.CreateAsync();
+        Directory.CreateDirectory(harness.StagingRoot);
+        using var cts = new CancellationTokenSource();
+
+        ModulePackageInstaller.StagingDelayForTests = async token =>
+        {
+            Assert.NotEmpty(Directory.GetDirectories(harness.StagingRoot, ".tmp-*", SearchOption.TopDirectoryOnly));
+            cts.Cancel();
+            token.ThrowIfCancellationRequested();
+            await Task.CompletedTask;
+        };
+
+        try
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => harness.Installer.ValidateAndStageAsync(harness.PackagePath, cts.Token));
+        }
+        finally
+        {
+            ModulePackageInstaller.StagingDelayForTests = null;
+        }
+
+        Assert.Empty(Directory.GetDirectories(harness.StagingRoot, ".tmp-*", SearchOption.TopDirectoryOnly));
+        Assert.Empty(Directory.GetDirectories(harness.StagingRoot, "*.staged", SearchOption.TopDirectoryOnly));
+    }
+
     private static string CreateTempDir()
     {
         var path = Path.Combine(Path.GetTempPath(), "kazuko-pkg-tests", Guid.NewGuid().ToString("N"));

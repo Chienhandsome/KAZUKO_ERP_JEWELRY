@@ -47,6 +47,8 @@ internal static class ModuleManifestParser
         if (document.RootElement.ValueKind != JsonValueKind.Object)
             throw new ModulePackageValidationException("module.json phải là một đối tượng JSON.");
 
+        EnsureNoDuplicateProperties(document.RootElement, "module.json");
+
         foreach (var property in document.RootElement.EnumerateObject())
         {
             if (!AllowedRootProperties.Contains(property.Name))
@@ -73,6 +75,9 @@ internal static class ModuleManifestParser
         {
             if (item.ValueKind != JsonValueKind.Object)
                 throw new ModulePackageValidationException("Mỗi phần tử payload phải là đối tượng.");
+
+            EnsureNoDuplicateProperties(item, "payload");
+
             foreach (var property in item.EnumerateObject())
             {
                 if (!AllowedPayloadProperties.Contains(property.Name))
@@ -142,6 +147,9 @@ internal static class ModuleManifestParser
         }
 
         var entryAssembly = ModulePackagePathRules.NormalizeManifestPath(dto.EntryAssembly);
+        if (!entryAssembly.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            throw new ModulePackageValidationException("entryAssembly phải là tệp .dll.");
+
         if (!payload.Any(p => string.Equals(p.Path, entryAssembly, StringComparison.OrdinalIgnoreCase)))
             throw new ModulePackageValidationException("entryAssembly phải có trong danh sách payload.");
 
@@ -164,6 +172,16 @@ internal static class ModuleManifestParser
             dto.KeyId.Trim(),
             ModulePackageFormat.AllowedSignatureAlgorithm,
             payload);
+    }
+
+    private static void EnsureNoDuplicateProperties(JsonElement objectElement, string context)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in objectElement.EnumerateObject())
+        {
+            if (!seen.Add(property.Name))
+                throw new ModulePackageValidationException($"{context} chứa trường JSON trùng tên.");
+        }
     }
 
     private static void RequireProperty(JsonElement root, string name)
