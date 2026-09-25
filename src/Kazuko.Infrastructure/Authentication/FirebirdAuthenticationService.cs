@@ -26,6 +26,10 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
         {
             throw;
         }
+        catch (InvalidOperationException ex) when (IsSafeConfigurationMessage(ex.Message))
+        {
+            throw;
+        }
         catch (Exception)
         {
             throw new InvalidOperationException("Không thể tải danh sách chi nhánh từ database.");
@@ -70,6 +74,7 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
             bool isActive;
             long branchId;
             string selectedBranchCode;
+            string branchName;
             long defaultBranchId;
 
             await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
@@ -87,6 +92,7 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
                 isActive = reader.GetBoolean(7);
                 branchId = reader.GetInt64(8);
                 selectedBranchCode = reader.GetString(9);
+                branchName = reader.GetString(10);
                 defaultBranchId = reader.IsDBNull(11) ? 0 : reader.GetInt64(11);
             }
 
@@ -103,9 +109,10 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
 
             if (!CryptographicOperations.FixedTimeEquals(expectedHash, suppliedHash))
             {
-                AuditLogWriter.Write(
+                await AuditLogWriter.WriteAsync(
                     "LOGIN_FAILED",
-                    eventData: $"Username={username}; Branch={branchCode}");
+                    eventData: $"Username={username}; Branch={branchCode}",
+                    cancellationToken: cancellationToken);
                 return new AuthenticationResult(false, ErrorMessage: "Tên đăng nhập hoặc mật khẩu không đúng.");
             }
 
@@ -122,22 +129,31 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
             updateCommand.Parameters.AddWithValue("@ID", userId);
             await updateCommand.ExecuteNonQueryAsync(cancellationToken);
 
-            AuditLogWriter.Write(
+            await AuditLogWriter.WriteAsync(
                 "LOGIN_SUCCESS",
                 userId,
                 storedUserName,
                 branchId,
                 "USERS",
                 userId.ToString(),
-                $"Branch={selectedBranchCode}");
+                $"Branch={selectedBranchCode}",
+                cancellationToken);
 
-            return new AuthenticationResult(true, displayName);
+            var session = new AuthenticatedSession(
+                userId,
+                storedUserName,
+                displayName,
+                roleCode,
+                branchId,
+                selectedBranchCode,
+                branchName);
+            return new AuthenticationResult(true, displayName, Session: session);
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Không thể", StringComparison.Ordinal))
+        catch (InvalidOperationException ex) when (IsSafeConfigurationMessage(ex.Message))
         {
             return new AuthenticationResult(false, ErrorMessage: ex.Message);
         }
@@ -146,6 +162,11 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
             return new AuthenticationResult(false, ErrorMessage: "Không thể kết nối dịch vụ đăng nhập. Vui lòng thử lại.");
         }
     }
+
+    private static bool IsSafeConfigurationMessage(string message) =>
+        message.StartsWith("Không thể", StringComparison.Ordinal) ||
+        message.StartsWith("Cấu hình", StringComparison.Ordinal) ||
+        message.StartsWith("Chế độ Server", StringComparison.Ordinal);
 
     private static async Task<bool> HasBranchScopeAsync(
         FbConnection connection,

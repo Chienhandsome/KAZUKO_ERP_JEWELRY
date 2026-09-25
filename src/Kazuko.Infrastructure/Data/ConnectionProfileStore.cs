@@ -12,10 +12,8 @@ public sealed record ConnectionProfile(
 
 /// <summary>
 /// Loads Firebird connection settings from environment variables and an optional LocalAppData profile.
-/// The Firebird engine password is never written to source control; it comes from
-/// <c>KAZUKO_FIREBIRD_PASSWORD</c> or the well-known embedded default when unset.
-/// DPAPI-protected passwords from the legacy WinForms profile are not read here to avoid an
-/// extra NuGet dependency beyond the approved Firebird client package.
+/// The Firebird engine password is never written to source control. It must be supplied via
+/// <c>KAZUKO_FIREBIRD_PASSWORD</c>. Optional LocalAppData JSON may store non-secret connection fields only.
 /// </summary>
 public static class ConnectionProfileStore
 {
@@ -93,7 +91,7 @@ public static class ConnectionProfileStore
             int.TryParse(Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PORT"), out var port) ? port : 3050,
             Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_DATABASE") ?? defaultDatabasePath,
             Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_USER") ?? "SYSDBA",
-            Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PASSWORD") ?? "masterkey",
+            Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PASSWORD") ?? string.Empty,
             useEmbedded);
     }
 }

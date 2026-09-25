@@ -26,6 +26,27 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Text quan trọng phải wrap hoặc trim kèm tooltip; không để chồng lấn.
 - Kiểm tra bằng keyboard: tab order, default button, focus visible và access key khi phù hợp.
 
+## Application shell và trang chủ
+
+- Shell chuẩn có title bar màu chủ đạo, sidebar 330 px khi mở và 82 px khi thu gọn, content host và status bar.
+- Nút mở/thu sidebar nằm giữa theo chiều dọc, bám vào ranh giới bên phải sidebar để luôn truy cập được ở cả hai trạng thái.
+- Sidebar lấy dữ liệu từ `IModuleNavigationRegistry`; không hard-code danh sách chức năng trong `MainWindow.xaml`.
+- Trang chủ lấy các tile có `ShowOnHome` từ cùng registry. Icon dùng pack URI tới resource do module sở hữu.
+- Logo/background thương hiệu là hình minh họa cố định; text, card, border và trạng thái tương tác vẫn dùng semantic `DynamicResource`.
+- Khi không đủ chiều cao hoặc font scale lớn, nội dung trang chủ cuộn theo chiều dọc; không giảm cỡ chữ để ép vừa.
+
+## DataGrid (convention module-local)
+
+CRUD đầu tiên (`Kazuko.Modules.Customers`) giữ style DataGrid **local trong module**, chưa đưa vào `Kazuko.Shared.UI`:
+
+- Style khóa local (`CustomerDataGridStyle`, `CustomerDataGridColumnHeaderStyle`) dùng `DynamicResource` cho brush/typography.
+- `IsReadOnly=True`, không auto-generate cột, hàng xen kẽ `SurfaceBrush` / `SurfaceAltBrush`.
+- Cột thao tác dùng `DataGridTemplateColumn` + command trên ViewModel (không SQL trong View).
+- Binding tới property read-only phải ghi `Mode=OneWay` khi dependency property mặc định TwoWay.
+- Chưa tạo global DataGrid style; module sau có thể copy pattern local trước khi promote.
+
+Dialog tạo/sửa nghiệp vụ: Window riêng, owner-centered, `ScrollViewer`, Enter lưu / Escape hủy, không hard-code màu/font size.
+
 ## Kiểm thử bắt buộc cho View mới
 
 - Light và Dark.

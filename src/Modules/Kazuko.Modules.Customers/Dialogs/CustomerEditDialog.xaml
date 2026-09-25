@@ -1,0 +1,195 @@
+<Window x:Class="Kazuko.Modules.Customers.CustomerEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Title, Mode=OneWay}"
+        Width="860" Height="720"
+        MinWidth="720" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="FieldErrorStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Margin" Value="0,2,0,8" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="DialogFieldStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="IsEnabled" Value="{Binding IsFormEnabled, Mode=OneWay}" />
+        </Style>
+        <Style x:Key="DialogComboStyle" TargetType="ComboBox">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="IsEnabled" Value="{Binding IsFormEnabled, Mode=OneWay}" />
+        </Style>
+        <Style x:Key="DialogDateStyle" TargetType="DatePicker">
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="IsEnabled" Value="{Binding IsFormEnabled, Mode=OneWay}" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="{Binding Title, Mode=OneWay}"
+                   Foreground="{DynamicResource PrimaryBrush}"
+                   FontSize="{DynamicResource FontSize.Heading}"
+                   FontWeight="Bold"
+                   Margin="0,0,0,12" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Border Style="{DynamicResource CardBorderStyle}" Padding="18">
+                <Grid IsEnabled="{Binding IsFormEnabled, Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Mã khách hàng" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding CodeDisplay, Mode=OneWay}"
+                                 Style="{StaticResource DialogFieldStyle}"
+                                 IsReadOnly="True"
+                                 Background="{DynamicResource SurfaceAltBrush}" />
+
+                        <TextBlock Text="Họ và tên *" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                        <TextBlock Text="{Binding NameError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <TextBlock Text="Ngày sinh" Style="{StaticResource FieldLabelStyle}" />
+                        <DatePicker SelectedDate="{Binding BirthDate}" Style="{StaticResource DialogDateStyle}" />
+
+                        <TextBlock Text="Giới tính" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,4" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <RadioButton Content="Nam" GroupName="Gender"
+                                         IsChecked="{Binding IsGenderMale}" Margin="0,0,16,0"
+                                         Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <RadioButton Content="Nữ" GroupName="Gender"
+                                         IsChecked="{Binding IsGenderFemale}" Margin="0,0,16,0"
+                                         Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <RadioButton Content="Khác" GroupName="Gender"
+                                         IsChecked="{Binding IsGenderOther}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </StackPanel>
+
+                        <TextBlock Text="Số điện thoại *" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                        <TextBlock Text="{Binding PhoneError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <TextBlock Text="Email" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                        <TextBlock Text="{Binding EmailError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <TextBlock Text="CMND/CCCD hoặc mã số thuế" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding TaxCode, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Địa chỉ" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Ghi chú" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}"
+                                 AcceptsReturn="True" MinHeight="80"
+                                 TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Nhóm khách hàng *" Style="{StaticResource FieldLabelStyle}" />
+                        <ComboBox ItemsSource="{Binding Groups}"
+                                  SelectedItem="{Binding SelectedGroup}"
+                                  DisplayMemberPath="Name"
+                                  Style="{StaticResource DialogComboStyle}" />
+                        <TextBlock Text="{Binding GroupError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <TextBlock Text="Khu vực" Style="{StaticResource FieldLabelStyle}" />
+                        <ComboBox ItemsSource="{Binding Regions}"
+                                  SelectedItem="{Binding Region}"
+                                  Style="{StaticResource DialogComboStyle}"
+                                  IsEditable="False" />
+
+                        <TextBlock Text="Nghề nghiệp" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Occupation, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Ngày trở thành khách hàng" Style="{StaticResource FieldLabelStyle}" />
+                        <DatePicker SelectedDate="{Binding JoinDate}" Style="{StaticResource DialogDateStyle}" />
+
+                        <TextBlock Text="Hạng thành viên" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,4" />
+                        <ComboBox ItemsSource="{Binding MembershipRanks}"
+                                  SelectedItem="{Binding MembershipRank}"
+                                  Style="{StaticResource DialogComboStyle}" />
+
+                        <TextBlock Text="Điểm tích lũy ban đầu" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding OpeningPointsText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                        <TextBlock Text="{Binding PointsError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <TextBlock Text="Hạn mức công nợ" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding CreditLimitText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                        <TextBlock Text="{Binding CreditLimitError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <CheckBox Content="Đang hoạt động"
+                                  IsChecked="{Binding IsActive}"
+                                  Margin="0,12,0,0"
+                                  FontSize="{DynamicResource FontSize.Body}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </ScrollViewer>
+
+        <DockPanel Grid.Row="2" Margin="0,14,0,0" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left"
+                       Text="{Binding FormError, Mode=OneWay}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       FontSize="{DynamicResource FontSize.Body}"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center"
+                       MaxWidth="480" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Hủy (Esc)"
+                        Command="{Binding CancelCommand}"
+                        MinWidth="120"
+                        MinHeight="42"
+                        Margin="0,0,10,0"
+                        Padding="16,8"
+                        Background="{DynamicResource SurfaceBrush}"
+                        Foreground="{DynamicResource TextPrimaryBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        FontSize="{DynamicResource FontSize.Body}" />
+                <Button Content="Lưu (Enter)"
+                        IsDefault="True"
+                        Command="{Binding SaveCommand}"
+                        Style="{DynamicResource PrimaryButtonStyle}"
+                        MinWidth="140" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

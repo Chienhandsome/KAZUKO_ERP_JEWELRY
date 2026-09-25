@@ -1,67 +1,86 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Input;
-using Kazuko.Core.Appearance;
+using System.Windows.Threading;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Mvvm;
 
 namespace Kazuko.App;
 
-public sealed record ThemeChoice(string Label, AppTheme Value);
-public sealed record FontScaleChoice(string Label, double Value);
-
-public sealed class NavigationItemViewModel
+public sealed class NavigationItemViewModel : ObservableObject
 {
-    public NavigationItemViewModel(NavigationItem item, Action<NavigationItem> navigate)
+    private bool _isActive;
+
+    public NavigationItemViewModel(NavigationItem item, INavigationService navigation)
     {
         Item = item;
-        NavigateCommand = new RelayCommand(() => navigate(item));
+        NavigateCommand = new RelayCommand(() => navigation.Navigate(item.Key));
     }
 
     public NavigationItem Item { get; }
     public ICommand NavigateCommand { get; }
+
+    public bool IsActive
+    {
+        get => _isActive;
+        set => SetProperty(ref _isActive, value);
+    }
 }
 
-public sealed class ShellViewModel : ObservableObject
+public sealed class ShellViewModel : ObservableObject, IDisposable
 {
-    private readonly IAppearanceService _appearance;
+    private const double ExpandedSidebarWidth = 330;
+    private const double CollapsedSidebarWidth = 88;
+
+    private readonly IModuleNavigationRegistry _registry;
+    private readonly INavigationService _navigation;
+    private readonly DispatcherTimer _clockTimer;
     private object? _currentView;
     private string _currentTitle = string.Empty;
-    private ThemeChoice _selectedTheme;
-    private FontScaleChoice _selectedFontScale;
+    private string _dateText = string.Empty;
+    private string _timeText = string.Empty;
+    private bool _isSidebarCollapsed;
+    private bool _disposed;
 
     public ShellViewModel(
         string displayName,
-        IModuleNavigationRegistry navigation,
-        IAppearanceService appearance)
+        IModuleNavigationRegistry registry,
+        INavigationService navigation,
+        Action logout)
     {
         DisplayName = displayName;
-        _appearance = appearance;
-        Themes =
-        [
-            new ThemeChoice("Sáng", AppTheme.Light),
-            new ThemeChoice("Tối", AppTheme.Dark)
-        ];
-        FontScales =
-        [
-            new FontScaleChoice("90%", 0.9),
-            new FontScaleChoice("100%", 1.0),
-            new FontScaleChoice("110%", 1.1),
-            new FontScaleChoice("125%", 1.25),
-            new FontScaleChoice("150%", 1.5)
-        ];
-        _selectedTheme = Themes.First(x => x.Value == appearance.Current.Theme);
-        _selectedFontScale = FontScales.MinBy(x => Math.Abs(x.Value - appearance.Current.FontScale))!;
-        NavigationItems = new ObservableCollection<NavigationItemViewModel>(
-            navigation.Items.Select(x => new NavigationItemViewModel(x, Navigate)));
+        _registry = registry;
+        _navigation = navigation;
 
-        var first = navigation.Items.FirstOrDefault();
-        if (first is not null) Navigate(first);
+        NavigationItems = new ObservableCollection<NavigationItemViewModel>(
+            registry.Items
+                .Where(item => item.ShowInSidebar)
+                .Select(item => new NavigationItemViewModel(item, navigation)));
+
+        ToggleSidebarCommand = new RelayCommand(() => IsSidebarCollapsed = !IsSidebarCollapsed);
+        NavigatePriceBoardCommand = new RelayCommand(() => navigation.Navigate("PRICE_BOARD"));
+        LogoutCommand = new RelayCommand(logout);
+
+        _navigation.NavigationRequested += OnNavigationRequested;
+        _clockTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _clockTimer.Tick += OnClockTick;
+        _clockTimer.Start();
+        UpdateClock();
+
+        var first = registry.Items.FirstOrDefault(item => item.Key == "DASHBOARD")
+                    ?? registry.Items.FirstOrDefault();
+        if (first is not null)
+            Navigate(first);
     }
 
     public string DisplayName { get; }
     public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
-    public IReadOnlyList<ThemeChoice> Themes { get; }
-    public IReadOnlyList<FontScaleChoice> FontScales { get; }
+    public ICommand ToggleSidebarCommand { get; }
+    public ICommand NavigatePriceBoardCommand { get; }
+    public ICommand LogoutCommand { get; }
 
     public object? CurrentView
     {
@@ -75,29 +94,83 @@ public sealed class ShellViewModel : ObservableObject
         private set => SetProperty(ref _currentTitle, value);
     }
 
-    public ThemeChoice SelectedTheme
+    public string DateText
     {
-        get => _selectedTheme;
+        get => _dateText;
+        private set => SetProperty(ref _dateText, value);
+    }
+
+    public string TimeText
+    {
+        get => _timeText;
+        private set => SetProperty(ref _timeText, value);
+    }
+
+    public bool IsSidebarCollapsed
+    {
+        get => _isSidebarCollapsed;
         set
         {
-            if (value is not null && SetProperty(ref _selectedTheme, value))
-                _appearance.Apply(value.Value, SelectedFontScale.Value);
+            if (!SetProperty(ref _isSidebarCollapsed, value))
+                return;
+
+            OnPropertyChanged(nameof(SidebarWidth));
+            OnPropertyChanged(nameof(SidebarToggleGlyph));
+            OnPropertyChanged(nameof(SidebarToggleLabel));
+            OnPropertyChanged(nameof(SidebarToggleToolTip));
         }
     }
 
-    public FontScaleChoice SelectedFontScale
+    public double SidebarWidth => IsSidebarCollapsed
+        ? CollapsedSidebarWidth
+        : ExpandedSidebarWidth;
+
+    public string SidebarToggleGlyph => IsSidebarCollapsed ? "\uE76C" : "\uE76B";
+
+    public string SidebarToggleLabel => IsSidebarCollapsed ? string.Empty : "THU GỌN";
+
+    public string SidebarToggleToolTip => IsSidebarCollapsed
+        ? "Mở rộng thanh điều hướng"
+        : "Thu gọn thanh điều hướng";
+
+    public void Dispose()
     {
-        get => _selectedFontScale;
-        set
-        {
-            if (value is not null && SetProperty(ref _selectedFontScale, value))
-                _appearance.Apply(SelectedTheme.Value, value.Value);
-        }
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _clockTimer.Stop();
+        _clockTimer.Tick -= OnClockTick;
+        _navigation.NavigationRequested -= OnNavigationRequested;
+    }
+
+    private void OnNavigationRequested(object? sender, NavigationRequestedEventArgs e)
+    {
+        var item = _registry.Items.FirstOrDefault(
+            candidate => string.Equals(candidate.Key, e.Key, StringComparison.OrdinalIgnoreCase));
+        if (item is not null)
+            Navigate(item);
     }
 
     private void Navigate(NavigationItem item)
     {
         CurrentTitle = item.Label;
         CurrentView = item.CreateView();
+        foreach (var navigationItem in NavigationItems)
+        {
+            navigationItem.IsActive = string.Equals(
+                navigationItem.Item.Key,
+                item.Key,
+                StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private void OnClockTick(object? sender, EventArgs e) => UpdateClock();
+
+    private void UpdateClock()
+    {
+        var now = DateTime.Now;
+        DateText = now.ToString("dddd, dd/MM/yyyy", CultureInfo.InvariantCulture);
+        TimeText = now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
     }
 }

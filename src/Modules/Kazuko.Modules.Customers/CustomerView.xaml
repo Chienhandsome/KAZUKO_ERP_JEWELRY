@@ -1,0 +1,488 @@
+<UserControl x:Class="Kazuko.Modules.Customers.CustomerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Kazuko.Modules.Customers.Converters"
+             MinWidth="900" MinHeight="520">
+    <UserControl.InputBindings>
+        <KeyBinding Key="F1" Command="{Binding AddCommand}" />
+    </UserControl.InputBindings>
+    <UserControl.Resources>
+        <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+        <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
+        <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+
+        <Style x:Key="FilterFieldStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style x:Key="FilterComboStyle" TargetType="ComboBox">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="OutlineButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="DisabledImportButtonStyle" TargetType="Button" BasedOn="{StaticResource OutlineButtonStyle}">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="Opacity" Value="0.75" />
+            <Setter Property="ToolTip" Value="Chưa triển khai" />
+        </Style>
+        <Style x:Key="GridActionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+        </Style>
+        <Style x:Key="DetailLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="DetailValueStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="MinHeight" Value="36" />
+        </Style>
+        <Style x:Key="CustomerDataGridStyle" TargetType="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="RowHeight" Value="44" />
+            <Setter Property="ColumnHeaderHeight" Value="42" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        </Style>
+        <Style x:Key="CustomerDataGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+        </Style>
+        <Style x:Key="CustomerTabItemStyle" TargetType="TabItem">
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder" Background="Transparent" BorderThickness="0,0,0,3"
+                                BorderBrush="Transparent" Padding="{TemplateBinding Padding}" Margin="0,0,4,0">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="/Kazuko.Modules.Customers;component/Assets/icons/KH.png"
+                       Width="48" Height="48" Stretch="Uniform" Margin="0,0,12,0" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="KHÁCH HÀNG"
+                               Foreground="{DynamicResource PrimaryBrush}"
+                               FontSize="{DynamicResource FontSize.Heading}"
+                               FontWeight="Bold" />
+                    <TextBlock Text="Quản lý thông tin khách hàng - Lịch sử mua hàng - Công nợ - Khách hàng thân thiết"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Body}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="+ Thêm khách hàng (F1)"
+                        Style="{DynamicResource PrimaryButtonStyle}"
+                        Command="{Binding AddCommand}"
+                        Margin="0,0,8,0"
+                        MinWidth="200" />
+                <Button Content="Nhập Excel"
+                        Style="{StaticResource DisabledImportButtonStyle}"
+                        Command="{Binding ImportExcelCommand}"
+                        IsEnabled="False"
+                        MinWidth="120" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{DynamicResource CardBorderStyle}" Padding="12">
+            <TabControl SelectedIndex="{Binding SelectedTabIndex}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ItemContainerStyle="{StaticResource CustomerTabItemStyle}">
+                <TabItem Header="Danh sách khách hàng">
+                    <Grid Margin="0,12,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="220" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="220" />
+                        </Grid.RowDefinitions>
+
+                        <WrapPanel Grid.Row="0" Margin="0,0,0,10">
+                            <TextBox Width="280"
+                                     Style="{StaticResource FilterFieldStyle}"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Tìm kiếm tên, mã, SĐT, CMND/CCCD...">
+                                <TextBox.InputBindings>
+                                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
+                                </TextBox.InputBindings>
+                            </TextBox>
+                            <ComboBox Width="160"
+                                      Style="{StaticResource FilterComboStyle}"
+                                      ItemsSource="{Binding Groups}"
+                                      SelectedItem="{Binding SelectedGroup}"
+                                      DisplayMemberPath="Name" />
+                            <ComboBox Width="160"
+                                      Style="{StaticResource FilterComboStyle}"
+                                      ItemsSource="{Binding Regions}"
+                                      SelectedItem="{Binding SelectedRegion}" />
+                            <ComboBox Width="150"
+                                      Style="{StaticResource FilterComboStyle}"
+                                      ItemsSource="{Binding StatusOptions}"
+                                      SelectedItem="{Binding SelectedStatus}" />
+                            <Button Content="Tìm kiếm"
+                                    Style="{DynamicResource PrimaryButtonStyle}"
+                                    Command="{Binding SearchCommand}"
+                                    Margin="0,0,8,0"
+                                    MinWidth="110" />
+                            <Button Content="Làm mới"
+                                    Style="{StaticResource OutlineButtonStyle}"
+                                    Command="{Binding RefreshCommand}"
+                                    MinWidth="100" />
+                            <Button Content="Xuất Excel"
+                                    Style="{StaticResource DisabledImportButtonStyle}"
+                                    IsEnabled="False"
+                                    MinWidth="110" />
+                        </WrapPanel>
+
+                        <Grid Grid.Row="1">
+                            <DataGrid ItemsSource="{Binding Customers}"
+                                      SelectedItem="{Binding SelectedCustomer}"
+                                      Style="{StaticResource CustomerDataGridStyle}"
+                                      ColumnHeaderStyle="{StaticResource CustomerDataGridColumnHeaderStyle}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                    <DataGridTextColumn Header="Mã KH" Binding="{Binding Code, Mode=OneWay}" Width="100" />
+                                    <DataGridTextColumn Header="Họ và tên" Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" />
+                                    <DataGridTextColumn Header="Số điện thoại" Binding="{Binding Phone, Mode=OneWay}" Width="120" />
+                                    <DataGridTextColumn Header="Nhóm khách hàng" Binding="{Binding CustomerGroupName, Mode=OneWay}" Width="140" />
+                                    <DataGridTextColumn Header="Khu vực" Binding="{Binding Region, Mode=OneWay}" Width="120" />
+                                    <DataGridTextColumn Header="Tổng mua (VND)" Binding="{Binding TotalSalesText, Mode=OneWay}" Width="120" />
+                                    <DataGridTextColumn Header="Nợ hiện tại (VND)" Binding="{Binding CurrentDebtText, Mode=OneWay}" Width="130" />
+                                    <DataGridTextColumn Header="Lần mua cuối" Binding="{Binding LastPurchaseText, Mode=OneWay}" Width="110" />
+                                    <DataGridTemplateColumn Header="Trạng thái" Width="130">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border CornerRadius="12" Padding="10,4" HorizontalAlignment="Left"
+                                                        Background="{DynamicResource SuccessBrush}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="False">
+                                                                    <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding StatusText, Mode=OneWay}"
+                                                               Foreground="{DynamicResource OnPrimaryBrush}"
+                                                               FontSize="{DynamicResource FontSize.Caption}"
+                                                               FontWeight="SemiBold" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Thao tác" Width="160">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                    <Button Content="Xem"
+                                                            Style="{StaticResource GridActionButtonStyle}"
+                                                            Width="44"
+                                                            ToolTip="Xem (sẽ triển khai)"
+                                                            IsEnabled="False"
+                                                            Command="{Binding DataContext.ViewPlaceholderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                    <Button Content="Sửa"
+                                                            Style="{StaticResource GridActionButtonStyle}"
+                                                            Width="44"
+                                                            ToolTip="Sửa"
+                                                            Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="TT"
+                                                            Style="{StaticResource GridActionButtonStyle}"
+                                                            Width="44"
+                                                            ToolTip="{Binding ToggleActiveLabel, Mode=OneWay}"
+                                                            Command="{Binding DataContext.ToggleActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                                    Visibility="{Binding IsBusyOverlayVisible, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Đang tải..."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource PrimaryBrush}"
+                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                           FontWeight="SemiBold" />
+                            </Border>
+
+                            <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="2"
+                                   Text="{Binding ErrorMessage, Mode=OneWay}"
+                                   Foreground="{DynamicResource DangerBrush}"
+                                   FontSize="{DynamicResource FontSize.Body}"
+                                   Margin="0,8,0,4"
+                                   Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+
+                        <Grid Grid.Row="3" Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" MinWidth="420" />
+                                <ColumnDefinition Width="*" MinWidth="260" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Margin="0,0,10,0" Padding="16">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <DockPanel Margin="0,0,0,12">
+                                            <TextBlock Text="Thông tin khách hàng"
+                                                       DockPanel.Dock="Left"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       FontSize="{DynamicResource FontSize.Subtitle}"
+                                                       FontWeight="Bold" />
+                                            <Button Content="Sửa"
+                                                    DockPanel.Dock="Right"
+                                                    HorizontalAlignment="Right"
+                                                    Style="{DynamicResource PrimaryButtonStyle}"
+                                                    Command="{Binding EditSelectedCommand}"
+                                                    MinWidth="90"
+                                                    MinHeight="36"
+                                                    Padding="12,6" />
+                                        </DockPanel>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="110" Height="130" Margin="0,0,14,0"
+                                                    Background="{DynamicResource SurfaceAltBrush}"
+                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="8"
+                                                    VerticalAlignment="Top">
+                                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                    <TextBlock Text="Ảnh"
+                                                               HorizontalAlignment="Center"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    <TextBlock Text="Sẽ triển khai"
+                                                               HorizontalAlignment="Center"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="{DynamicResource FontSize.Caption}" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Grid Grid.Column="1" Margin="0,0,10,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Mã khách hàng" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                    <TextBlock Text="Họ và tên" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                    <TextBlock Text="Ngày sinh / Giới tính" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedBirthText, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                    <TextBlock Text="Số điện thoại" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedPhone, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                    <TextBlock Text="Email" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedEmail, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                    <TextBlock Text="CMND/CCCD / MST" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedTaxCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                    <TextBlock Text="Địa chỉ" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedAddress, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                    <TextBlock Text="Ghi chú" Style="{StaticResource DetailLabelStyle}" />
+                                                    <TextBox Text="{Binding SelectedNotes, Mode=OneWay}"
+                                                            Style="{StaticResource DetailValueStyle}"
+                                                            AcceptsReturn="True" MinHeight="64"
+                                                            TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Nhóm khách hàng" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedGroupName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Khu vực" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedRegionName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Nghề nghiệp" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedOccupation, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Ngày trở thành KH" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedJoinText, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Hạng thành viên" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedMembershipRank, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Điểm tích lũy" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedPointsText, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Hạn mức công nợ" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedCreditLimitText, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Công nợ hiện tại" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedDebtText, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Trạng thái" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBlock FontSize="{DynamicResource FontSize.Body}" Margin="0,4,0,0"
+                                                           Text="{Binding SelectedCustomer.StatusText, Mode=OneWay, TargetNullValue=''}"
+                                                           Foreground="{DynamicResource SuccessBrush}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding SelectedIsActive, Mode=OneWay}" Value="False">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{DynamicResource CardBorderStyle}" Margin="0,0,0,10" Padding="14">
+                                        <StackPanel>
+                                            <TextBlock Text="Ảnh giấy tờ tùy thân"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       FontWeight="Bold"
+                                                       FontSize="{DynamicResource FontSize.Body}" />
+                                            <TextBlock Text="Sẽ triển khai"
+                                                       Margin="0,10,0,0"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="{DynamicResource FontSize.Caption}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{DynamicResource CardBorderStyle}" Margin="0,0,0,10" Padding="14">
+                                        <StackPanel>
+                                            <TextBlock Text="Lịch sử mua hàng"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       FontWeight="Bold"
+                                                       FontSize="{DynamicResource FontSize.Body}" />
+                                            <TextBlock Text="Sẽ triển khai"
+                                                       Margin="0,10,0,0"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="{DynamicResource FontSize.Caption}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{DynamicResource CardBorderStyle}" Padding="14">
+                                        <StackPanel>
+                                            <TextBlock Text="Công nợ"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       FontWeight="Bold"
+                                                       FontSize="{DynamicResource FontSize.Body}" />
+                                            <TextBlock Text="Sẽ triển khai"
+                                                       Margin="0,10,0,0"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="{DynamicResource FontSize.Caption}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Header="Khách hàng thân thiết" IsEnabled="False">
+                    <TextBlock Text="Sẽ triển khai" Margin="20"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </TabItem>
+                <TabItem Header="Nhóm khách hàng" IsEnabled="False">
+                    <TextBlock Text="Sẽ triển khai" Margin="20"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </TabItem>
+                <TabItem Header="Lịch sử mua hàng" IsEnabled="False">
+                    <TextBlock Text="Sẽ triển khai" Margin="20"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </TabItem>
+                <TabItem Header="Công nợ" IsEnabled="False">
+                    <TextBlock Text="Sẽ triển khai" Margin="20"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </TabItem>
+                <TabItem Header="Tin nhắn/CSKH" IsEnabled="False">
+                    <TextBlock Text="Sẽ triển khai" Margin="20"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </TabItem>
+                <TabItem Header="Báo cáo" IsEnabled="False">
+                    <TextBlock Text="Sẽ triển khai" Margin="20"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </TabItem>
+            </TabControl>
+        </Border>
+    </Grid>
+</UserControl>

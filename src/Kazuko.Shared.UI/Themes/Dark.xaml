@@ -10,6 +10,7 @@
     <Color x:Key="Color.Border">#FF433C36</Color>
     <Color x:Key="Color.Success">#FF52BC7C</Color>
     <Color x:Key="Color.Danger">#FFFF7474</Color>
+    <Color x:Key="Color.OnPrimary">#FFFFFFFF</Color>
 
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Color.Primary}" />
     <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource Color.PrimaryHover}" />
@@ -21,4 +22,5 @@
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Color.Border}" />
     <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Color.Success}" />
     <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Color.Danger}" />
+    <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource Color.OnPrimary}" />
 </ResourceDictionary>

@@ -39,6 +39,18 @@ public interface IKazukoModule
 
 Quy ước ID: `Kazuko.<Domain>`, ví dụ `Kazuko.Warehouse`. Navigation key dùng chữ hoa ổn định như `WAREHOUSE` hoặc `WAREHOUSE.MATERIALS`. Permission dùng dạng `<domain>.<resource>.<action>`, ví dụ `warehouse.material.read`.
 
+`NavigationItem` là metadata đóng góp bởi module cho cả shell và trang chủ. Ngoài key/label/View factory, descriptor có icon URI do assembly module sở hữu, mô tả, cờ hiện trên sidebar/trang chủ và trạng thái placeholder. `MainWindow` và `DashboardView` chỉ render registry, không switch theo key nghiệp vụ.
+
+Các route placeholder dùng để dựng khung giao diện trước khi module nghiệp vụ hoàn chỉnh. Khi module thật đăng ký cùng key, `ModuleNavigationRegistry` chỉ cho phép route thật thay thế placeholder; trùng hai route thật vẫn bị từ chối. Home tile yêu cầu điều hướng qua `INavigationService`, vì vậy module không tham chiếu ngược tới `Kazuko.App`.
+
+Đây là contract để module được kích hoạt ở lần khởi động sau có thể tự đóng góp menu/home tile. Việc khám phá và load assembly từ gói `.kazuko-module` vẫn thuộc pipeline activation, chưa được coi là hoàn thiện chỉ vì contract UI đã tồn tại.
+
+## Session và giao tiếp giữa module
+
+- `AuthenticatedSession` + `ICurrentSessionAccessor` (Core) giữ UserId/Username/DisplayName/RoleCode/Branch* sau login; App đăng ký singleton và clear khi logout. Không chứa mật khẩu.
+- Module nghiệp vụ không tham chiếu lẫn nhau. Dialog/use case dùng chung (ví dụ khách hàng) expose contract WPF-neutral trong Core (`ICustomerEditorService`, `CustomerEditResult`) và implementation nằm trong module sở hữu.
+- SQL chỉ ở Infrastructure (`FirebirdCustomerRepository`). Module Customers tham chiếu Core + Shared.UI; repository được App đăng ký tại composition root.
+
 ## Form động
 
 Database chỉ lưu mô tả đã giới hạn:

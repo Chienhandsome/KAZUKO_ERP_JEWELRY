@@ -4,20 +4,21 @@ namespace Kazuko.Infrastructure.Data;
 
 internal static class AuditLogWriter
 {
-    public static void Write(
+    public static async Task WriteAsync(
         string eventType,
         long? userId = null,
         string? userName = null,
         long? branchId = null,
         string? entityType = null,
         string? entityId = null,
-        string? eventData = null)
+        string? eventData = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            using var connection = FirebirdDatabase.CreateConnection();
-            connection.Open();
-            using var command = new FbCommand("""
+            await using var connection = FirebirdDatabase.CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var command = new FbCommand("""
                 INSERT INTO AUDIT_LOG
                     (USER_ID, USERNAME, BRANCH_ID, EVENT_TYPE, ENTITY_TYPE, ENTITY_ID, EVENT_DATA, MACHINE_NAME)
                 VALUES
@@ -31,7 +32,7 @@ internal static class AuditLogWriter
             command.Parameters.AddWithValue("@ENTITY_ID", entityId ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@EVENT_DATA", eventData ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@MACHINE_NAME", Environment.MachineName);
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync(cancellationToken);
         }
         catch
         {

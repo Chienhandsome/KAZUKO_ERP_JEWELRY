@@ -2,13 +2,16 @@ using System.IO;
 using System.Windows;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Updates;
 using Kazuko.Infrastructure.Authentication;
+using Kazuko.Infrastructure.Customers;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Updates;
 using Kazuko.Modules.Authentication;
+using Kazuko.Modules.Customers;
 using Kazuko.Modules.Dashboard;
 using Kazuko.Shared.UI.Services;
 
@@ -18,6 +21,7 @@ public partial class App : Application
 {
     private readonly ServiceRegistry _services = new();
     private readonly ModuleNavigationRegistry _navigation = new();
+    private readonly ICurrentSessionAccessor _sessionAccessor = new CurrentSessionAccessor();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -33,19 +37,28 @@ public partial class App : Application
         IPreferencesService preferences = new JsonPreferencesService();
         IAppearanceService appearance = new AppearanceService(preferences);
         IAuthenticationService authentication = new FirebirdAuthenticationService();
+        INavigationService navigation = new NavigationService();
         IModulePackageInstaller packageInstaller = new ModulePackageInstaller(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KazukoERP", "Updates"));
+        ICustomerRepository customers = new FirebirdCustomerRepository();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
         _services.AddSingleton(authentication);
+        _services.AddSingleton(navigation);
         _services.AddSingleton(packageInstaller);
         _services.AddSingleton<IModuleNavigationRegistry>(_navigation);
+        _services.AddSingleton(_sessionAccessor);
+        _services.AddSingleton(customers);
     }
 
     private void RegisterModules()
     {
-        IKazukoModule[] modules = [new DashboardModule()];
+        IKazukoModule[] modules =
+        [
+            new DashboardModule(),
+            new CustomersModule()
+        ];
         foreach (var module in modules)
         {
             module.RegisterServices(_services);
@@ -61,19 +74,26 @@ public partial class App : Application
 
     private void ShowLogin()
     {
+        _sessionAccessor.Clear();
         var viewModel = new LoginViewModel(_services.GetRequiredService<IAuthenticationService>());
         var loginView = new LoginView { DataContext = viewModel };
         var window = new LoginWindow { Content = loginView };
 
-        viewModel.SignedIn += (_, displayName) =>
+        viewModel.SignedIn += (_, session) =>
         {
-            var shell = new MainWindow
-            {
-                DataContext = new ShellViewModel(
-                    displayName,
-                    _navigation,
-                    _services.GetRequiredService<IAppearanceService>())
-            };
+            _sessionAccessor.Set(session);
+            MainWindow? shell = null;
+            var shellViewModel = new ShellViewModel(
+                session.DisplayName,
+                _navigation,
+                _services.GetRequiredService<INavigationService>(),
+                () =>
+                {
+                    _sessionAccessor.Clear();
+                    ShowLogin();
+                    shell?.Close();
+                });
+            shell = new MainWindow { DataContext = shellViewModel };
             MainWindow = shell;
             shell.Show();
             window.Close();

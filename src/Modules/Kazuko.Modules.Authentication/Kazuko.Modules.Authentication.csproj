@@ -7,4 +7,9 @@
     <ProjectReference Include="..\..\Kazuko.Core\Kazuko.Core.csproj" />
     <ProjectReference Include="..\..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="..\..\Assets\icons\logo.png">
+      <Link>Assets\icons\logo.png</Link>
+    </Resource>
+  </ItemGroup>
 </Project>

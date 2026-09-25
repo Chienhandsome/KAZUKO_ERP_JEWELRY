@@ -8,7 +8,12 @@ public sealed record NavigationItem(
     string IconGlyph,
     int Order,
     string? RequiredPermission,
-    Func<object> CreateView);
+    Func<object> CreateView,
+    string? IconUri = null,
+    string? Description = null,
+    bool ShowInSidebar = true,
+    bool ShowOnHome = false,
+    bool IsPlaceholder = false);
 
 public interface IModuleNavigationRegistry
 {
@@ -23,10 +28,47 @@ public sealed class ModuleNavigationRegistry : IModuleNavigationRegistry
 
     public void Register(NavigationItem item)
     {
-        if (_items.Any(x => string.Equals(x.Key, item.Key, StringComparison.OrdinalIgnoreCase)))
+        var existingIndex = _items.FindIndex(
+            x => string.Equals(x.Key, item.Key, StringComparison.OrdinalIgnoreCase));
+
+        if (existingIndex >= 0)
+        {
+            var existing = _items[existingIndex];
+            if (existing.IsPlaceholder && !item.IsPlaceholder)
+            {
+                _items[existingIndex] = item;
+                return;
+            }
+
+            if (!existing.IsPlaceholder && item.IsPlaceholder)
+                return;
+
             throw new InvalidOperationException($"Navigation key '{item.Key}' is already registered.");
+        }
 
         _items.Add(item);
+    }
+}
+
+public sealed class NavigationRequestedEventArgs(string key) : EventArgs
+{
+    public string Key { get; } = key;
+}
+
+public interface INavigationService
+{
+    event EventHandler<NavigationRequestedEventArgs>? NavigationRequested;
+    void Navigate(string key);
+}
+
+public sealed class NavigationService : INavigationService
+{
+    public event EventHandler<NavigationRequestedEventArgs>? NavigationRequested;
+
+    public void Navigate(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        NavigationRequested?.Invoke(this, new NavigationRequestedEventArgs(key));
     }
 }
 

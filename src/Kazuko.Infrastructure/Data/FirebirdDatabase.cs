@@ -19,6 +19,7 @@ public static class FirebirdDatabase
     public static string BuildConnectionString(ConnectionProfile value)
     {
         EnsureClientLibrary(value);
+        EnsureEnginePassword(value);
 
         var builder = new FbConnectionStringBuilder
         {
@@ -57,6 +58,13 @@ public static class FirebirdDatabase
     {
         profile = value;
         FbConnection.ClearAllPools();
+    }
+
+    private static void EnsureEnginePassword(ConnectionProfile value)
+    {
+        if (string.IsNullOrWhiteSpace(value.Password))
+            throw new InvalidOperationException(
+                "Cấu hình kết nối cơ sở dữ liệu chưa đầy đủ. Vui lòng liên hệ quản trị viên.");
     }
 
     private static void EnsureClientLibrary(ConnectionProfile value)

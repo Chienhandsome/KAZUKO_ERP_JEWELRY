@@ -13,10 +13,11 @@ Yêu cầu trước khi chạy:
 
 1. Firebird Embedded runtime tại `firebird\Firebird-5.0.4.1812-0-windows-x64\` (được copy vào output khi build; không commit vào Git).
 2. Database development tại `data\data.fdb` (gitignored). Sao chép một lần từ bản WinForms tham chiếu `...\data\DATA.FDB` nếu chưa có.
+3. Bắt buộc đặt `KAZUKO_FIREBIRD_PASSWORD` (mật khẩu engine Firebird) trước khi chạy. Không có mật khẩu mặc định trong source.
 
 Đăng nhập dùng tài khoản trong Firebird (bảng `USERS`), kèm chọn chi nhánh. Không còn tài khoản demo cứng trong composition root.
 
-Tuỳ chọn cấu hình qua biến môi trường: `KAZUKO_FIREBIRD_HOME`, `KAZUKO_FIREBIRD_DATABASE`, `KAZUKO_FIREBIRD_USER`, `KAZUKO_FIREBIRD_PASSWORD`, `KAZUKO_FIREBIRD_EMBEDDED`, `KAZUKO_FIREBIRD_HOST`, `KAZUKO_FIREBIRD_PORT`.
+Tuỳ chọn cấu hình qua biến môi trường: `KAZUKO_FIREBIRD_HOME`, `KAZUKO_FIREBIRD_DATABASE`, `KAZUKO_FIREBIRD_USER`, `KAZUKO_FIREBIRD_PASSWORD` (bắt buộc), `KAZUKO_FIREBIRD_EMBEDDED`, `KAZUKO_FIREBIRD_HOST`, `KAZUKO_FIREBIRD_PORT`.
 
 ## Tài liệu
 
