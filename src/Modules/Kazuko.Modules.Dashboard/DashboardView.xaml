@@ -1,0 +1,43 @@
+<UserControl x:Class="Kazuko.Modules.Dashboard.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32">
+            <TextBlock Text="TỔNG QUAN" FontSize="{DynamicResource FontSize.Heading}" FontWeight="Bold" />
+            <TextBlock Text="Nền tảng WPF đã sẵn sàng để nhận các module nghiệp vụ."
+                       Margin="0,6,0,24" Foreground="{DynamicResource TextSecondaryBrush}" />
+
+            <WrapPanel>
+                <Border Width="250" MinHeight="130" Margin="0,0,16,16" Style="{DynamicResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Đơn hàng hôm nay" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <TextBlock Text="0" Margin="0,12,0,0" FontSize="{DynamicResource FontSize.Display}" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border Width="250" MinHeight="130" Margin="0,0,16,16" Style="{DynamicResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Đang sản xuất" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <TextBlock Text="0" Margin="0,12,0,0" FontSize="{DynamicResource FontSize.Display}" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border Width="250" MinHeight="130" Margin="0,0,16,16" Style="{DynamicResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Cảnh báo tồn kho" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <TextBlock Text="0" Margin="0,12,0,0" FontSize="{DynamicResource FontSize.Display}"
+                                   FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
+
+            <Border Margin="0,12,16,0" Style="{DynamicResource CardBorderStyle}">
+                <StackPanel>
+                    <TextBlock Text="Trạng thái nền tảng" FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,14,0,0" Text="✓ Theme sáng/tối dùng DynamicResource" />
+                    <TextBlock Margin="0,8,0,0" Text="✓ Cỡ chữ 90%–150% và lưu theo máy" />
+                    <TextBlock Margin="0,8,0,0" Text="✓ Menu được đăng ký bởi module" />
+                    <TextBlock Margin="0,8,0,0" Text="✓ Gói .kazuko-module có manifest và checksum" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

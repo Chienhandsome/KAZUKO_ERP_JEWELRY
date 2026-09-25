@@ -1,0 +1,48 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.App", "src\Kazuko.App\Kazuko.App.csproj", "{C47EC9D4-BF3A-4F48-BEF5-247E70D80401}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Core", "src\Kazuko.Core\Kazuko.Core.csproj", "{7A019CF9-34A1-4C94-A3D0-A23C649F3321}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Infrastructure", "src\Kazuko.Infrastructure\Kazuko.Infrastructure.csproj", "{195E1D4A-F357-4D69-9A92-0398A0D94E51}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Shared.UI", "src\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj", "{A9826244-8D49-4E0E-B221-A164C9E48009}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Authentication", "src\Modules\Kazuko.Modules.Authentication\Kazuko.Modules.Authentication.csproj", "{7E3B0B3F-C7E9-444D-A4D7-7B0312EF6991}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Dashboard", "src\Modules\Kazuko.Modules.Dashboard\Kazuko.Modules.Dashboard.csproj", "{A48FBBC4-B258-473C-9372-4B01BA400A6A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C47EC9D4-BF3A-4F48-BEF5-247E70D80401}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C47EC9D4-BF3A-4F48-BEF5-247E70D80401}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C47EC9D4-BF3A-4F48-BEF5-247E70D80401}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C47EC9D4-BF3A-4F48-BEF5-247E70D80401}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A019CF9-34A1-4C94-A3D0-A23C649F3321}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A019CF9-34A1-4C94-A3D0-A23C649F3321}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A019CF9-34A1-4C94-A3D0-A23C649F3321}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A019CF9-34A1-4C94-A3D0-A23C649F3321}.Release|Any CPU.Build.0 = Release|Any CPU
+		{195E1D4A-F357-4D69-9A92-0398A0D94E51}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{195E1D4A-F357-4D69-9A92-0398A0D94E51}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{195E1D4A-F357-4D69-9A92-0398A0D94E51}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{195E1D4A-F357-4D69-9A92-0398A0D94E51}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9826244-8D49-4E0E-B221-A164C9E48009}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9826244-8D49-4E0E-B221-A164C9E48009}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9826244-8D49-4E0E-B221-A164C9E48009}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9826244-8D49-4E0E-B221-A164C9E48009}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E3B0B3F-C7E9-444D-A4D7-7B0312EF6991}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E3B0B3F-C7E9-444D-A4D7-7B0312EF6991}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E3B0B3F-C7E9-444D-A4D7-7B0312EF6991}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E3B0B3F-C7E9-444D-A4D7-7B0312EF6991}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A48FBBC4-B258-473C-9372-4B01BA400A6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A48FBBC4-B258-473C-9372-4B01BA400A6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A48FBBC4-B258-473C-9372-4B01BA400A6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A48FBBC4-B258-473C-9372-4B01BA400A6A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

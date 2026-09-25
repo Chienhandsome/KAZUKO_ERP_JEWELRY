@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>KAZUKO_ERP_JEWELRY</AssemblyName>
+    <RootNamespace>Kazuko.App</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Kazuko.Core\Kazuko.Core.csproj" />
+    <ProjectReference Include="..\Kazuko.Infrastructure\Kazuko.Infrastructure.csproj" />
+    <ProjectReference Include="..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
+    <ProjectReference Include="..\Modules\Kazuko.Modules.Authentication\Kazuko.Modules.Authentication.csproj" />
+    <ProjectReference Include="..\Modules\Kazuko.Modules.Dashboard\Kazuko.Modules.Dashboard.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,79 @@
+<Window x:Class="Kazuko.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Kazuko ERP Jewelry" Width="1360" Height="820"
+        MinWidth="960" MinHeight="620" WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="20,24,20,16">
+                    <TextBlock Text="KAZUKO" FontSize="{DynamicResource FontSize.Heading}"
+                               FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" />
+                    <TextBlock Text="ERP JEWELRY" FontSize="{DynamicResource FontSize.Caption}"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="20">
+                    <TextBlock Text="Đăng nhập bởi" FontSize="{DynamicResource FontSize.Caption}"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding DisplayName}" Margin="0,3,0,0" FontWeight="SemiBold" />
+                </StackPanel>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding NavigationItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Command="{Binding NavigateCommand}" Style="{DynamicResource NavButtonStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Item.IconGlyph}" Width="30" FontSize="20" />
+                                        <TextBlock Text="{Binding Item.Label}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="72" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                <Grid Margin="28,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding CurrentTitle}" VerticalAlignment="Center"
+                               FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
+                        <TextBlock Text="Theme" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox Width="110" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}"
+                                  DisplayMemberPath="Label" Padding="8,5" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Cỡ chữ" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox Width="90" ItemsSource="{Binding FontScales}" SelectedItem="{Binding SelectedFontScale}"
+                                  DisplayMemberPath="Label" Padding="8,5" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <ContentControl Grid.Row="1" Content="{Binding CurrentView}" />
+        </Grid>
+    </Grid>
+</Window>
