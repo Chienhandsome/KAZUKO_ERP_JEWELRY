@@ -215,6 +215,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var committed = false;
 
         try
         {
@@ -248,10 +249,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 id = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
                 code = $"KH{id:000000}";
 
-                await using var updateCode = new FbCommand(
-                    "UPDATE CUSTOMERS SET CODE=@CODE WHERE ID=@ID",
-                    connection,
-                    (FbTransaction)transaction);
+                await using var updateCode = new FbCommand("""
+                    UPDATE CUSTOMERS SET CODE=@CODE
+                    WHERE ID=@ID
+                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                    """, connection, (FbTransaction)transaction);
                 updateCode.Parameters.AddWithValue("@CODE", code);
                 updateCode.Parameters.AddWithValue("@ID", id);
                 await updateCode.ExecuteNonQueryAsync(cancellationToken);
@@ -268,6 +270,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                         JOIN_DATE=@JOIN_DATE, CREDIT_LIMIT=@CREDIT_LIMIT, IS_ACTIVE=@IS_ACTIVE,
                         UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
                     WHERE ID=@ID
+                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                     """, connection, (FbTransaction)transaction);
                 AddSaveParameters(update, normalized, session);
                 update.Parameters.AddWithValue("@ID", id);
@@ -278,6 +281,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             }
 
             await transaction.CommitAsync(cancellationToken);
+            committed = true;
 
             await AuditLogWriter.WriteAsync(
                 isCreate ? "CUSTOMER_CREATED" : "CUSTOMER_UPDATED",
@@ -306,13 +310,16 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         }
         catch
         {
-            try
+            if (!committed)
             {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-            catch
-            {
-                // Swallow rollback failures; rethrow original.
+                try
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+                catch
+                {
+                    // Swallow rollback failures; rethrow original.
+                }
             }
 
             throw;
@@ -332,6 +339,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             UPDATE CUSTOMERS
             SET IS_ACTIVE=@ACTIVE, UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
             WHERE ID=@ID
+              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
             """, connection);
         command.Parameters.AddWithValue("@ACTIVE", isActive);
         command.Parameters.AddWithValue("@USER_ID", session.UserId > 0 ? session.UserId : DBNull.Value);
@@ -417,10 +425,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         long customerId,
         CancellationToken cancellationToken)
     {
-        await using var command = new FbCommand(
-            "SELECT CUSTOMER_GROUP_ID FROM CUSTOMERS WHERE ID=@ID",
-            connection,
-            transaction);
+        await using var command = new FbCommand("""
+            SELECT CUSTOMER_GROUP_ID FROM CUSTOMERS
+            WHERE ID=@ID
+              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+            """, connection, transaction);
         command.Parameters.AddWithValue("@ID", customerId);
         return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken) ?? 0);
     }
@@ -431,10 +440,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         long customerId,
         CancellationToken cancellationToken)
     {
-        await using var command = new FbCommand(
-            "SELECT CODE FROM CUSTOMERS WHERE ID=@ID",
-            connection,
-            transaction);
+        await using var command = new FbCommand("""
+            SELECT CODE FROM CUSTOMERS
+            WHERE ID=@ID
+              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+            """, connection, transaction);
         command.Parameters.AddWithValue("@ID", customerId);
         return Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? string.Empty;
     }
@@ -445,10 +455,12 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         long groupId,
         CancellationToken cancellationToken)
     {
-        await using var command = new FbCommand(
-            "SELECT COUNT(*) FROM CUSTOMER_GROUPS WHERE ID=@ID AND IS_ACTIVE=TRUE",
-            connection,
-            transaction);
+        await using var command = new FbCommand("""
+            SELECT COUNT(*) FROM CUSTOMER_GROUPS
+            WHERE ID=@ID
+              AND IS_ACTIVE=TRUE
+              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+            """, connection, transaction);
         command.Parameters.AddWithValue("@ID", groupId);
         if (Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 0)
             throw new InvalidOperationException("Nhóm khách hàng đã chọn không hoạt động.");
