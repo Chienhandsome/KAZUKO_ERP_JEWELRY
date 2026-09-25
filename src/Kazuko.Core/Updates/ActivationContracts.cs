@@ -25,33 +25,60 @@ public static class ModuleActivationStateFile
     public const string LockFileName = "activation.lock";
 }
 
+public static class ModuleActivationErrorCodes
+{
+    public const string StateCorrupt = "STATE_CORRUPT";
+    public const string StateSchemaUnsupported = "STATE_SCHEMA_UNSUPPORTED";
+    public const string Locked = "LOCKED";
+    public const string AbandonedLock = "LOCK_ABANDONED";
+    public const string ReservedModule = "RESERVED_MODULE";
+    public const string PendingConflict = "PENDING_CONFLICT";
+    public const string TamperedInstall = "TAMPERED_INSTALL";
+    public const string InvalidStaging = "INVALID_STAGING";
+    public const string Referential = "STATE_REFERENTIAL";
+}
+
+/// <summary>
+/// Immutable record of one installed package version under Installed/{moduleId}/{version}.
+/// </summary>
+public sealed record ModuleInstalledVersionRecord(
+    string Version,
+    string Fingerprint,
+    DateTimeOffset InstalledAtUtc,
+    string RelativeDirectory,
+    string Publisher,
+    string KeyId);
+
 public sealed record ModuleActivationRecord(
     string ModuleId,
     ModuleActivationState State,
     string? ActiveVersion,
     string? PreviousVersion,
     string? PendingVersion,
+    string? PendingFingerprint,
     string Source,
-    string? Publisher,
-    string? KeyId,
-    string? PackageSha256,
     string? LastError,
     string? BackupId,
     string? AttemptId,
-    bool BuiltInFallbackAllowed);
+    bool BuiltInFallbackAllowed,
+    IReadOnlyList<ModuleInstalledVersionRecord> InstalledVersions);
 
 public sealed record ModuleActivationDocument(
     int SchemaVersion,
+    long Revision,
     int HostVersion,
     DateTimeOffset UpdatedAtUtc,
     IReadOnlyDictionary<string, ModuleActivationRecord> Modules,
-    IReadOnlyList<string> ActivationQueue);
+    IReadOnlyList<string> ActivationQueue,
+    IReadOnlyList<string> Diagnostics);
 
 public sealed record ModuleActivationAcceptResult(
     bool IsSuccess,
     string Message,
+    string? ErrorCode = null,
     ModuleActivationRecord? Record = null,
-    string? InstalledDirectory = null);
+    string? InstalledDirectory = null,
+    string? CleanupWarning = null);
 
 public interface IModuleLayoutPaths
 {
@@ -69,6 +96,13 @@ public interface IModuleLayoutPaths
     void EnsureCreated();
 }
 
+public enum ModuleActivationLockStatus
+{
+    Acquired = 0,
+    Locked = 1,
+    AbandonedRequiresRecovery = 2
+}
+
 public interface IModuleActivationLock : IAsyncDisposable, IDisposable
 {
     bool IsAcquired { get; }
@@ -77,12 +111,17 @@ public interface IModuleActivationLock : IAsyncDisposable, IDisposable
 public interface IModuleActivationLockFactory
 {
     /// <summary>
-    /// Attempts an exclusive cross-process lock on the activation catalog.
-    /// Returns false when another process already holds the lock.
+    /// Attempts an exclusive cross-process lock (named mutex + file lock).
     /// </summary>
-    bool TryAcquire(out IModuleActivationLock? activationLock);
+    ModuleActivationLockStatus TryAcquire(
+        TimeSpan timeout,
+        out IModuleActivationLock? activationLock);
 }
 
+/// <summary>
+/// B1 public surface: load snapshot, get module, accept staged → PendingActivation.
+/// No caller may set Active/Previous/Activating/Quarantined/RollbackPending directly.
+/// </summary>
 public interface IModuleActivationCatalog
 {
     Task<ModuleActivationDocument> LoadDocumentAsync(CancellationToken cancellationToken = default);
@@ -97,6 +136,17 @@ public interface IModuleActivationCatalog
     Task<ModuleActivationAcceptResult> AcceptStagedForActivationAsync(
         string stagingDirectory,
         CancellationToken cancellationToken = default);
+}
 
-    Task SaveAsync(ModuleActivationRecord record, CancellationToken cancellationToken = default);
+public static class ReservedHostModules
+{
+    public static readonly IReadOnlyList<string> DeniedIds =
+    [
+        "Kazuko.Dashboard",
+        "Kazuko.Authentication",
+        "Kazuko.Customers"
+    ];
+
+    public static bool IsDenied(string moduleId) =>
+        DeniedIds.Any(id => string.Equals(id, moduleId, StringComparison.OrdinalIgnoreCase));
 }

@@ -13,7 +13,7 @@ The approved legacy WinForms application at `D:\Working\KAZUKO_ERP_JEWELRY_UI_AP
 - A small in-repository MVVM foundation: `ObservableObject`, `RelayCommand`, and `AsyncRelayCommand`.
 - A custom singleton `ServiceRegistry` for composition and constructor injection; no external DI package is installed.
 - JSON in LocalAppData for appearance preferences.
-- ZIP-based `.kazuko-module` **secure validation/staging** (TASK-007A) plus **activation catalog** (TASK-007B1): promote Staging → `Installed/{moduleId}/{version}`, atomic `activation-state.json`, cross-process lock, PendingActivation queue. Still no cold-start activation, migration, or Import UI (007B2–B4 / 007C).
+- ZIP-based `.kazuko-module` **secure validation/staging** (TASK-007A) plus **activation catalog** (TASK-007B1, hardened): promote Staging → `Installed/{moduleId}/{version}`, fail-closed atomic `activation-state.json`, mutex+file lock, package fingerprint, PendingActivation queue. Still no cold-start activation, migration, or Import UI (007B2–B4 / 007C).
 - Firebird Embedded via `FirebirdSql.Data.FirebirdClient` 10.3.4 (Infrastructure only).
 - Test project: `tests/Kazuko.Infrastructure.Tests` (xUnit) for package security and activation catalog cases.
 

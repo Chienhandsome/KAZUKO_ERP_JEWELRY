@@ -10,55 +10,27 @@ DONE
 
 ## Goal
 
-Implement Staged → Installed → PendingActivation catalog: atomic `activation-state.json` with backup recovery, cross-process activation lock, filesystem/path/tamper protection when promoting staging directories. No DLL load, no migration, no activation pipeline, no Import UI.
+Implement Staged → Installed → PendingActivation catalog with fail-closed state store, atomic `activation-state.json`, cross-process lock (mutex + file), fingerprint/tamper protection, reserved host modules, and pending-conflict rules. No DLL load, no migration, no activation pipeline, no Import UI.
 
-## Context
+## Hardening (post-initial) invariants
 
-Based on `.ai/plans/TASK-007B-MODULE-ACTIVATION-ROLLBACK.md` section 007B1. Builds on TASK-007A staging only. Does not start 007B2/B3/B4.
-
-## Requirements completed
-
-- Core contracts: `ModuleActivationState`, `ModuleActivationRecord`/`Document`, `IModuleLayoutPaths`, `IModuleActivationCatalog`, `IModuleActivationLock`/`Factory`
-- Infrastructure: `ModuleLayoutPaths`, `ModuleActivationLockFactory`, `ActivationStateStore`, `ModuleActivationCatalog`
-- Promote staging → `Installed/{moduleId}/{version}` with payload hash re-verify
-- Idempotent same version + same package SHA-256; reject same version different content
-- Atomic state write (tmp + replace + `.bak`); corrupt primary recovers from `.bak`
-- Exclusive `activation.lock` (`FileShare.None`)
-- Reject staging outside StagingRoot; reject reparse points; cleanup failed promote temps
-- App composition registers layout + catalog (no startup activation yet)
-
-## Allowed Files
-
-- `src/Kazuko.Core/Updates/ActivationContracts.cs`
-- `src/Kazuko.Infrastructure/Updates/Activation/**`
-- `tests/Kazuko.Infrastructure.Tests/Updates/Activation/**`
-- `src/Kazuko.App/App.xaml.cs` (composition only)
-- `.ai/PROJECT.md` (brief status)
-- this task note
-
-## Do Not Modify
-
-- Package format v2 / TASK-007A installer behavior
-- Database / Supplier migration / TASK-008*
-- Module loader (B2), gbak/migration runner (B3), startup pipeline (B4), Import UI (007C)
-
-## Acceptance Criteria
-
-- [x] Staged → Installed → PendingActivation
-- [x] Atomic activation-state.json + .bak recovery
-- [x] Cross-process lock
-- [x] Path/tamper protection tests
-- [x] Build 0W/0E, tests pass
-- [x] No B2/B3/B4 scope
+- State fail-closed: empty only when both primary+backup missing; corrupt without valid backup → `STATE_CORRUPT`; unsupported schema → `STATE_SCHEMA_UNSUPPORTED`; recover from backup without clobbering good `.bak`
+- Strict JSON: disallow unmapped members, case-sensitive properties/enums, reject bad queue/module IDs
+- Public API: Load / Get / Accept only — no `SaveAsync` state-machine bypass
+- Revision + installed version catalog + fingerprint (module.json ‖ signature.sig) + InstalledAtUtc; deterministic serialize order
+- Pending conflicts: idempotent same version+fingerprint; reject different fingerprint or different pending version
+- Reserved deny-by-default: Dashboard, Authentication, Customers
+- Exact staged/installed contents; reparse chain checks; async cancellable copy; rollback install if state commit fails after rename; staging deleted only after commit
+- Named mutex (`Local\KazukoERP.ModuleActivation.*`) + exclusive file lock; abandoned → fail closed
 
 ## Build / Verification
 
 ```text
 dotnet build KAZUKO_ERP_JEWELRY.sln --configuration Release  → 0 Warning / 0 Error
-dotnet test  KAZUKO_ERP_JEWELRY.sln --configuration Release --no-build → Passed 45/45
+dotnet test  KAZUKO_ERP_JEWELRY.sln --configuration Release → Passed 62/62
 git diff --check → clean
 ```
 
 ## Notes
 
-Activation of PendingActivation modules remains TASK-007B4. Signature re-verify with trusted keys at cold start remains B2/B4.
+B2/B3/B4 not started. Internal transitions for Active/Activating/etc. deferred to those tasks.

@@ -3,6 +3,17 @@ using Kazuko.Core.Updates;
 
 namespace Kazuko.Infrastructure.Updates.Activation;
 
+public sealed class ModuleActivationException : Exception
+{
+    public ModuleActivationException(string message, string? errorCode = null)
+        : base(message)
+    {
+        ErrorCode = errorCode;
+    }
+
+    public string? ErrorCode { get; }
+}
+
 public sealed class ModuleActivationCatalog : IModuleActivationCatalog
 {
     private readonly IModuleLayoutPaths _paths;
@@ -10,6 +21,16 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
     private readonly IHostVersionProvider _hostVersionProvider;
     private readonly ActivationStateStore _stateStore;
     private readonly object _gate = new();
+
+    /// <summary>
+    /// Test seam: async chunked file copy. Must honor cancellation.
+    /// </summary>
+    internal Func<string, string, CancellationToken, Task>? CopyFileAsyncForTests { get; set; }
+
+    /// <summary>
+    /// Test seam invoked after Installed rename and before state commit.
+    /// </summary>
+    internal Action? AfterInstalledRenameBeforeStateCommitForTests { get; set; }
 
     public ModuleActivationCatalog(
         IModuleLayoutPaths paths,
@@ -28,7 +49,7 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            return Task.FromResult(_stateStore.LoadOrEmpty(_hostVersionProvider.CurrentHostVersion));
+            return Task.FromResult(_stateStore.Load(_hostVersionProvider.CurrentHostVersion, _paths));
         }
     }
 
@@ -38,66 +59,31 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(moduleId);
         var document = await LoadDocumentAsync(cancellationToken).ConfigureAwait(false);
-        return document.Modules.TryGetValue(moduleId.Trim(), out var record) ? record : null;
+        return document.Modules.TryGetValue(moduleId.Trim(), out var record)
+            ? record
+            : document.Modules.FirstOrDefault(p =>
+                string.Equals(p.Key, moduleId.Trim(), StringComparison.OrdinalIgnoreCase)).Value;
     }
 
-    public Task SaveAsync(ModuleActivationRecord record, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(record);
-        ArgumentException.ThrowIfNullOrWhiteSpace(record.ModuleId);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!_lockFactory.TryAcquire(out var activationLock) || activationLock is null)
-            throw new ModuleActivationException("Ứng dụng đang cập nhật module. Không thể ghi trạng thái kích hoạt.");
-
-        try
-        {
-            lock (_gate)
-            {
-                var document = _stateStore.LoadOrEmpty(_hostVersionProvider.CurrentHostVersion);
-                var modules = new Dictionary<string, ModuleActivationRecord>(
-                    document.Modules,
-                    StringComparer.OrdinalIgnoreCase)
-                {
-                    [record.ModuleId] = record
-                };
-
-                var queue = RebuildQueue(modules, document.ActivationQueue);
-                var updated = new ModuleActivationDocument(
-                    ModuleActivationStateFile.CurrentSchemaVersion,
-                    _hostVersionProvider.CurrentHostVersion,
-                    DateTimeOffset.UtcNow,
-                    modules,
-                    queue);
-                _stateStore.WriteAtomic(updated);
-            }
-        }
-        finally
-        {
-            activationLock.Dispose();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task<ModuleActivationAcceptResult> AcceptStagedForActivationAsync(
+    public async Task<ModuleActivationAcceptResult> AcceptStagedForActivationAsync(
         string stagingDirectory,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(stagingDirectory))
-            return Task.FromResult(Fail("Thư mục staging không hợp lệ."));
+            return Fail(ModuleActivationErrorCodes.InvalidStaging, "Thư mục staging không hợp lệ.");
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_lockFactory.TryAcquire(out var activationLock) || activationLock is null)
-            return Task.FromResult(Fail("Ứng dụng đang cập nhật module. Không thể nhận gói chờ kích hoạt."));
+        var lockStatus = _lockFactory.TryAcquire(TimeSpan.FromSeconds(2), out var activationLock);
+        if (lockStatus == ModuleActivationLockStatus.Locked || activationLock is null)
+            return Fail(ModuleActivationErrorCodes.Locked, "Ứng dụng đang cập nhật module. Không thể nhận gói chờ kích hoạt.");
+
+        if (lockStatus == ModuleActivationLockStatus.AbandonedRequiresRecovery)
+            return Fail(ModuleActivationErrorCodes.AbandonedLock, "Khóa kích hoạt bị bỏ dở; cần recovery trước khi tiếp tục.");
 
         try
         {
-            lock (_gate)
-            {
-                return Task.FromResult(AcceptStagedCore(stagingDirectory, cancellationToken));
-            }
+            return await AcceptStagedCoreAsync(stagingDirectory, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -105,19 +91,19 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
         }
         catch (ModuleActivationException ex)
         {
-            return Task.FromResult(Fail(ex.Message));
+            return Fail(ex.ErrorCode ?? ModuleActivationErrorCodes.InvalidStaging, ex.Message);
         }
         catch (ModulePackageValidationException ex)
         {
-            return Task.FromResult(Fail(ex.Message));
+            return Fail(ModuleActivationErrorCodes.InvalidStaging, ex.Message);
         }
         catch (IOException)
         {
-            return Task.FromResult(Fail("Không thể đưa gói từ staging vào thư mục Installed."));
+            return Fail(ModuleActivationErrorCodes.InvalidStaging, "Không thể đưa gói từ staging vào thư mục Installed.");
         }
         catch (UnauthorizedAccessException)
         {
-            return Task.FromResult(Fail("Không thể đưa gói từ staging vào thư mục Installed."));
+            return Fail(ModuleActivationErrorCodes.InvalidStaging, "Không thể đưa gói từ staging vào thư mục Installed.");
         }
         finally
         {
@@ -125,128 +111,232 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
         }
     }
 
-    private ModuleActivationAcceptResult AcceptStagedCore(
+    private async Task<ModuleActivationAcceptResult> AcceptStagedCoreAsync(
         string stagingDirectory,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         _paths.EnsureCreated();
 
+        ModuleActivationDocument document;
+        lock (_gate)
+        {
+            document = _stateStore.Load(_hostVersionProvider.CurrentHostVersion, _paths);
+        }
+
         var stagingFull = RequireDirectoryUnderRoot(_paths.StagingRoot, stagingDirectory, "staging");
-        RejectReparsePoint(stagingFull, isDirectory: true);
+        RejectReparseChain(stagingFull, _paths.StagingRoot);
 
         var manifestPath = Path.Combine(stagingFull, ModulePackageFormat.ManifestFileName);
         var signaturePath = Path.Combine(stagingFull, ModulePackageFormat.SignatureFileName);
         if (!File.Exists(manifestPath) || !File.Exists(signaturePath))
-            throw new ModuleActivationException("Staging thiếu module.json hoặc signature.sig.");
+            throw new ModuleActivationException("Staging thiếu module.json hoặc signature.sig.", ModuleActivationErrorCodes.InvalidStaging);
 
-        RejectReparsePoint(manifestPath, isDirectory: false);
-        RejectReparsePoint(signaturePath, isDirectory: false);
-
-        var manifestBytes = File.ReadAllBytes(manifestPath);
+        var manifestBytes = await ReadAllBytesAsync(manifestPath, cancellationToken).ConfigureAwait(false);
+        var signatureBytes = await ReadAllBytesAsync(signaturePath, cancellationToken).ConfigureAwait(false);
         var manifest = ModuleManifestParser.Parse(manifestBytes);
-        var packageSha256 = Convert.ToHexString(SHA256.HashData(manifestBytes));
+        var fingerprint = ComputePackageFingerprint(manifestBytes, signatureBytes);
 
-        VerifyPayloadIntegrity(stagingFull, manifest, cancellationToken);
+        if (ReservedHostModules.IsDenied(manifest.ModuleId))
+        {
+            throw new ModuleActivationException(
+                $"Module '{manifest.ModuleId}' thuộc host và không được override qua package trong B1.",
+                ModuleActivationErrorCodes.ReservedModule);
+        }
+
+        await VerifyExactStagedContentsAsync(stagingFull, manifest, cancellationToken).ConfigureAwait(false);
 
         var safeModuleId = SanitizeForDirectory(manifest.ModuleId);
         var safeVersion = SanitizeForDirectory(manifest.ModuleVersion);
-        // Guard against silent path collapse for moduleId/version directory names.
         ModulePackagePathRules.ValidateRelativePath($"{safeModuleId}/{safeVersion}", allowEmpty: false);
 
+        var relativeDirectory = $"{safeModuleId}/{safeVersion}";
         var installedDirectory = Path.Combine(_paths.InstalledRoot, safeModuleId, safeVersion);
         EnsureInstalledParentSafe(safeModuleId, safeVersion);
 
+        document.Modules.TryGetValue(manifest.ModuleId, out var existing);
+        existing ??= document.Modules.FirstOrDefault(p =>
+            string.Equals(p.Key, manifest.ModuleId, StringComparison.OrdinalIgnoreCase)).Value;
+
+        ValidatePendingConflict(existing, manifest.ModuleVersion, fingerprint);
+
+        var createdInstall = false;
         if (Directory.Exists(installedDirectory))
         {
-            RejectReparsePoint(installedDirectory, isDirectory: true);
-            var existingManifestPath = Path.Combine(installedDirectory, ModulePackageFormat.ManifestFileName);
-            if (!File.Exists(existingManifestPath))
-                throw new ModuleActivationException("Thư mục Installed đã tồn tại nhưng thiếu module.json.");
+            RejectReparseChain(installedDirectory, _paths.InstalledRoot);
+            await VerifyExactInstalledContentsAsync(installedDirectory, fingerprint, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await PromoteStagingToInstalledAsync(stagingFull, installedDirectory, manifest, cancellationToken)
+                .ConfigureAwait(false);
+            createdInstall = true;
 
-            var existingSha = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(existingManifestPath)));
-            if (!string.Equals(existingSha, packageSha256, StringComparison.OrdinalIgnoreCase))
+            try
             {
-                throw new ModuleActivationException(
-                    "Phiên bản module đã được cài với nội dung khác. Từ chối ghi đè để tránh giả mạo.");
+                AfterInstalledRenameBeforeStateCommitForTests?.Invoke();
             }
-
-            // Idempotent: same version + same package hash → refresh PendingActivation only.
-            var existingRecord = UpsertPendingRecord(
-                manifest,
-                packageSha256,
-                installedDirectory);
-            return new ModuleActivationAcceptResult(
-                true,
-                "Gói đã có trong Installed và được giữ ở trạng thái chờ kích hoạt.",
-                existingRecord,
-                installedDirectory);
+            catch
+            {
+                TryDeleteDirectory(installedDirectory);
+                throw;
+            }
         }
 
-        PromoteStagingToInstalled(stagingFull, installedDirectory, manifest, cancellationToken);
+        ModuleActivationRecord record;
+        try
+        {
+            lock (_gate)
+            {
+                // Reload under lock for revision consistency.
+                document = _stateStore.Load(_hostVersionProvider.CurrentHostVersion, _paths);
+                document.Modules.TryGetValue(manifest.ModuleId, out existing);
+                existing ??= document.Modules.FirstOrDefault(p =>
+                    string.Equals(p.Key, manifest.ModuleId, StringComparison.OrdinalIgnoreCase)).Value;
 
-        var record = UpsertPendingRecord(manifest, packageSha256, installedDirectory);
+                ValidatePendingConflict(existing, manifest.ModuleVersion, fingerprint);
+                record = CommitPendingActivation(document, existing, manifest, fingerprint, relativeDirectory);
+            }
+        }
+        catch
+        {
+            if (createdInstall)
+                TryDeleteDirectory(installedDirectory);
+            throw;
+        }
+
+        string? cleanupWarning = null;
+        try
+        {
+            if (Directory.Exists(stagingFull))
+                Directory.Delete(stagingFull, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            cleanupWarning = $"Installed + Pending đã commit nhưng không xóa được staging: {ex.Message}";
+        }
+
         return new ModuleActivationAcceptResult(
             true,
             "Gói đã được đưa vào Installed và chờ kích hoạt ở lần khởi động tiếp theo.",
+            ErrorCode: null,
             record,
-            installedDirectory);
+            installedDirectory,
+            cleanupWarning);
     }
 
-    private ModuleActivationRecord UpsertPendingRecord(
+    private ModuleActivationRecord CommitPendingActivation(
+        ModuleActivationDocument document,
+        ModuleActivationRecord? existing,
         ModulePackageManifest manifest,
-        string packageSha256,
-        string installedDirectory)
+        string fingerprint,
+        string relativeDirectory)
     {
-        _ = installedDirectory;
-        var document = _stateStore.LoadOrEmpty(_hostVersionProvider.CurrentHostVersion);
-        document.Modules.TryGetValue(manifest.ModuleId, out var previous);
+        var installedVersions = new List<ModuleInstalledVersionRecord>(
+            existing?.InstalledVersions ?? Array.Empty<ModuleInstalledVersionRecord>());
 
-        // One active version invariant: keep existing ActiveVersion; only set pending.
+        var existingVersion = installedVersions.FirstOrDefault(v =>
+            string.Equals(v.Version, manifest.ModuleVersion, StringComparison.OrdinalIgnoreCase));
+
+        if (existingVersion is null)
+        {
+            installedVersions.Add(new ModuleInstalledVersionRecord(
+                manifest.ModuleVersion,
+                fingerprint,
+                DateTimeOffset.UtcNow,
+                relativeDirectory,
+                manifest.Publisher,
+                manifest.KeyId));
+        }
+        else if (!string.Equals(existingVersion.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ModuleActivationException(
+                "Phiên bản module đã được cài với fingerprint khác.",
+                ModuleActivationErrorCodes.TamperedInstall);
+        }
+
+        installedVersions = installedVersions
+            .OrderBy(static v => v.Version, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         var record = new ModuleActivationRecord(
             manifest.ModuleId,
             ModuleActivationState.PendingActivation,
-            previous?.ActiveVersion,
-            previous?.PreviousVersion,
+            existing?.ActiveVersion,
+            existing?.PreviousVersion,
             manifest.ModuleVersion,
+            fingerprint,
             "Installed",
-            manifest.Publisher,
-            manifest.KeyId,
-            packageSha256,
             LastError: null,
-            BackupId: previous?.BackupId,
+            BackupId: existing?.BackupId,
             AttemptId: null,
-            BuiltInFallbackAllowed: previous?.BuiltInFallbackAllowed ?? true);
+            BuiltInFallbackAllowed: existing?.BuiltInFallbackAllowed ?? true,
+            installedVersions);
 
-        var modules = new Dictionary<string, ModuleActivationRecord>(
-            document.Modules,
-            StringComparer.OrdinalIgnoreCase)
-        {
-            [manifest.ModuleId] = record
-        };
+        var modules = new SortedDictionary<string, ModuleActivationRecord>(StringComparer.Ordinal);
+        foreach (var pair in document.Modules)
+            modules[pair.Key] = pair.Value;
+
+        // Replace by canonical module id (preserve key casing if present).
+        var key = modules.Keys.FirstOrDefault(k =>
+            string.Equals(k, manifest.ModuleId, StringComparison.OrdinalIgnoreCase)) ?? manifest.ModuleId;
+        modules[key] = record with { ModuleId = key };
 
         var queue = RebuildQueue(modules, document.ActivationQueue);
-        if (!queue.Contains(manifest.ModuleId, StringComparer.OrdinalIgnoreCase))
-            queue = queue.Append(manifest.ModuleId).ToArray();
+        if (!queue.Contains(key, StringComparer.OrdinalIgnoreCase))
+            queue = queue.Append(key).ToArray();
 
         var updated = new ModuleActivationDocument(
             ModuleActivationStateFile.CurrentSchemaVersion,
+            document.Revision + 1,
             _hostVersionProvider.CurrentHostVersion,
             DateTimeOffset.UtcNow,
             modules,
-            queue);
+            queue,
+            document.Diagnostics);
+
         _stateStore.WriteAtomic(updated);
         return record;
     }
 
-    private void PromoteStagingToInstalled(
+    private static void ValidatePendingConflict(
+        ModuleActivationRecord? existing,
+        string incomingVersion,
+        string incomingFingerprint)
+    {
+        if (existing is null)
+            return;
+
+        if (existing.State != ModuleActivationState.PendingActivation ||
+            string.IsNullOrWhiteSpace(existing.PendingVersion))
+        {
+            return;
+        }
+
+        if (string.Equals(existing.PendingVersion, incomingVersion, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.Equals(existing.PendingFingerprint, incomingFingerprint, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            throw new ModuleActivationException(
+                "Cùng pending version nhưng fingerprint khác.",
+                ModuleActivationErrorCodes.PendingConflict);
+        }
+
+        throw new ModuleActivationException(
+            $"Đang chờ kích hoạt phiên bản '{existing.PendingVersion}'; không nhận phiên bản '{incomingVersion}'.",
+            ModuleActivationErrorCodes.PendingConflict);
+    }
+
+    private async Task PromoteStagingToInstalledAsync(
         string stagingFull,
         string installedDirectory,
         ModulePackageManifest manifest,
         CancellationToken cancellationToken)
     {
         var parent = Path.GetDirectoryName(installedDirectory)
-            ?? throw new ModuleActivationException("Không xác định được thư mục Installed.");
+            ?? throw new ModuleActivationException("Không xác định được thư mục Installed.", ModuleActivationErrorCodes.InvalidStaging);
         Directory.CreateDirectory(parent);
 
         var tempDirectory = Path.Combine(
@@ -258,36 +348,34 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
         {
             Directory.CreateDirectory(tempDirectory);
 
-            // Copy signed metadata first.
-            CopyFileVerified(
+            await CopyFileAsync(
                 Path.Combine(stagingFull, ModulePackageFormat.ManifestFileName),
                 Path.Combine(tempDirectory, ModulePackageFormat.ManifestFileName),
-                cancellationToken);
-            CopyFileVerified(
+                cancellationToken).ConfigureAwait(false);
+            await CopyFileAsync(
                 Path.Combine(stagingFull, ModulePackageFormat.SignatureFileName),
                 Path.Combine(tempDirectory, ModulePackageFormat.SignatureFileName),
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             foreach (var payload in manifest.Payload)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var source = ModulePackagePathRules.ResolveUnderRoot(stagingFull, payload.Path);
                 var destination = ModulePackagePathRules.ResolveUnderRoot(tempDirectory, payload.Path);
-                RejectReparsePoint(source, isDirectory: false);
+                RejectReparsePoint(source);
 
                 var destinationDirectory = Path.GetDirectoryName(destination);
                 if (!string.IsNullOrWhiteSpace(destinationDirectory))
                     Directory.CreateDirectory(destinationDirectory);
 
-                CopyFileVerified(source, destination, cancellationToken);
+                await CopyFileAsync(source, destination, cancellationToken).ConfigureAwait(false);
                 VerifyCopiedPayload(destination, payload);
             }
 
-            // Re-check payload set matches between staging and temp (no extras required beyond allow-list).
-            VerifyPayloadIntegrity(tempDirectory, manifest, cancellationToken);
+            await VerifyExactStagedContentsAsync(tempDirectory, manifest, cancellationToken).ConfigureAwait(false);
 
             if (Directory.Exists(installedDirectory))
-                throw new ModuleActivationException("Thư mục Installed xuất hiện trong lúc promote.");
+                throw new ModuleActivationException("Thư mục Installed xuất hiện trong lúc promote.", ModuleActivationErrorCodes.InvalidStaging);
 
             Directory.Move(tempDirectory, installedDirectory);
             succeeded = true;
@@ -299,38 +387,154 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
         }
     }
 
-    private void EnsureInstalledParentSafe(string safeModuleId, string safeVersion)
+    private async Task CopyFileAsync(string source, string destination, CancellationToken cancellationToken)
     {
-        var moduleRoot = Path.Combine(_paths.InstalledRoot, safeModuleId);
-        var versionRoot = Path.Combine(moduleRoot, safeVersion);
-
-        var resolvedModule = Path.GetFullPath(moduleRoot);
-        var resolvedVersion = Path.GetFullPath(versionRoot);
-        var installedRoot = Path.GetFullPath(_paths.InstalledRoot)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-
-        if (!resolvedModule.StartsWith(installedRoot, StringComparison.OrdinalIgnoreCase) ||
-            !resolvedVersion.StartsWith(installedRoot, StringComparison.OrdinalIgnoreCase))
+        if (CopyFileAsyncForTests is not null)
         {
-            throw new ModuleActivationException("Đường dẫn Installed không an toàn.");
+            await CopyFileAsyncForTests(source, destination, cancellationToken).ConfigureAwait(false);
+            return;
         }
+
+        RejectReparsePoint(source);
+        await using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using var output = new FileStream(
+            destination,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        var buffer = new byte[81920];
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+                break;
+            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+        }
+
+        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static void VerifyPayloadIntegrity(
+    private static Task VerifyExactStagedContentsAsync(
         string root,
         ModulePackageManifest manifest,
         CancellationToken cancellationToken)
     {
+        RejectReparsePoint(root);
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ModulePackageFormat.ManifestFileName,
+            ModulePackageFormat.SignatureFileName
+        };
+        foreach (var payload in manifest.Payload)
+            allowed.Add(payload.Path.Replace('\\', '/'));
+
+        foreach (var relative in EnumerateFilesNoFollow(root))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!allowed.Contains(relative))
+                throw new ModuleActivationException(
+                    $"Staging chứa tệp thừa không có trong manifest: {relative}",
+                    ModuleActivationErrorCodes.InvalidStaging);
+        }
+
+        foreach (var name in new[] { ModulePackageFormat.ManifestFileName, ModulePackageFormat.SignatureFileName })
+        {
+            var path = Path.Combine(root, name);
+            if (!File.Exists(path))
+                throw new ModuleActivationException($"Thiếu {name}.", ModuleActivationErrorCodes.InvalidStaging);
+            RejectReparsePoint(path);
+        }
+
         foreach (var payload in manifest.Payload)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var path = ModulePackagePathRules.ResolveUnderRoot(root, payload.Path);
             if (!File.Exists(path))
-                throw new ModuleActivationException($"Staging thiếu payload '{payload.Path}'.");
-
-            RejectReparsePoint(path, isDirectory: false);
+                throw new ModuleActivationException($"Thiếu payload '{payload.Path}'.", ModuleActivationErrorCodes.InvalidStaging);
+            RejectReparsePoint(path);
             VerifyCopiedPayload(path, payload);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static async Task VerifyExactInstalledContentsAsync(
+        string installedDirectory,
+        string expectedFingerprint,
+        CancellationToken cancellationToken)
+    {
+        var manifestPath = Path.Combine(installedDirectory, ModulePackageFormat.ManifestFileName);
+        var signaturePath = Path.Combine(installedDirectory, ModulePackageFormat.SignatureFileName);
+        if (!File.Exists(manifestPath) || !File.Exists(signaturePath))
+            throw new ModuleActivationException("Installed thiếu metadata đã ký.", ModuleActivationErrorCodes.TamperedInstall);
+
+        var manifestBytes = await ReadAllBytesAsync(manifestPath, cancellationToken).ConfigureAwait(false);
+        var signatureBytes = await ReadAllBytesAsync(signaturePath, cancellationToken).ConfigureAwait(false);
+        var fingerprint = ComputePackageFingerprint(manifestBytes, signatureBytes);
+        if (!string.Equals(fingerprint, expectedFingerprint, StringComparison.OrdinalIgnoreCase))
+            throw new ModuleActivationException("Fingerprint installed không khớp gói staging.", ModuleActivationErrorCodes.TamperedInstall);
+
+        ModulePackageManifest manifest;
+        try
+        {
+            manifest = ModuleManifestParser.Parse(manifestBytes);
+        }
+        catch (ModulePackageValidationException ex)
+        {
+            throw new ModuleActivationException(ex.Message, ModuleActivationErrorCodes.TamperedInstall);
+        }
+
+        await VerifyExactStagedContentsAsync(installedDirectory, manifest, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static IEnumerable<string> EnumerateFilesNoFollow(string root)
+    {
+        var rootFull = Path.GetFullPath(root)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var stack = new Stack<string>();
+        stack.Push(rootFull);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            RejectReparsePoint(current);
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(current))
+            {
+                var attrs = File.GetAttributes(entry);
+                if ((attrs & FileAttributes.ReparsePoint) != 0)
+                    throw new ModuleActivationException(
+                        "Không chấp nhận symlink/reparse trong cây staging/installed.",
+                        ModuleActivationErrorCodes.InvalidStaging);
+
+                if ((attrs & FileAttributes.Directory) != 0)
+                {
+                    stack.Push(entry);
+                    continue;
+                }
+
+                var relative = Path.GetRelativePath(rootFull, entry).Replace('\\', '/');
+                yield return relative;
+            }
+        }
+    }
+
+    private void EnsureInstalledParentSafe(string safeModuleId, string safeVersion)
+    {
+        var moduleRoot = Path.Combine(_paths.InstalledRoot, safeModuleId);
+        var versionRoot = Path.Combine(moduleRoot, safeVersion);
+        var installedRoot = Path.GetFullPath(_paths.InstalledRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        if (!Path.GetFullPath(moduleRoot).StartsWith(installedRoot, StringComparison.OrdinalIgnoreCase) ||
+            !Path.GetFullPath(versionRoot).StartsWith(installedRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ModuleActivationException("Đường dẫn Installed không an toàn.", ModuleActivationErrorCodes.InvalidStaging);
         }
     }
 
@@ -338,34 +542,32 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
     {
         var info = new FileInfo(path);
         if (info.Length != payload.Length)
-            throw new ModuleActivationException($"Kích thước payload không khớp: {payload.Path}.");
+            throw new ModuleActivationException($"Kích thước payload không khớp: {payload.Path}.", ModuleActivationErrorCodes.TamperedInstall);
 
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         var hash = Convert.ToHexString(SHA256.HashData(stream));
         if (!string.Equals(hash, payload.Sha256, StringComparison.OrdinalIgnoreCase))
-            throw new ModuleActivationException($"Checksum payload không khớp: {payload.Path}.");
+            throw new ModuleActivationException($"Checksum payload không khớp: {payload.Path}.", ModuleActivationErrorCodes.TamperedInstall);
     }
 
-    private static void CopyFileVerified(string source, string destination, CancellationToken cancellationToken)
+    internal static string ComputePackageFingerprint(ReadOnlySpan<byte> manifestBytes, ReadOnlySpan<byte> signatureBytes)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        RejectReparsePoint(source, isDirectory: false);
-        using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var output = new FileStream(
-            destination,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            81920,
-            FileOptions.SequentialScan);
-        input.CopyTo(output);
-        output.Flush(flushToDisk: true);
+        var buffer = new byte[manifestBytes.Length + signatureBytes.Length];
+        manifestBytes.CopyTo(buffer);
+        signatureBytes.CopyTo(buffer.AsSpan(manifestBytes.Length));
+        return Convert.ToHexString(SHA256.HashData(buffer));
+    }
+
+    private static async Task<byte[]> ReadAllBytesAsync(string path, CancellationToken cancellationToken)
+    {
+        RejectReparsePoint(path);
+        return await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
     }
 
     private static string RequireDirectoryUnderRoot(string root, string candidate, string label)
     {
         if (!Directory.Exists(candidate))
-            throw new ModuleActivationException($"Không tìm thấy thư mục {label}.");
+            throw new ModuleActivationException($"Không tìm thấy thư mục {label}.", ModuleActivationErrorCodes.InvalidStaging);
 
         var rootFull = Path.GetFullPath(root)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
@@ -373,38 +575,62 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
         var candidateFull = Path.GetFullPath(candidate)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        // Staging folder must be a strict subdirectory of StagingRoot.
         if (string.Equals(
                 candidateFull,
                 rootFull.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 StringComparison.OrdinalIgnoreCase))
         {
-            throw new ModuleActivationException($"Thư mục {label} không hợp lệ.");
+            throw new ModuleActivationException($"Thư mục {label} không hợp lệ.", ModuleActivationErrorCodes.InvalidStaging);
         }
 
         if (!candidateFull.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
-            throw new ModuleActivationException($"Thư mục {label} nằm ngoài vùng cho phép.");
+            throw new ModuleActivationException($"Thư mục {label} nằm ngoài vùng cho phép.", ModuleActivationErrorCodes.InvalidStaging);
 
         return candidateFull;
     }
 
-    private static void RejectReparsePoint(string path, bool isDirectory)
+    private static void RejectReparseChain(string path, string stopAtRoot)
     {
-        if (isDirectory)
-        {
-            if (!Directory.Exists(path))
-                return;
-            var attrs = File.GetAttributes(path);
-            if ((attrs & FileAttributes.ReparsePoint) != 0)
-                throw new ModuleActivationException("Không chấp nhận thư mục symlink/reparse trong activation.");
-            return;
-        }
+        var stop = Path.GetFullPath(stopAtRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var current = Path.GetFullPath(path);
 
-        if (!File.Exists(path))
+        while (true)
+        {
+            RejectReparsePoint(current);
+            if (string.Equals(current, stop, StringComparison.OrdinalIgnoreCase))
+                break;
+
+            var parent = Path.GetDirectoryName(current);
+            if (string.IsNullOrWhiteSpace(parent) ||
+                string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            current = parent;
+            // Do not walk above stop root.
+            var stopPrefix = stop + Path.DirectorySeparatorChar;
+            if (!current.StartsWith(stopPrefix, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(current, stop, StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+        }
+    }
+
+    private static void RejectReparsePoint(string path)
+    {
+        if (!File.Exists(path) && !Directory.Exists(path))
             return;
-        var fileAttrs = File.GetAttributes(path);
-        if ((fileAttrs & FileAttributes.ReparsePoint) != 0)
-            throw new ModuleActivationException("Không chấp nhận tệp symlink/reparse trong activation.");
+
+        var attrs = File.GetAttributes(path);
+        if ((attrs & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new ModuleActivationException(
+                "Không chấp nhận symlink/reparse trong activation.",
+                ModuleActivationErrorCodes.InvalidStaging);
+        }
     }
 
     private static IReadOnlyList<string> RebuildQueue(
@@ -425,7 +651,7 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
                 ordered.Add(id);
         }
 
-        foreach (var id in pending.OrderBy(static x => x, StringComparer.OrdinalIgnoreCase))
+        foreach (var id in pending.OrderBy(static x => x, StringComparer.Ordinal))
             ordered.Add(id);
 
         return ordered;
@@ -435,7 +661,9 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
     {
         var cleaned = string.Concat(value.Where(ch => char.IsLetterOrDigit(ch) || ch is '.' or '-' or '_'));
         if (string.IsNullOrWhiteSpace(cleaned))
-            throw new ModuleActivationException("moduleId/moduleVersion không thể dùng làm tên thư mục.");
+            throw new ModuleActivationException(
+                "moduleId/moduleVersion không thể dùng làm tên thư mục.",
+                ModuleActivationErrorCodes.InvalidStaging);
         return cleaned;
     }
 
@@ -448,12 +676,10 @@ public sealed class ModuleActivationCatalog : IModuleActivationCatalog
         }
         catch
         {
-            // Best-effort cleanup after failed promote.
+            // Best-effort cleanup.
         }
     }
 
-    private static ModuleActivationAcceptResult Fail(string message) =>
-        new(false, message);
+    private static ModuleActivationAcceptResult Fail(string errorCode, string message) =>
+        new(false, message, errorCode);
 }
-
-public sealed class ModuleActivationException(string message) : Exception(message);

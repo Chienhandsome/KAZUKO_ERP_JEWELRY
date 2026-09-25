@@ -78,12 +78,13 @@ Không load assembly mới vào process trước khi các bước kiểm tra ho�
 - Host compatibility qua `IHostVersionProvider`
 - Staging an toàn (temp → staged, cleanup khi lỗi)
 
-`IModuleActivationCatalog` (007B1):
+`IModuleActivationCatalog` (007B1, hardened):
 
 - Promote thư mục `.staged` → `Modules/Installed/{moduleId}/{version}`
-- Ghi `activation-state.json` atomic (+ `.bak`) với trạng thái `PendingActivation`
-- Khóa `activation.lock` exclusive cross-process
-- Kiểm tra lại hash payload khi promote; từ chối cùng version khác nội dung
+- Ghi `activation-state.json` atomic (+ `.bak`) fail-closed với `PendingActivation`
+- Fingerprint = SHA-256(module.json ‖ signature.sig); revision + installed version catalog
+- Khóa named mutex + `activation.lock`; reserved host modules deny-by-default
+- Kiểm tra exact contents / reparse; không `SaveAsync` public bypass state machine
 
 **Đây vẫn chưa phải installer production hoàn chỉnh.** Còn thiếu (TASK-007B2+):
 
