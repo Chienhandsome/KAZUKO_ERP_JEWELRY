@@ -5,4 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Kazuko.Core\Kazuko.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FirebirdSql.Data.FirebirdClient" Version="10.3.4" />
+  </ItemGroup>
 </Project>

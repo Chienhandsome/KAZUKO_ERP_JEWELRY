@@ -32,7 +32,7 @@ public partial class App : Application
     {
         IPreferencesService preferences = new JsonPreferencesService();
         IAppearanceService appearance = new AppearanceService(preferences);
-        IAuthenticationService authentication = new DevelopmentAuthenticationService();
+        IAuthenticationService authentication = new FirebirdAuthenticationService();
         IModulePackageInstaller packageInstaller = new ModulePackageInstaller(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KazukoERP", "Updates"));
 

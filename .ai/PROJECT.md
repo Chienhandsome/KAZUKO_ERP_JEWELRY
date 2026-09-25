@@ -64,23 +64,18 @@ There are no current application services, repositories, DAO classes, domain mod
 
 ## Database
 
-Firebird is a documented target requirement, not an implemented dependency in the current repository.
+Firebird Embedded 5.0.4 is the production database engine for this repository.
 
-Current facts:
+Current conventions (established by TASK-001):
 
-- No Firebird package is referenced by any `.csproj`.
-- No Firebird connection string, connection factory, helper, repository, DAO, SQL command, transaction helper, or migration is present.
-- Authentication currently uses `DevelopmentAuthenticationService` and accepts the local development account described in the README; it does not query Firebird.
-- There is therefore no current repository convention, ID-generation strategy, or transaction convention to copy.
-
-For future database tasks:
-
-- First inspect the approved legacy project for business/schema behavior, but do not edit it.
-- Put database access behind Core/application-facing interfaces; do not put SQL in Views or ViewModels.
-- Use parameterized Firebird SQL and explicit disposal.
-- Use a transaction for multi-step writes.
-- Document the chosen connection, repository, ID-generation, migration, and transaction patterns here as soon as the first production Firebird slice is approved and implemented.
-- Do not add a Firebird package or change schema without explicit task authorization.
+- Provider package: `FirebirdSql.Data.FirebirdClient` **10.3.4**, referenced only from `Kazuko.Infrastructure`.
+- Connection helper: `Kazuko.Infrastructure.Data.FirebirdDatabase` + `FirebirdRuntime` + `ConnectionProfileStore`.
+- Default mode: Embedded. Client library resolves from `KAZUKO_FIREBIRD_HOME`, else `BaseDirectory\firebird\fbclient.dll`, else the repo bundle `firebird\Firebird-5.0.4.1812-0-windows-x64`.
+- Development database file: `data\data.fdb` (gitignored). Resolve by walking up from `AppContext.BaseDirectory` looking for `data\data.fdb`.
+- Engine credentials come from environment (`KAZUKO_FIREBIRD_*`) or the well-known embedded defaults; optional LocalAppData profile stores non-secret connection fields only.
+- Authentication: `FirebirdAuthenticationService` validates `USERS` with parameterized SQL and PBKDF2-SHA256 (`PASSWORD_HASH` / `PASSWORD_SALT` / `PASSWORD_ITERATIONS`), requires an active branch code, updates `LAST_LOGIN_AT`, and writes `AUDIT_LOG` on success/failure.
+- SQL stays in Infrastructure (or future repositories). Views/ViewModels/code-behind must not contain SQL.
+- Do not modify schema without an explicit migration task. Do not commit `data.fdb` or the Firebird runtime bundle.
 
 ## UI
 

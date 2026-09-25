@@ -5,6 +5,8 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>KAZUKO_ERP_JEWELRY</AssemblyName>
     <RootNamespace>Kazuko.App</RootNamespace>
+    <PlatformTarget>x64</PlatformTarget>
+    <FirebirdHome>$(MSBuildThisFileDirectory)..\..\firebird\Firebird-5.0.4.1812-0-windows-x64</FirebirdHome>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Kazuko.Core\Kazuko.Core.csproj" />
@@ -12,5 +14,47 @@
     <ProjectReference Include="..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.Authentication\Kazuko.Modules.Authentication.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.Dashboard\Kazuko.Modules.Dashboard.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(FirebirdHome)\fbclient.dll')">
+    <Content Include="$(FirebirdHome)\*.dll">
+      <Link>firebird\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(FirebirdHome)\firebird.msg">
+      <Link>firebird\firebird.msg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(FirebirdHome)\firebird.conf">
+      <Link>firebird\firebird.conf</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(FirebirdHome)\plugins.conf">
+      <Link>firebird\plugins.conf</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(FirebirdHome)\databases.conf">
+      <Link>firebird\databases.conf</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(FirebirdHome)\plugins\**\*">
+      <Link>firebird\plugins\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(FirebirdHome)\intl\**\*">
+      <Link>firebird\intl\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(FirebirdHome)\tzdata\**\*">
+      <Link>firebird\tzdata\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 </Project>

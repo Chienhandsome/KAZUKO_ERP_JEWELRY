@@ -1,7 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Authentication.LoginView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             MinWidth="420" MinHeight="520">
+             MinWidth="420" MinHeight="560">
     <Grid Background="{DynamicResource AppBackgroundBrush}">
         <Border Width="420" Margin="32" HorizontalAlignment="Center" VerticalAlignment="Center"
                 Style="{DynamicResource CardBorderStyle}">
@@ -17,7 +17,12 @@
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Subtitle}" />
 
-                <TextBlock Text="Tên đăng nhập" Margin="0,30,0,7" FontWeight="SemiBold" />
+                <TextBlock Text="Chi nhánh" Margin="0,30,0,7" FontWeight="SemiBold" />
+                <ComboBox ItemsSource="{Binding Branches}"
+                          SelectedItem="{Binding SelectedBranch}"
+                          DisplayMemberPath="Name" />
+
+                <TextBlock Text="Tên đăng nhập" Margin="0,18,0,7" FontWeight="SemiBold" />
                 <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" />
 
                 <TextBlock Text="Mật khẩu" Margin="0,18,0,7" FontWeight="SemiBold" />
@@ -28,7 +33,7 @@
                 <Button Content="ĐĂNG NHẬP" Margin="0,24,0,0" IsDefault="True"
                         Style="{DynamicResource PrimaryButtonStyle}"
                         Command="{Binding SignInCommand}" />
-                <TextBlock Text="Tài khoản thử nghiệm: admin, mật khẩu để trống"
+                <TextBlock Text="Đăng nhập bằng tài khoản Firebird đã cấu hình trên máy này."
                            Margin="0,16,0,0" FontSize="{DynamicResource FontSize.Caption}"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
             </StackPanel>
