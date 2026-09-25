@@ -43,11 +43,13 @@ Core -> no other solution project
 
 ## Database
 
-Firebird Embedded 5.0.4 conventions (TASK-001 + TASK-006):
+Firebird Embedded 5.0.4 conventions (TASK-001 + TASK-006 + TASK-008A):
 
 - Provider only in Infrastructure; reuse `FirebirdDatabase.CreateConnection()`.
 - Development DB: `data\data.fdb` (gitignored). Password from `KAZUKO_FIREBIRD_PASSWORD`.
-- Customer persistence: `FirebirdCustomerRepository` against existing `CUSTOMERS` / `CUSTOMER_GROUPS` / `SALES_ORDERS` / `ORDER_PAYMENTS` / `AUDIT_LOG` (no schema change in TASK-006).
+- Migrations: official scripts tracked in `database/migrations/` and recorded in `SCHEMA_MIGRATIONS` with SHA-256 checksums.
+- Customer persistence: `FirebirdCustomerRepository` against `CUSTOMERS` / `CUSTOMER_GROUPS` / `SALES_ORDERS` / `ORDER_PAYMENTS` / `AUDIT_LOG`.
+- Supplier persistence (TASK-008A migration 30): `SUPPLIERS` and `SUPPLIER_GROUPS` tables with company scoping composite FKs; `STOCK_DOCUMENTS` augmented with nullable `SUPPLIER_ID` FK for receipt/purchase aggregation in TASK-008B.
 - SQL stays in Infrastructure. Views/ViewModels must not contain SQL.
 
 ## Session
