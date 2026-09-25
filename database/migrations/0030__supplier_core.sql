@@ -126,9 +126,6 @@ ALTER TABLE STOCK_DOCUMENTS ADD CONSTRAINT FK_STOCK_DOC_SUPPLIER
 
 CREATE INDEX IX_STOCK_DOC_SUPPLIER ON STOCK_DOCUMENTS (COMPANY_ID, SUPPLIER_ID);
 
--- Publish DDL schema changes so that subsequent DML can compile against new tables
-COMMIT;
-
 -- Step 6: Seed Supplier Groups for company KAZUKO
 INSERT INTO SUPPLIER_GROUPS (COMPANY_ID, CODE, NAME, DESCRIPTION, IS_ACTIVE, IS_DEFAULT, DISPLAY_ORDER)
 SELECT ID, 'VANG', 'Vàng', 'Nhà cung cấp vàng nguyên liệu và vàng thành phẩm', TRUE, TRUE, 1

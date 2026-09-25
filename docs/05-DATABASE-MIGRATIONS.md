@@ -41,12 +41,13 @@ Remove-Item -Force "data\backups\test_verify.fdb"
 
 ### Bước 2: Áp dụng Migration bằng công cụ chuẩn hóa (`Invoke-KazukoMigration.ps1`)
 Công cụ `database/tools/Invoke-KazukoMigration.ps1` tự động:
-1. Tính mã băm SHA-256 thật của tệp artifact.
-2. Trích xuất số version và tên migration.
-3. Kiểm tra version trong `SCHEMA_MIGRATIONS` (từ chối an toàn nếu cùng version nhưng khác checksum).
-4. Tạo tệp wrapper thực thi `SET AUTODDL OFF;`, `INPUT '<artifact>';`, `INSERT INTO SCHEMA_MIGRATIONS ...;`, `COMMIT;`.
-5. Thực thi qua `isql.exe -b -ch UTF8`.
-6. Tự động dọn dẹp tệp wrapper tạm.
+1. Tính mã băm SHA-256 thật của tệp artifact (artifact nguyên bản không chứa COMMIT trung gian).
+2. Trích xuất và kiểm tra chặt chẽ số version và tên migration (`^[A-Za-z0-9_]+$`).
+3. Kiểm tra version trong `SCHEMA_MIGRATIONS` kèm kiểm tra mã thoát lệnh (exit code).
+4. Tạo snapshot sao lưu tự động (`gbak -b`) trước khi chạy để đảm bảo hoàn nguyên 100% nếu có bất kỳ lỗi nào.
+5. Tạo tệp wrapper thực thi an toàn dưới `SET AUTODDL OFF;`, phân tách ranh giới DDL và DML/Seed ở cấp runner để tương thích với kiến trúc Firebird engine, kèm quote đường dẫn tránh lỗi khoảng trắng.
+6. Khi gặp bất kỳ lỗi nào (lỗi DDL, lỗi Seed, lỗi kiểm tra Schema, lỗi Ledger), tự động hoàn nguyên cơ sở dữ liệu về nguyên trạng ban đầu từ snapshot (`gbak -c -rep`), bảo đảm atomicity tuyệt đối (zero schema leak).
+7. Ghi nhận sổ cái `SCHEMA_MIGRATIONS` với đầy đủ full artifact SHA-256 và dọn dẹp file tạm.
 
 ```powershell
 powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0030__supplier_core.sql"
@@ -66,8 +67,9 @@ Tệp `database/verification/verify_supplier_schema.sql` tự động ném ngo�
 - **Tệp nguồn:** `database/migrations/0030__supplier_core.sql`
 - **Phiên bản:** `30`
 - **Tên migration:** `SUPPLIER_CORE`
+- **Số lệnh COMMIT trong artifact:** `0` (Artifact sạch, hoàn toàn không chứa COMMIT)
 - **Mã băm Artifact SHA-256 (Tệp & Sổ cái giống nhau hoàn toàn):**
-  `F69CDDAF1DFA667FDD88F4FB338975A3402A77DB889AFE3B9869BF9D045B1D29`
+  `64FA278236812ABCAFCCD305E2B8CC4B6DB1FAA255345C3A501DC86A2C283373`
 
 ### 3.1. Bảng `SUPPLIER_GROUPS`
 Lưu trữ danh mục nhóm nhà cung cấp phục vụ phân loại và quản lý quan hệ đối tác:
