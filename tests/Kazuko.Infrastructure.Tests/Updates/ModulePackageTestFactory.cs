@@ -39,14 +39,14 @@ internal static class ModulePackageTestFactory
         var payloadDir = Path.Combine(workDirectory, "payload-src");
         Directory.CreateDirectory(payloadDir);
 
-        var files = new List<(string ArchivePath, string LocalPath, long Length, string Sha256)>();
+        var files = new List<(string ArchivePath, string LocalPath, long Length, string Sha256, int? ExternalAttributes)>();
         foreach (var file in options.PayloadFiles)
         {
             var safeLocalName = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(file.ArchivePath)))[..16];
             var local = Path.Combine(payloadDir, safeLocalName + ".bin");
             await File.WriteAllBytesAsync(local, file.Content);
             var hash = Convert.ToHexString(SHA256.HashData(file.Content));
-            files.Add((file.ArchivePath, local, file.Content.LongLength, hash));
+            files.Add((file.ArchivePath, local, file.Content.LongLength, hash, file.ExternalAttributes));
         }
 
         var payloadJson = new List<object>();
@@ -107,7 +107,9 @@ internal static class ModulePackageTestFactory
 
             foreach (var file in files)
             {
-                zip.CreateEntryFromFile(file.LocalPath, file.ArchivePath, CompressionLevel.Optimal);
+                var entry = zip.CreateEntryFromFile(file.LocalPath, file.ArchivePath, CompressionLevel.Optimal);
+                if (file.ExternalAttributes.HasValue)
+                    entry.ExternalAttributes = file.ExternalAttributes.Value;
             }
 
             foreach (var extra in options.ExtraZipEntries)
@@ -115,7 +117,11 @@ internal static class ModulePackageTestFactory
                 var entry = zip.CreateEntry(extra.ArchivePath, CompressionLevel.Optimal);
                 await using var stream = entry.Open();
                 await stream.WriteAsync(extra.Content);
+                if (extra.ExternalAttributes.HasValue)
+                    entry.ExternalAttributes = extra.ExternalAttributes.Value;
             }
+
+            options.MutateArchive?.Invoke(zip);
         }
 
         return (packagePath, keys);
@@ -141,6 +147,7 @@ internal static class ModulePackageTestFactory
         public string? CorruptLengthFor { get; set; }
         public Dictionary<string, object?> ExtraManifestFields { get; } = new();
         public object? ExtraManifestPayload { get; set; }
+        public Action<ZipArchive>? MutateArchive { get; set; }
         public List<PayloadFile> PayloadFiles { get; } =
         [
             new("bin/Kazuko.Modules.Warehouse.dll", Encoding.UTF8.GetBytes("fake-assembly-bytes"))
@@ -148,5 +155,5 @@ internal static class ModulePackageTestFactory
         public List<PayloadFile> ExtraZipEntries { get; } = [];
     }
 
-    internal sealed record PayloadFile(string ArchivePath, byte[] Content);
+    internal sealed record PayloadFile(string ArchivePath, byte[] Content, int? ExternalAttributes = null);
 }

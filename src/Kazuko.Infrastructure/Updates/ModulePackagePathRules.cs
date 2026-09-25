@@ -58,6 +58,9 @@ internal static class ModulePackagePathRules
             if (segment is "." or "..")
                 throw new ModulePackageValidationException("Đường dẫn có thành phần không an toàn.");
 
+            if (segment.EndsWith('.') || segment.EndsWith(' '))
+                throw new ModulePackageValidationException("Đường dẫn có thành phần không an toàn.");
+
             var withoutTrailingDots = segment.TrimEnd('.', ' ');
             var device = withoutTrailingDots.Split('.')[0];
             if (ReservedDeviceNames.Contains(device))
@@ -86,10 +89,14 @@ internal static class ModulePackagePathRules
 
 internal readonly struct ZipArchiveEntryAttributes(int externalAttributes)
 {
-    // ZIP "Unix" mode sits in the high 16 bits of ExternalAttributes.
+    // ZIP "Unix" mode sits in the high 16 bits of ExternalAttributes (S_IFLNK = 0xA000).
     private const int UnixSymlinkMask = 0xA000;
+    // Windows file attribute for reparse point (symlink/junction) sits in bit 10 (0x0400).
+    private const int WindowsReparsePointMask = 0x0400;
 
-    public bool IsSymlink => ((externalAttributes >> 16) & 0xF000) == UnixSymlinkMask;
+    public bool IsSymlink =>
+        ((externalAttributes >> 16) & 0xF000) == UnixSymlinkMask ||
+        (externalAttributes & WindowsReparsePointMask) != 0;
 }
 
 internal sealed class ModulePackageValidationException(string message) : Exception(message);

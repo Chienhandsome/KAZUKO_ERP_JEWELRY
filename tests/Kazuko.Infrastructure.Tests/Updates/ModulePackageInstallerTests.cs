@@ -329,6 +329,100 @@ public sealed class ModulePackageInstallerTests
         Assert.False(result.IsSuccess);
     }
 
+    [Fact]
+    public async Task Rejects_symlink_entry()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin/Kazuko.Modules.Warehouse.dll",
+                Encoding.UTF8.GetBytes("symlink-target"),
+                unchecked((int)0xA1FF0000)));
+            options.EntryAssembly = "bin/Kazuko.Modules.Warehouse.dll";
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("symlink", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Rejects_windows_reparse_point_entry()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin/Kazuko.Modules.Warehouse.dll",
+                Encoding.UTF8.GetBytes("reparse-point"),
+                0x0400));
+            options.EntryAssembly = "bin/Kazuko.Modules.Warehouse.dll";
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("symlink", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Rejects_path_with_trailing_dot()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin/module.dll.",
+                Encoding.UTF8.GetBytes("content")));
+            options.EntryAssembly = "bin/module.dll.";
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Rejects_path_with_trailing_space()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.PayloadFiles.Clear();
+            options.PayloadFiles.Add(new ModulePackageTestFactory.PayloadFile(
+                "bin/module.dll ",
+                Encoding.UTF8.GetBytes("content")));
+            options.EntryAssembly = "bin/module.dll ";
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Rejects_directory_entry_with_traversal()
+    {
+        using var harness = await PackageHarness.CreateAsync(options =>
+        {
+            options.ExtraZipEntries.Add(new ModulePackageTestFactory.PayloadFile(
+                "../sub/",
+                []));
+        });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Rejects_manifest_exceeding_entry_limit()
+    {
+        using var harness = await PackageHarness.CreateAsync(
+            options => { },
+            limits: new ModulePackageResourceLimits { MaxEntryBytes = 50 });
+
+        var result = await harness.Installer.ValidateAndStageAsync(harness.PackagePath);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("kích thước", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string CreateTempDir()
     {
         var path = Path.Combine(Path.GetTempPath(), "kazuko-pkg-tests", Guid.NewGuid().ToString("N"));

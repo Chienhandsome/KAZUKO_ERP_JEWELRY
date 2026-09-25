@@ -64,8 +64,7 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
             if (entries.Count == 0)
                 return Fail("Gói cập nhật trống.");
 
-            if (entries.Count > _limits.MaxEntryCount)
-                return Fail("Gói cập nhật vượt quá số lượng tệp cho phép.");
+            ValidateArchiveEntriesAndLimits(entries);
 
             var manifestEntry = FindRequiredEntry(entries, ModulePackageFormat.ManifestFileName);
             var signatureEntry = FindRequiredEntry(entries, ModulePackageFormat.SignatureFileName);
@@ -96,7 +95,7 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
             if (!_signatureVerifier.Verify(manifestBytes, signatureBytes, publicKey, manifest.SignatureAlgorithm))
                 return Fail("Chữ ký số của gói không hợp lệ.");
 
-            ValidateArchiveStructure(entries, manifest);
+            ValidateArchivePayloadMatching(entries, manifest);
 
             await VerifyPayloadIntegrityAsync(entries, manifest, cancellationToken);
 
@@ -182,35 +181,33 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
         }
     }
 
-    private void ValidateArchiveStructure(IReadOnlyList<ZipArchiveEntry> entries, ModulePackageManifest manifest)
+    private void ValidateArchiveEntriesAndLimits(IReadOnlyList<ZipArchiveEntry> entries)
     {
-        var payloadMap = manifest.Payload.ToDictionary(
-            p => p.Path,
-            p => p,
-            StringComparer.OrdinalIgnoreCase);
+        if (entries.Count > _limits.MaxEntryCount)
+            throw new ModulePackageValidationException("Gói cập nhật vượt quá số lượng tệp cho phép.");
 
         var seenCanonical = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         long totalUncompressed = 0;
 
         foreach (var entry in entries)
         {
-            var name = entry.FullName.Replace('\\', '/').TrimEnd('/');
+            var name = NormalizeEntryName(entry.FullName);
             if (string.IsNullOrWhiteSpace(name))
                 continue;
 
+            ModulePackagePathRules.ValidateRelativePath(name, allowEmpty: false);
+
             if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
             {
-                // Directory markers are not extractable payload; ignore only if empty content.
+                if (entry.Length != 0)
+                    throw new ModulePackageValidationException("Thư mục trong gói không được chứa dữ liệu.");
                 continue;
             }
-
-            ModulePackagePathRules.ValidateRelativePath(name, allowEmpty: false);
 
             if (ModulePackagePathRules.LooksLikeSymlink(new ZipArchiveEntryAttributes(entry.ExternalAttributes)))
                 throw new ModulePackageValidationException("Gói chứa mục symlink không được phép.");
 
-            var canonical = name;
-            if (!seenCanonical.Add(canonical))
+            if (!seenCanonical.Add(name))
                 throw new ModulePackageValidationException("Gói chứa đường dẫn trùng.");
 
             if (entry.Length < 0 || entry.Length > _limits.MaxEntryBytes)
@@ -226,6 +223,36 @@ public sealed class ModulePackageInstaller : IModulePackageInstaller
                 if (ratio > _limits.MaxCompressionRatio)
                     throw new ModulePackageValidationException("Tỷ lệ nén của gói vượt quá giới hạn an toàn.");
             }
+            else if (entry.Length > 0)
+            {
+                throw new ModulePackageValidationException("Tỷ lệ nén của gói vượt quá giới hạn an toàn.");
+            }
+        }
+
+        var manifestEntry = FindRequiredEntry(entries, ModulePackageFormat.ManifestFileName);
+        if (manifestEntry.Length > Math.Min(_limits.MaxEntryBytes, 1_048_576))
+            throw new ModulePackageValidationException("Kích thước tệp module.json vượt quá giới hạn cho phép.");
+
+        var signatureEntry = FindRequiredEntry(entries, ModulePackageFormat.SignatureFileName);
+        if (signatureEntry.Length > Math.Min(_limits.MaxEntryBytes, 65_536))
+            throw new ModulePackageValidationException("Kích thước tệp signature.sig vượt quá giới hạn cho phép.");
+    }
+
+    private static void ValidateArchivePayloadMatching(IReadOnlyList<ZipArchiveEntry> entries, ModulePackageManifest manifest)
+    {
+        var payloadMap = manifest.Payload.ToDictionary(
+            p => p.Path,
+            p => p,
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in entries)
+        {
+            var name = NormalizeEntryName(entry.FullName);
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
+                continue;
 
             if (MetadataNames.Contains(Path.GetFileName(name)) &&
                 string.Equals(Path.GetFileName(name), name, StringComparison.OrdinalIgnoreCase))
