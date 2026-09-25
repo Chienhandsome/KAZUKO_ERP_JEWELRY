@@ -6,3 +6,5 @@ artifacts/
 *.suo
 *.cache
 *.kazuko-module.staging
+/firebird
+/.ai

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Kazuko.App/Kazuko.App.csproj" />
+    <Project Path="src/Kazuko.Core/Kazuko.Core.csproj" />
+    <Project Path="src/Kazuko.Infrastructure/Kazuko.Infrastructure.csproj" />
+    <Project Path="src/Kazuko.Shared.UI/Kazuko.Shared.UI.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Kazuko.Modules.Authentication/Kazuko.Modules.Authentication.csproj" />
+    <Project Path="src/Modules/Kazuko.Modules.Dashboard/Kazuko.Modules.Dashboard.csproj" />
+  </Folder>
+</Solution>
