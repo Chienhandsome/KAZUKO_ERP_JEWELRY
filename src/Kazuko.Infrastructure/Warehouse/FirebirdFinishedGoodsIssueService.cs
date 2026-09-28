@@ -2,6 +2,7 @@ using FirebirdSql.Data.FirebirdClient;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Data;
+using Kazuko.Infrastructure.Finance;
 
 namespace Kazuko.Infrastructure.Warehouse;
 
@@ -157,104 +158,11 @@ public sealed class FirebirdFinishedGoodsIssueService : IFinishedGoodsIssueServi
         }
     }
 
-    public async Task ReverseAsync(
+    public Task ReverseAsync(
         long documentId,
         string reason,
         AuthenticatedSession session,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(session);
-        StockPostingSupport.EnsureBranch(session);
-        if (string.IsNullOrWhiteSpace(reason))
-            throw new InvalidOperationException("Phải nhập lý do hủy.");
-
-        await using var connection = FirebirdDatabase.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var fbTx = (FbTransaction)transaction;
-
-        try
-        {
-            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
-            long? salesOrderId;
-            string status;
-            await using (var docCmd = new FbCommand("""
-                SELECT DOCUMENT_TYPE, STATUS_CODE, SALES_ORDER_ID
-                FROM STOCK_DOCUMENTS
-                WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
-                WITH LOCK
-                """, connection, fbTx))
-            {
-                docCmd.Parameters.Add("@ID", FbDbType.BigInt).Value = documentId;
-                docCmd.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
-                docCmd.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
-                await using var reader = await docCmd.ExecuteReaderAsync(cancellationToken);
-                if (!await reader.ReadAsync(cancellationToken))
-                    throw new InvalidOperationException("Không tìm thấy chứng từ.");
-                if (reader.GetString(0) != StockDocumentTypes.FinishedGoodsIssue)
-                    throw new InvalidOperationException("Chỉ hủy được phiếu xuất thành phẩm.");
-                status = reader.GetString(1);
-                salesOrderId = reader.IsDBNull(2) ? null : reader.GetInt64(2);
-            }
-
-            if (status != StockDocumentStatuses.Posted)
-                throw new InvalidOperationException("Chỉ hủy chứng từ đã ghi sổ.");
-
-            await using (var cancel = new FbCommand("""
-                UPDATE STOCK_DOCUMENTS
-                   SET STATUS_CODE = 'CANCELLED',
-                       CANCELLED_BY = @BY,
-                       CANCELLED_AT = CURRENT_TIMESTAMP,
-                       CANCELLATION_REASON = @REASON,
-                       UPDATED_AT = CURRENT_TIMESTAMP
-                 WHERE ID = @ID AND STATUS_CODE = 'POSTED'
-                """, connection, fbTx))
-            {
-                cancel.Parameters.Add("@BY", FbDbType.BigInt).Value =
-                    session.UserId > 0 ? session.UserId : DBNull.Value;
-                cancel.Parameters.Add("@REASON", FbDbType.VarChar, 500).Value = reason.Trim();
-                cancel.Parameters.Add("@ID", FbDbType.BigInt).Value = documentId;
-                if (await cancel.ExecuteNonQueryAsync(cancellationToken) != 1)
-                    throw new InvalidOperationException("Không thể hủy — chứng từ đã thay đổi.");
-            }
-
-            if (salesOrderId is > 0)
-            {
-                await using var clearSo = new FbCommand("""
-                    UPDATE SALES_ORDERS
-                       SET FINISHED_GOODS_ISSUE_DOCUMENT_ID = NULL,
-                           FINISHED_GOODS_ISSUED_AT = NULL,
-                           UPDATED_AT = CURRENT_TIMESTAMP
-                     WHERE ID = @ID AND FINISHED_GOODS_ISSUE_DOCUMENT_ID = @DOC
-                    """, connection, fbTx);
-                clearSo.Parameters.Add("@ID", FbDbType.BigInt).Value = salesOrderId.Value;
-                clearSo.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
-                await clearSo.ExecuteNonQueryAsync(cancellationToken);
-
-                // Restore finished products that were sold for this order and have no other linkage.
-                await using var restoreFp = new FbCommand("""
-                    UPDATE FINISHED_PRODUCTS
-                       SET STATUS_CODE = 'IN_STOCK'
-                     WHERE SALES_ORDER_ID = @SO
-                       AND STATUS_CODE = 'SOLD'
-                       AND BRANCH_ID = @BID
-                    """, connection, fbTx);
-                restoreFp.Parameters.Add("@SO", FbDbType.BigInt).Value = salesOrderId.Value;
-                restoreFp.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
-                await restoreFp.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            await AuditLogWriter.WriteAsync(
-                connection, fbTx, "FINISHED_GOODS_ISSUE_REVERSED",
-                session.UserId, session.Username, session.BranchId,
-                "STOCK_DOCUMENT", documentId.ToString(), reason, cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
+        CancellationToken cancellationToken = default) =>
+        new FirebirdDocumentReversalService().ReverseStockDocumentAsync(
+            documentId, reason, session, cancellationToken);
 }

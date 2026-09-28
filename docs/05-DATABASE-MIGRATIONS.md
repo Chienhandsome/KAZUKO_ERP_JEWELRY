@@ -238,3 +238,17 @@ COMMIT;
   powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0037__receivable_debts_loss_compensation.sql"
   ```
 - **Rollback (dev):** gỡ FK/cột bồi thường → `DROP TABLE RECEIVABLE_DEBT_COLLECTIONS;` → `DROP TABLE RECEIVABLE_DEBTS;` → xóa ledger 37. Production: restore `.fbk`.
+
+---
+
+## 11. Migration Version 38: `0038__document_reversal_and_party_credits.sql`
+
+- **Phiên bản:** `38` — sổ hủy/đảo + credit NCC/khách (không phải thu/chi).
+- **Bảng:** `DOCUMENT_REVERSALS` (unique theo nguồn → không đảo hai lần), `PARTY_CREDITS`.
+- **Cột hủy:** `CASH_VOUCHERS` / `FINANCIAL_SETTLEMENTS` thêm `CANCELLED_*` / `CANCELLATION_REASON`.
+- **Verification:** `database/verification/verify_document_reversal_schema.sql`.
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0038__document_reversal_and_party_credits.sql"
+  ```
+- **Quy tắc:** credit giữ tiền cấn lần sau **không** tạo `CASH_VOUCHERS`. Hủy chứng từ đảo movement + voucher + debt/settlement trong cùng transaction; chặn khi còn chứng từ phụ thuộc chưa đảo.

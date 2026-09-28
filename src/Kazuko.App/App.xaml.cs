@@ -79,6 +79,8 @@ public partial class App : Application
         IFinancialVoucherPostingService financialVouchers = new FirebirdFinancialVoucherPostingService();
         IFinancialSettlementService financialSettlements = new FirebirdFinancialSettlementService();
         IReceivableDebtRepository receivableDebts = new FirebirdReceivableDebtRepository();
+        IDocumentReversalService documentReversals = new FirebirdDocumentReversalService();
+        IPartyCreditService partyCredits = new FirebirdPartyCreditService();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -108,6 +110,8 @@ public partial class App : Application
         _services.AddSingleton(financialVouchers);
         _services.AddSingleton(financialSettlements);
         _services.AddSingleton(receivableDebts);
+        _services.AddSingleton(documentReversals);
+        _services.AddSingleton(partyCredits);
     }
 
     private void RegisterModules()

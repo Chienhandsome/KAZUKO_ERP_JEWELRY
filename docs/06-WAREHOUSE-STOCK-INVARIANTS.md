@@ -38,6 +38,13 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 
 Sau POSTED không sửa trực tiếp số liệu tài chính/tồn. Điều chỉnh bằng hủy/đảo có phân quyền.
 
+### Hủy / đảo
+
+- Mỗi chứng từ nguồn chỉ đảo **một lần** (`DOCUMENT_REVERSALS` unique + `STATUS_CODE = CANCELLED`).
+- Chặn hủy khi còn nghiệp vụ phụ thuộc POSTED (ví dụ phiếu nhập chế tác từ phiếu xuất thợ; công nợ đã thanh toán; thành phẩm đã bán).
+- Trong **một** transaction: đảo movement kho, hủy phiếu thu/chi liên quan, hoàn/hủy debt application hoặc settlement, ghi audit.
+- Credit NCC/khách (`PARTY_CREDITS`) là số dư giữ lại để cấn — **không** ghi nhận thành tiền đã thu/đã chi và không tạo `CASH_VOUCHERS`.
+
 ## 5. Nhập NVL
 
 ### Nguồn (`SOURCE_TYPE`)
