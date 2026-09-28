@@ -18,12 +18,51 @@ internal static class AuditLogWriter
         {
             await using var connection = FirebirdDatabase.CreateConnection();
             await connection.OpenAsync(cancellationToken);
-            await using var command = new FbCommand("""
-                INSERT INTO AUDIT_LOG
-                    (USER_ID, USERNAME, BRANCH_ID, EVENT_TYPE, ENTITY_TYPE, ENTITY_ID, EVENT_DATA, MACHINE_NAME)
-                VALUES
-                    (@USER_ID, @USERNAME, @BRANCH_ID, @EVENT_TYPE, @ENTITY_TYPE, @ENTITY_ID, @EVENT_DATA, @MACHINE_NAME)
-                """, connection);
+            await WriteAsync(
+                connection,
+                null,
+                eventType,
+                userId,
+                userName,
+                branchId,
+                entityType,
+                entityId,
+                eventData,
+                cancellationToken);
+        }
+        catch
+        {
+            // Audit must never hide the original business result.
+        }
+    }
+
+    public static async Task WriteAsync(
+        FbConnection connection,
+        FbTransaction? transaction,
+        string eventType,
+        long? userId = null,
+        string? userName = null,
+        long? branchId = null,
+        string? entityType = null,
+        string? entityId = null,
+        string? eventData = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var command = transaction is null
+                ? new FbCommand("""
+                    INSERT INTO AUDIT_LOG
+                        (USER_ID, USERNAME, BRANCH_ID, EVENT_TYPE, ENTITY_TYPE, ENTITY_ID, EVENT_DATA, MACHINE_NAME)
+                    VALUES
+                        (@USER_ID, @USERNAME, @BRANCH_ID, @EVENT_TYPE, @ENTITY_TYPE, @ENTITY_ID, @EVENT_DATA, @MACHINE_NAME)
+                    """, connection)
+                : new FbCommand("""
+                    INSERT INTO AUDIT_LOG
+                        (USER_ID, USERNAME, BRANCH_ID, EVENT_TYPE, ENTITY_TYPE, ENTITY_ID, EVENT_DATA, MACHINE_NAME)
+                    VALUES
+                        (@USER_ID, @USERNAME, @BRANCH_ID, @EVENT_TYPE, @ENTITY_TYPE, @ENTITY_ID, @EVENT_DATA, @MACHINE_NAME)
+                    """, connection, transaction);
             command.Parameters.AddWithValue("@USER_ID", userId is > 0 ? userId.Value : DBNull.Value);
             command.Parameters.AddWithValue("@USERNAME", userName ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@BRANCH_ID", branchId is > 0 ? branchId.Value : DBNull.Value);

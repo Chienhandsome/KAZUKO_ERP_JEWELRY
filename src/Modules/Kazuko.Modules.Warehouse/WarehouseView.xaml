@@ -581,8 +581,11 @@
                                                         <TextBlock Text="Vàng, bạc, đá quý, phụ kiện, hoá chất..." Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập kho" Style="{StaticResource PrimaryActionButtonStyle}"
-                                                                Command="{Binding OpenReceiptTabCommand}" />
+                                                        <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenReceiptTabCommand}"
+                                                                ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
+                                                        <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                Command="{Binding OpenCraftTrackingCommand}" />
                                                         <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
                                                                 Command="{Binding OpenIssueTabCommand}" />
                                                     </StackPanel>
@@ -645,8 +648,11 @@
                                                         <TextBlock Text="Trang sức hoàn thiện, sản phẩm chế tác" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập kho" Style="{StaticResource PrimaryActionButtonStyle}"
-                                                                Command="{Binding OpenReceiptTabCommand}" />
+                                                        <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenReceiptTabCommand}"
+                                                                ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
+                                                        <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                Command="{Binding OpenCraftTrackingCommand}" />
                                                         <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
                                                                 Command="{Binding OpenIssueTabCommand}" />
                                                     </StackPanel>
@@ -709,8 +715,11 @@
                                                         <TextBlock Text="Hàng trưng bày, hàng bán lẻ" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập kho" Style="{StaticResource PrimaryActionButtonStyle}"
-                                                                Command="{Binding OpenReceiptTabCommand}" />
+                                                        <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenReceiptTabCommand}"
+                                                                ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
+                                                        <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                Command="{Binding OpenCraftTrackingCommand}" />
                                                         <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
                                                                 Command="{Binding OpenIssueTabCommand}" />
                                                     </StackPanel>

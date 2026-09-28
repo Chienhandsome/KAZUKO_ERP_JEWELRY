@@ -30,6 +30,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.HumanResourc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.PriceBoard", "src\Modules\Kazuko.Modules.PriceBoard\Kazuko.Modules.PriceBoard.csproj", "{C84D7EAE-9DCF-4724-B219-B49ABBD50D57}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Debt", "src\Modules\Kazuko.Modules.Debt\Kazuko.Modules.Debt.csproj", "{D1E2F3A4-B5C6-4789-D012-3456789ABCDE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -84,6 +86,10 @@ Global
 		{C84D7EAE-9DCF-4724-B219-B49ABBD50D57}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C84D7EAE-9DCF-4724-B219-B49ABBD50D57}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C84D7EAE-9DCF-4724-B219-B49ABBD50D57}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1E2F3A4-B5C6-4789-D012-3456789ABCDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1E2F3A4-B5C6-4789-D012-3456789ABCDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1E2F3A4-B5C6-4789-D012-3456789ABCDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1E2F3A4-B5C6-4789-D012-3456789ABCDE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5} = {C070AF8B-B600-4444-96DD-60890F0D4F54}
@@ -91,5 +97,6 @@ Global
 		{A1B2C3D4-E5F6-4789-A012-3456789ABCDE} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
 		{C3D4E5F6-A7B8-4901-C234-56789ABCDEF0} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
 		{C84D7EAE-9DCF-4724-B219-B49ABBD50D57} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+		{D1E2F3A4-B5C6-4789-D012-3456789ABCDE} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
 	EndGlobalSection
 EndGlobal

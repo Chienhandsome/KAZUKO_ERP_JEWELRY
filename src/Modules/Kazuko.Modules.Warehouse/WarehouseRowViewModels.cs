@@ -178,6 +178,10 @@ public sealed class StockDocumentRowViewModel : ObservableObject
         "RECEIPT" => "Nhập",
         "ISSUE" => "Xuất",
         "TRANSFER" => "Chuyển",
+        "OUTSOURCED_CRAFT_ISSUE" => "Xuất thợ",
+        "CRAFT_RETURN_RECEIPT" => "Nhập chế tác",
+        "FINISHED_GOODS_ISSUE" => "Xuất TP",
+        "STOCK_ADJUSTMENT" => "Điều chỉnh",
         _ => DocumentType
     };
     public string StatusDisplay => StatusCode switch
@@ -255,6 +259,10 @@ public sealed class StockMovementRowViewModel : ObservableObject
         "RECEIPT" => "Nhập",
         "ISSUE" => "Xuất",
         "TRANSFER" => "Chuyển",
+        "OUTSOURCED_CRAFT_ISSUE" => "Xuất thợ",
+        "CRAFT_RETURN_RECEIPT" => "Nhập chế tác",
+        "FINISHED_GOODS_ISSUE" => "Xuất TP",
+        "STOCK_ADJUSTMENT" => "Điều chỉnh",
         _ => DocumentType
     };
     public string MovementTypeDisplay => MovementType switch

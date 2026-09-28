@@ -1,6 +1,9 @@
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
+using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
+using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
 namespace Kazuko.Modules.Warehouse;
@@ -20,6 +23,16 @@ public sealed class WarehouseModule : IKazukoModule
     {
         var repository = GetRequiredService<IWarehouseRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        var materialReceipts = GetRequiredService<IMaterialReceiptService>(services);
+        var outsourcedCraft = GetRequiredService<IOutsourcedCraftService>(services);
+        var finishedGoods = GetRequiredService<IFinishedGoodsIssueService>(services);
+        var externalWorkers = GetRequiredService<IExternalWorkerRepository>(services);
+        var suppliers = GetRequiredService<ISupplierRepository>(services);
+        var customers = GetRequiredService<ICustomerRepository>(services);
+        var supplierEditor = GetRequiredService<ISupplierEditorService>(services);
+        var customerEditor = GetRequiredService<ICustomerEditorService>(services);
+        var funds = GetRequiredService<ICashFundRepository>(services);
+        var banks = GetRequiredService<IBankAccountRepository>(services);
 
         navigation.Register(new NavigationItem(
             "WAREHOUSE",
@@ -29,7 +42,19 @@ public sealed class WarehouseModule : IKazukoModule
             null,
             () => new WarehouseView
             {
-                DataContext = new WarehouseViewModel(repository, session)
+                DataContext = new WarehouseViewModel(
+                    repository,
+                    session,
+                    materialReceipts,
+                    outsourcedCraft,
+                    finishedGoods,
+                    externalWorkers,
+                    suppliers,
+                    customers,
+                    supplierEditor,
+                    customerEditor,
+                    funds,
+                    banks)
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",

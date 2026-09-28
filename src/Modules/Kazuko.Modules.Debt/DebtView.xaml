@@ -1,0 +1,81 @@
+<UserControl x:Class="Kazuko.Modules.Debt.DebtView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
+             Background="{DynamicResource AppBackgroundBrush}">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+      <TextBlock Text="Công nợ phải trả"
+                 FontSize="{DynamicResource FontSize.Heading}"
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
+      <TextBlock Text="{Binding StatusMessage}"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 Margin="0,4,0,0" />
+      <TextBlock Text="{Binding ErrorMessage}"
+                 Foreground="{DynamicResource DangerBrush}"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <Border DockPanel.Dock="Bottom"
+            Style="{DynamicResource CardBorderStyle}"
+            Padding="12"
+            Margin="0,12,0,0">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock Text="Số tiền thanh toán" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <TextBox Text="{Binding PayAmount, UpdateSourceTrigger=PropertyChanged}" Height="40" />
+        </StackPanel>
+        <StackPanel Grid.Column="2">
+          <TextBlock Text="Phương thức" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <ComboBox SelectedValuePath="Content" SelectedValue="{Binding PayMethod}" Height="40">
+            <ComboBoxItem Content="CASH" />
+            <ComboBoxItem Content="BANK_TRANSFER" />
+          </ComboBox>
+          <ComboBox ItemsSource="{Binding Funds}" SelectedItem="{Binding SelectedFund}"
+                    DisplayMemberPath="DisplayName" Margin="0,8,0,0" Height="40" />
+          <ComboBox ItemsSource="{Binding Banks}" SelectedItem="{Binding SelectedBank}"
+                    DisplayMemberPath="DisplayName" Margin="0,8,0,0" Height="40" />
+        </StackPanel>
+        <Button Grid.Column="4" Content="Thanh toán" Style="{DynamicResource PrimaryButtonStyle}"
+                Command="{Binding PayCommand}" MinHeight="40" VerticalAlignment="Bottom" />
+      </Grid>
+    </Border>
+
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+        <TextBox Width="220" Height="40" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,8,0" />
+        <ComboBox Width="140" Height="40" ItemsSource="{Binding StatusOptions}"
+                  SelectedItem="{Binding StatusFilter}" Margin="0,0,8,0" />
+        <Button Content="Tải lại" Style="{DynamicResource PrimaryButtonStyle}"
+                Command="{Binding RefreshCommand}" MinHeight="40" />
+      </StackPanel>
+      <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                AutoGenerateColumns="False" IsReadOnly="True"
+                grid:DataGridColumnLayout.SettingsKey="debt-payables"
+                grid:DataGridColumnLayout.EnableHeaderMenu="True">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Mã" grid:DataGridColumnLayout.Key="Code"
+                              Binding="{Binding Code, Mode=OneWay}" Width="120" />
+          <DataGridTextColumn Header="Đối tác" grid:DataGridColumnLayout.Key="Party"
+                              Binding="{Binding PartyName, Mode=OneWay}" Width="*" />
+          <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="Kind"
+                              Binding="{Binding DebtKind, Mode=OneWay}" Width="100" />
+          <DataGridTextColumn Header="Gốc" grid:DataGridColumnLayout.Key="Original"
+                              Binding="{Binding OriginalAmountVnd, Mode=OneWay, StringFormat=N0}" Width="110" />
+          <DataGridTextColumn Header="Còn nợ" grid:DataGridColumnLayout.Key="Remaining"
+                              Binding="{Binding RemainingAmountVnd, Mode=OneWay, StringFormat=N0}" Width="110" />
+          <DataGridTextColumn Header="TT" grid:DataGridColumnLayout.Key="Status"
+                              Binding="{Binding StatusCode, Mode=OneWay}" Width="90" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </DockPanel>
+  </DockPanel>
+</UserControl>

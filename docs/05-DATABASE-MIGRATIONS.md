@@ -163,3 +163,25 @@ COMMIT;
   ```
   Migration 32 gỡ cột phòng ban/chức vụ khỏi `HR_EMPLOYEES` nếu bản 31 cũ đã tạo các cột đó (idempotent nếu đã không còn cột).
 - **Rollback (dev, chưa có dữ liệu NV):** `DROP TABLE HR_EMPLOYEES;` → `DROP TABLE HR_POSITIONS;` → `DROP TABLE HR_DEPARTMENTS;` rồi khôi phục `.fbk` / xóa ledger 31–32 theo quy trình mục 4. Production ưu tiên restore backup.
+
+---
+
+## 6. Migration Version 33: `0033__inventory_unit_standardization.sql`
+
+- **Phiên bản:** `33` — chuẩn hóa đơn vị tồn NVL về `CHI` / `VIEN` / `CARAT` / `CAI`.
+- **Bảng audit:** `UNIT_CONVERSION_RUNS`, `UNIT_CONVERSION_AUDIT`, `UNIT_CONVERSION_EXCEPTIONS`.
+- **Verification:** `database/verification/verify_inventory_unit_standardization.sql`.
+- **Quy tắc:** vàng `g`→`CHI` (qty÷3.75, cost×3.75); `Chi`→`CHI`; `LUONG`→qty×10; đá/phụ kiện chuẩn hóa mã; đơn vị lạ → exceptions (không đoán).
+- **Rollback:** restore `.fbk` trước khi chạy; không DROP audit nếu đã có ngoại lệ cần điều tra.
+- **Invariant nghiệp vụ:** xem `docs/06-WAREHOUSE-STOCK-INVARIANTS.md`.
+
+## 7. Migration Version 34: `0034__warehouse_finance_craft_flow.sql`
+
+- **Phiên bản:** `34` — mở rộng `STOCK_DOCUMENTS` / lines; thêm thợ ngoài, holdings, settlement; quỹ / TKNH / phiếu chi; payment allocation; công nợ phải trả; đánh dấu xuất TP trên `SALES_ORDERS`.
+- **Verification:** `database/verification/verify_warehouse_finance_craft_schema.sql`.
+- **Áp dụng (sau backup):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0033__inventory_unit_standardization.sql"
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0034__warehouse_finance_craft_flow.sql"
+  ```
+- **Rollback production:** restore snapshot `gbak` tạo trước migration 33/34.

@@ -1,8 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
+using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
 namespace Kazuko.Modules.Warehouse;
@@ -16,6 +20,16 @@ public sealed class WarehouseViewModel : ObservableObject
 
     private readonly IWarehouseRepository _repository;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly IMaterialReceiptService _materialReceipts;
+    private readonly IOutsourcedCraftService _outsourcedCraft;
+    private readonly IFinishedGoodsIssueService _finishedGoods;
+    private readonly IExternalWorkerRepository _externalWorkers;
+    private readonly ISupplierRepository _suppliers;
+    private readonly ICustomerRepository _customers;
+    private readonly ISupplierEditorService _supplierEditor;
+    private readonly ICustomerEditorService _customerEditor;
+    private readonly ICashFundRepository _funds;
+    private readonly IBankAccountRepository _banks;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
     private bool _suppressTabSideEffects;
@@ -89,10 +103,32 @@ public sealed class WarehouseViewModel : ObservableObject
     private string _donutCenterText = "0";
     private string _donutCenterSubText = "Triệu VNĐ";
 
-    public WarehouseViewModel(IWarehouseRepository repository, ICurrentSessionAccessor sessionAccessor)
+    public WarehouseViewModel(
+        IWarehouseRepository repository,
+        ICurrentSessionAccessor sessionAccessor,
+        IMaterialReceiptService materialReceipts,
+        IOutsourcedCraftService outsourcedCraft,
+        IFinishedGoodsIssueService finishedGoods,
+        IExternalWorkerRepository externalWorkers,
+        ISupplierRepository suppliers,
+        ICustomerRepository customers,
+        ISupplierEditorService supplierEditor,
+        ICustomerEditorService customerEditor,
+        ICashFundRepository funds,
+        IBankAccountRepository banks)
     {
         _repository = repository;
         _sessionAccessor = sessionAccessor;
+        _materialReceipts = materialReceipts;
+        _outsourcedCraft = outsourcedCraft;
+        _finishedGoods = finishedGoods;
+        _externalWorkers = externalWorkers;
+        _suppliers = suppliers;
+        _customers = customers;
+        _supplierEditor = supplierEditor;
+        _customerEditor = customerEditor;
+        _funds = funds;
+        _banks = banks;
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
         MovementLocations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -127,6 +163,10 @@ public sealed class WarehouseViewModel : ObservableObject
         DocumentTypeOptions.Add("RECEIPT");
         DocumentTypeOptions.Add("ISSUE");
         DocumentTypeOptions.Add("TRANSFER");
+        DocumentTypeOptions.Add("OUTSOURCED_CRAFT_ISSUE");
+        DocumentTypeOptions.Add("CRAFT_RETURN_RECEIPT");
+        DocumentTypeOptions.Add("FINISHED_GOODS_ISSUE");
+        DocumentTypeOptions.Add("STOCK_ADJUSTMENT");
 
         DocumentStatusOptions.Add("Tất cả");
         DocumentStatusOptions.Add("DRAFT");
@@ -146,9 +186,10 @@ public sealed class WarehouseViewModel : ObservableObject
         ClearMovementFiltersCommand = new RelayCommand(ClearMovementFilters, () => !IsLoading);
 
         NavigateToTabCommand = new RelayCommand<int>(NavigateToTab);
-        OpenReceiptTabCommand = new RelayCommand(() => OpenDocumentTab("RECEIPT", WarehouseTabs.Receipt));
+        OpenReceiptTabCommand = new RelayCommand(OpenMaterialReceiptDialog);
         OpenIssueTabCommand = new RelayCommand(() => OpenDocumentTab("ISSUE", WarehouseTabs.Issue));
         OpenTransferTabCommand = new RelayCommand(() => OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer));
+        OpenCraftTrackingCommand = new AsyncRelayCommand(OpenCraftTrackingAsync);
         ViewAllRawMaterialsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.RawMaterials));
         ViewAllFinishedProductsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.FinishedProducts));
         ViewAllSalesGoodsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.SalesGoods));
@@ -642,6 +683,7 @@ public sealed class WarehouseViewModel : ObservableObject
     public ICommand OpenReceiptTabCommand { get; }
     public ICommand OpenIssueTabCommand { get; }
     public ICommand OpenTransferTabCommand { get; }
+    public ICommand OpenCraftTrackingCommand { get; }
     public ICommand ViewAllRawMaterialsCommand { get; }
     public ICommand ViewAllFinishedProductsCommand { get; }
     public ICommand ViewAllSalesGoodsCommand { get; }
@@ -1281,6 +1323,57 @@ public sealed class WarehouseViewModel : ObservableObject
         finally
         {
             _suppressTabSideEffects = false;
+        }
+    }
+
+    private void OpenMaterialReceiptDialog()
+    {
+        var session = RequireSession();
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var viewModel = new MaterialReceiptDialogViewModel(
+            _materialReceipts,
+            _repository,
+            _suppliers,
+            _customers,
+            _supplierEditor,
+            _customerEditor,
+            _funds,
+            _banks,
+            session);
+        var dialog = new MaterialReceiptDialog(viewModel)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            OpenDocumentTab("RECEIPT", WarehouseTabs.Receipt);
+            _ = SearchDocumentsAsync();
+        }
+    }
+
+    private async Task OpenCraftTrackingAsync()
+    {
+        try
+        {
+            var session = RequireSession()
+                ?? throw new InvalidOperationException("Chưa đăng nhập.");
+            var rows = await _outsourcedCraft.SearchHoldingsAsync(null, string.Empty, session);
+            var message = rows.Count == 0
+                ? "Chưa có NVL đang giao thợ ngoài."
+                : string.Join(Environment.NewLine, rows.Take(20).Select(r =>
+                    $"{r.WorkerName}: {r.MaterialCode} giao {r.QuantityIssued:N4} còn {r.QuantityOutstanding:N4} ({r.StatusCode})"));
+            MessageBox.Show(message, "Theo dõi chế tác ngoài", MessageBoxButton.OK, MessageBoxImage.Information);
+            _ = _externalWorkers;
+            _ = _finishedGoods;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
         }
     }
 

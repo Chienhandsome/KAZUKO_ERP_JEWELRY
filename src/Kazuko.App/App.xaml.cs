@@ -3,6 +3,7 @@ using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
+using Kazuko.Core.Finance;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Modules;
 using Kazuko.Core.PriceBoard;
@@ -11,6 +12,7 @@ using Kazuko.Core.Updates;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Authentication;
 using Kazuko.Infrastructure.Customers;
+using Kazuko.Infrastructure.Finance;
 using Kazuko.Infrastructure.HumanResources;
 using Kazuko.Infrastructure.PriceBoard;
 using Kazuko.Infrastructure.Settings;
@@ -21,6 +23,7 @@ using Kazuko.Infrastructure.Warehouse;
 using Kazuko.Modules.Authentication;
 using Kazuko.Modules.Customers;
 using Kazuko.Modules.Dashboard;
+using Kazuko.Modules.Debt;
 using Kazuko.Modules.HumanResources;
 using Kazuko.Modules.PriceBoard;
 using Kazuko.Modules.Suppliers;
@@ -63,6 +66,13 @@ public partial class App : Application
         IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
         IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();
         IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
+        IMaterialReceiptService materialReceipts = new FirebirdMaterialReceiptService();
+        IOutsourcedCraftService outsourcedCraft = new FirebirdOutsourcedCraftService();
+        IFinishedGoodsIssueService finishedGoodsIssue = new FirebirdFinishedGoodsIssueService();
+        IExternalWorkerRepository externalWorkers = new FirebirdExternalWorkerRepository();
+        ICashFundRepository cashFunds = new FirebirdCashFundRepository();
+        IBankAccountRepository bankAccounts = new FirebirdBankAccountRepository();
+        IPayableDebtRepository payableDebts = new FirebirdPayableDebtRepository();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -79,6 +89,13 @@ public partial class App : Application
         _services.AddSingleton(warehouse);
         _services.AddSingleton(humanResources);
         _services.AddSingleton(priceBoard);
+        _services.AddSingleton(materialReceipts);
+        _services.AddSingleton(outsourcedCraft);
+        _services.AddSingleton(finishedGoodsIssue);
+        _services.AddSingleton(externalWorkers);
+        _services.AddSingleton(cashFunds);
+        _services.AddSingleton(bankAccounts);
+        _services.AddSingleton(payableDebts);
     }
 
     private void RegisterModules()
@@ -89,6 +106,7 @@ public partial class App : Application
             new CustomersModule(),
             new SuppliersModule(),
             new WarehouseModule(),
+            new DebtModule(),
             new HumanResourcesModule(),
             new PriceBoardModule()
         ];
