@@ -1,7 +1,9 @@
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
+using Kazuko.Core.Suppliers;
 
 namespace Kazuko.Modules.Debt;
 
@@ -18,9 +20,12 @@ public sealed class DebtModule : IKazukoModule
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
     {
-        var debts = GetRequiredService<IPayableDebtRepository>(services);
+        var workbench = GetRequiredService<IDebtWorkbenchRepository>(services);
         var funds = GetRequiredService<ICashFundRepository>(services);
         var banks = GetRequiredService<IBankAccountRepository>(services);
+        var customers = GetRequiredService<ICustomerRepository>(services);
+        var customerEditor = GetRequiredService<ICustomerEditorService>(services);
+        var supplierEditor = GetRequiredService<ISupplierEditorService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
 
         navigation.Register(new NavigationItem(
@@ -31,10 +36,11 @@ public sealed class DebtModule : IKazukoModule
             null,
             () => new DebtView
             {
-                DataContext = new DebtViewModel(debts, funds, banks, session)
+                DataContext = new DebtViewModel(
+                    workbench, funds, banks, customers, customerEditor, supplierEditor, session)
             },
             AssetRoot + "TC.png",
-            "Theo dõi và thanh toán\ncông nợ phải trả",
+            "Theo dõi công nợ khách hàng\nvà nhà cung cấp",
             ShowInSidebar: true,
             ShowOnHome: true,
             IsPlaceholder: false));

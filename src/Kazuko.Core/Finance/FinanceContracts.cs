@@ -12,6 +12,8 @@ public static class DebtPermissions
 {
     public const string PayableRead = "debt.payable.read";
     public const string PayablePay = "debt.payable.pay";
+    public const string ReceivableRead = "debt.receivable.read";
+    public const string ReceivableCollect = "debt.receivable.collect";
 }
 
 public static class PaymentMethods
@@ -39,6 +41,13 @@ public static class PayableDebtStatuses
     public const string Partial = "PARTIAL";
     public const string Paid = "PAID";
     public const string Cancelled = "CANCELLED";
+}
+
+public static class DebtDisplayStatuses
+{
+    public const string Normal = "NORMAL";
+    public const string Overdue = "OVERDUE";
+    public const string Paid = "PAID";
 }
 
 public sealed record CashFundOption(long Id, string Code, string Name, bool IsDefault)
@@ -84,6 +93,72 @@ public sealed record PayableDebtPaymentRequest(
     IReadOnlyList<PaymentAllocationDraft> Allocations,
     string? Notes);
 
+public sealed record DebtWorkbenchSummary(
+    decimal CustomerDebtTotal,
+    decimal CustomerCollectedTotal,
+    decimal CustomerRemainingTotal,
+    decimal SupplierDebtTotal,
+    decimal SupplierPaidTotal,
+    decimal SupplierRemainingTotal,
+    decimal CustomerOverdueTotal,
+    int CustomerOverdueCount,
+    decimal SupplierOverdueTotal,
+    int SupplierOverdueCount);
+
+public sealed record CustomerDebtRow(
+    long CustomerId,
+    string Code,
+    string Name,
+    string Phone,
+    string GroupName,
+    string Address,
+    decimal TotalIncurredVnd,
+    decimal PaidVnd,
+    decimal RemainingVnd,
+    DateTime? LastDebtDate,
+    string StatusCode);
+
+public sealed record SupplierDebtRow(
+    long SupplierId,
+    string Code,
+    string Name,
+    string Phone,
+    string GroupName,
+    string Address,
+    decimal TotalIncurredVnd,
+    decimal PaidVnd,
+    decimal RemainingVnd,
+    DateTime? LastDebtDate,
+    string StatusCode);
+
+public sealed record CustomerDebtSearchFilter(
+    string SearchText,
+    long GroupId,
+    string StatusCode,
+    DateTime? FromDate,
+    DateTime? ToDate);
+
+public sealed record SupplierDebtSearchFilter(
+    string SearchText,
+    string StatusCode,
+    DateTime? FromDate,
+    DateTime? ToDate);
+
+public sealed record DebtLedgerEntry(
+    DateTime EntryDate,
+    string DocumentCode,
+    string Description,
+    decimal ReceiptAmountVnd,
+    decimal PaymentAmountVnd,
+    decimal BalanceAfterVnd);
+
+public sealed record CustomerCollectPaymentRequest(
+    long CustomerId,
+    decimal AmountVnd,
+    string PaymentMethod,
+    string? ReferenceNo,
+    string? Notes);
+
 public interface ICashFundRepository
 {
     Task<IReadOnlyList<CashFundOption>> GetActiveFundsAsync(
@@ -107,6 +182,50 @@ public interface IPayableDebtRepository
 
     Task PayAsync(
         PayableDebtPaymentRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IDebtWorkbenchRepository
+{
+    Task<DebtWorkbenchSummary> GetSummaryAsync(
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CustomerDebtRow>> SearchCustomerDebtsAsync(
+        CustomerDebtSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SupplierDebtRow>> SearchSupplierDebtsAsync(
+        SupplierDebtSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DebtLedgerEntry>> GetCustomerLedgerAsync(
+        long customerId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DebtLedgerEntry>> GetSupplierLedgerAsync(
+        long supplierId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PayableDebtListItem>> GetSupplierOpenPayablesAsync(
+        long supplierId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task CollectCustomerPaymentAsync(
+        CustomerCollectPaymentRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task PaySupplierFifoAsync(
+        long supplierId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        string? notes,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 }

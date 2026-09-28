@@ -22,10 +22,13 @@
 
         <TextBlock Text="Nguồn nhập" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
         <StackPanel Orientation="Horizontal">
-          <RadioButton Content="Nhà cung cấp" IsChecked="{Binding IsSupplierSource}" Margin="0,0,16,0"
-                       Checked="SupplierSource_OnChecked" />
-          <RadioButton Content="Thu mua vàng cũ" x:Name="OldGoldRadio"
-                       Checked="OldGoldSource_OnChecked" />
+          <RadioButton Content="Nhà cung cấp"
+                       GroupName="ReceiptSource"
+                       IsChecked="{Binding IsSupplierSource}"
+                       Margin="0,0,16,0" />
+          <RadioButton Content="Thu mua vàng cũ"
+                       GroupName="ReceiptSource"
+                       IsChecked="{Binding IsOldGoldSource}" />
         </StackPanel>
 
         <Grid Margin="0,8,0,0">

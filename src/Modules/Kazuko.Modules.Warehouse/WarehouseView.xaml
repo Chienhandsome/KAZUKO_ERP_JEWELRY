@@ -890,32 +890,109 @@
                                         Command="{Binding ClearBalanceFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
                             <Grid Grid.Row="1">
-                                <DataGrid ItemsSource="{Binding Balances}"
-                                          SelectedItem="{Binding SelectedBalance}"
-                                          Style="{StaticResource WarehouseDataGridStyle}"
-                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
-                                          grid:DataGridColumnLayout.SettingsKey="warehouse-balances"
-                                          Visibility="{Binding IsBalancesEmpty, Converter={StaticResource InverseBoolToVis}}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                        <DataGridTextColumn Header="Mã NVL" grid:DataGridColumnLayout.Key="MaterialCode" Binding="{Binding MaterialCode, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Tên NVL" grid:DataGridColumnLayout.Key="MaterialName" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="150" />
-                                        <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="MaterialType" Binding="{Binding MaterialTypeDisplay, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Hàm lượng" grid:DataGridColumnLayout.Key="Purity" Binding="{Binding PurityCode, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
-                                        <DataGridTextColumn Header="Tồn" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
-                                        <DataGridTextColumn Header="Giá TB" grid:DataGridColumnLayout.Key="AverageCost" Binding="{Binding AverageCostText, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Tồn tối thiểu" grid:DataGridColumnLayout.Key="MinimumStock" Binding="{Binding MinimumStockText, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Cảnh báo" grid:DataGridColumnLayout.Key="LowStock" Binding="{Binding LowStockText, Mode=OneWay}" Width="90" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                                <TextBlock Text="Không có dữ liệu tồn nguyên vật liệu."
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           FontSize="{DynamicResource FontSize.Body}"
-                                           Visibility="{Binding IsBalancesEmpty, Converter={StaticResource BoolToVis}}" />
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="420" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="300" MinWidth="260" />
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <DataGrid ItemsSource="{Binding Balances}"
+                                              SelectedItem="{Binding SelectedBalance}"
+                                              Style="{StaticResource WarehouseDataGridStyle}"
+                                              ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                              grid:DataGridColumnLayout.SettingsKey="warehouse-balances"
+                                              Visibility="{Binding IsBalancesEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                            <DataGridTextColumn Header="Mã NVL" grid:DataGridColumnLayout.Key="MaterialCode" Binding="{Binding MaterialCode, Mode=OneWay}" Width="110" />
+                                            <DataGridTextColumn Header="Tên NVL" grid:DataGridColumnLayout.Key="MaterialName" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                            <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="MaterialType" Binding="{Binding MaterialTypeDisplay, Mode=OneWay}" Width="90" />
+                                            <DataGridTextColumn Header="Hàm lượng" grid:DataGridColumnLayout.Key="Purity" Binding="{Binding PurityCode, Mode=OneWay}" Width="100" />
+                                            <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
+                                            <DataGridTextColumn Header="Tồn" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="90" />
+                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
+                                            <DataGridTextColumn Header="Giá TB" grid:DataGridColumnLayout.Key="AverageCost" Binding="{Binding AverageCostText, Mode=OneWay}" Width="100" />
+                                            <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
+                                            <DataGridTextColumn Header="Tồn tối thiểu" grid:DataGridColumnLayout.Key="MinimumStock" Binding="{Binding MinimumStockText, Mode=OneWay}" Width="110" />
+                                            <DataGridTextColumn Header="Cảnh báo" grid:DataGridColumnLayout.Key="LowStock" Binding="{Binding LowStockText, Mode=OneWay}" Width="90" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Text="Không có dữ liệu tồn nguyên vật liệu."
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="{DynamicResource FontSize.Body}"
+                                               Visibility="{Binding IsBalancesEmpty, Converter={StaticResource BoolToVis}}" />
+                                </Grid>
+                                <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
+                                    <Grid>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                      Visibility="{Binding HasSelectedBalance, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel>
+                                                <TextBlock Text="Thông tin nguyên liệu"
+                                                           Foreground="{DynamicResource PrimaryBrush}"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                                           FontWeight="Bold"
+                                                           Margin="0,0,0,12" />
+                                                <TextBlock Text="Mã NVL" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.MaterialCode, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Tên NVL" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.MaterialName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}"
+                                                         TextWrapping="Wrap" />
+                                                <TextBlock Text="Loại" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.MaterialTypeDisplay, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Hàm lượng" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.PurityCode, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Vị trí" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.LocationName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Mã vị trí" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.LocationCode, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Tồn kho" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.QuantityText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Đơn vị tính" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.UnitCode, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Giá trung bình" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.AverageCostText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Giá trị tồn" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.StockValueText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}"
+                                                         FontWeight="SemiBold" />
+                                                <TextBlock Text="Tồn tối thiểu" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedBalance.MinimumStockText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Cảnh báo tồn" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBlock FontSize="{DynamicResource FontSize.Body}"
+                                                           Margin="0,4,0,0"
+                                                           Text="{Binding SelectedBalance.LowStockText, Mode=OneWay, TargetNullValue=—}"
+                                                           Foreground="{DynamicResource SuccessBrush}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding SelectedBalance.IsLowStock, Mode=OneWay}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                        <TextBlock Text="Chọn một nguyên liệu để xem thông tin chi tiết."
+                                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap" Margin="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="{DynamicResource FontSize.Body}"
+                                                   Visibility="{Binding HasSelectedBalance, Converter={StaticResource InverseBoolToVis}}" />
+                                    </Grid>
+                                </Border>
                             </Grid>
                         </Grid>
                     </TabItem>
@@ -943,29 +1020,82 @@
                                         Command="{Binding ClearFinishedFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
                             <Grid Grid.Row="1">
-                                <DataGrid ItemsSource="{Binding FinishedProducts}"
-                                          SelectedItem="{Binding SelectedFinishedProduct}"
-                                          Style="{StaticResource WarehouseDataGridStyle}"
-                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
-                                          grid:DataGridColumnLayout.SettingsKey="warehouse-finished"
-                                          Visibility="{Binding IsFinishedEmpty, Converter={StaticResource InverseBoolToVis}}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                        <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
-                                        <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
-                                        <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
-                                        <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
-                                        <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
-                                        <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                                <TextBlock Text="Không có dữ liệu thành phẩm."
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           FontSize="{DynamicResource FontSize.Body}"
-                                           Visibility="{Binding IsFinishedEmpty, Converter={StaticResource BoolToVis}}" />
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="420" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="300" MinWidth="260" />
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <DataGrid ItemsSource="{Binding FinishedProducts}"
+                                              SelectedItem="{Binding SelectedFinishedProduct}"
+                                              Style="{StaticResource WarehouseDataGridStyle}"
+                                              ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                              grid:DataGridColumnLayout.SettingsKey="warehouse-finished"
+                                              Visibility="{Binding IsFinishedEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                            <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
+                                            <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                            <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
+                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
+                                            <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
+                                            <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
+                                            <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Text="Không có dữ liệu thành phẩm."
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="{DynamicResource FontSize.Body}"
+                                               Visibility="{Binding IsFinishedEmpty, Converter={StaticResource BoolToVis}}" />
+                                </Grid>
+                                <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
+                                    <Grid>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                      Visibility="{Binding HasSelectedFinishedProduct, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel>
+                                                <TextBlock Text="Thông tin thành phẩm"
+                                                           Foreground="{DynamicResource PrimaryBrush}"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                                           FontWeight="Bold"
+                                                           Margin="0,0,0,12" />
+                                                <TextBlock Text="Mã sản phẩm" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.Code, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Tên sản phẩm" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.ProductName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}"
+                                                         TextWrapping="Wrap" />
+                                                <TextBlock Text="Loại vàng" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.GoldPurity, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Tồn kho" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.QuantityText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Đơn vị tính" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.UnitCode, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Giá trị tồn" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.StockValueText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}"
+                                                         FontWeight="SemiBold" />
+                                                <TextBlock Text="Vị trí" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.LocationName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Trạng thái" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.StatusDisplay, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                        <TextBlock Text="Chọn một thành phẩm để xem thông tin chi tiết."
+                                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap" Margin="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="{DynamicResource FontSize.Body}"
+                                                   Visibility="{Binding HasSelectedFinishedProduct, Converter={StaticResource InverseBoolToVis}}" />
+                                    </Grid>
+                                </Border>
                             </Grid>
                         </Grid>
                     </TabItem>
@@ -993,29 +1123,82 @@
                                         Command="{Binding ClearSaleFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
                             <Grid Grid.Row="1">
-                                <DataGrid ItemsSource="{Binding SaleItems}"
-                                          SelectedItem="{Binding SelectedSaleItem}"
-                                          Style="{StaticResource WarehouseDataGridStyle}"
-                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
-                                          grid:DataGridColumnLayout.SettingsKey="warehouse-sale"
-                                          Visibility="{Binding IsSalesEmpty, Converter={StaticResource InverseBoolToVis}}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                        <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
-                                        <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
-                                        <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
-                                        <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
-                                        <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
-                                        <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                                <TextBlock Text="Không có hàng bán trưng bày."
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           FontSize="{DynamicResource FontSize.Body}"
-                                           Visibility="{Binding IsSalesEmpty, Converter={StaticResource BoolToVis}}" />
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="420" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="300" MinWidth="260" />
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <DataGrid ItemsSource="{Binding SaleItems}"
+                                              SelectedItem="{Binding SelectedSaleItem}"
+                                              Style="{StaticResource WarehouseDataGridStyle}"
+                                              ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                              grid:DataGridColumnLayout.SettingsKey="warehouse-sale"
+                                              Visibility="{Binding IsSalesEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                            <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
+                                            <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                            <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
+                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
+                                            <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
+                                            <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
+                                            <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Text="Không có hàng bán trưng bày."
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="{DynamicResource FontSize.Body}"
+                                               Visibility="{Binding IsSalesEmpty, Converter={StaticResource BoolToVis}}" />
+                                </Grid>
+                                <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
+                                    <Grid>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                      Visibility="{Binding HasSelectedSaleItem, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel>
+                                                <TextBlock Text="Thông tin hàng bán"
+                                                           Foreground="{DynamicResource PrimaryBrush}"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                                           FontWeight="Bold"
+                                                           Margin="0,0,0,12" />
+                                                <TextBlock Text="Mã hàng bán" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.Code, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Tên hàng" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.ProductName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}"
+                                                         TextWrapping="Wrap" />
+                                                <TextBlock Text="Loại vàng" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.GoldPurity, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Tồn kho" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.QuantityText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Đơn vị tính" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.UnitCode, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Giá trị tồn" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.StockValueText, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}"
+                                                         FontWeight="SemiBold" />
+                                                <TextBlock Text="Vị trí" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.LocationName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                                <TextBlock Text="Trạng thái" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.StatusDisplay, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                        <TextBlock Text="Chọn một hàng bán để xem thông tin chi tiết."
+                                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap" Margin="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="{DynamicResource FontSize.Body}"
+                                                   Visibility="{Binding HasSelectedSaleItem, Converter={StaticResource InverseBoolToVis}}" />
+                                    </Grid>
+                                </Border>
                             </Grid>
                         </Grid>
                     </TabItem>

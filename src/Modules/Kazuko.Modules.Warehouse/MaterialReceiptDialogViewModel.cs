@@ -82,12 +82,32 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _sourceType, value))
+            {
                 OnPropertyChanged(nameof(IsSupplierSource));
+                OnPropertyChanged(nameof(IsOldGoldSource));
+            }
         }
     }
 
-    public bool IsSupplierSource =>
-        string.Equals(SourceType, StockSourceTypes.Supplier, StringComparison.OrdinalIgnoreCase);
+    public bool IsSupplierSource
+    {
+        get => string.Equals(SourceType, StockSourceTypes.Supplier, StringComparison.OrdinalIgnoreCase);
+        set
+        {
+            if (value)
+                SourceType = StockSourceTypes.Supplier;
+        }
+    }
+
+    public bool IsOldGoldSource
+    {
+        get => string.Equals(SourceType, StockSourceTypes.OldGoldCustomer, StringComparison.OrdinalIgnoreCase);
+        set
+        {
+            if (value)
+                SourceType = StockSourceTypes.OldGoldCustomer;
+        }
+    }
 
     public SupplierListItem? SelectedSupplier
     {

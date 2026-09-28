@@ -73,6 +73,7 @@ public partial class App : Application
         ICashFundRepository cashFunds = new FirebirdCashFundRepository();
         IBankAccountRepository bankAccounts = new FirebirdBankAccountRepository();
         IPayableDebtRepository payableDebts = new FirebirdPayableDebtRepository();
+        IDebtWorkbenchRepository debtWorkbench = new FirebirdDebtWorkbenchRepository();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -96,6 +97,7 @@ public partial class App : Application
         _services.AddSingleton(cashFunds);
         _services.AddSingleton(bankAccounts);
         _services.AddSingleton(payableDebts);
+        _services.AddSingleton(debtWorkbench);
     }
 
     private void RegisterModules()

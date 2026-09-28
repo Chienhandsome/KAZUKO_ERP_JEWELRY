@@ -251,8 +251,14 @@ public sealed class WarehouseViewModel : ObservableObject
     public MaterialBalanceRowViewModel? SelectedBalance
     {
         get => _selectedBalance;
-        set => SetProperty(ref _selectedBalance, value);
+        set
+        {
+            if (SetProperty(ref _selectedBalance, value))
+                OnPropertyChanged(nameof(HasSelectedBalance));
+        }
     }
+
+    public bool HasSelectedBalance => SelectedBalance is not null;
 
     public string OverviewRawSearchText
     {
@@ -365,8 +371,14 @@ public sealed class WarehouseViewModel : ObservableObject
     public FinishedProductRowViewModel? SelectedFinishedProduct
     {
         get => _selectedFinishedProduct;
-        set => SetProperty(ref _selectedFinishedProduct, value);
+        set
+        {
+            if (SetProperty(ref _selectedFinishedProduct, value))
+                OnPropertyChanged(nameof(HasSelectedFinishedProduct));
+        }
     }
+
+    public bool HasSelectedFinishedProduct => SelectedFinishedProduct is not null;
 
     public string SaleSearchText
     {
@@ -389,8 +401,14 @@ public sealed class WarehouseViewModel : ObservableObject
     public SaleItemRowViewModel? SelectedSaleItem
     {
         get => _selectedSaleItem;
-        set => SetProperty(ref _selectedSaleItem, value);
+        set
+        {
+            if (SetProperty(ref _selectedSaleItem, value))
+                OnPropertyChanged(nameof(HasSelectedSaleItem));
+        }
     }
+
+    public bool HasSelectedSaleItem => SelectedSaleItem is not null;
 
     public string DocumentSearchText
     {

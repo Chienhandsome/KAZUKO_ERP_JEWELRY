@@ -1,0 +1,63 @@
+<Window x:Class="Kazuko.Modules.Debt.DebtPaymentDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Title}"
+        Width="460" Height="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource AppBackgroundBrush}">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Hủy" Style="{DynamicResource NavButtonStyle}" Command="{Binding CancelCommand}"
+              MinHeight="40" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
+      <Button Content="Xác nhận" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding ConfirmCommand}"
+              MinHeight="40" MinWidth="120" IsDefault="True" />
+    </StackPanel>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <TextBlock Text="{Binding Title}"
+                   FontSize="{DynamicResource FontSize.Heading}"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   FontWeight="SemiBold" />
+        <TextBlock Text="{Binding PartyLabel}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="0,4,0,8"
+                   TextWrapping="Wrap" />
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="{DynamicResource DangerBrush}"
+                   TextWrapping="Wrap" />
+
+        <TextBlock Text="Số tiền" Margin="0,8,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <TextBox Text="{Binding Amount, UpdateSourceTrigger=PropertyChanged}" Height="40" />
+        <TextBlock Margin="0,4,0,0"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="{DynamicResource FontSize.Caption}">
+          <Run Text="Tối đa:" />
+          <Run Text="{Binding MaxAmount, Mode=OneWay, StringFormat=N0}" />
+        </TextBlock>
+
+        <TextBlock Text="Phương thức" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding PayMethod}" Height="40">
+          <ComboBoxItem Content="Tiền mặt" Tag="CASH" />
+          <ComboBoxItem Content="Chuyển khoản" Tag="BANK_TRANSFER" />
+        </ComboBox>
+
+        <TextBlock Text="Quỹ tiền mặt" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <ComboBox ItemsSource="{Binding Funds}" SelectedItem="{Binding SelectedFund}"
+                  DisplayMemberPath="DisplayName" Height="40" />
+
+        <TextBlock Text="Tài khoản ngân hàng" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <ComboBox ItemsSource="{Binding Banks}" SelectedItem="{Binding SelectedBank}"
+                  DisplayMemberPath="DisplayName" Height="40" />
+
+        <TextBlock Text="Mã tham chiếu" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <TextBox Text="{Binding ReferenceNo, UpdateSourceTrigger=PropertyChanged}" Height="40" />
+
+        <TextBlock Text="Ghi chú" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                 Height="64" TextWrapping="Wrap" AcceptsReturn="True" />
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>
