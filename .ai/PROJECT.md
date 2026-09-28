@@ -22,12 +22,13 @@ The approved legacy WinForms application at `D:\Working\KAZUKO_ERP_JEWELRY_UI_AP
 The solution projects:
 
 - `Kazuko.App`: WPF executable, startup composition, login-window hosting, shell window, and shell ViewModel.
-- `Kazuko.Core`: framework-light contracts (MVVM, authentication/session, appearance, modules, updates, Customers contracts).
+- `Kazuko.Core`: framework-light contracts (MVVM, authentication/session, appearance, modules, updates, Customers contracts, Suppliers contracts).
 - `Kazuko.Infrastructure`: Firebird connection/auth/repositories, preferences, update staging.
 - `Kazuko.Shared.UI`: WPF themes, shared styles, typography, appearance service.
 - `Kazuko.Modules.Authentication`: login View and ViewModel.
 - `Kazuko.Modules.Dashboard`: dashboard + placeholder routes for unfinished modules.
 - `Kazuko.Modules.Customers`: real KHÁCH HÀNG vertical slice (list/search/create/edit/activate) and `ICustomerEditorService`.
+- `Kazuko.Modules.Suppliers`: real NHÀ CUNG CẤP vertical slice (list/search/create/edit/activate) and `ISupplierEditorService`.
 
 Dependency direction:
 
@@ -49,7 +50,7 @@ Firebird Embedded 5.0.4 conventions (TASK-001 + TASK-006 + TASK-008A):
 - Development DB: `data\data.fdb` (gitignored). Password from `KAZUKO_FIREBIRD_PASSWORD`.
 - Migrations: official scripts tracked in `database/migrations/` and recorded in `SCHEMA_MIGRATIONS` with SHA-256 checksums.
 - Customer persistence: `FirebirdCustomerRepository` against `CUSTOMERS` / `CUSTOMER_GROUPS` / `SALES_ORDERS` / `ORDER_PAYMENTS` / `AUDIT_LOG`.
-- Supplier persistence (TASK-008A migration 30): `SUPPLIERS` and `SUPPLIER_GROUPS` tables with company scoping composite FKs; `STOCK_DOCUMENTS` augmented with nullable `SUPPLIER_ID` FK for receipt/purchase aggregation in TASK-008B.
+- Supplier persistence: `FirebirdSupplierRepository` against `SUPPLIERS` / `SUPPLIER_GROUPS` / `STOCK_DOCUMENTS` / `AUDIT_LOG` (TASK-008A + TASK-008B).
 - SQL stays in Infrastructure. Views/ViewModels must not contain SQL.
 
 ## Session

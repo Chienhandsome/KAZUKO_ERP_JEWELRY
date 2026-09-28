@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -17,6 +17,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Customers", "src\Modules\Kazuko.Modules.Customers\Kazuko.Modules.Customers.csproj", "{B71C2E8A-4D55-4F1A-9C3E-8A1F6D2E9B40}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Infrastructure.Tests", "tests\Kazuko.Infrastructure.Tests\Kazuko.Infrastructure.Tests.csproj", "{E3C91A10-8B44-4D2F-9A7E-1C5D6F8A9B20}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C070AF8B-B600-4444-96DD-60890F0D4F54}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Suppliers", "src\Modules\Kazuko.Modules.Suppliers\Kazuko.Modules.Suppliers.csproj", "{9E5D875E-DD94-49FB-9A2B-96DA2A9375BA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -56,5 +62,13 @@ Global
 		{E3C91A10-8B44-4D2F-9A7E-1C5D6F8A9B20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E3C91A10-8B44-4D2F-9A7E-1C5D6F8A9B20}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E3C91A10-8B44-4D2F-9A7E-1C5D6F8A9B20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E5D875E-DD94-49FB-9A2B-96DA2A9375BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E5D875E-DD94-49FB-9A2B-96DA2A9375BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E5D875E-DD94-49FB-9A2B-96DA2A9375BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E5D875E-DD94-49FB-9A2B-96DA2A9375BA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5} = {C070AF8B-B600-4444-96DD-60890F0D4F54}
+		{9E5D875E-DD94-49FB-9A2B-96DA2A9375BA} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
 	EndGlobalSection
 EndGlobal
