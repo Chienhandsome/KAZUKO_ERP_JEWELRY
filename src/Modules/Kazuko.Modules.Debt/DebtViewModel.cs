@@ -539,8 +539,7 @@ public sealed class DebtViewModel : ObservableObject
             $"{SelectedCustomer.Code} — {SelectedCustomer.Name}",
             SelectedCustomer.RemainingVnd,
             Funds.ToList(),
-            Banks.ToList(),
-            requireCashOrBankSelection: false);
+            Banks.ToList());
 
         if (!ShowPaymentDialog(dialogVm))
             return;
@@ -550,13 +549,10 @@ public sealed class DebtViewModel : ObservableObject
             IsBusy = true;
             ErrorMessage = string.Empty;
             var session = RequireSession();
-            var allocation = dialogVm.BuildAllocation();
             await _workbench.CollectCustomerPaymentAsync(
                 new CustomerCollectPaymentRequest(
                     SelectedCustomer.CustomerId,
-                    dialogVm.Amount,
-                    allocation.PaymentMethod,
-                    allocation.ReferenceNumber,
+                    dialogVm.BuildAllocations(),
                     string.IsNullOrWhiteSpace(dialogVm.Notes) ? null : dialogVm.Notes.Trim()),
                 session);
             StatusMessage = "Đã thu tiền khách hàng.";
@@ -593,10 +589,9 @@ public sealed class DebtViewModel : ObservableObject
             IsBusy = true;
             ErrorMessage = string.Empty;
             var session = RequireSession();
-            var allocation = dialogVm.BuildAllocation();
             await _workbench.PaySupplierFifoAsync(
                 SelectedSupplier.SupplierId,
-                [allocation],
+                dialogVm.BuildAllocations(),
                 string.IsNullOrWhiteSpace(dialogVm.Notes) ? null : dialogVm.Notes.Trim(),
                 session);
             StatusMessage = "Đã chi tiền nhà cung cấp.";

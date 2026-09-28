@@ -4,11 +4,14 @@ using Kazuko.Core.Finance;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Data;
+using Kazuko.Infrastructure.Finance;
 
 namespace Kazuko.Infrastructure.Warehouse;
 
 public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
 {
+    private readonly FirebirdFinancialVoucherPostingService _vouchers = new();
+
     public async Task<MaterialReceiptPostResult> CreateDraftAndPostAsync(
         MaterialReceiptDraft draft,
         AuthenticatedSession session,
@@ -139,30 +142,49 @@ public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
                 foreach (var payment in draft.Payments ?? Array.Empty<PaymentAllocationDraft>())
                 {
                     payLine++;
-                    var voucherId = await StockPostingSupport.CreateCashVoucherOutAsync(
-                        connection, fbTx, companyId, session.BranchId, payment,
-                        "STOCK_DOCUMENT", documentId, session.UserId, cancellationToken);
-
-                    await using var insertPay = new FbCommand("""
+                    long paymentRowId;
+                    await using (var insertPay = new FbCommand("""
                         INSERT INTO STOCK_DOCUMENT_PAYMENTS
                             (DOCUMENT_ID, LINE_NUMBER, PAYMENT_METHOD, AMOUNT_VND,
-                             CASH_FUND_ID, BANK_ACCOUNT_ID, REFERENCE_NUMBER, CASH_VOUCHER_ID)
+                             CASH_FUND_ID, BANK_ACCOUNT_ID, REFERENCE_NUMBER)
                         VALUES
-                            (@DOC, @LN, @METHOD, @AMT, @FUND, @BANK, @REF, @VID)
+                            (@DOC, @LN, @METHOD, @AMT, @FUND, @BANK, @REF)
+                        RETURNING ID
+                        """, connection, fbTx))
+                    {
+                        insertPay.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+                        insertPay.Parameters.Add("@LN", FbDbType.Integer).Value = payLine;
+                        insertPay.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value =
+                            payment.PaymentMethod.Trim().ToUpperInvariant();
+                        insertPay.Parameters.Add("@AMT", FbDbType.Decimal).Value = payment.AmountVnd;
+                        insertPay.Parameters.Add("@FUND", FbDbType.BigInt).Value =
+                            payment.CashFundId is > 0 ? payment.CashFundId.Value : DBNull.Value;
+                        insertPay.Parameters.Add("@BANK", FbDbType.BigInt).Value =
+                            payment.BankAccountId is > 0 ? payment.BankAccountId.Value : DBNull.Value;
+                        insertPay.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
+                            (object?)payment.ReferenceNumber ?? DBNull.Value;
+                        paymentRowId = Convert.ToInt64(await insertPay.ExecuteScalarAsync(cancellationToken));
+                    }
+
+                    var voucher = await _vouchers.PostPaymentInTransactionAsync(
+                        connection, fbTx, companyId, session.BranchId,
+                        new FinancialVoucherPostRequest(
+                            payment,
+                            "STOCK_DOCUMENT",
+                            documentId,
+                            FinancialVoucherSourceAllocationTypes.StockDocumentPayment,
+                            paymentRowId),
+                        session.UserId,
+                        cancellationToken);
+
+                    await using var linkVoucher = new FbCommand("""
+                        UPDATE STOCK_DOCUMENT_PAYMENTS
+                           SET CASH_VOUCHER_ID = @VID
+                         WHERE ID = @ID
                         """, connection, fbTx);
-                    insertPay.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
-                    insertPay.Parameters.Add("@LN", FbDbType.Integer).Value = payLine;
-                    insertPay.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value =
-                        payment.PaymentMethod.Trim().ToUpperInvariant();
-                    insertPay.Parameters.Add("@AMT", FbDbType.Decimal).Value = payment.AmountVnd;
-                    insertPay.Parameters.Add("@FUND", FbDbType.BigInt).Value =
-                        payment.CashFundId is > 0 ? payment.CashFundId.Value : DBNull.Value;
-                    insertPay.Parameters.Add("@BANK", FbDbType.BigInt).Value =
-                        payment.BankAccountId is > 0 ? payment.BankAccountId.Value : DBNull.Value;
-                    insertPay.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
-                        (object?)payment.ReferenceNumber ?? DBNull.Value;
-                    insertPay.Parameters.Add("@VID", FbDbType.BigInt).Value = voucherId;
-                    await insertPay.ExecuteNonQueryAsync(cancellationToken);
+                    linkVoucher.Parameters.Add("@VID", FbDbType.BigInt).Value = voucher.VoucherId;
+                    linkVoucher.Parameters.Add("@ID", FbDbType.BigInt).Value = paymentRowId;
+                    await linkVoucher.ExecuteNonQueryAsync(cancellationToken);
                 }
 
                 long? payableId = null;

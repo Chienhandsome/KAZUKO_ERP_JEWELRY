@@ -60,7 +60,9 @@ Collection `STOCK_DOCUMENT_PAYMENTS` (không hai field cứng):
 - `PaymentMethod`: `CASH` | `BANK_TRANSFER`
 - `AmountVnd`, `CashFundId` (bắt buộc nếu CASH), `BankAccountId` (bắt buộc nếu BANK_TRANSFER), `ReferenceNumber`
 
-Σ allocation = `PaidAmountVnd`. Mỗi allocation tạo một `CASH_VOUCHERS` (phiếu chi) khi POST, gắn `SOURCE_DOCUMENT_*` về phiếu nhập.
+Σ allocation = `PaidAmountVnd`. Mỗi allocation tạo một `CASH_VOUCHERS` (phiếu chi) khi POST, gắn `SOURCE_DOCUMENT_*` về phiếu nhập và `SOURCE_ALLOCATION_*` về dòng `STOCK_DOCUMENT_PAYMENTS` (idempotency DB-level).
+
+Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả tiền có thể nhiều phương thức (mỗi allocation → một phiếu) và cấn nhiều công nợ qua applications mà không nhân bản phiếu. Settlement + voucher + cập nhật công nợ cùng transaction; POSTED chỉ hủy/đảo.
 
 ### Công nợ
 
@@ -83,6 +85,7 @@ Collection `STOCK_DOCUMENT_PAYMENTS` (không hai field cứng):
 - Ghi: thành phẩm/BTP nhận lại, NVL dư, phế liệu, hao hụt thực tế / cho phép / chênh lệch.
 - Công thức theo từng NVL: đã giao − cấu thành − dư − phế = hao; so với định mức → chênh lệch.
 - Đây **không** phải nhập thành phẩm thủ công.
+- Khi có `QuantityInProduct` > 0 phải có `CraftOutputLineDraft` gắn `ProductionOrderId` hoặc `SalesOrderId`; tạo/cập nhật `FINISHED_PRODUCTS`, ghi `STOCK_CRAFT_OUTPUT_LINES` và `FINISHED_PRODUCT_MOVEMENTS` (IN), tính giá vốn = NVL cấu thành + tiền công phân bổ.
 - `LABOR_AMOUNT_VND` → công nợ phải trả **tiền công** cho thợ (không gồm giá trị NVL đã giao).
 
 ## 8. Xuất thành phẩm theo đơn đặt chế tác

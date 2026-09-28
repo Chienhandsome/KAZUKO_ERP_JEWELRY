@@ -213,10 +213,17 @@ public sealed class MaterialReceiptIntegrationTests : IDisposable
 
     private static string? ResolveMigratedDatabasePath()
     {
-        var migrated = Path.Combine(
-            @"D:\Working\KAZUKO_ERP_JEWELRY\data\backups\mig_test_34.fdb");
-        if (File.Exists(migrated))
-            return migrated;
+        foreach (var migrated in new[]
+                 {
+                     @"D:\Working\KAZUKO_ERP_JEWELRY\data\backups\mig_test_37.fdb",
+                     @"D:\Working\KAZUKO_ERP_JEWELRY\data\backups\mig_test_36.fdb",
+                     @"D:\Working\KAZUKO_ERP_JEWELRY\data\backups\mig_test_35.fdb",
+                     @"D:\Working\KAZUKO_ERP_JEWELRY\data\backups\mig_test_34.fdb"
+                 })
+        {
+            if (File.Exists(migrated))
+                return migrated;
+        }
 
         try
         {

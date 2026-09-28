@@ -83,6 +83,7 @@ public sealed class StockPostingValidatorTests
             Array.Empty<PaymentAllocationDraft>(),
             null,
             [new CraftSettlementLineDraft(1, 0, 20, 0, 0, null)],
+            Array.Empty<CraftOutputLineDraft>(),
             AllowOverReturn: false);
 
         var errors = CraftSettlementValidator.Validate(draft, new Dictionary<long, decimal> { [1] = 10m });
@@ -96,6 +97,29 @@ public sealed class StockPostingValidatorTests
         Assert.False(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("CANCELLED"));
         Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("CONFIRMED"));
         Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("DEPOSITED"));
+    }
+
+    [Fact]
+    public void CraftOutput_RequiresSourceOrder_AndCostBalance()
+    {
+        var draft = new CraftReturnReceiptDraft(
+            10,
+            DateTime.Today,
+            1,
+            "A",
+            "B",
+            100_000,
+            0,
+            Array.Empty<PaymentAllocationDraft>(),
+            null,
+            [new CraftSettlementLineDraft(1, 5, 0, 0, 0, null)],
+            [new CraftOutputLineDraft(null, null, null, "TP1", "Nhẫn", 1, 1, "999", 1, 80_000, 20_000, 90_000, null)],
+            AllowOverReturn: false);
+
+        var errors = CraftSettlementValidator.Validate(draft, new Dictionary<long, decimal> { [1] = 10m });
+        Assert.Contains(errors, e => e.Contains("lệnh chế tác", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("đơn hàng", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, e => e.Contains("giá vốn", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

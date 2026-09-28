@@ -29,11 +29,40 @@ public static class PayablePartyTypes
     public const string ExternalWorker = "EXTERNAL_WORKER";
 }
 
-public static class PayableDebtKinds
+public static class VarianceResponsibilities
 {
-    public const string Purchase = "PURCHASE";
-    public const string Labor = "LABOR";
+    public const string WithinAllowance = "WITHIN_ALLOWANCE";
+    public const string CompanyAccepted = "COMPANY_ACCEPTED";
+    public const string WorkerCompensation = "WORKER_COMPENSATION";
 }
+
+public static class ReceivableDebtKinds
+{
+    public const string LossCompensation = "LOSS_COMPENSATION";
+    public const string Sales = "SALES";
+}
+
+public static class ReceivableDebtStatuses
+{
+    public const string Open = "OPEN";
+    public const string Partial = "PARTIAL";
+    public const string Paid = "PAID";
+    public const string Cancelled = "CANCELLED";
+}
+
+public sealed record ReceivableDebtCollectRequest(
+    long DebtId,
+    IReadOnlyList<PaymentAllocationDraft> Allocations,
+    string? Notes);
+
+public interface IReceivableDebtRepository
+{
+    Task CollectAsync(
+        ReceivableDebtCollectRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+}
+
 
 public static class PayableDebtStatuses
 {
@@ -154,9 +183,7 @@ public sealed record DebtLedgerEntry(
 
 public sealed record CustomerCollectPaymentRequest(
     long CustomerId,
-    decimal AmountVnd,
-    string PaymentMethod,
-    string? ReferenceNo,
+    IReadOnlyList<PaymentAllocationDraft> Allocations,
     string? Notes);
 
 public interface ICashFundRepository
@@ -224,6 +251,14 @@ public interface IDebtWorkbenchRepository
 
     Task PaySupplierFifoAsync(
         long supplierId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task PayPayablePartyFifoAsync(
+        string partyType,
+        long partyId,
         IReadOnlyList<PaymentAllocationDraft> allocations,
         string? notes,
         AuthenticatedSession session,

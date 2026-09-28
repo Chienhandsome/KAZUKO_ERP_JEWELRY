@@ -78,6 +78,8 @@ public sealed class FirebirdBankAccountRepository : IBankAccountRepository
 
 public sealed class FirebirdPayableDebtRepository : IPayableDebtRepository
 {
+    private readonly FirebirdFinancialVoucherPostingService _vouchers = new();
+
     public async Task<IReadOnlyList<PayableDebtListItem>> SearchAsync(
         PayableDebtSearchFilter filter,
         AuthenticatedSession session,
@@ -210,30 +212,49 @@ public sealed class FirebirdPayableDebtRepository : IPayableDebtRepository
             foreach (var allocation in request.Allocations!)
             {
                 line++;
-                var voucherId = await StockPostingSupport.CreateCashVoucherOutAsync(
-                    connection, fbTx, companyId, session.BranchId, allocation,
-                    "PAYABLE_DEBT", request.DebtId, session.UserId, cancellationToken);
-
-                await using var insertAlloc = new FbCommand("""
+                long allocationId;
+                await using (var insertAlloc = new FbCommand("""
                     INSERT INTO PAYABLE_DEBT_PAYMENT_ALLOCATIONS
                         (DEBT_PAYMENT_ID, LINE_NUMBER, PAYMENT_METHOD, AMOUNT_VND,
-                         CASH_FUND_ID, BANK_ACCOUNT_ID, REFERENCE_NUMBER, CASH_VOUCHER_ID)
+                         CASH_FUND_ID, BANK_ACCOUNT_ID, REFERENCE_NUMBER)
                     VALUES
-                        (@PAY, @LN, @METHOD, @AMT, @FUND, @BANK, @REF, @VID)
+                        (@PAY, @LN, @METHOD, @AMT, @FUND, @BANK, @REF)
+                    RETURNING ID
+                    """, connection, fbTx))
+                {
+                    insertAlloc.Parameters.Add("@PAY", FbDbType.BigInt).Value = paymentId;
+                    insertAlloc.Parameters.Add("@LN", FbDbType.Integer).Value = line;
+                    insertAlloc.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value =
+                        allocation.PaymentMethod.Trim().ToUpperInvariant();
+                    insertAlloc.Parameters.Add("@AMT", FbDbType.Decimal).Value = allocation.AmountVnd;
+                    insertAlloc.Parameters.Add("@FUND", FbDbType.BigInt).Value =
+                        allocation.CashFundId is > 0 ? allocation.CashFundId.Value : DBNull.Value;
+                    insertAlloc.Parameters.Add("@BANK", FbDbType.BigInt).Value =
+                        allocation.BankAccountId is > 0 ? allocation.BankAccountId.Value : DBNull.Value;
+                    insertAlloc.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
+                        (object?)allocation.ReferenceNumber ?? DBNull.Value;
+                    allocationId = Convert.ToInt64(await insertAlloc.ExecuteScalarAsync(cancellationToken));
+                }
+
+                var voucher = await _vouchers.PostPaymentInTransactionAsync(
+                    connection, fbTx, companyId, session.BranchId,
+                    new FinancialVoucherPostRequest(
+                        allocation,
+                        "PAYABLE_DEBT",
+                        request.DebtId,
+                        FinancialVoucherSourceAllocationTypes.PayableDebtPaymentAllocation,
+                        allocationId),
+                    session.UserId,
+                    cancellationToken);
+
+                await using var linkVoucher = new FbCommand("""
+                    UPDATE PAYABLE_DEBT_PAYMENT_ALLOCATIONS
+                       SET CASH_VOUCHER_ID = @VID
+                     WHERE ID = @ID
                     """, connection, fbTx);
-                insertAlloc.Parameters.Add("@PAY", FbDbType.BigInt).Value = paymentId;
-                insertAlloc.Parameters.Add("@LN", FbDbType.Integer).Value = line;
-                insertAlloc.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value =
-                    allocation.PaymentMethod.Trim().ToUpperInvariant();
-                insertAlloc.Parameters.Add("@AMT", FbDbType.Decimal).Value = allocation.AmountVnd;
-                insertAlloc.Parameters.Add("@FUND", FbDbType.BigInt).Value =
-                    allocation.CashFundId is > 0 ? allocation.CashFundId.Value : DBNull.Value;
-                insertAlloc.Parameters.Add("@BANK", FbDbType.BigInt).Value =
-                    allocation.BankAccountId is > 0 ? allocation.BankAccountId.Value : DBNull.Value;
-                insertAlloc.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
-                    (object?)allocation.ReferenceNumber ?? DBNull.Value;
-                insertAlloc.Parameters.Add("@VID", FbDbType.BigInt).Value = voucherId;
-                await insertAlloc.ExecuteNonQueryAsync(cancellationToken);
+                linkVoucher.Parameters.Add("@VID", FbDbType.BigInt).Value = voucher.VoucherId;
+                linkVoucher.Parameters.Add("@ID", FbDbType.BigInt).Value = allocationId;
+                await linkVoucher.ExecuteNonQueryAsync(cancellationToken);
             }
 
             var newRemaining = remaining - paid;

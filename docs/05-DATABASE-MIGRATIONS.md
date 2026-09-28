@@ -185,3 +185,56 @@ COMMIT;
   powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0034__warehouse_finance_craft_flow.sql"
   ```
 - **Rollback production:** restore snapshot `gbak` tạo trước migration 33/34.
+
+---
+
+## 8. Migration Version 35: `0035__financial_settlement_and_voucher_idempotency.sql`
+
+- **Phiên bản:** `35` — chuẩn hóa phiếu thu/chi dùng chung + settlement đa phương thức.
+- **Thay đổi:**
+  - `CASH_VOUCHERS.SOURCE_ALLOCATION_TYPE` / `SOURCE_ALLOCATION_ID` + partial unique index `UQ_CV_SOURCE_ALLOC` (chống sinh trùng phiếu theo allocation).
+  - Bảng `FINANCIAL_SETTLEMENTS`, `FINANCIAL_SETTLEMENT_ALLOCATIONS`, `FINANCIAL_SETTLEMENT_APPLICATIONS`.
+  - Sequence `CASH_VOUCHER_IN`, `FINANCIAL_SETTLEMENT`.
+- **Verification:** `database/verification/verify_financial_settlement_schema.sql`.
+- **Áp dụng (sau backup):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0035__financial_settlement_and_voucher_idempotency.sql"
+  ```
+- **Rollback (dev, chưa có dữ liệu settlement):**
+  ```sql
+  DROP TABLE FINANCIAL_SETTLEMENT_APPLICATIONS;
+  DROP TABLE FINANCIAL_SETTLEMENT_ALLOCATIONS;
+  DROP TABLE FINANCIAL_SETTLEMENTS;
+  DROP INDEX UQ_CV_SOURCE_ALLOC;
+  DROP INDEX IX_CV_SOURCE_ALLOC;
+  ALTER TABLE CASH_VOUCHERS DROP SOURCE_ALLOCATION_ID;
+  ALTER TABLE CASH_VOUCHERS DROP SOURCE_ALLOCATION_TYPE;
+  DELETE FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 35;
+  ```
+  Production: restore snapshot `gbak` trước migration 35.
+
+---
+
+## 9. Migration Version 36: `0036__finished_product_movements.sql`
+
+- **Phiên bản:** `36` — ledger biến động thành phẩm + dòng output phiếu nhập chế tác.
+- **Bảng:** `FINISHED_PRODUCT_MOVEMENTS`, `STOCK_CRAFT_OUTPUT_LINES`.
+- **Verification:** `database/verification/verify_finished_product_movements_schema.sql`.
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0036__finished_product_movements.sql"
+  ```
+- **Rollback (dev):** `DROP TABLE STOCK_CRAFT_OUTPUT_LINES;` → `DROP TABLE FINISHED_PRODUCT_MOVEMENTS;` → xóa ledger 36. Production: restore `.fbk`.
+
+---
+
+## 10. Migration Version 37: `0037__receivable_debts_loss_compensation.sql`
+
+- **Phiên bản:** `37` — phải thu thợ bồi thường hao hụt.
+- **Thay đổi:** cột trách nhiệm/bồi thường trên `STOCK_CRAFT_SETTLEMENT_LINES`; bảng `RECEIVABLE_DEBTS`, `RECEIVABLE_DEBT_COLLECTIONS`.
+- **Verification:** `database/verification/verify_receivable_debts_schema.sql`.
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0037__receivable_debts_loss_compensation.sql"
+  ```
+- **Rollback (dev):** gỡ FK/cột bồi thường → `DROP TABLE RECEIVABLE_DEBT_COLLECTIONS;` → `DROP TABLE RECEIVABLE_DEBTS;` → xóa ledger 37. Production: restore `.fbk`.

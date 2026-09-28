@@ -70,10 +70,15 @@ public partial class App : Application
         IOutsourcedCraftService outsourcedCraft = new FirebirdOutsourcedCraftService();
         IFinishedGoodsIssueService finishedGoodsIssue = new FirebirdFinishedGoodsIssueService();
         IExternalWorkerRepository externalWorkers = new FirebirdExternalWorkerRepository();
+        IStockTransferService stockTransfers = new FirebirdStockTransferService();
+        IStockAdjustmentService stockAdjustments = new FirebirdStockAdjustmentService();
         ICashFundRepository cashFunds = new FirebirdCashFundRepository();
         IBankAccountRepository bankAccounts = new FirebirdBankAccountRepository();
         IPayableDebtRepository payableDebts = new FirebirdPayableDebtRepository();
         IDebtWorkbenchRepository debtWorkbench = new FirebirdDebtWorkbenchRepository();
+        IFinancialVoucherPostingService financialVouchers = new FirebirdFinancialVoucherPostingService();
+        IFinancialSettlementService financialSettlements = new FirebirdFinancialSettlementService();
+        IReceivableDebtRepository receivableDebts = new FirebirdReceivableDebtRepository();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -94,10 +99,15 @@ public partial class App : Application
         _services.AddSingleton(outsourcedCraft);
         _services.AddSingleton(finishedGoodsIssue);
         _services.AddSingleton(externalWorkers);
+        _services.AddSingleton(stockTransfers);
+        _services.AddSingleton(stockAdjustments);
         _services.AddSingleton(cashFunds);
         _services.AddSingleton(bankAccounts);
         _services.AddSingleton(payableDebts);
         _services.AddSingleton(debtWorkbench);
+        _services.AddSingleton(financialVouchers);
+        _services.AddSingleton(financialSettlements);
+        _services.AddSingleton(receivableDebts);
     }
 
     private void RegisterModules()

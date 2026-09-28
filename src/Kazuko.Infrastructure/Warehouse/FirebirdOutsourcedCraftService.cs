@@ -4,11 +4,14 @@ using Kazuko.Core.Finance;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Data;
+using Kazuko.Infrastructure.Finance;
 
 namespace Kazuko.Infrastructure.Warehouse;
 
 public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
 {
+    private readonly FirebirdFinancialVoucherPostingService _vouchers = new();
+
     public async Task<long> CreateAndPostIssueAsync(
         OutsourcedCraftIssueDraft draft,
         AuthenticatedSession session,
@@ -278,14 +281,57 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
                 var loss = CraftSettlementValidator.ComputeLoss(
                     issued, line.QuantityInProduct, line.QuantityReturned, line.QuantityScrap);
                 var variance = CraftSettlementValidator.ComputeVariance(loss, line.AllowedLoss);
+                var responsibility = ResolveVarianceResponsibility(line, variance);
+
+                long? receivableDebtId = null;
+                if (responsibility == VarianceResponsibilities.WorkerCompensation)
+                {
+                    if (line.CompensationAmountVnd <= 0 || line.CompensationQty <= 0)
+                        throw new InvalidOperationException(
+                            "Bồi thường hao hụt thợ bắt buộc nhập lượng, đơn giá và số tiền VNĐ.");
+                    var expectedComp = Math.Round(
+                        line.CompensationQty * line.CompensationUnitPriceVnd, 2, MidpointRounding.AwayFromZero);
+                    if (line.CompensationAmountVnd != expectedComp)
+                        throw new InvalidOperationException(
+                            $"Số tiền bồi thường phải = lượng × đơn giá ({expectedComp:N0}).");
+
+                    var recvCode = await StockPostingSupport.NextDocumentCodeAsync(
+                        connection, fbTx, "RECEIVABLE_DEBT", session.BranchId, "PTU", cancellationToken);
+                    await using var insertRecv = new FbCommand("""
+                        INSERT INTO RECEIVABLE_DEBTS
+                            (COMPANY_ID, BRANCH_ID, CODE, PARTY_TYPE, EXTERNAL_WORKER_ID,
+                             ORIGIN_DOCUMENT_TYPE, ORIGIN_DOCUMENT_ID, DEBT_KIND,
+                             ORIGINAL_AMOUNT_VND, COLLECTED_AMOUNT_VND, REMAINING_AMOUNT_VND,
+                             STATUS_CODE, NOTES, CREATED_BY, CREATED_AT)
+                        VALUES
+                            (@CID, @BID, @CODE, 'EXTERNAL_WORKER', @WID,
+                             'STOCK_DOCUMENT', @DOC, 'LOSS_COMPENSATION',
+                             @ORIG, 0, @ORIG, 'OPEN', @NOTES, @BY, CURRENT_TIMESTAMP)
+                        RETURNING ID
+                        """, connection, fbTx);
+                    insertRecv.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                    insertRecv.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+                    insertRecv.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = recvCode;
+                    insertRecv.Parameters.Add("@WID", FbDbType.BigInt).Value = workerId;
+                    insertRecv.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+                    insertRecv.Parameters.Add("@ORIG", FbDbType.Decimal).Value = line.CompensationAmountVnd;
+                    insertRecv.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
+                        (object?)line.CompensationReason ?? DBNull.Value;
+                    insertRecv.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                        session.UserId > 0 ? session.UserId : DBNull.Value;
+                    receivableDebtId = Convert.ToInt64(await insertRecv.ExecuteScalarAsync(cancellationToken));
+                }
 
                 await using (var settle = new FbCommand("""
                     INSERT INTO STOCK_CRAFT_SETTLEMENT_LINES
                         (RETURN_DOCUMENT_ID, HOLDING_ID, MATERIAL_ID,
                          QUANTITY_ISSUED, QUANTITY_IN_PRODUCT, QUANTITY_RETURNED, QUANTITY_SCRAP,
-                         QUANTITY_LOSS, ALLOWED_LOSS, VARIANCE_QTY, NOTES)
+                         QUANTITY_LOSS, ALLOWED_LOSS, VARIANCE_QTY, NOTES,
+                         VARIANCE_RESPONSIBILITY, COMPENSATION_QTY, COMPENSATION_UNIT_PRICE_VND,
+                         COMPENSATION_AMOUNT_VND, COMPENSATION_REASON, RECEIVABLE_DEBT_ID)
                     VALUES
-                        (@DOC, @HID, @MID, @ISS, @PROD, @RET, @SCRAP, @LOSS, @ALLOW, @VAR, @NOTES)
+                        (@DOC, @HID, @MID, @ISS, @PROD, @RET, @SCRAP, @LOSS, @ALLOW, @VAR, @NOTES,
+                         @RESP, @CQTY, @CPRICE, @CAMT, @CREASON, @RID)
                     """, connection, fbTx))
                 {
                     settle.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
@@ -300,6 +346,15 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
                     settle.Parameters.Add("@VAR", FbDbType.Decimal).Value = variance;
                     settle.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
                         (object?)line.Notes ?? DBNull.Value;
+                    settle.Parameters.Add("@RESP", FbDbType.VarChar, 30).Value =
+                        (object?)responsibility ?? DBNull.Value;
+                    settle.Parameters.Add("@CQTY", FbDbType.Decimal).Value = line.CompensationQty;
+                    settle.Parameters.Add("@CPRICE", FbDbType.Decimal).Value = line.CompensationUnitPriceVnd;
+                    settle.Parameters.Add("@CAMT", FbDbType.Decimal).Value = line.CompensationAmountVnd;
+                    settle.Parameters.Add("@CREASON", FbDbType.VarChar, 500).Value =
+                        (object?)line.CompensationReason ?? DBNull.Value;
+                    settle.Parameters.Add("@RID", FbDbType.BigInt).Value =
+                        receivableDebtId is > 0 ? receivableDebtId.Value : DBNull.Value;
                     await settle.ExecuteNonQueryAsync(cancellationToken);
                 }
 
@@ -341,34 +396,119 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
                 }
             }
 
+            var outputLineNo = 0;
+            foreach (var output in draft.OutputLines ?? Array.Empty<CraftOutputLineDraft>())
+            {
+                outputLineNo++;
+                var productId = await UpsertFinishedProductFromCraftOutputAsync(
+                    connection, fbTx, companyId, session.BranchId, output, session.UserId, cancellationToken);
+
+                await using (var insertOut = new FbCommand("""
+                    INSERT INTO STOCK_CRAFT_OUTPUT_LINES
+                        (RETURN_DOCUMENT_ID, LINE_NUMBER, PRODUCTION_ORDER_ID, SALES_ORDER_ID,
+                         FINISHED_PRODUCT_ID, QUANTITY, WEIGHT, GOLD_PURITY, DESTINATION_LOCATION_ID,
+                         MATERIAL_VALUE_VND, ALLOCATED_LABOR_COST_VND, TOTAL_COST_VND, NOTES)
+                    VALUES
+                        (@DOC, @LN, @PO, @SO, @FP, @QTY, @W, @PURITY, @LOC,
+                         @MAT, @LABOR, @TOTAL, @NOTES)
+                    """, connection, fbTx))
+                {
+                    insertOut.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+                    insertOut.Parameters.Add("@LN", FbDbType.Integer).Value = outputLineNo;
+                    insertOut.Parameters.Add("@PO", FbDbType.BigInt).Value =
+                        output.ProductionOrderId is > 0 ? output.ProductionOrderId.Value : DBNull.Value;
+                    insertOut.Parameters.Add("@SO", FbDbType.BigInt).Value =
+                        output.SalesOrderId is > 0 ? output.SalesOrderId.Value : DBNull.Value;
+                    insertOut.Parameters.Add("@FP", FbDbType.BigInt).Value = productId;
+                    insertOut.Parameters.Add("@QTY", FbDbType.Decimal).Value = output.Quantity;
+                    insertOut.Parameters.Add("@W", FbDbType.Decimal).Value = output.Weight;
+                    insertOut.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+                        (object?)output.GoldPurity ?? DBNull.Value;
+                    insertOut.Parameters.Add("@LOC", FbDbType.BigInt).Value = output.DestinationLocationId;
+                    insertOut.Parameters.Add("@MAT", FbDbType.Decimal).Value = output.MaterialValueVnd;
+                    insertOut.Parameters.Add("@LABOR", FbDbType.Decimal).Value = output.AllocatedLaborCostVnd;
+                    insertOut.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = output.TotalCostVnd;
+                    insertOut.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
+                        (object?)output.Notes ?? DBNull.Value;
+                    await insertOut.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                await using var insertMove = new FbCommand("""
+                    INSERT INTO FINISHED_PRODUCT_MOVEMENTS
+                        (COMPANY_ID, BRANCH_ID, FINISHED_PRODUCT_ID, MOVEMENT_TYPE,
+                         DOCUMENT_TYPE, DOCUMENT_ID, OCCURRED_AT, QUANTITY_CHANGE,
+                         UNIT_COST, VALUE_CHANGE, LOCATION_ID, STATUS_BEFORE, STATUS_AFTER,
+                         NOTES, CREATED_BY)
+                    VALUES
+                        (@CID, @BID, @FP, 'IN',
+                         'CRAFT_RETURN_RECEIPT', @DOC, CURRENT_TIMESTAMP, @QTY,
+                         @COST, @VALUE, @LOC, @BEFORE, 'IN_STOCK',
+                         @NOTES, @BY)
+                    """, connection, fbTx);
+                insertMove.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                insertMove.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+                insertMove.Parameters.Add("@FP", FbDbType.BigInt).Value = productId;
+                insertMove.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+                insertMove.Parameters.Add("@QTY", FbDbType.Decimal).Value = output.Quantity;
+                insertMove.Parameters.Add("@COST", FbDbType.Decimal).Value = output.TotalCostVnd;
+                insertMove.Parameters.Add("@VALUE", FbDbType.Decimal).Value = output.TotalCostVnd;
+                insertMove.Parameters.Add("@LOC", FbDbType.BigInt).Value = output.DestinationLocationId;
+                insertMove.Parameters.Add("@BEFORE", FbDbType.VarChar, 30).Value =
+                    output.FinishedProductId is > 0 ? "WAITING_RECEIPT" : DBNull.Value;
+                insertMove.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
+                    (object?)output.Notes ?? DBNull.Value;
+                insertMove.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                    session.UserId > 0 ? session.UserId : DBNull.Value;
+                await insertMove.ExecuteNonQueryAsync(cancellationToken);
+            }
+
             var payLine = 0;
             foreach (var payment in draft.LaborPayments ?? Array.Empty<PaymentAllocationDraft>())
             {
                 payLine++;
-                var voucherId = await StockPostingSupport.CreateCashVoucherOutAsync(
-                    connection, fbTx, companyId, session.BranchId, payment,
-                    "STOCK_DOCUMENT", documentId, session.UserId, cancellationToken);
-
-                await using var insertPay = new FbCommand("""
+                long paymentRowId;
+                await using (var insertPay = new FbCommand("""
                     INSERT INTO STOCK_DOCUMENT_PAYMENTS
                         (DOCUMENT_ID, LINE_NUMBER, PAYMENT_METHOD, AMOUNT_VND,
-                         CASH_FUND_ID, BANK_ACCOUNT_ID, REFERENCE_NUMBER, CASH_VOUCHER_ID)
+                         CASH_FUND_ID, BANK_ACCOUNT_ID, REFERENCE_NUMBER)
                     VALUES
-                        (@DOC, @LN, @METHOD, @AMT, @FUND, @BANK, @REF, @VID)
+                        (@DOC, @LN, @METHOD, @AMT, @FUND, @BANK, @REF)
+                    RETURNING ID
+                    """, connection, fbTx))
+                {
+                    insertPay.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+                    insertPay.Parameters.Add("@LN", FbDbType.Integer).Value = payLine;
+                    insertPay.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value =
+                        payment.PaymentMethod.Trim().ToUpperInvariant();
+                    insertPay.Parameters.Add("@AMT", FbDbType.Decimal).Value = payment.AmountVnd;
+                    insertPay.Parameters.Add("@FUND", FbDbType.BigInt).Value =
+                        payment.CashFundId is > 0 ? payment.CashFundId.Value : DBNull.Value;
+                    insertPay.Parameters.Add("@BANK", FbDbType.BigInt).Value =
+                        payment.BankAccountId is > 0 ? payment.BankAccountId.Value : DBNull.Value;
+                    insertPay.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
+                        (object?)payment.ReferenceNumber ?? DBNull.Value;
+                    paymentRowId = Convert.ToInt64(await insertPay.ExecuteScalarAsync(cancellationToken));
+                }
+
+                var voucher = await _vouchers.PostPaymentInTransactionAsync(
+                    connection, fbTx, companyId, session.BranchId,
+                    new FinancialVoucherPostRequest(
+                        payment,
+                        "STOCK_DOCUMENT",
+                        documentId,
+                        FinancialVoucherSourceAllocationTypes.StockDocumentPayment,
+                        paymentRowId),
+                    session.UserId,
+                    cancellationToken);
+
+                await using var linkVoucher = new FbCommand("""
+                    UPDATE STOCK_DOCUMENT_PAYMENTS
+                       SET CASH_VOUCHER_ID = @VID
+                     WHERE ID = @ID
                     """, connection, fbTx);
-                insertPay.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
-                insertPay.Parameters.Add("@LN", FbDbType.Integer).Value = payLine;
-                insertPay.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value =
-                    payment.PaymentMethod.Trim().ToUpperInvariant();
-                insertPay.Parameters.Add("@AMT", FbDbType.Decimal).Value = payment.AmountVnd;
-                insertPay.Parameters.Add("@FUND", FbDbType.BigInt).Value =
-                    payment.CashFundId is > 0 ? payment.CashFundId.Value : DBNull.Value;
-                insertPay.Parameters.Add("@BANK", FbDbType.BigInt).Value =
-                    payment.BankAccountId is > 0 ? payment.BankAccountId.Value : DBNull.Value;
-                insertPay.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
-                    (object?)payment.ReferenceNumber ?? DBNull.Value;
-                insertPay.Parameters.Add("@VID", FbDbType.BigInt).Value = voucherId;
-                await insertPay.ExecuteNonQueryAsync(cancellationToken);
+                linkVoucher.Parameters.Add("@VID", FbDbType.BigInt).Value = voucher.VoucherId;
+                linkVoucher.Parameters.Add("@ID", FbDbType.BigInt).Value = paymentRowId;
+                await linkVoucher.ExecuteNonQueryAsync(cancellationToken);
             }
 
             var laborDebtAmount = draft.LaborAmountVnd - draft.PaidLaborAmountVnd;
@@ -480,5 +620,110 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
         }
 
         return result;
+    }
+
+    private static async Task<long> UpsertFinishedProductFromCraftOutputAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        CraftOutputLineDraft output,
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        if (output.FinishedProductId is > 0)
+        {
+            await using var update = new FbCommand("""
+                UPDATE FINISHED_PRODUCTS
+                   SET LOCATION_ID = @LOC,
+                       TOTAL_WEIGHT = @W,
+                       GOLD_PURITY = COALESCE(@PURITY, GOLD_PURITY),
+                       MATERIAL_COST = @MAT,
+                       LABOR_COST = @LABOR,
+                       TOTAL_COST = @TOTAL,
+                       PRODUCTION_ORDER_ID = COALESCE(@PO, PRODUCTION_ORDER_ID),
+                       SALES_ORDER_ID = COALESCE(@SO, SALES_ORDER_ID),
+                       STATUS_CODE = 'IN_STOCK',
+                       RECEIVED_AT = CURRENT_TIMESTAMP,
+                       RECEIVED_BY = @BY
+                 WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
+                RETURNING ID
+                """, connection, transaction);
+            update.Parameters.Add("@LOC", FbDbType.BigInt).Value = output.DestinationLocationId;
+            update.Parameters.Add("@W", FbDbType.Decimal).Value = output.Weight;
+            update.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+                (object?)output.GoldPurity ?? DBNull.Value;
+            update.Parameters.Add("@MAT", FbDbType.Decimal).Value = output.MaterialValueVnd;
+            update.Parameters.Add("@LABOR", FbDbType.Decimal).Value = output.AllocatedLaborCostVnd;
+            update.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = output.TotalCostVnd;
+            update.Parameters.Add("@PO", FbDbType.BigInt).Value =
+                output.ProductionOrderId is > 0 ? output.ProductionOrderId.Value : DBNull.Value;
+            update.Parameters.Add("@SO", FbDbType.BigInt).Value =
+                output.SalesOrderId is > 0 ? output.SalesOrderId.Value : DBNull.Value;
+            update.Parameters.Add("@BY", FbDbType.BigInt).Value = userId > 0 ? userId : DBNull.Value;
+            update.Parameters.Add("@ID", FbDbType.BigInt).Value = output.FinishedProductId.Value;
+            update.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+            update.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+            var updated = await update.ExecuteScalarAsync(cancellationToken);
+            if (updated is null or DBNull)
+                throw new InvalidOperationException($"Không cập nhật được thành phẩm #{output.FinishedProductId}.");
+            return Convert.ToInt64(updated);
+        }
+
+        var code = string.IsNullOrWhiteSpace(output.ProductCode)
+            ? await StockPostingSupport.NextDocumentCodeAsync(
+                connection, transaction, "FINISHED_PRODUCT", branchId, "TP", cancellationToken)
+            : output.ProductCode.Trim();
+        var name = string.IsNullOrWhiteSpace(output.ProductName) ? code : output.ProductName.Trim();
+
+        await using var insert = new FbCommand("""
+            INSERT INTO FINISHED_PRODUCTS
+                (COMPANY_ID, BRANCH_ID, PRODUCTION_ORDER_ID, SALES_ORDER_ID,
+                 CODE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT,
+                 MATERIAL_COST, LABOR_COST, TOTAL_COST,
+                 LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT)
+            VALUES
+                (@CID, @BID, @PO, @SO,
+                 @CODE, @NAME, @PURITY, @W,
+                 @MAT, @LABOR, @TOTAL,
+                 @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
+            RETURNING ID
+            """, connection, transaction);
+        insert.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+        insert.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+        insert.Parameters.Add("@PO", FbDbType.BigInt).Value =
+            output.ProductionOrderId is > 0 ? output.ProductionOrderId.Value : DBNull.Value;
+        insert.Parameters.Add("@SO", FbDbType.BigInt).Value =
+            output.SalesOrderId is > 0 ? output.SalesOrderId.Value : DBNull.Value;
+        insert.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
+        insert.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
+        insert.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+            (object?)output.GoldPurity ?? DBNull.Value;
+        insert.Parameters.Add("@W", FbDbType.Decimal).Value = output.Weight;
+        insert.Parameters.Add("@MAT", FbDbType.Decimal).Value = output.MaterialValueVnd;
+        insert.Parameters.Add("@LABOR", FbDbType.Decimal).Value = output.AllocatedLaborCostVnd;
+        insert.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = output.TotalCostVnd;
+        insert.Parameters.Add("@LOC", FbDbType.BigInt).Value = output.DestinationLocationId;
+        insert.Parameters.Add("@BY", FbDbType.BigInt).Value = userId > 0 ? userId : DBNull.Value;
+        return Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
+    }
+
+    private static string? ResolveVarianceResponsibility(CraftSettlementLineDraft line, decimal variance)
+    {
+        var explicitResp = (line.VarianceResponsibility ?? string.Empty).Trim().ToUpperInvariant();
+        if (explicitResp.Length > 0)
+        {
+            if (explicitResp is not (
+                VarianceResponsibilities.WithinAllowance or
+                VarianceResponsibilities.CompanyAccepted or
+                VarianceResponsibilities.WorkerCompensation))
+                throw new InvalidOperationException("VARIANCE_RESPONSIBILITY không hợp lệ.");
+            return explicitResp;
+        }
+
+        if (variance <= 0)
+            return VarianceResponsibilities.WithinAllowance;
+        // Excess variance without explicit responsibility stays recorded but does not auto-create debt.
+        return null;
     }
 }

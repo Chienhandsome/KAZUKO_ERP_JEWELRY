@@ -10,7 +10,7 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
 {
     private const int OverdueDays = 30;
 
-    private readonly IPayableDebtRepository _payables = new FirebirdPayableDebtRepository();
+    private readonly FirebirdFinancialSettlementService _settlements = new();
 
     public async Task<DebtWorkbenchSummary> GetSummaryAsync(
         AuthenticatedSession session,
@@ -413,7 +413,13 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(session);
         StockPostingSupport.EnsureBranch(session);
-        if (request.AmountVnd <= 0)
+
+        var allocations = request.Allocations ?? Array.Empty<PaymentAllocationDraft>();
+        var amount = allocations.Sum(x => x.AmountVnd);
+        var errors = PaymentAllocationValidator.Validate(allocations, amount);
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(" ", errors));
+        if (amount <= 0)
             throw new InvalidOperationException("Số tiền thu phải > 0.");
 
         await using var connection = FirebirdDatabase.CreateConnection();
@@ -423,6 +429,7 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
 
         try
         {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
             var openOrders = new List<(long OrderId, decimal Remaining)>();
             await using (var cmd = new FbCommand("""
                 SELECT O.ID,
@@ -434,6 +441,7 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 WHERE O.CUSTOMER_ID = @CID
                   AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
                 ORDER BY O.ORDER_DATE, O.ID
+                WITH LOCK
                 """, connection, fbTx))
             {
                 cmd.Parameters.Add("@CID", FbDbType.BigInt).Value = request.CustomerId;
@@ -446,22 +454,38 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 }
             }
 
-            var left = request.AmountVnd;
             var totalOpen = openOrders.Sum(x => x.Remaining);
-            if (left > totalOpen)
-                throw new InvalidOperationException($"Số thu ({left:N0}) vượt tổng còn nợ ({totalOpen:N0}).");
+            if (amount > totalOpen)
+                throw new InvalidOperationException($"Số thu ({amount:N0}) vượt tổng còn nợ ({totalOpen:N0}).");
 
-            var method = string.IsNullOrWhiteSpace(request.PaymentMethod)
-                ? PaymentMethods.Cash
-                : request.PaymentMethod.Trim().ToUpperInvariant();
-            if (method == PaymentMethods.BankTransfer)
-                method = "BANK";
-
+            var applications = new List<SettlementApplicationDraft>();
+            var left = amount;
             foreach (var order in openOrders)
             {
                 if (left <= 0)
                     break;
                 var apply = Math.Min(left, order.Remaining);
+                applications.Add(new SettlementApplicationDraft(
+                    SettlementApplicationTargetTypes.SalesOrder, order.OrderId, apply));
+                left -= apply;
+            }
+
+            var settlement = await _settlements.PostInTransactionAsync(
+                connection, fbTx, companyId, session.BranchId,
+                new FinancialSettlementDraft(
+                    SettlementTypes.Receipt,
+                    SettlementPartyTypes.Customer,
+                    request.CustomerId,
+                    DateTime.Now,
+                    allocations,
+                    applications,
+                    request.Notes),
+                session.UserId,
+                cancellationToken);
+
+            var orderMethod = ResolveOrderPaymentMethod(allocations);
+            foreach (var application in applications)
+            {
                 await using var insert = new FbCommand("""
                     INSERT INTO ORDER_PAYMENTS
                         (ORDER_ID, PAYMENT_DATE, PAYMENT_TYPE, AMOUNT, PAYMENT_METHOD,
@@ -470,24 +494,22 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                         (@OID, CURRENT_TIMESTAMP, 'PAYMENT', @AMT, @METHOD,
                          @REF, @NOTES, FALSE, @BY, CURRENT_TIMESTAMP)
                     """, connection, fbTx);
-                insert.Parameters.Add("@OID", FbDbType.BigInt).Value = order.OrderId;
-                insert.Parameters.Add("@AMT", FbDbType.Decimal).Value = apply;
-                insert.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value = method;
-                insert.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
-                    (object?)request.ReferenceNo ?? DBNull.Value;
+                insert.Parameters.Add("@OID", FbDbType.BigInt).Value = application.TargetId;
+                insert.Parameters.Add("@AMT", FbDbType.Decimal).Value = application.AmountVnd;
+                insert.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value = orderMethod;
+                insert.Parameters.Add("@REF", FbDbType.VarChar, 100).Value = settlement.Code;
                 insert.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
                     (object?)request.Notes ?? DBNull.Value;
                 insert.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;
                 await insert.ExecuteNonQueryAsync(cancellationToken);
-                left -= apply;
             }
 
             await AuditLogWriter.WriteAsync(
                 connection, fbTx, "CUSTOMER_DEBT_COLLECTED",
                 session.UserId, session.Username, session.BranchId,
                 "CUSTOMER", request.CustomerId.ToString(),
-                $"{{\"amount\":{request.AmountVnd}}}",
+                $"{{\"settlementId\":{settlement.SettlementId},\"amount\":{amount},\"vouchers\":{settlement.CashVoucherIds.Count},\"orders\":{applications.Count}}}",
                 cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -499,8 +521,18 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         }
     }
 
-    public async Task PaySupplierFifoAsync(
+    public Task PaySupplierFifoAsync(
         long supplierId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default) =>
+        PayPayablePartyFifoAsync(
+            PayablePartyTypes.Supplier, supplierId, allocations, notes, session, cancellationToken);
+
+    public async Task PayPayablePartyFifoAsync(
+        string partyType,
+        long partyId,
         IReadOnlyList<PaymentAllocationDraft> allocations,
         string? notes,
         AuthenticatedSession session,
@@ -510,90 +542,200 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         ArgumentNullException.ThrowIfNull(session);
         StockPostingSupport.EnsureBranch(session);
 
+        var normalizedParty = (partyType ?? string.Empty).Trim().ToUpperInvariant();
+        if (normalizedParty is not (
+            PayablePartyTypes.Supplier or
+            PayablePartyTypes.Customer or
+            PayablePartyTypes.ExternalWorker))
+            throw new InvalidOperationException("PARTY_TYPE không hợp lệ.");
+
         var amount = allocations.Sum(x => x.AmountVnd);
+        var errors = PaymentAllocationValidator.Validate(allocations, amount);
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(" ", errors));
         if (amount <= 0)
             throw new InvalidOperationException("Số tiền chi phải > 0.");
 
-        var open = await LoadOpenSupplierDebtsAsync(supplierId, session, cancellationToken);
-        var totalOpen = open.Sum(x => x.Remaining);
-        if (amount > totalOpen)
-            throw new InvalidOperationException($"Số chi ({amount:N0}) vượt tổng còn nợ NCC ({totalOpen:N0}).");
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTx = (FbTransaction)transaction;
 
-        var left = amount;
-        foreach (var debt in open)
+        try
         {
-            if (left <= 0)
-                break;
-            var apply = Math.Min(left, debt.Remaining);
-            // Scale allocations proportionally for this slice
-            var slice = ScaleAllocations(allocations, apply, amount);
-            await _payables.PayAsync(
-                new PayableDebtPaymentRequest(debt.Id, slice, notes),
-                session,
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+            var open = await LoadOpenPartyDebtsForUpdateAsync(
+                connection, fbTx, normalizedParty, partyId, session.BranchId, cancellationToken);
+            var totalOpen = open.Sum(x => x.Remaining);
+            if (amount > totalOpen)
+                throw new InvalidOperationException($"Số chi ({amount:N0}) vượt tổng còn nợ ({totalOpen:N0}).");
+
+            var applications = new List<SettlementApplicationDraft>();
+            var left = amount;
+            foreach (var debt in open)
+            {
+                if (left <= 0)
+                    break;
+                var apply = Math.Min(left, debt.Remaining);
+                applications.Add(new SettlementApplicationDraft(
+                    SettlementApplicationTargetTypes.PayableDebt, debt.Id, apply));
+                left -= apply;
+            }
+
+            var settlement = await _settlements.PostInTransactionAsync(
+                connection, fbTx, companyId, session.BranchId,
+                new FinancialSettlementDraft(
+                    SettlementTypes.Payment,
+                    normalizedParty,
+                    partyId,
+                    DateTime.Now,
+                    allocations,
+                    applications,
+                    notes),
+                session.UserId,
                 cancellationToken);
-            left -= apply;
+
+            foreach (var application in applications)
+            {
+                await ApplyPayableDebtPaymentAsync(
+                    connection, fbTx, application.TargetId, application.AmountVnd,
+                    notes, settlement.Code, session.UserId, cancellationToken);
+            }
+
+            await AuditLogWriter.WriteAsync(
+                connection, fbTx, "PAYABLE_PARTY_FIFO_PAID",
+                session.UserId, session.Username, session.BranchId,
+                normalizedParty, partyId.ToString(),
+                $"{{\"settlementId\":{settlement.SettlementId},\"amount\":{amount},\"vouchers\":{settlement.CashVoucherIds.Count},\"debts\":{applications.Count}}}",
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
     }
 
-    private static async Task<List<(long Id, decimal Remaining)>> LoadOpenSupplierDebtsAsync(
-        long supplierId,
-        AuthenticatedSession session,
+    private static async Task ApplyPayableDebtPaymentAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long debtId,
+        decimal paid,
+        string? notes,
+        string settlementCode,
+        long userId,
         CancellationToken cancellationToken)
     {
+        decimal remaining;
+        string status;
+        await using (var debtCmd = new FbCommand("""
+            SELECT REMAINING_AMOUNT_VND, STATUS_CODE
+            FROM PAYABLE_DEBTS
+            WHERE ID = @ID
+            WITH LOCK
+            """, connection, transaction))
+        {
+            debtCmd.Parameters.Add("@ID", FbDbType.BigInt).Value = debtId;
+            await using var reader = await debtCmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                throw new InvalidOperationException($"Không tìm thấy công nợ #{debtId}.");
+            remaining = reader.GetDecimal(0);
+            status = reader.GetString(1);
+        }
+
+        if (status is PayableDebtStatuses.Paid or PayableDebtStatuses.Cancelled)
+            throw new InvalidOperationException($"Công nợ #{debtId} đã đóng ({status}).");
+        if (paid > remaining)
+            throw new InvalidOperationException($"Số thanh toán vượt số còn nợ của #{debtId}.");
+
+        await using (var insertPay = new FbCommand("""
+            INSERT INTO PAYABLE_DEBT_PAYMENTS (DEBT_ID, PAYMENT_DATE, AMOUNT_VND, NOTES, CREATED_BY, CREATED_AT)
+            VALUES (@DEBT, CURRENT_TIMESTAMP, @AMT, @NOTES, @BY, CURRENT_TIMESTAMP)
+            """, connection, transaction))
+        {
+            insertPay.Parameters.Add("@DEBT", FbDbType.BigInt).Value = debtId;
+            insertPay.Parameters.Add("@AMT", FbDbType.Decimal).Value = paid;
+            insertPay.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
+                (object?)(string.IsNullOrWhiteSpace(notes) ? settlementCode : $"{settlementCode}: {notes}")
+                ?? settlementCode;
+            insertPay.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                userId > 0 ? userId : DBNull.Value;
+            await insertPay.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        var newRemaining = remaining - paid;
+        var newStatus = newRemaining == 0 ? PayableDebtStatuses.Paid : PayableDebtStatuses.Partial;
+        await using var updateDebt = new FbCommand("""
+            UPDATE PAYABLE_DEBTS
+               SET PAID_AMOUNT_VND = PAID_AMOUNT_VND + @PAID,
+                   REMAINING_AMOUNT_VND = @REM,
+                   STATUS_CODE = @STATUS,
+                   UPDATED_BY = @BY,
+                   UPDATED_AT = CURRENT_TIMESTAMP
+             WHERE ID = @ID
+            """, connection, transaction);
+        updateDebt.Parameters.Add("@PAID", FbDbType.Decimal).Value = paid;
+        updateDebt.Parameters.Add("@REM", FbDbType.Decimal).Value = newRemaining;
+        updateDebt.Parameters.Add("@STATUS", FbDbType.VarChar, 20).Value = newStatus;
+        updateDebt.Parameters.Add("@BY", FbDbType.BigInt).Value = userId > 0 ? userId : DBNull.Value;
+        updateDebt.Parameters.Add("@ID", FbDbType.BigInt).Value = debtId;
+        await updateDebt.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<List<(long Id, decimal Remaining)>> LoadOpenPartyDebtsForUpdateAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        string partyType,
+        long partyId,
+        long branchId,
+        CancellationToken cancellationToken)
+    {
+        var partyColumn = partyType switch
+        {
+            PayablePartyTypes.Supplier => "SUPPLIER_ID",
+            PayablePartyTypes.Customer => "CUSTOMER_ID",
+            PayablePartyTypes.ExternalWorker => "EXTERNAL_WORKER_ID",
+            _ => throw new InvalidOperationException("PARTY_TYPE không hợp lệ.")
+        };
+
         var rows = new List<(long Id, decimal Remaining)>();
-        await using var connection = FirebirdDatabase.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
+        await using var command = new FbCommand($"""
             SELECT ID, REMAINING_AMOUNT_VND
             FROM PAYABLE_DEBTS
-            WHERE SUPPLIER_ID = @SID
-              AND PARTY_TYPE = 'SUPPLIER'
+            WHERE {partyColumn} = @PID
+              AND PARTY_TYPE = @PTYPE
               AND STATUS_CODE IN ('OPEN', 'PARTIAL')
               AND BRANCH_ID = @BID
             ORDER BY CREATED_AT, ID
-            """, connection);
-        command.Parameters.Add("@SID", FbDbType.BigInt).Value = supplierId;
-        command.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+            WITH LOCK
+            """, connection, transaction);
+        command.Parameters.Add("@PID", FbDbType.BigInt).Value = partyId;
+        command.Parameters.Add("@PTYPE", FbDbType.VarChar, 30).Value = partyType;
+        command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
             rows.Add((reader.GetInt64(0), reader.GetDecimal(1)));
         return rows;
     }
 
-    private static IReadOnlyList<PaymentAllocationDraft> ScaleAllocations(
-        IReadOnlyList<PaymentAllocationDraft> source,
-        decimal targetTotal,
-        decimal sourceTotal)
+    private static string ResolveOrderPaymentMethod(IReadOnlyList<PaymentAllocationDraft> allocations)
     {
-        if (sourceTotal <= 0 || targetTotal == sourceTotal)
-            return source;
-
-        var result = new List<PaymentAllocationDraft>();
-        decimal assigned = 0;
-        for (var i = 0; i < source.Count; i++)
-        {
-            var item = source[i];
-            decimal amount;
-            if (i == source.Count - 1)
-                amount = targetTotal - assigned;
-            else
-            {
-                amount = Math.Round(item.AmountVnd * targetTotal / sourceTotal, 2, MidpointRounding.AwayFromZero);
-                assigned += amount;
-            }
-
-            if (amount > 0)
-                result.Add(item with { AmountVnd = amount });
-        }
-
-        return result;
+        var methods = allocations
+            .Select(x => (x.PaymentMethod ?? string.Empty).Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (methods.Count != 1)
+            return "MIXED";
+        return methods[0] == PaymentMethods.BankTransfer ? "BANK" : methods[0];
     }
 
     private static string ResolveStatus(decimal remaining, DateTime? lastDebtDate)
     {
         if (remaining <= 0)
             return DebtDisplayStatuses.Paid;
-        if (lastDebtDate.HasValue && lastDebtDate.Value.Date < DateTime.Today.AddDays(-OverdueDays))
+        if (lastDebtDate.HasValue && lastDebtDate.Value.Date < DateTime.Today.AddDays(OverdueDays * -1))
             return DebtDisplayStatuses.Overdue;
         return DebtDisplayStatuses.Normal;
     }

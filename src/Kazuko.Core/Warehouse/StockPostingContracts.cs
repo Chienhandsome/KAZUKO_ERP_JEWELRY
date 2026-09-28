@@ -18,6 +18,7 @@ public static class StockDocumentTypes
 {
     public const string Receipt = "RECEIPT";
     public const string Issue = "ISSUE";
+    public const string Transfer = "TRANSFER";
     public const string OutsourcedCraftIssue = "OUTSOURCED_CRAFT_ISSUE";
     public const string CraftReturnReceipt = "CRAFT_RETURN_RECEIPT";
     public const string FinishedGoodsIssue = "FINISHED_GOODS_ISSUE";
@@ -117,6 +118,26 @@ public sealed record CraftSettlementLineDraft(
     decimal QuantityReturned,
     decimal QuantityScrap,
     decimal AllowedLoss,
+    string? Notes,
+    string? VarianceResponsibility = null,
+    decimal CompensationQty = 0,
+    decimal CompensationUnitPriceVnd = 0,
+    decimal CompensationAmountVnd = 0,
+    string? CompensationReason = null);
+
+public sealed record CraftOutputLineDraft(
+    long? ProductionOrderId,
+    long? SalesOrderId,
+    long? FinishedProductId,
+    string? ProductCode,
+    string? ProductName,
+    decimal Quantity,
+    decimal Weight,
+    string? GoldPurity,
+    long DestinationLocationId,
+    decimal MaterialValueVnd,
+    decimal AllocatedLaborCostVnd,
+    decimal TotalCostVnd,
     string? Notes);
 
 public sealed record CraftReturnReceiptDraft(
@@ -130,6 +151,7 @@ public sealed record CraftReturnReceiptDraft(
     IReadOnlyList<PaymentAllocationDraft> LaborPayments,
     string? Notes,
     IReadOnlyList<CraftSettlementLineDraft> SettlementLines,
+    IReadOnlyList<CraftOutputLineDraft> OutputLines,
     bool AllowOverReturn);
 
 public sealed record FinishedGoodsIssueLineDraft(

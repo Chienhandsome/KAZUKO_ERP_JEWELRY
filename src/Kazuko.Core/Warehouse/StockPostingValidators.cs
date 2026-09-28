@@ -123,6 +123,7 @@ public static class CraftSettlementValidator
             errors.Add("Phải có dòng quyết toán.");
 
         var lineNo = 0;
+        decimal totalInProduct = 0;
         foreach (var line in draft.SettlementLines ?? Array.Empty<CraftSettlementLineDraft>())
         {
             lineNo++;
@@ -131,6 +132,7 @@ public static class CraftSettlementValidator
             if (line.QuantityInProduct < 0 || line.QuantityReturned < 0 || line.QuantityScrap < 0 || line.AllowedLoss < 0)
                 errors.Add($"Dòng {lineNo}: số lượng không được âm.");
 
+            totalInProduct += line.QuantityInProduct;
             var consumed = line.QuantityInProduct + line.QuantityReturned + line.QuantityScrap;
             if (!outstandingByHoldingId.TryGetValue(line.HoldingId, out var outstanding))
             {
@@ -140,6 +142,31 @@ public static class CraftSettlementValidator
 
             if (consumed > outstanding && !draft.AllowOverReturn)
                 errors.Add($"Dòng {lineNo}: thu hồi vượt lượng đang giao ({outstanding}).");
+        }
+
+        var outputs = draft.OutputLines ?? Array.Empty<CraftOutputLineDraft>();
+        if (totalInProduct > 0 && outputs.Count == 0)
+            errors.Add("Có NVL cấu thành sản phẩm nhưng thiếu dòng thành phẩm đầu ra.");
+
+        var outNo = 0;
+        foreach (var output in outputs)
+        {
+            outNo++;
+            if (output.ProductionOrderId is null or <= 0 && output.SalesOrderId is null or <= 0)
+                errors.Add($"Thành phẩm dòng {outNo}: bắt buộc có lệnh chế tác hoặc đơn hàng nguồn.");
+            if (output.FinishedProductId is null or <= 0
+                && string.IsNullOrWhiteSpace(output.ProductCode)
+                && string.IsNullOrWhiteSpace(output.ProductName))
+                errors.Add($"Thành phẩm dòng {outNo}: thiếu mã/tên khi tạo mới.");
+            if (output.Quantity <= 0)
+                errors.Add($"Thành phẩm dòng {outNo}: số lượng phải > 0.");
+            if (output.DestinationLocationId <= 0)
+                errors.Add($"Thành phẩm dòng {outNo}: thiếu kho nhận.");
+            if (output.MaterialValueVnd < 0 || output.AllocatedLaborCostVnd < 0 || output.TotalCostVnd < 0)
+                errors.Add($"Thành phẩm dòng {outNo}: giá trị không được âm.");
+            var expected = Math.Round(output.MaterialValueVnd + output.AllocatedLaborCostVnd, 2, MidpointRounding.AwayFromZero);
+            if (output.TotalCostVnd != expected)
+                errors.Add($"Thành phẩm dòng {outNo}: tổng giá vốn phải = NVL + tiền công ({expected:N0}).");
         }
 
         return errors;

@@ -1,6 +1,5 @@
 using FirebirdSql.Data.FirebirdClient;
 using Kazuko.Core.Authentication;
-using Kazuko.Core.Finance;
 
 namespace Kazuko.Infrastructure.Warehouse;
 
@@ -161,45 +160,6 @@ internal static class StockPostingSupport
         command.Parameters.Add("@VALUE", FbDbType.Decimal).Value = quantityChange * unitCost;
         command.Parameters.Add("@BY", FbDbType.BigInt).Value = createdBy is > 0 ? createdBy.Value : DBNull.Value;
         await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    public static async Task<long> CreateCashVoucherOutAsync(
-        FbConnection connection,
-        FbTransaction transaction,
-        long companyId,
-        long branchId,
-        PaymentAllocationDraft allocation,
-        string sourceDocumentType,
-        long sourceDocumentId,
-        long? createdBy,
-        CancellationToken cancellationToken)
-    {
-        var code = await NextDocumentCodeAsync(
-            connection, transaction, "CASH_VOUCHER_OUT", branchId, "PC", cancellationToken);
-
-        await using var command = new FbCommand("""
-            INSERT INTO CASH_VOUCHERS
-                (COMPANY_ID, BRANCH_ID, CODE, VOUCHER_DATE, VOUCHER_TYPE, PAYMENT_METHOD,
-                 AMOUNT_VND, CURRENCY_CODE, EXCHANGE_RATE, CASH_FUND_ID, BANK_ACCOUNT_ID,
-                 REFERENCE_NUMBER, SOURCE_DOCUMENT_TYPE, SOURCE_DOCUMENT_ID, STATUS_CODE, CREATED_BY)
-            VALUES
-                (@CID, @BID, @CODE, CURRENT_TIMESTAMP, 'OUT', @METHOD,
-                 @AMT, 'VND', 1, @FUND, @BANK,
-                 @REF, @SRC_TYPE, @SRC_ID, 'POSTED', @BY)
-            RETURNING ID
-            """, connection, transaction);
-        command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
-        command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
-        command.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
-        command.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value = allocation.PaymentMethod.Trim().ToUpperInvariant();
-        command.Parameters.Add("@AMT", FbDbType.Decimal).Value = allocation.AmountVnd;
-        command.Parameters.Add("@FUND", FbDbType.BigInt).Value = allocation.CashFundId is > 0 ? allocation.CashFundId.Value : DBNull.Value;
-        command.Parameters.Add("@BANK", FbDbType.BigInt).Value = allocation.BankAccountId is > 0 ? allocation.BankAccountId.Value : DBNull.Value;
-        command.Parameters.Add("@REF", FbDbType.VarChar, 100).Value = (object?)allocation.ReferenceNumber ?? DBNull.Value;
-        command.Parameters.Add("@SRC_TYPE", FbDbType.VarChar, 40).Value = sourceDocumentType;
-        command.Parameters.Add("@SRC_ID", FbDbType.BigInt).Value = sourceDocumentId;
-        command.Parameters.Add("@BY", FbDbType.BigInt).Value = createdBy is > 0 ? createdBy.Value : DBNull.Value;
-        return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
     }
 
     public static async Task<(string Code, string MaterialType, string UnitCode)> GetMaterialAsync(
