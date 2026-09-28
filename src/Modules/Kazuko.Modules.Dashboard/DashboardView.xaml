@@ -89,7 +89,7 @@
                                     Style="{StaticResource HomeTileButtonStyle}"
                                     ToolTip="{Binding Label, Mode=OneWay}">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <Image Source="{Binding IconUri, Mode=OneWay}"
+                                    <Image Source="{Binding IconUri, Mode=OneWay, Converter={StaticResource PathToImageSourceConverter}}"
                                            Width="72" Height="66" Stretch="Uniform"
                                            RenderOptions.BitmapScalingMode="HighQuality" />
                                     <TextBlock Text="{Binding Label, Mode=OneWay}"

@@ -146,3 +146,20 @@ COMMIT;
   1. Đưa hệ thống về chế độ bảo trì.
   2. Khôi phục lại bản backup toàn vẹn tạo trước thời điểm xảy ra sự cố (`gbak -c`).
   3. Hoặc phát hành một bản migration sửa lỗi tiến về phía trước (Forward-fix migration) để xử lý tương thích mà không làm mất dữ liệu.
+
+---
+
+## 5. Chi tiết Migration Version 31: `0031__human_resources_core.sql`
+
+- **Tệp nguồn:** `database/migrations/0031__human_resources_core.sql`
+- **Phiên bản:** `31`
+- **Tên migration:** `HUMAN_RESOURCES_CORE`
+- **Mô tả:** Tạo `HR_DEPARTMENTS`, `HR_POSITIONS`, `HR_EMPLOYEES`; seed danh mục phòng ban/chức vụ cho `KAZUKO`; **không** seed nhân viên. Nhân viên **không** gắn `DEPARTMENT_ID`/`POSITION_ID` (danh mục giữ cho tab cơ cấu sau).
+- **Verification:** `database/verification/verify_human_resources_schema.sql`
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0031__human_resources_core.sql"
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0032__hr_employee_drop_dept_pos.sql"
+  ```
+  Migration 32 gỡ cột phòng ban/chức vụ khỏi `HR_EMPLOYEES` nếu bản 31 cũ đã tạo các cột đó (idempotent nếu đã không còn cột).
+- **Rollback (dev, chưa có dữ liệu NV):** `DROP TABLE HR_EMPLOYEES;` → `DROP TABLE HR_POSITIONS;` → `DROP TABLE HR_DEPARTMENTS;` rồi khôi phục `.fbk` / xóa ledger 31–32 theo quy trình mục 4. Production ưu tiên restore backup.

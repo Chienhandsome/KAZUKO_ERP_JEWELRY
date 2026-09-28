@@ -1,0 +1,193 @@
+<Window x:Class="Kazuko.Modules.HumanResources.EmployeeEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:localConv="clr-namespace:Kazuko.Modules.HumanResources.Converters"
+        Title="{Binding Title, Mode=OneWay}"
+        Width="920" Height="720"
+        MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <localConv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+    </Window.Resources>
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Title, Mode=OneWay}"
+                       FontSize="{DynamicResource FontSize.Subtitle}"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PrimaryBrush}" />
+            <TextBlock Text="Mã nhân viên được sinh tự động khi lưu. Enter để lưu, Escape để hủy."
+                       FontSize="{DynamicResource FontSize.Caption}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,0" />
+            <TextBlock Text="{Binding FormError, Mode=OneWay}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       FontSize="{DynamicResource FontSize.Body}"
+                       TextWrapping="Wrap"
+                       Margin="0,8,0,0" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <Grid IsEnabled="{Binding IsFormEnabled, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Mã NV" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding CodeDisplay, Mode=OneWay}" IsReadOnly="True" MinHeight="36" Margin="0,0,0,8"
+                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                             Background="{DynamicResource SurfaceAltBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+
+                    <TextBlock Text="Họ và tên *" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding FullName, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,2"
+                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                    <TextBlock Text="{Binding FullNameError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
+                               FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+                    <TextBlock Text="Giới tính" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <ComboBox ItemsSource="{Binding Genders}" SelectedItem="{Binding Gender}" MinHeight="36" Margin="0,0,0,8"
+                              FontSize="{DynamicResource FontSize.Body}" />
+
+                    <TextBlock Text="Ngày sinh" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <DatePicker SelectedDate="{Binding DateOfBirth}" Margin="0,0,0,8" FontSize="{DynamicResource FontSize.Body}" />
+
+                    <TextBlock Text="Mã chấm công" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding AttendanceCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8"
+                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Số điện thoại" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8"
+                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+
+                    <TextBlock Text="Email" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,2"
+                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                    <TextBlock Text="{Binding EmailError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
+                               FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+                    <TextBlock Text="Địa chỉ" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8"
+                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                             TextWrapping="Wrap" AcceptsReturn="True" Height="72" />
+
+                    <TextBlock Text="Ngày vào làm" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <DatePicker SelectedDate="{Binding HireDate}" Margin="0,0,0,8" FontSize="{DynamicResource FontSize.Body}" />
+
+                    <TextBlock Text="Loại hợp đồng" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <ComboBox ItemsSource="{Binding ContractTypes}" SelectedItem="{Binding ContractType}" MinHeight="36" Margin="0,0,0,8"
+                              FontSize="{DynamicResource FontSize.Body}" />
+
+                    <TextBlock Text="Lương cơ bản / Phụ cấp" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <Grid Margin="0,0,0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding BaseSalaryText, UpdateSourceTrigger=PropertyChanged}" MinHeight="36"
+                                 Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                                 Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                        <TextBox Grid.Column="2" Text="{Binding AllowanceText, UpdateSourceTrigger=PropertyChanged}" MinHeight="36"
+                                 Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                                 Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                    </Grid>
+                    <TextBlock Text="{Binding SalaryError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
+                               FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+                    <TextBlock Text="Trạng thái" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <ComboBox ItemsSource="{Binding StatusLabels}" SelectedItem="{Binding SelectedStatusLabel}" MinHeight="36" Margin="0,0,0,8"
+                              FontSize="{DynamicResource FontSize.Body}" />
+
+                    <TextBlock Text="Ảnh nhân viên" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="88" Height="88" CornerRadius="10"
+                                Background="{DynamicResource SurfaceAltBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                ClipToBounds="True">
+                            <Grid>
+                                <TextBlock Text="Chưa có ảnh"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="{DynamicResource FontSize.Caption}"
+                                           Visibility="{Binding HasPhoto, Converter={StaticResource InverseBoolToVis}}" />
+                                <Image Source="{Binding PhotoPath, Mode=OneWay, Converter={StaticResource PathToImageSourceConverter}}"
+                                       Stretch="UniformToFill"
+                                       Visibility="{Binding HasPhoto, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <Button Content="Thêm ảnh..." Command="{Binding PickPhotoCommand}"
+                                    MinHeight="40" MinWidth="120" Margin="0,0,0,8" Padding="12,6"
+                                    FontSize="{DynamicResource FontSize.Body}"
+                                    Background="{DynamicResource PrimaryBrush}"
+                                    Foreground="{DynamicResource OnPrimaryBrush}"
+                                    BorderThickness="0" Cursor="Hand" />
+                            <Button Content="Xóa ảnh" Command="{Binding ClearPhotoCommand}"
+                                    MinHeight="40" MinWidth="120" Padding="12,6"
+                                    FontSize="{DynamicResource FontSize.Body}"
+                                    Background="{DynamicResource SurfaceBrush}"
+                                    Foreground="{DynamicResource TextPrimaryBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Cursor="Hand" />
+                            <TextBlock Text="Ảnh được copy vào thư mục ứng dụng; xóa file gốc vẫn xem được."
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="{DynamicResource FontSize.Caption}"
+                                       TextWrapping="Wrap" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Ghi chú" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" MinHeight="72" Margin="0,0,0,8"
+                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                             TextWrapping="Wrap" AcceptsReturn="True" />
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Hủy (Esc)" Command="{Binding CancelCommand}" MinWidth="120" MinHeight="40" Margin="0,0,8,0"
+                    Padding="16,8" FontSize="{DynamicResource FontSize.Body}"
+                    Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Cursor="Hand" IsCancel="True" />
+            <Button Content="Lưu (Enter)" Command="{Binding SaveCommand}" MinWidth="140" MinHeight="40"
+                    Padding="16,8" FontSize="{DynamicResource FontSize.Body}"
+                    Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"
+                    BorderThickness="0" Cursor="Hand" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>

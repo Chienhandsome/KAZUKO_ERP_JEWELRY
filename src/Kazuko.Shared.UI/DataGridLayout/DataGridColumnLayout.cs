@@ -130,6 +130,8 @@ public static class DataGridColumnLayout
                 continue;
 
             column.Visibility = saved.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+            if (saved.Width is > 0)
+                column.Width = new DataGridLength(saved.Width.Value);
         }
     }
 
@@ -138,10 +140,19 @@ public static class DataGridColumnLayout
         var columns = dataGrid.Columns
             .OrderBy(static c => c.DisplayIndex)
             .Select((column, index) =>
-                new DataGridColumnSetting(
+            {
+                double? width = null;
+                if (column.Width.UnitType == DataGridLengthUnitType.Pixel && column.Width.Value > 0)
+                    width = column.Width.Value;
+                else if (column.ActualWidth > 0 && column.Width.IsAbsolute)
+                    width = column.ActualWidth;
+
+                return new DataGridColumnSetting(
                     GetColumnKey(column),
                     column.Visibility == Visibility.Visible,
-                    index))
+                    index,
+                    width);
+            })
             .Where(static c => !string.IsNullOrWhiteSpace(c.Key))
             .ToArray();
 

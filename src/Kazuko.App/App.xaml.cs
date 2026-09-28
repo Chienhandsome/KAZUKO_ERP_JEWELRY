@@ -3,12 +3,16 @@ using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
+using Kazuko.Core.HumanResources;
 using Kazuko.Core.Modules;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Updates;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Authentication;
 using Kazuko.Infrastructure.Customers;
+using Kazuko.Infrastructure.HumanResources;
+using Kazuko.Infrastructure.PriceBoard;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Suppliers;
 using Kazuko.Infrastructure.Updates;
@@ -17,6 +21,8 @@ using Kazuko.Infrastructure.Warehouse;
 using Kazuko.Modules.Authentication;
 using Kazuko.Modules.Customers;
 using Kazuko.Modules.Dashboard;
+using Kazuko.Modules.HumanResources;
+using Kazuko.Modules.PriceBoard;
 using Kazuko.Modules.Suppliers;
 using Kazuko.Modules.Warehouse;
 using Kazuko.Shared.UI.Services;
@@ -55,6 +61,8 @@ public partial class App : Application
         ICustomerRepository customers = new FirebirdCustomerRepository();
         ISupplierRepository suppliers = new FirebirdSupplierRepository();
         IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
+        IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();
+        IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -69,6 +77,8 @@ public partial class App : Application
         _services.AddSingleton(customers);
         _services.AddSingleton(suppliers);
         _services.AddSingleton(warehouse);
+        _services.AddSingleton(humanResources);
+        _services.AddSingleton(priceBoard);
     }
 
     private void RegisterModules()
@@ -78,7 +88,9 @@ public partial class App : Application
             new DashboardModule(),
             new CustomersModule(),
             new SuppliersModule(),
-            new WarehouseModule()
+            new WarehouseModule(),
+            new HumanResourcesModule(),
+            new PriceBoardModule()
         ];
         foreach (var module in modules)
         {

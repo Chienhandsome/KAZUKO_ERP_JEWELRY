@@ -1,0 +1,96 @@
+<Window x:Class="Kazuko.Modules.PriceBoard.AddCurrencyDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="THÊM NGOẠI TỆ MỚI"
+        Width="480" Height="330"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}">
+    <Window.Resources>
+        <Style x:Key="Lbl" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+        <Style x:Key="Fld" TargetType="TextBox">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="BtnP" TargetType="Button">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="MinWidth" Value="130" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="14,6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="BtnO" TargetType="Button">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="MinWidth" Value="90" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="14,6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="170" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Row="0" Style="{StaticResource Lbl}" Text="Mã ngoại tệ *" />
+        <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Fld}" Text="{Binding Code, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Grid.Row="1" Style="{StaticResource Lbl}" Text="Tên ngoại tệ *" />
+        <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Fld}" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Grid.Row="2" Style="{StaticResource Lbl}" Text="Tỉ giá mua vào (VND)" />
+        <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Fld}" Text="{Binding BuyText, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Grid.Row="3" Style="{StaticResource Lbl}" Text="Tỉ giá bán ra (VND)" />
+        <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource Fld}" Text="{Binding SellText, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Text="{Binding Error, Mode=OneWay}"
+                   Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,4,0,8" />
+        <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Lưu ngoại tệ" Style="{StaticResource BtnP}" Command="{Binding SaveCommand}" IsDefault="True" />
+            <Button Content="Hủy" Style="{StaticResource BtnO}" Command="{Binding CancelCommand}" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

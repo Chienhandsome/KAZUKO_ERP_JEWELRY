@@ -144,7 +144,9 @@ public static class ReservedHostModules
     [
         "Kazuko.Dashboard",
         "Kazuko.Authentication",
-        "Kazuko.Customers"
+        "Kazuko.Customers",
+        "Kazuko.HumanResources",
+        "Kazuko.PriceBoard"
     ];
 
     public static bool IsDenied(string moduleId) =>

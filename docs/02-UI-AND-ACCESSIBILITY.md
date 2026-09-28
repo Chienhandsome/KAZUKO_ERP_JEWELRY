@@ -47,7 +47,7 @@ Quick menu cột (chuột phải header) và lưu layout là **tái sử dụng*
 
 - Gắn `grid:DataGridColumnLayout.SettingsKey` (file JSON dưới `%LocalAppData%\KazukoERP\`), `EnableHeaderMenu=True`, tùy chọn `AutoFitOnFirstLoad=True`.
 - Mỗi cột gắn `grid:DataGridColumnLayout.Key` ổn định (không dùng header tiếng Việt làm khóa).
-- Menu: **Cột hiển thị** (ẩn/hiện + đổi thứ tự) và **Dãn cột**; visibility/order lưu trên máy, không ghi Firebird.
+- Menu: **Cột hiển thị** (ẩn/hiện + đổi thứ tự) và **Dãn cột**; visibility/order/độ rộng Absolute lưu trên máy, không ghi Firebird.
 
 Dialog tạo/sửa nghiệp vụ: Window riêng, owner-centered, `ScrollViewer`, Enter lưu / Escape hủy, không hard-code màu/font size.
 

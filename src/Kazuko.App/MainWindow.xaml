@@ -250,7 +250,7 @@
                                                     </Style>
                                                 </StackPanel.Style>
                                                 <Grid Width="40" Height="38">
-                                                    <Image Source="{Binding Item.IconUri, Mode=OneWay}"
+                                                    <Image Source="{Binding Item.IconUri, Mode=OneWay, Converter={StaticResource PathToImageSourceConverter}}"
                                                            Width="40" Height="38" Stretch="Uniform"
                                                            RenderOptions.BitmapScalingMode="HighQuality">
                                                         <Image.Style>
@@ -300,7 +300,7 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Grid.Style>
-                                                <Image Source="{Binding Item.IconUri, Mode=OneWay}"
+                                                <Image Source="{Binding Item.IconUri, Mode=OneWay, Converter={StaticResource PathToImageSourceConverter}}"
                                                        Width="36" Height="34" Stretch="Uniform"
                                                        RenderOptions.BitmapScalingMode="HighQuality">
                                                     <Image.Style>
