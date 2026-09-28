@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Kazuko.Infrastructure.Tests.Suppliers;
 
+[Collection(nameof(FirebirdTestCollection))]
 public sealed class SupplierRepositoryTests
 {
     private readonly FirebirdSupplierRepository _repository = new();
@@ -282,7 +283,12 @@ public sealed class SupplierRepositoryTests
         try
         {
             var profile = FirebirdDatabase.Profile;
-            return !string.IsNullOrWhiteSpace(profile.Password) && File.Exists(FirebirdDatabase.DatabasePath);
+            if (string.IsNullOrWhiteSpace(profile.Password) || !File.Exists(FirebirdDatabase.DatabasePath))
+                return false;
+
+            using var connection = FirebirdDatabase.CreateConnection();
+            connection.Open();
+            return true;
         }
         catch
         {

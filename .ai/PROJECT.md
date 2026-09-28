@@ -22,13 +22,14 @@ The approved legacy WinForms application at `D:\Working\KAZUKO_ERP_JEWELRY_UI_AP
 The solution projects:
 
 - `Kazuko.App`: WPF executable, startup composition, login-window hosting, shell window, and shell ViewModel.
-- `Kazuko.Core`: framework-light contracts (MVVM, authentication/session, appearance, modules, updates, Customers contracts, Suppliers contracts).
+- `Kazuko.Core`: framework-light contracts (MVVM, authentication/session, appearance, modules, updates, Customers contracts, Suppliers contracts, Warehouse contracts).
 - `Kazuko.Infrastructure`: Firebird connection/auth/repositories, preferences, update staging.
 - `Kazuko.Shared.UI`: WPF themes, shared styles, typography, appearance service.
 - `Kazuko.Modules.Authentication`: login View and ViewModel.
 - `Kazuko.Modules.Dashboard`: dashboard + placeholder routes for unfinished modules.
 - `Kazuko.Modules.Customers`: real KHÁCH HÀNG vertical slice (list/search/create/edit/activate) and `ICustomerEditorService`.
 - `Kazuko.Modules.Suppliers`: real NHÀ CUNG CẤP vertical slice (list/search/create/edit/activate) and `ISupplierEditorService`.
+- `Kazuko.Modules.Warehouse`: read-only KHO vertical slice (material balances, stock documents/detail, movement ledger).
 
 Dependency direction:
 

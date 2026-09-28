@@ -6,16 +6,19 @@ using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Updates;
+using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Authentication;
 using Kazuko.Infrastructure.Customers;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Suppliers;
 using Kazuko.Infrastructure.Updates;
 using Kazuko.Infrastructure.Updates.Activation;
+using Kazuko.Infrastructure.Warehouse;
 using Kazuko.Modules.Authentication;
 using Kazuko.Modules.Customers;
 using Kazuko.Modules.Dashboard;
 using Kazuko.Modules.Suppliers;
+using Kazuko.Modules.Warehouse;
 using Kazuko.Shared.UI.Services;
 
 namespace Kazuko.App;
@@ -51,6 +54,7 @@ public partial class App : Application
             new FixedHostVersionProvider(1));
         ICustomerRepository customers = new FirebirdCustomerRepository();
         ISupplierRepository suppliers = new FirebirdSupplierRepository();
+        IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -64,6 +68,7 @@ public partial class App : Application
         _services.AddSingleton(_sessionAccessor);
         _services.AddSingleton(customers);
         _services.AddSingleton(suppliers);
+        _services.AddSingleton(warehouse);
     }
 
     private void RegisterModules()
@@ -72,7 +77,8 @@ public partial class App : Application
         [
             new DashboardModule(),
             new CustomersModule(),
-            new SuppliersModule()
+            new SuppliersModule(),
+            new WarehouseModule()
         ];
         foreach (var module in modules)
         {
