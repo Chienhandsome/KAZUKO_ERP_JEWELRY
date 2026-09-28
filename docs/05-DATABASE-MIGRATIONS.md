@@ -252,3 +252,16 @@ COMMIT;
   powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0038__document_reversal_and_party_credits.sql"
   ```
 - **Quy tắc:** credit giữ tiền cấn lần sau **không** tạo `CASH_VOUCHERS`. Hủy chứng từ đảo movement + voucher + debt/settlement trong cùng transaction; chặn khi còn chứng từ phụ thuộc chưa đảo.
+
+---
+
+## 12. Migration Version 39: `0039__customer_photo_path.sql`
+
+- **Phiên bản:** `39` — thêm `CUSTOMERS.PHOTO_PATH` (VARCHAR 500) để lưu đường dẫn ảnh hồ sơ khách hàng (copy LocalAppData giống nhân viên).
+- **Verification:** `database/verification/verify_customer_photo_schema.sql`.
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0039__customer_photo_path.sql"
+  ```
+- **Rollback (dev):** `ALTER TABLE CUSTOMERS DROP PHOTO_PATH;` → xóa ledger 39. Production: restore `.fbk`.
+

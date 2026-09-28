@@ -73,6 +73,12 @@ public sealed class SupplierViewModel : ObservableObject
             EditSupplier,
             parameter => !IsLoading && (parameter is SupplierRowViewModel || SelectedSupplier is not null));
         EditSelectedCommand = new RelayCommand(EditSelected, () => !IsLoading && SelectedSupplier is not null);
+        DeleteCommand = new ParameterRelayCommand(
+            DeleteSupplier,
+            parameter => !IsLoading && ResolveActiveRow(parameter) is not null);
+        DeleteSelectedCommand = new RelayCommand(
+            () => DeleteSupplier(SelectedSupplier),
+            () => !IsLoading && SelectedSupplier?.IsActive == true);
         ToggleActiveCommand = new ParameterRelayCommand(
             ToggleActive,
             parameter => !IsLoading && (parameter is SupplierRowViewModel || SelectedSupplier is not null));
@@ -134,12 +140,16 @@ public sealed class SupplierViewModel : ObservableObject
                 OnPropertyChanged(nameof(SelectedDebtText));
                 OnPropertyChanged(nameof(SelectedLastPurchaseText));
                 OnPropertyChanged(nameof(SelectedIsActive));
+                OnPropertyChanged(nameof(CanDeleteSelected));
                 ((RelayCommand)EditSelectedCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)DeleteSelectedCommand).NotifyCanExecuteChanged();
+                ((ParameterRelayCommand)DeleteCommand).NotifyCanExecuteChanged();
             }
         }
     }
 
     public bool HasSelection => SelectedSupplier is not null;
+    public bool CanDeleteSelected => !IsLoading && SelectedSupplier?.IsActive == true;
     public string SelectedCode => SelectedSupplier?.Code ?? string.Empty;
     public string SelectedName => SelectedSupplier?.Name ?? string.Empty;
     public string SelectedPhone => SelectedSupplier?.Phone ?? string.Empty;
@@ -212,8 +222,11 @@ public sealed class SupplierViewModel : ObservableObject
                 CommandManager.InvalidateRequerySuggested();
                 ((RelayCommand)AddCommand).NotifyCanExecuteChanged();
                 ((ParameterRelayCommand)EditCommand).NotifyCanExecuteChanged();
+                ((ParameterRelayCommand)DeleteCommand).NotifyCanExecuteChanged();
                 ((ParameterRelayCommand)ToggleActiveCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)EditSelectedCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)DeleteSelectedCommand).NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(CanDeleteSelected));
                 OnPropertyChanged(nameof(IsBusyOverlayVisible));
             }
         }
@@ -238,6 +251,8 @@ public sealed class SupplierViewModel : ObservableObject
     public ICommand AddCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand EditSelectedCommand { get; }
+    public ICommand DeleteCommand { get; }
+    public ICommand DeleteSelectedCommand { get; }
     public ICommand ToggleActiveCommand { get; }
     public ICommand ViewPlaceholderCommand { get; }
     public ICommand ImportExcelCommand { get; }
@@ -375,6 +390,49 @@ public sealed class SupplierViewModel : ObservableObject
         if (result is null)
             return;
         _ = SearchAsync();
+    }
+
+    private SupplierRowViewModel? ResolveActiveRow(object? parameter)
+    {
+        var row = parameter as SupplierRowViewModel ?? SelectedSupplier;
+        return row is { IsActive: true } ? row : null;
+    }
+
+    private async void DeleteSupplier(object? parameter)
+    {
+        var row = ResolveActiveRow(parameter);
+        if (row is null)
+            return;
+
+        var session = _sessionAccessor.Current;
+        if (session is null)
+        {
+            ErrorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+            return;
+        }
+
+        SelectedSupplier = row;
+        var confirm = MessageBox.Show(
+            $"Bạn có chắc muốn xóa nhà cung cấp {row.Code} - {row.Name}?\n\n" +
+            "Nhà cung cấp sẽ được đánh dấu ngừng hợp tác. Lịch sử chứng từ vẫn được giữ nguyên.",
+            "Xóa nhà cung cấp",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            await _repository.SetActiveAsync(row.Id, false, session);
+            await SearchAsync();
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "Không thể xóa nhà cung cấp.";
+            IsLoading = false;
+        }
     }
 
     private async void ToggleActive(object? parameter)

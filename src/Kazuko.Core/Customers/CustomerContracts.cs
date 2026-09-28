@@ -24,7 +24,8 @@ public sealed record CustomerListItem(
     decimal CreditLimit,
     DateTime? BirthOrEstablishedDate,
     DateTime? JoinDate,
-    long CustomerGroupId);
+    long CustomerGroupId,
+    string? PhotoPath);
 
 public sealed record CustomerDetail(
     long Id,
@@ -45,7 +46,8 @@ public sealed record CustomerDetail(
     string MembershipRank,
     DateTime? JoinDate,
     decimal CreditLimit,
-    bool IsActive);
+    bool IsActive,
+    string? PhotoPath);
 
 public sealed record CustomerGroupOption(long Id, string Code, string Name, bool IsActive, bool IsDefault)
 {
@@ -75,7 +77,8 @@ public sealed record CustomerSaveRequest(
     string MembershipRank,
     DateTime? JoinDate,
     decimal CreditLimit,
-    bool IsActive);
+    bool IsActive,
+    string? PhotoPath);
 
 public sealed record CustomerEditRequest(long? CustomerId);
 
@@ -86,6 +89,25 @@ public sealed record CustomerEditResult(
     string Phone,
     string Address,
     bool IsActive);
+
+public sealed record CustomerPurchaseHistoryItem(
+    long OrderId,
+    DateTime OrderDate,
+    string InvoiceCode,
+    decimal TotalAmount,
+    decimal PaidAmount)
+{
+    public string PaymentStatusCode =>
+        PaidAmount <= 0 ? "UNPAID"
+        : PaidAmount + 0.01m < TotalAmount ? "PARTIAL"
+        : "PAID";
+}
+
+public sealed record CustomerDebtSnapshot(
+    decimal TotalIncurred,
+    decimal Paid,
+    decimal CurrentDebt,
+    decimal Overdue);
 
 public interface ICustomerEditorService
 {
@@ -104,6 +126,15 @@ public interface ICustomerRepository
         CancellationToken cancellationToken = default);
 
     Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(
+        long customerId,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(
+        long customerId,
+        CancellationToken cancellationToken = default);
 
     Task<string> FindDuplicateWarningAsync(
         CustomerSaveRequest request,

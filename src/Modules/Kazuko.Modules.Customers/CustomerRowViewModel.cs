@@ -28,5 +28,5 @@ public sealed class CustomerRowViewModel : ObservableObject
     public string TotalSalesText => TotalSales.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
     public string CurrentDebtText => CurrentDebt.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
     public string LastPurchaseText => LastPurchaseDate?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) ?? "—";
-    public string ToggleActiveLabel => IsActive ? "Ngừng hoạt động" : "Kích hoạt lại";
+    public string ToggleActiveLabel => IsActive ? "Ngừng giao dịch" : "Kích hoạt lại";
 }

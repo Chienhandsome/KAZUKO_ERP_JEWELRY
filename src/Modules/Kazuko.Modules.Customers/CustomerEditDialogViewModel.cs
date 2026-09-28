@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.Mvvm;
+using Microsoft.Win32;
 
 namespace Kazuko.Modules.Customers;
 
@@ -32,6 +33,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
     private string _gender = string.Empty;
     private string? _region;
     private string? _membershipRank = "Thường";
+    private string? _photoPath;
     private CustomerGroupOption? _selectedGroup;
     private DateTime? _birthDate;
     private DateTime? _joinDate = DateTime.Today;
@@ -67,6 +69,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy && !IsLoading);
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(null), () => !IsBusy);
+        PickPhotoCommand = new RelayCommand(PickPhoto, () => !IsBusy && !IsLoading);
+        ClearPhotoCommand = new RelayCommand(ClearPhoto, () => !IsBusy && !IsLoading && HasPhoto);
 
         _ = InitializeAsync();
     }
@@ -133,6 +137,21 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
         get => _occupation;
         set => SetProperty(ref _occupation, value);
     }
+
+    public string? PhotoPath
+    {
+        get => _photoPath;
+        set
+        {
+            if (SetProperty(ref _photoPath, value))
+            {
+                OnPropertyChanged(nameof(HasPhoto));
+                ((RelayCommand)ClearPhotoCommand).NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasPhoto => !string.IsNullOrWhiteSpace(PhotoPath);
 
     public string Gender
     {
@@ -265,6 +284,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
             {
                 CommandManager.InvalidateRequerySuggested();
                 ((RelayCommand)CancelCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)PickPhotoCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)ClearPhotoCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsFormEnabled));
             }
         }
@@ -278,6 +299,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
             if (SetProperty(ref _isLoading, value))
             {
                 CommandManager.InvalidateRequerySuggested();
+                ((RelayCommand)PickPhotoCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)ClearPhotoCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsFormEnabled));
             }
         }
@@ -287,6 +310,41 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
 
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
+    public ICommand PickPhotoCommand { get; }
+    public ICommand ClearPhotoCommand { get; }
+
+    private void PickPhoto()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Chọn ảnh khách hàng",
+            Filter = "Ảnh|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp|Tất cả|*.*",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        try
+        {
+            var previous = PhotoPath;
+            var imported = CustomerPhotoStore.Import(dialog.FileName, CodeDisplay);
+            PhotoPath = imported;
+            if (!string.Equals(previous, imported, StringComparison.OrdinalIgnoreCase))
+                CustomerPhotoStore.TryDeleteManagedFile(previous);
+        }
+        catch (Exception ex)
+        {
+            FormError = Sanitize(ex.Message);
+        }
+    }
+
+    private void ClearPhoto()
+    {
+        var previous = PhotoPath;
+        PhotoPath = null;
+        CustomerPhotoStore.TryDeleteManagedFile(previous);
+    }
 
     private async Task InitializeAsync()
     {
@@ -325,6 +383,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                 OpeningPointsText = detail.OpeningPoints.ToString(CultureInfo.InvariantCulture);
                 CreditLimitText = detail.CreditLimit.ToString("0.##", CultureInfo.InvariantCulture);
                 IsActive = detail.IsActive;
+                PhotoPath = detail.PhotoPath;
 
                 SelectedGroup = Groups.FirstOrDefault(g => g.Id == detail.CustomerGroupId);
                 if (SelectedGroup is null && detail.CustomerGroupId > 0)
@@ -486,7 +545,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
             MembershipRank ?? string.Empty,
             JoinDate,
             credit,
-            IsActive);
+            IsActive,
+            string.IsNullOrWhiteSpace(PhotoPath) ? null : PhotoPath.Trim());
     }
 
     private static string Sanitize(string message)
@@ -498,6 +558,6 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
             message.Contains('\\') ||
             message.Contains(".fdb", StringComparison.OrdinalIgnoreCase))
             return "Không thể lưu khách hàng. Vui lòng thử lại.";
-        return message;
+        return message.Length > 300 ? message[..300] + "…" : message;
     }
 }

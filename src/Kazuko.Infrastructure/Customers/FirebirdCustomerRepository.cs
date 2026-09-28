@@ -60,7 +60,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                    COALESCE(C.ADDRESS, ''), COALESCE(C.GENDER, ''), COALESCE(C.OCCUPATION, ''),
                    COALESCE(C.MEMBERSHIP_RANK, ''), COALESCE(C.TAX_CODE, ''), COALESCE(C.NOTES, ''),
                    C.OPENING_POINTS, COALESCE(C.CREDIT_LIMIT, 0),
-                   C.BIRTH_OR_ESTABLISHED_DATE, C.JOIN_DATE, C.CUSTOMER_GROUP_ID
+                   C.BIRTH_OR_ESTABLISHED_DATE, C.JOIN_DATE, C.CUSTOMER_GROUP_ID,
+                   C.PHOTO_PATH
             FROM CUSTOMERS C
             JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
             WHERE C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
@@ -111,7 +112,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 reader.GetDecimal(18),
                 reader.IsDBNull(19) ? null : reader.GetDateTime(19),
                 reader.IsDBNull(20) ? null : reader.GetDateTime(20),
-                reader.GetInt64(21)));
+                reader.GetInt64(21),
+                reader.IsDBNull(22) ? null : reader.GetString(22)));
         }
 
         return result;
@@ -127,7 +129,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                    C.BIRTH_OR_ESTABLISHED_DATE, C.OPENING_POINTS, COALESCE(C.TAX_CODE, ''),
                    COALESCE(C.NOTES, ''), COALESCE(C.GENDER, ''), COALESCE(C.REGION, ''),
                    COALESCE(C.OCCUPATION, ''), COALESCE(C.MEMBERSHIP_RANK, ''),
-                   C.JOIN_DATE, COALESCE(C.CREDIT_LIMIT, 0), C.IS_ACTIVE
+                   C.JOIN_DATE, COALESCE(C.CREDIT_LIMIT, 0), C.IS_ACTIVE, C.PHOTO_PATH
             FROM CUSTOMERS C
             JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
             WHERE C.ID = @ID
@@ -157,7 +159,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             reader.GetString(15),
             reader.IsDBNull(16) ? null : reader.GetDateTime(16),
             reader.GetDecimal(17),
-            reader.GetBoolean(18));
+            reader.GetBoolean(18),
+            reader.IsDBNull(19) ? null : reader.GetString(19));
     }
 
     public async Task<string> FindDuplicateWarningAsync(
@@ -236,12 +239,12 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                         (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
                          NAME, ADDRESS, PHONE, EMAIL, BIRTH_OR_ESTABLISHED_DATE, OPENING_POINTS,
                          TAX_CODE, NOTES, GENDER, REGION, OCCUPATION, MEMBERSHIP_RANK,
-                         JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, CREATED_BY, UPDATED_BY, UPDATED_AT)
+                         JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH, CREATED_BY, UPDATED_BY, UPDATED_AT)
                     VALUES
                         ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
                          @TEMP_CODE, 'INDIVIDUAL', @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
                          @POINTS, @TAX_CODE, @NOTES, @GENDER, @REGION, @OCCUPATION, @MEMBERSHIP_RANK,
-                         @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
+                         @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
                     RETURNING ID
                     """, connection, (FbTransaction)transaction);
                 AddSaveParameters(insert, normalized, session);
@@ -268,6 +271,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                         TAX_CODE=@TAX_CODE, NOTES=@NOTES, GENDER=@GENDER, REGION=@REGION,
                         OCCUPATION=@OCCUPATION, MEMBERSHIP_RANK=@MEMBERSHIP_RANK,
                         JOIN_DATE=@JOIN_DATE, CREDIT_LIMIT=@CREDIT_LIMIT, IS_ACTIVE=@IS_ACTIVE,
+                        PHOTO_PATH=@PHOTO_PATH,
                         UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
                     WHERE ID=@ID
                       AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
@@ -369,7 +373,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             Gender = request.Gender.Trim(),
             Region = request.Region.Trim(),
             Occupation = request.Occupation.Trim(),
-            MembershipRank = request.MembershipRank.Trim()
+            MembershipRank = request.MembershipRank.Trim(),
+            PhotoPath = string.IsNullOrWhiteSpace(request.PhotoPath) ? null : request.PhotoPath.Trim()
         };
 
     private static void Validate(CustomerSaveRequest request)
@@ -413,6 +418,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         command.Parameters.AddWithValue("@JOIN_DATE", item.JoinDate ?? (object)DBNull.Value);
         command.Parameters.AddWithValue("@CREDIT_LIMIT", item.CreditLimit);
         command.Parameters.AddWithValue("@IS_ACTIVE", item.IsActive);
+        command.Parameters.AddWithValue("@PHOTO_PATH", (object?)item.PhotoPath ?? DBNull.Value);
         command.Parameters.AddWithValue("@USER_ID", session.UserId > 0 ? session.UserId : DBNull.Value);
     }
 
@@ -447,6 +453,97 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             """, connection, transaction);
         command.Parameters.AddWithValue("@ID", customerId);
         return Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? string.Empty;
+    }
+
+    public async Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(
+        long customerId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        if (customerId <= 0)
+            return Array.Empty<CustomerPurchaseHistoryItem>();
+
+        var take = limit <= 0 ? 100 : Math.Min(limit, 500);
+        var result = new List<CustomerPurchaseHistoryItem>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT FIRST @LIMIT
+                   O.ID, O.ORDER_DATE, O.CODE, O.GRAND_TOTAL,
+                   COALESCE((
+                       SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                       FROM ORDER_PAYMENTS P
+                       WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+            FROM SALES_ORDERS O
+            WHERE O.CUSTOMER_ID = @CID
+              AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+            ORDER BY O.ORDER_DATE DESC, O.ID DESC
+            """, connection);
+        command.Parameters.Add("@LIMIT", FbDbType.Integer).Value = take;
+        command.Parameters.Add("@CID", FbDbType.BigInt).Value = customerId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Add(new CustomerPurchaseHistoryItem(
+                reader.GetInt64(0),
+                reader.GetDateTime(1),
+                reader.GetString(2),
+                reader.GetDecimal(3),
+                reader.GetDecimal(4)));
+        }
+
+        return result;
+    }
+
+    public async Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(
+        long customerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (customerId <= 0)
+            return new CustomerDebtSnapshot(0, 0, 0, 0);
+
+        const int overdueDays = 30;
+        var overdueCutoff = DateTime.Today.AddDays(-overdueDays);
+        decimal incurred = 0;
+        decimal paid = 0;
+        decimal overdue = 0;
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT O.ORDER_DATE, O.GRAND_TOTAL,
+                   COALESCE((
+                       SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                       FROM ORDER_PAYMENTS P
+                       WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+            FROM SALES_ORDERS O
+            WHERE O.CUSTOMER_ID = @CID
+              AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+            """, connection);
+        command.Parameters.Add("@CID", FbDbType.BigInt).Value = customerId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var orderDate = reader.GetDateTime(0);
+            var total = reader.GetDecimal(1);
+            var orderPaid = reader.GetDecimal(2);
+            incurred += total;
+            paid += orderPaid;
+
+            var remaining = total - orderPaid;
+            if (remaining < 0)
+                remaining = 0;
+            if (remaining > 0 && orderDate.Date < overdueCutoff)
+                overdue += remaining;
+        }
+
+        var current = incurred - paid;
+        if (current < 0)
+            current = 0;
+
+        return new CustomerDebtSnapshot(incurred, paid, current, overdue);
     }
 
     private static async Task EnsureGroupIsActiveAsync(

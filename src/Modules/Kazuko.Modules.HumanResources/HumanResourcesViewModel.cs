@@ -45,6 +45,12 @@ public sealed class HumanResourcesViewModel : ObservableObject
             EditEmployee,
             parameter => !IsLoading && (parameter is EmployeeRowViewModel || SelectedEmployee is not null));
         EditSelectedCommand = new RelayCommand(EditSelected, () => !IsLoading && SelectedEmployee is not null);
+        DeleteCommand = new ParameterRelayCommand(
+            DeleteEmployee,
+            parameter => !IsLoading && ResolveActiveRow(parameter) is not null);
+        DeleteSelectedCommand = new RelayCommand(
+            () => DeleteEmployee(SelectedEmployee),
+            () => !IsLoading && SelectedEmployee?.IsActive == true);
         ToggleActiveCommand = new ParameterRelayCommand(
             ToggleActive,
             parameter => !IsLoading && (parameter is EmployeeRowViewModel || SelectedEmployee is not null));
@@ -82,6 +88,9 @@ public sealed class HumanResourcesViewModel : ObservableObject
             if (SetProperty(ref _selectedEmployee, value))
             {
                 ((RelayCommand)EditSelectedCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)DeleteSelectedCommand).NotifyCanExecuteChanged();
+                ((ParameterRelayCommand)DeleteCommand).NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(CanDeleteSelected));
                 _ = LoadSelectedDetailAsync();
             }
         }
@@ -116,6 +125,7 @@ public sealed class HumanResourcesViewModel : ObservableObject
     }
 
     public bool HasSelection => SelectedDetail is not null;
+    public bool CanDeleteSelected => !IsLoading && SelectedEmployee?.IsActive == true;
     public string SelectedCode => SelectedDetail?.Code ?? string.Empty;
     public string SelectedFullName => SelectedDetail?.FullName ?? string.Empty;
     public string SelectedGender => SelectedDetail?.Gender ?? string.Empty;
@@ -165,8 +175,11 @@ public sealed class HumanResourcesViewModel : ObservableObject
             {
                 ((RelayCommand)AddCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)EditSelectedCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)DeleteSelectedCommand).NotifyCanExecuteChanged();
                 ((ParameterRelayCommand)EditCommand).NotifyCanExecuteChanged();
+                ((ParameterRelayCommand)DeleteCommand).NotifyCanExecuteChanged();
                 ((ParameterRelayCommand)ToggleActiveCommand).NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(CanDeleteSelected));
             }
         }
     }
@@ -188,6 +201,8 @@ public sealed class HumanResourcesViewModel : ObservableObject
     public ICommand AddCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand EditSelectedCommand { get; }
+    public ICommand DeleteCommand { get; }
+    public ICommand DeleteSelectedCommand { get; }
     public ICommand ToggleActiveCommand { get; }
     public ICommand ExportExcelCommand { get; }
 
@@ -289,6 +304,49 @@ public sealed class HumanResourcesViewModel : ObservableObject
         var result = _editor.ShowEdit(row.Id);
         if (result is not null)
             _ = SearchAsync();
+    }
+
+    private EmployeeRowViewModel? ResolveActiveRow(object? parameter)
+    {
+        var row = parameter as EmployeeRowViewModel ?? SelectedEmployee;
+        return row is { IsActive: true } ? row : null;
+    }
+
+    private async void DeleteEmployee(object? parameter)
+    {
+        var row = ResolveActiveRow(parameter);
+        if (row is null)
+            return;
+
+        var session = _sessionAccessor.Current;
+        if (session is null)
+        {
+            MessageBox.Show("Phiên đăng nhập đã hết hạn.", "Nhân sự", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"Bạn có chắc muốn xóa nhân viên \"{row.FullName}\"?\n\n" +
+            "Nhân viên sẽ được đánh dấu ngừng làm việc. Lịch sử được giữ lại.",
+            "Xóa nhân viên",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            await _repository.SetActiveAsync(row.Id, false, session);
+            await SearchAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Nhân sự", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch
+        {
+            MessageBox.Show("Không thể xóa nhân viên.", "Nhân sự", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private async void ToggleActive(object? parameter)
