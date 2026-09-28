@@ -153,6 +153,125 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         return result;
     }
 
+    public async Task<IReadOnlyList<FinishedProductStockItem>> SearchFinishedProductStockAsync(
+        FinishedProductSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(session);
+        EnsureBranch(session);
+
+        var result = new List<FinishedProductStockItem>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(F.GOLD_PURITY, ''),
+                   CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
+                   F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
+            FROM FINISHED_PRODUCTS F
+            LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+            WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+              AND F.BRANCH_ID = @BRANCH_ID
+              AND F.STATUS_CODE IN ('IN_STOCK', 'RESERVED', 'WAITING_RECEIPT')
+              AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
+              AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
+              AND (@HAS_SEARCH = 0
+                   OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
+                   OR F.PRODUCT_NAME CONTAINING @SEARCH)
+            ORDER BY F.PRODUCT_NAME, F.CODE
+            """, connection);
+
+        var search = (filter.SearchText ?? string.Empty).Trim();
+        var purity = (filter.GoldPurity ?? string.Empty).Trim().ToUpperInvariant();
+        var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
+        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+        command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@STATUS", FbDbType.VarChar, 30).Value = status;
+        command.Parameters.Add("@HAS_PURITY", FbDbType.Integer).Value = purity.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@PURITY", FbDbType.VarChar, 40).Value = purity;
+        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var statusCode = reader.GetString(7);
+            result.Add(new FinishedProductStockItem(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                "món",
+                statusCode is "SOLD" or "SCRAPPED" ? 0m : 1m,
+                reader.GetDecimal(4),
+                reader.IsDBNull(5) ? null : reader.GetInt64(5),
+                reader.GetString(6),
+                statusCode));
+        }
+
+        return result;
+    }
+
+    public async Task<IReadOnlyList<SaleItemStockItem>> SearchSaleItemStockAsync(
+        SaleItemSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(session);
+        EnsureBranch(session);
+
+        var result = new List<SaleItemStockItem>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(F.GOLD_PURITY, ''),
+                   CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
+                   F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
+            FROM FINISHED_PRODUCTS F
+            LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+            WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+              AND F.BRANCH_ID = @BRANCH_ID
+              AND F.STATUS_CODE = 'DISPLAYED'
+              AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
+              AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
+              AND (@HAS_SEARCH = 0
+                   OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
+                   OR F.PRODUCT_NAME CONTAINING @SEARCH)
+            ORDER BY F.PRODUCT_NAME, F.CODE
+            """, connection);
+
+        var search = (filter.SearchText ?? string.Empty).Trim();
+        var purity = (filter.GoldPurity ?? string.Empty).Trim().ToUpperInvariant();
+        var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
+        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+        command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@STATUS", FbDbType.VarChar, 30).Value = status;
+        command.Parameters.Add("@HAS_PURITY", FbDbType.Integer).Value = purity.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@PURITY", FbDbType.VarChar, 40).Value = purity;
+        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Add(new SaleItemStockItem(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                "món",
+                1m,
+                reader.GetDecimal(4),
+                reader.IsDBNull(5) ? null : reader.GetInt64(5),
+                reader.GetString(6),
+                reader.GetString(7)));
+        }
+
+        return result;
+    }
+
     public async Task<IReadOnlyList<StockDocumentSummary>> SearchDocumentsAsync(
         StockDocumentSearchFilter filter,
         AuthenticatedSession session,

@@ -253,6 +253,110 @@ public sealed class WarehouseRepositoryTests : IDisposable
         Assert.All(receipts, item => Assert.Equal("RECEIPT", item.DocumentType));
     }
 
+    [Fact]
+    public async Task Database_SearchFinishedProducts_AreBranchAndCompanyScoped()
+    {
+        if (!_databaseReady)
+            return;
+
+        var session = await ResolveSessionAsync();
+        var items = await _repository.SearchFinishedProductStockAsync(
+            new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty),
+            session);
+
+        Assert.NotNull(items);
+        foreach (var item in items)
+        {
+            var branchId = await ScalarLongAsync(
+                "SELECT BRANCH_ID FROM FINISHED_PRODUCTS WHERE ID=@ID",
+                ("@ID", item.Id));
+            Assert.Equal(session.BranchId, branchId);
+
+            var companyCode = await ScalarStringAsync(
+                """
+                SELECT C.CODE
+                FROM FINISHED_PRODUCTS F
+                JOIN COMPANIES C ON C.ID = F.COMPANY_ID
+                WHERE F.ID=@ID
+                """,
+                ("@ID", item.Id));
+            Assert.Equal("KAZUKO", companyCode);
+            Assert.Contains(item.StatusCode, new[] { "IN_STOCK", "RESERVED", "WAITING_RECEIPT" });
+            Assert.True(item.Quantity >= 0);
+        }
+    }
+
+    [Fact]
+    public async Task Database_SearchSaleItems_OnlyDisplayedAndBranchScoped()
+    {
+        if (!_databaseReady)
+            return;
+
+        var session = await ResolveSessionAsync();
+        var items = await _repository.SearchSaleItemStockAsync(
+            new SaleItemSearchFilter(string.Empty, string.Empty, string.Empty),
+            session);
+
+        Assert.NotNull(items);
+        Assert.All(items, item =>
+        {
+            Assert.Equal("DISPLAYED", item.StatusCode);
+            Assert.Equal(1m, item.Quantity);
+        });
+
+        foreach (var item in items)
+        {
+            var branchId = await ScalarLongAsync(
+                "SELECT BRANCH_ID FROM FINISHED_PRODUCTS WHERE ID=@ID",
+                ("@ID", item.Id));
+            Assert.Equal(session.BranchId, branchId);
+        }
+    }
+
+    [Fact]
+    public async Task Database_SearchFinishedProducts_FiltersByPurityAndSortsByName()
+    {
+        if (!_databaseReady)
+            return;
+
+        var session = await ResolveSessionAsync();
+        var all = await _repository.SearchFinishedProductStockAsync(
+            new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty),
+            session);
+        if (all.Count == 0)
+            return;
+
+        var firstPurity = all.Select(x => x.GoldPurity).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+        if (string.IsNullOrWhiteSpace(firstPurity))
+            return;
+
+        var filtered = await _repository.SearchFinishedProductStockAsync(
+            new FinishedProductSearchFilter(string.Empty, firstPurity, string.Empty),
+            session);
+        Assert.All(filtered, item =>
+            Assert.Contains(firstPurity, item.GoldPurity, StringComparison.OrdinalIgnoreCase));
+
+        for (var i = 1; i < filtered.Count; i++)
+        {
+            var cmp = string.Compare(filtered[i - 1].ProductName, filtered[i].ProductName, StringComparison.OrdinalIgnoreCase);
+            Assert.True(cmp <= 0);
+        }
+    }
+
+    [Fact]
+    public async Task Database_SearchBalances_StockValueMatchesQuantityTimesCost()
+    {
+        if (!_databaseReady)
+            return;
+
+        var session = await ResolveSessionAsync();
+        var balances = await _repository.SearchMaterialBalancesAsync(
+            new MaterialBalanceSearchFilter(string.Empty, string.Empty, 0, false),
+            session);
+        Assert.All(balances, item =>
+            Assert.Equal(item.Quantity * item.AverageCost, item.StockValue));
+    }
+
     private static AuthenticatedSession CreateSession(long branchId = 1) =>
         new(
             UserId: 1,

@@ -10,7 +10,13 @@
     <Color x:Key="Color.Border">#FFE7DED4</Color>
     <Color x:Key="Color.Success">#FF268A56</Color>
     <Color x:Key="Color.Danger">#FFC94141</Color>
+    <Color x:Key="Color.Money">#FFE24A0F</Color>
     <Color x:Key="Color.OnPrimary">#FFFFFFFF</Color>
+    <Color x:Key="Color.Chart.Finished">#FF3B82F6</Color>
+    <Color x:Key="Color.Chart.Sale">#FF22A06B</Color>
+    <Color x:Key="Color.Chart.Purple">#FF7C5CFC</Color>
+    <Color x:Key="Color.Chart.Muted">#FF9CA3AF</Color>
+    <Color x:Key="Color.Link">#FF2563EB</Color>
 
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Color.Primary}" />
     <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource Color.PrimaryHover}" />
@@ -22,5 +28,12 @@
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Color.Border}" />
     <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Color.Success}" />
     <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Color.Danger}" />
+    <SolidColorBrush x:Key="MoneyBrush" Color="{StaticResource Color.Money}" />
     <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource Color.OnPrimary}" />
+    <SolidColorBrush x:Key="ChartBrush.Raw" Color="{StaticResource Color.Primary}" />
+    <SolidColorBrush x:Key="ChartBrush.Finished" Color="{StaticResource Color.Chart.Finished}" />
+    <SolidColorBrush x:Key="ChartBrush.Sale" Color="{StaticResource Color.Chart.Sale}" />
+    <SolidColorBrush x:Key="ChartBrush.Purple" Color="{StaticResource Color.Chart.Purple}" />
+    <SolidColorBrush x:Key="ChartBrush.Muted" Color="{StaticResource Color.Chart.Muted}" />
+    <SolidColorBrush x:Key="LinkBrush" Color="{StaticResource Color.Link}" />
 </ResourceDictionary>

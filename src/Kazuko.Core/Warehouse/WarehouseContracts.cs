@@ -42,6 +42,30 @@ public sealed record MaterialBalanceItem(
     decimal MinimumStock,
     bool IsLowStock);
 
+public sealed record FinishedProductStockItem(
+    long Id,
+    string Code,
+    string ProductName,
+    string GoldPurity,
+    string UnitCode,
+    decimal Quantity,
+    decimal StockValue,
+    long? LocationId,
+    string LocationName,
+    string StatusCode);
+
+public sealed record SaleItemStockItem(
+    long Id,
+    string Code,
+    string ProductName,
+    string GoldPurity,
+    string UnitCode,
+    decimal Quantity,
+    decimal StockValue,
+    long? LocationId,
+    string LocationName,
+    string StatusCode);
+
 public sealed record StockDocumentSummary(
     long Id,
     string Code,
@@ -117,6 +141,16 @@ public sealed record MaterialBalanceSearchFilter(
     long LocationId,
     bool LowStockOnly);
 
+public sealed record FinishedProductSearchFilter(
+    string SearchText,
+    string GoldPurity,
+    string StatusCode);
+
+public sealed record SaleItemSearchFilter(
+    string SearchText,
+    string GoldPurity,
+    string StatusCode);
+
 public sealed record StockDocumentSearchFilter(
     string SearchText,
     string DocumentType,
@@ -143,6 +177,16 @@ public interface IWarehouseRepository
 
     Task<IReadOnlyList<MaterialBalanceItem>> SearchMaterialBalancesAsync(
         MaterialBalanceSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<FinishedProductStockItem>> SearchFinishedProductStockAsync(
+        FinishedProductSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SaleItemStockItem>> SearchSaleItemStockAsync(
+        SaleItemSearchFilter filter,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 

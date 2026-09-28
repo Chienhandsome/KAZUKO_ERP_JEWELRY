@@ -2,6 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
+             xmlns:charts="clr-namespace:Kazuko.Modules.Warehouse.Controls"
+             xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              MinWidth="900" MinHeight="520">
     <UserControl.Resources>
         <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
@@ -10,9 +12,9 @@
         <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
 
         <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -57,10 +59,10 @@
         </Style>
 
         <Style x:Key="FilterComboStyle" TargetType="ComboBox">
-            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="MinHeight" Value="32" />
             <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -68,14 +70,15 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
-        <Style x:Key="RoundedPrimaryButtonStyle" TargetType="Button">
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="Padding" Value="16,6" />
+        <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Margin" Value="0,0,8,0" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -102,15 +105,15 @@
             </Setter>
         </Style>
 
-        <Style x:Key="OutlineButtonStyle" TargetType="Button">
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="Padding" Value="14,6" />
-            <Setter Property="Margin" Value="0,0,8,0" />
+        <Style x:Key="SecondaryActionButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Margin" Value="0,0,0,0" />
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
             <Setter Property="BorderThickness" Value="1.5" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
@@ -138,10 +141,90 @@
             </Setter>
         </Style>
 
+        <Style x:Key="RoundedPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryActionButtonStyle}">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="16,6" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        </Style>
+
+        <Style x:Key="OutlineButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        </Style>
+
+        <Style x:Key="LinkButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource LinkBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="DetailLabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+
+        <Style x:Key="PanelTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style x:Key="PanelSubtitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="DashboardPanelStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="MinWidth" Value="320" />
+        </Style>
+
+        <Style x:Key="SummaryCardStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="WarehouseDataGridStyle" TargetType="DataGrid">
@@ -163,8 +246,11 @@
             <Setter Property="AutoGenerateColumns" Value="False" />
             <Setter Property="IsReadOnly" Value="True" />
             <Setter Property="RowHeight" Value="28" />
-            <Setter Property="ColumnHeaderHeight" Value="32" />
+            <Setter Property="ColumnHeaderHeight" Value="30" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="grid:DataGridColumnLayout.EnableHeaderMenu" Value="True" />
+            <Setter Property="grid:DataGridColumnLayout.AutoFitOnFirstLoad" Value="True" />
             <Setter Property="RowStyle">
                 <Setter.Value>
                     <Style TargetType="DataGridRow">
@@ -176,7 +262,7 @@
             <Setter Property="CellStyle">
                 <Setter.Value>
                     <Style TargetType="DataGridCell">
-                        <Setter Property="Padding" Value="8,2" />
+                        <Setter Property="Padding" Value="6,2" />
                         <Setter Property="BorderThickness" Value="0" />
                         <Setter Property="Template">
                             <Setter.Value>
@@ -207,30 +293,59 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
-            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Padding" Value="6,4" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="0,0,1,1" />
-            <Setter Property="Height" Value="32" />
+            <Setter Property="Height" Value="30" />
+        </Style>
+
+        <Style x:Key="CompactPreviewGridStyle" TargetType="DataGrid" BasedOn="{StaticResource WarehouseDataGridStyle}">
+            <Setter Property="Height" Value="180" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
         </Style>
 
         <Style x:Key="WarehouseTabItemStyle" TargetType="TabItem">
-            <Setter Property="Padding" Value="14,8" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="TabBorder" Background="Transparent" BorderThickness="0,0,0,3"
-                                BorderBrush="Transparent" Padding="{TemplateBinding Padding}" Margin="0,0,4,0"
-                                CornerRadius="6,6,0,0">
-                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" />
+                        <Border x:Name="TabBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}"
+                                Margin="{TemplateBinding Margin}"
+                                SnapsToDevicePixels="True">
+                            <TextBlock x:Name="HeaderText"
+                                       Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       FontWeight="{TemplateBinding FontWeight}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource PrimaryBrush}" />
                                 <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
                                 <Setter Property="FontWeight" Value="SemiBold" />
                             </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="False" />
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                            </MultiTrigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.55" />
                             </Trigger>
@@ -241,13 +356,13 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="18">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="0,0,0,14">
+        <Grid Grid.Row="0" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -260,7 +375,7 @@
                                Foreground="{DynamicResource PrimaryBrush}"
                                FontSize="{DynamicResource FontSize.Heading}"
                                FontWeight="Bold" />
-                    <TextBlock Text="Quản lý kho nguyên liệu - phiếu kho - sổ giao dịch (chỉ đọc)"
+                    <TextBlock Text="Quản lý kho nguyên liệu - kho thành phẩm - kho bán hàng"
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="{DynamicResource FontSize.Body}"
                                TextWrapping="Wrap" />
@@ -284,172 +399,511 @@
                 <TabControl SelectedIndex="{Binding SelectedTabIndex}"
                             Background="Transparent"
                             BorderThickness="0"
+                            Padding="0"
                             ItemContainerStyle="{StaticResource WarehouseTabItemStyle}">
+                    <TabControl.Template>
+                        <ControlTemplate TargetType="TabControl">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <ScrollViewer Grid.Row="0"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              Margin="0,0,0,8">
+                                    <TabPanel IsItemsHost="True" />
+                                </ScrollViewer>
+                                <Border Grid.Row="1"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter ContentSource="SelectedContent" />
+                                </Border>
+                            </Grid>
+                        </ControlTemplate>
+                    </TabControl.Template>
 
-                    <!-- Tổng quan -->
-                    <TabItem Header="Tổng quan">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+                    <!-- 0 Tổng quan -->
+                    <TabItem Header="▣  Tổng quan">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0">
                             <StackPanel>
+                                <!-- Summary cards -->
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="10" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="10" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="10" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Giá trị tồn NVL" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBlock Text="{Binding MaterialStockValueText, Mode=OneWay}"
-                                                       FontSize="{DynamicResource FontSize.Subtitle}"
-                                                       FontWeight="Bold"
-                                                       Foreground="{DynamicResource PrimaryBrush}"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Dòng tồn NVL" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBlock Text="{Binding BalanceCount, Mode=OneWay}"
-                                                       FontSize="{DynamicResource FontSize.Subtitle}"
-                                                       FontWeight="Bold"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Grid.Column="4" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Cảnh báo tồn thấp" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBlock Text="{Binding LowStockCount, Mode=OneWay}"
-                                                       FontSize="{DynamicResource FontSize.Subtitle}"
-                                                       FontWeight="Bold"
-                                                       Foreground="{DynamicResource DangerBrush}" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Grid.Column="6" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Phiếu kho hôm nay" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBlock Text="{Binding TodayDocumentCount, Mode=OneWay}"
-                                                       FontSize="{DynamicResource FontSize.Subtitle}"
-                                                       FontWeight="Bold"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                                        </StackPanel>
-                                    </Border>
+                                    <Button Grid.Column="0" Style="{StaticResource SummaryCardStyle}"
+                                            Command="{Binding NavigateToTabCommand}" CommandParameter="0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="36" Height="36" CornerRadius="8"
+                                                    Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
+                                                <TextBlock Text="▣" Foreground="{DynamicResource PrimaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="Tổng giá trị tồn kho" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBlock Text="{Binding TotalStockValueText, Mode=OneWay}"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                                           FontWeight="Bold"
+                                                           Foreground="{DynamicResource MoneyBrush}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
+                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
+
+                                    <Button Grid.Column="2" Style="{StaticResource SummaryCardStyle}"
+                                            Command="{Binding ViewAllRawMaterialsCommand}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="36" Height="36" CornerRadius="8"
+                                                    Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
+                                                <TextBlock Text="◆" Foreground="{DynamicResource PrimaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="Kho nguyên liệu" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBlock Text="{Binding RawMaterialStockValueText, Mode=OneWay}"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                                           FontWeight="Bold"
+                                                           Foreground="{DynamicResource MoneyBrush}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
+                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
+
+                                    <Button Grid.Column="4" Style="{StaticResource SummaryCardStyle}"
+                                            Command="{Binding ViewAllFinishedProductsCommand}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="36" Height="36" CornerRadius="8"
+                                                    Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
+                                                <TextBlock Text="◎" Foreground="{DynamicResource PrimaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="Kho thành phẩm" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBlock Text="{Binding FinishedProductStockValueText, Mode=OneWay}"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                                           FontWeight="Bold"
+                                                           Foreground="{DynamicResource MoneyBrush}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
+                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
+
+                                    <Button Grid.Column="6" Style="{StaticResource SummaryCardStyle}"
+                                            Command="{Binding ViewAllSalesGoodsCommand}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="36" Height="36" CornerRadius="8"
+                                                    Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
+                                                <TextBlock Text="▢" Foreground="{DynamicResource PrimaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="Kho bán hàng" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBlock Text="{Binding SalesGoodsStockValueText, Mode=OneWay}"
+                                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                                           FontWeight="Bold"
+                                                           Foreground="{DynamicResource MoneyBrush}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
+                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
                                 </Grid>
 
-                                <TextBlock Text="Tồn nguyên vật liệu (xem nhanh)"
-                                           FontSize="{DynamicResource FontSize.Subtitle}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           Margin="0,0,0,8" />
-                                <DataGrid ItemsSource="{Binding Balances}"
-                                          SelectedItem="{Binding SelectedBalance}"
-                                          Style="{StaticResource WarehouseDataGridStyle}"
-                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
-                                          MaxHeight="280"
-                                          Margin="0,0,0,16">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                        <DataGridTextColumn Header="Mã NVL" Binding="{Binding MaterialCode, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Tên NVL" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="140" />
-                                        <DataGridTextColumn Header="Loại" Binding="{Binding MaterialTypeDisplay, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Vị trí" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
-                                        <DataGridTextColumn Header="Tồn" Binding="{Binding QuantityText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
-                                        <DataGridTextColumn Header="Giá trị" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+                                <!-- 3 warehouse panels -->
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,12">
+                                    <Grid MinWidth="1260">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MinWidth="400" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" MinWidth="400" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" MinWidth="400" />
+                                        </Grid.ColumnDefinitions>
 
-                                <TextBlock Text="Phiếu kho gần đây"
-                                           FontSize="{DynamicResource FontSize.Subtitle}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           Margin="0,0,0,8" />
-                                <DataGrid ItemsSource="{Binding Documents}"
-                                          SelectedItem="{Binding SelectedDocument}"
-                                          Style="{StaticResource WarehouseDataGridStyle}"
-                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
-                                          MaxHeight="240">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Ngày" Binding="{Binding DocumentDateText, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Số phiếu" Binding="{Binding Code, Mode=OneWay}" Width="130" />
-                                        <DataGridTextColumn Header="Loại" Binding="{Binding DocumentTypeDisplay, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Đối tác" Binding="{Binding CounterpartyName, Mode=OneWay}" Width="*" MinWidth="120" />
-                                        <DataGridTextColumn Header="Tổng tiền" Binding="{Binding TotalAmountText, Mode=OneWay}" Width="120" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+                                        <!-- Raw materials panel -->
+                                        <Border Grid.Column="0" Style="{StaticResource DashboardPanelStyle}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="KHO NGUYÊN LIỆU" Style="{StaticResource PanelTitleStyle}" />
+                                                        <TextBlock Text="Vàng, bạc, đá quý, phụ kiện, hoá chất..." Style="{StaticResource PanelSubtitleStyle}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                                        <Button Content="+ Nhập kho" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenReceiptTabCommand}" />
+                                                        <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                Command="{Binding OpenIssueTabCommand}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                                    <TextBox Width="160" Style="{StaticResource FilterFieldStyle}"
+                                                             Text="{Binding OverviewRawSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                             ToolTip="Tìm mã, tên nguyên liệu..." />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding GoldTypeFilterOptions}"
+                                                              SelectedItem="{Binding OverviewRawGoldType}" />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding StatusFilterOptions}"
+                                                              SelectedItem="{Binding OverviewRawStatus}" />
+                                                </WrapPanel>
+                                                <Grid Grid.Row="2">
+                                                    <DataGrid ItemsSource="{Binding OverviewRawBalances}"
+                                                              Style="{StaticResource CompactPreviewGridStyle}"
+                                                              ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                                              grid:DataGridColumnLayout.SettingsKey="warehouse-overview-raw"
+                                                              Visibility="{Binding IsOverviewRawEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                                        <DataGrid.Columns>
+                                                            <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="48" />
+                                                            <DataGridTextColumn Header="Mã NVL" grid:DataGridColumnLayout.Key="MaterialCode" Binding="{Binding MaterialCode, Mode=OneWay}" Width="90" />
+                                                            <DataGridTextColumn Header="Tên nguyên liệu" grid:DataGridColumnLayout.Key="MaterialName" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                                            <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldTypeDisplay, Mode=OneWay}" Width="90" />
+                                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="56" />
+                                                        </DataGrid.Columns>
+                                                    </DataGrid>
+                                                    <TextBlock Text="Chưa có dữ liệu tồn nguyên liệu."
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="{DynamicResource FontSize.Caption}"
+                                                               Visibility="{Binding IsOverviewRawEmpty, Converter={StaticResource BoolToVis}}" />
+                                                </Grid>
+                                                <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                        Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                        Command="{Binding ViewAllRawMaterialsCommand}" />
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Finished products panel -->
+                                        <Border Grid.Column="2" Style="{StaticResource DashboardPanelStyle}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="KHO THÀNH PHẨM" Style="{StaticResource PanelTitleStyle}" />
+                                                        <TextBlock Text="Trang sức hoàn thiện, sản phẩm chế tác" Style="{StaticResource PanelSubtitleStyle}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                                        <Button Content="+ Nhập kho" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenReceiptTabCommand}" />
+                                                        <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                Command="{Binding OpenIssueTabCommand}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                                    <TextBox Width="160" Style="{StaticResource FilterFieldStyle}"
+                                                             Text="{Binding OverviewFinishedSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                             ToolTip="Tìm mã, tên sản phẩm..." />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding GoldTypeFilterOptions}"
+                                                              SelectedItem="{Binding OverviewFinishedGoldType}" />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding FinishedStatusOptions}"
+                                                              SelectedItem="{Binding OverviewFinishedStatus}" />
+                                                </WrapPanel>
+                                                <Grid Grid.Row="2">
+                                                    <DataGrid ItemsSource="{Binding OverviewFinishedProducts}"
+                                                              Style="{StaticResource CompactPreviewGridStyle}"
+                                                              ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                                              grid:DataGridColumnLayout.SettingsKey="warehouse-overview-finished"
+                                                              Visibility="{Binding IsOverviewFinishedEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                                        <DataGrid.Columns>
+                                                            <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="48" />
+                                                            <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="100" />
+                                                            <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                                            <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
+                                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="56" />
+                                                        </DataGrid.Columns>
+                                                    </DataGrid>
+                                                    <TextBlock Text="Chưa có dữ liệu thành phẩm."
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="{DynamicResource FontSize.Caption}"
+                                                               Visibility="{Binding IsOverviewFinishedEmpty, Converter={StaticResource BoolToVis}}" />
+                                                </Grid>
+                                                <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                        Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                        Command="{Binding ViewAllFinishedProductsCommand}" />
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Sales goods panel -->
+                                        <Border Grid.Column="4" Style="{StaticResource DashboardPanelStyle}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="KHO BÁN HÀNG" Style="{StaticResource PanelTitleStyle}" />
+                                                        <TextBlock Text="Hàng trưng bày, hàng bán lẻ" Style="{StaticResource PanelSubtitleStyle}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                                        <Button Content="+ Nhập kho" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenReceiptTabCommand}" />
+                                                        <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                Command="{Binding OpenIssueTabCommand}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                                    <TextBox Width="160" Style="{StaticResource FilterFieldStyle}"
+                                                             Text="{Binding OverviewSaleSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                             ToolTip="Tìm mã, tên hàng..." />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding GoldTypeFilterOptions}"
+                                                              SelectedItem="{Binding OverviewSaleGoldType}" />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding SaleStatusOptions}"
+                                                              SelectedItem="{Binding OverviewSaleStatus}" />
+                                                </WrapPanel>
+                                                <Grid Grid.Row="2">
+                                                    <DataGrid ItemsSource="{Binding OverviewSaleItems}"
+                                                              Style="{StaticResource CompactPreviewGridStyle}"
+                                                              ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                                              grid:DataGridColumnLayout.SettingsKey="warehouse-overview-sale"
+                                                              Visibility="{Binding IsOverviewSaleEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                                        <DataGrid.Columns>
+                                                            <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="48" />
+                                                            <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="100" />
+                                                            <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                                            <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
+                                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="56" />
+                                                        </DataGrid.Columns>
+                                                    </DataGrid>
+                                                    <TextBlock Text="Chưa có hàng bán trưng bày."
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="{DynamicResource FontSize.Caption}"
+                                                               Visibility="{Binding IsOverviewSaleEmpty, Converter={StaticResource BoolToVis}}" />
+                                                </Grid>
+                                                <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                        Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                        Command="{Binding ViewAllSalesGoodsCommand}" />
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </ScrollViewer>
+
+                                <!-- Bottom charts + recent -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="240" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" MinWidth="260" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="1.2*" MinWidth="300" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Style="{StaticResource DashboardPanelStyle}" MinHeight="260">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Text="Tỷ trọng giá trị tồn kho" Style="{StaticResource PanelTitleStyle}" Margin="0,0,0,8" />
+                                            <charts:DonutChart Grid.Row="1"
+                                                               ItemsSource="{Binding CompositionSlices}"
+                                                               CenterText="{Binding DonutCenterText}"
+                                                               CenterSubText="{Binding DonutCenterSubText}"
+                                                               MinHeight="160" />
+                                            <ItemsControl Grid.Row="2" ItemsSource="{Binding CompositionSlices}" Margin="0,8,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
+                                                            <Border Width="10" Height="10" CornerRadius="2" Margin="0,0,6,0"
+                                                                    Background="{DynamicResource PrimaryBrush}" />
+                                                            <TextBlock Text="{Binding LegendText}" FontSize="{DynamicResource FontSize.Caption}"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Grid.Column="2" Style="{StaticResource DashboardPanelStyle}" MinHeight="260">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Text="Biểu đồ giá trị tồn kho theo loại vàng"
+                                                       Style="{StaticResource PanelTitleStyle}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                                            <charts:BarChart Grid.Row="1"
+                                                             ItemsSource="{Binding GoldTypeBars}"
+                                                             MinHeight="180" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Grid.Column="4" Style="{StaticResource DashboardPanelStyle}" MinHeight="260">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+                                            <Grid Margin="0,0,0,8">
+                                                <TextBlock Text="Lịch sử nhập xuất gần đây" Style="{StaticResource PanelTitleStyle}" />
+                                                <Button Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                        HorizontalAlignment="Right"
+                                                        Command="{Binding ViewAllRecentHistoryCommand}" />
+                                            </Grid>
+                                            <Grid Grid.Row="1">
+                                                <DataGrid ItemsSource="{Binding RecentDocuments}"
+                                                          Style="{StaticResource WarehouseDataGridStyle}"
+                                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                                          grid:DataGridColumnLayout.SettingsKey="warehouse-overview-recent"
+                                                          MaxHeight="210"
+                                                          Visibility="{Binding IsRecentHistoryEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Header="Ngày" grid:DataGridColumnLayout.Key="Date" Binding="{Binding DocumentDateText, Mode=OneWay}" Width="80" />
+                                                        <DataGridTextColumn Header="Số phiếu" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="100" />
+                                                        <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="Type" Binding="{Binding DocumentTypeDisplay, Mode=OneWay}" Width="60" />
+                                                        <DataGridTextColumn Header="Kho" grid:DataGridColumnLayout.Key="Warehouse" Binding="{Binding WarehouseDisplay, Mode=OneWay}" Width="*" MinWidth="80" />
+                                                        <DataGridTextColumn Header="Tổng tiền" grid:DataGridColumnLayout.Key="Total" Binding="{Binding TotalAmountText, Mode=OneWay}" Width="90" />
+                                                        <DataGridTextColumn Header="Người thực hiện" grid:DataGridColumnLayout.Key="CreatedBy" Binding="{Binding CreatedByName, Mode=OneWay}" Width="110" />
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                                <TextBlock Text="Chưa có lịch sử nhập xuất."
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           FontSize="{DynamicResource FontSize.Caption}"
+                                                           Visibility="{Binding IsRecentHistoryEmpty, Converter={StaticResource BoolToVis}}" />
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>
 
-                    <!-- Kho nguyên liệu -->
-                    <TabItem Header="Kho nguyên liệu">
+                    <!-- 1 Kho nguyên liệu -->
+                    <TabItem Header="◆  Kho nguyên liệu">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" MinHeight="220" />
-                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-
                             <WrapPanel Grid.Row="0" Margin="0,0,0,10">
-                                <TextBox Width="240"
-                                         Style="{StaticResource FilterFieldStyle}"
+                                <TextBox Width="240" Style="{StaticResource FilterFieldStyle}"
                                          Text="{Binding BalanceSearchText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Tìm mã hoặc tên NVL" />
-                                <ComboBox Width="140"
-                                          Style="{StaticResource FilterComboStyle}"
+                                <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding MaterialTypeOptions}"
                                           SelectedItem="{Binding SelectedMaterialType}" />
-                                <ComboBox Width="220"
-                                          Style="{StaticResource FilterComboStyle}"
+                                <ComboBox Width="220" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding Locations}"
                                           SelectedItem="{Binding SelectedLocation}"
                                           DisplayMemberPath="DisplayName" />
-                                <CheckBox Content="Chỉ tồn thấp"
-                                          IsChecked="{Binding LowStockOnly}"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,12,0"
+                                <CheckBox Content="Chỉ tồn thấp" IsChecked="{Binding LowStockOnly}"
+                                          VerticalAlignment="Center" Margin="0,0,12,0"
                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                           FontSize="{DynamicResource FontSize.Body}" />
-                                <Button Content="Tìm"
-                                        Style="{StaticResource RoundedPrimaryButtonStyle}"
-                                        Command="{Binding SearchBalancesCommand}"
-                                        Margin="0,0,8,0"
-                                        MinWidth="90" />
-                                <Button Content="Xóa lọc"
-                                        Style="{StaticResource OutlineButtonStyle}"
-                                        Command="{Binding ClearBalanceFiltersCommand}"
-                                        MinWidth="90" />
+                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                        Command="{Binding SearchBalancesCommand}" Margin="0,0,8,0" MinWidth="90" />
+                                <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
+                                        Command="{Binding ClearBalanceFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
-
                             <Grid Grid.Row="1">
                                 <DataGrid ItemsSource="{Binding Balances}"
                                           SelectedItem="{Binding SelectedBalance}"
                                           Style="{StaticResource WarehouseDataGridStyle}"
                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                          grid:DataGridColumnLayout.SettingsKey="warehouse-balances"
                                           Visibility="{Binding IsBalancesEmpty, Converter={StaticResource InverseBoolToVis}}">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                        <DataGridTextColumn Header="Mã NVL" Binding="{Binding MaterialCode, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Tên NVL" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="150" />
-                                        <DataGridTextColumn Header="Loại" Binding="{Binding MaterialTypeDisplay, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Hàm lượng" Binding="{Binding PurityCode, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Vị trí" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
-                                        <DataGridTextColumn Header="Tồn" Binding="{Binding QuantityText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
-                                        <DataGridTextColumn Header="Giá TB" Binding="{Binding AverageCostText, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Giá trị" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Tồn tối thiểu" Binding="{Binding MinimumStockText, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Cảnh báo" Binding="{Binding LowStockText, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                        <DataGridTextColumn Header="Mã NVL" grid:DataGridColumnLayout.Key="MaterialCode" Binding="{Binding MaterialCode, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Tên NVL" grid:DataGridColumnLayout.Key="MaterialName" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                        <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="MaterialType" Binding="{Binding MaterialTypeDisplay, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="Hàm lượng" grid:DataGridColumnLayout.Key="Purity" Binding="{Binding PurityCode, Mode=OneWay}" Width="100" />
+                                        <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
+                                        <DataGridTextColumn Header="Tồn" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
+                                        <DataGridTextColumn Header="Giá TB" grid:DataGridColumnLayout.Key="AverageCost" Binding="{Binding AverageCostText, Mode=OneWay}" Width="100" />
+                                        <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Tồn tối thiểu" grid:DataGridColumnLayout.Key="MinimumStock" Binding="{Binding MinimumStockText, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Cảnh báo" grid:DataGridColumnLayout.Key="LowStock" Binding="{Binding LowStockText, Mode=OneWay}" Width="90" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <TextBlock Text="Không có dữ liệu tồn nguyên vật liệu."
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="{DynamicResource FontSize.Body}"
                                            Visibility="{Binding IsBalancesEmpty, Converter={StaticResource BoolToVis}}" />
@@ -457,82 +911,164 @@
                         </Grid>
                     </TabItem>
 
-                    <!-- Phiếu kho -->
-                    <TabItem Header="Phiếu kho">
+                    <!-- 2 Kho thành phẩm -->
+                    <TabItem Header="◎  Kho thành phẩm">
+                        <Grid Margin="0,12,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" MinHeight="220" />
+                            </Grid.RowDefinitions>
+                            <WrapPanel Grid.Row="0" Margin="0,0,0,10">
+                                <TextBox Width="240" Style="{StaticResource FilterFieldStyle}"
+                                         Text="{Binding FinishedSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Tìm mã hoặc tên thành phẩm" />
+                                <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding GoldTypeFilterOptions}"
+                                          SelectedItem="{Binding SelectedFinishedGoldType}" />
+                                <ComboBox Width="160" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding FinishedStatusOptions}"
+                                          SelectedItem="{Binding SelectedFinishedStatus}" />
+                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                        Command="{Binding SearchFinishedProductsCommand}" Margin="0,0,8,0" MinWidth="90" />
+                                <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
+                                        Command="{Binding ClearFinishedFiltersCommand}" MinWidth="90" />
+                            </WrapPanel>
+                            <Grid Grid.Row="1">
+                                <DataGrid ItemsSource="{Binding FinishedProducts}"
+                                          SelectedItem="{Binding SelectedFinishedProduct}"
+                                          Style="{StaticResource WarehouseDataGridStyle}"
+                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                          grid:DataGridColumnLayout.SettingsKey="warehouse-finished"
+                                          Visibility="{Binding IsFinishedEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                        <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
+                                        <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                        <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                        <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
+                                        <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
+                                        <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock Text="Không có dữ liệu thành phẩm."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="{DynamicResource FontSize.Body}"
+                                           Visibility="{Binding IsFinishedEmpty, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- 3 Kho bán hàng -->
+                    <TabItem Header="▢  Kho bán hàng">
+                        <Grid Margin="0,12,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" MinHeight="220" />
+                            </Grid.RowDefinitions>
+                            <WrapPanel Grid.Row="0" Margin="0,0,0,10">
+                                <TextBox Width="240" Style="{StaticResource FilterFieldStyle}"
+                                         Text="{Binding SaleSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Tìm mã hoặc tên hàng bán" />
+                                <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding GoldTypeFilterOptions}"
+                                          SelectedItem="{Binding SelectedSaleGoldType}" />
+                                <ComboBox Width="160" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding SaleStatusOptions}"
+                                          SelectedItem="{Binding SelectedSaleStatus}" />
+                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                        Command="{Binding SearchSaleItemsCommand}" Margin="0,0,8,0" MinWidth="90" />
+                                <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
+                                        Command="{Binding ClearSaleFiltersCommand}" MinWidth="90" />
+                            </WrapPanel>
+                            <Grid Grid.Row="1">
+                                <DataGrid ItemsSource="{Binding SaleItems}"
+                                          SelectedItem="{Binding SelectedSaleItem}"
+                                          Style="{StaticResource WarehouseDataGridStyle}"
+                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                          grid:DataGridColumnLayout.SettingsKey="warehouse-sale"
+                                          Visibility="{Binding IsSalesEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                        <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
+                                        <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                        <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                        <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
+                                        <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
+                                        <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock Text="Không có hàng bán trưng bày."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="{DynamicResource FontSize.Body}"
+                                           Visibility="{Binding IsSalesEmpty, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- 4 Nhập kho / 5 Xuất kho / 6 Chuyển kho share document list binding -->
+                    <TabItem Header="↓  Nhập kho">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" MinHeight="180" />
-                                <RowDefinition Height="*" MinHeight="180" />
+                                <RowDefinition Height="*" MinHeight="160" />
                             </Grid.RowDefinitions>
-
                             <WrapPanel Grid.Row="0" Margin="0,0,0,10">
-                                <TextBox Width="240"
-                                         Style="{StaticResource FilterFieldStyle}"
+                                <TextBox Width="240" Style="{StaticResource FilterFieldStyle}"
                                          Text="{Binding DocumentSearchText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Tìm số phiếu, tham chiếu, đối tác" />
-                                <ComboBox Width="140"
-                                          Style="{StaticResource FilterComboStyle}"
-                                          ItemsSource="{Binding DocumentTypeOptions}"
-                                          SelectedItem="{Binding SelectedDocumentType}" />
-                                <ComboBox Width="140"
-                                          Style="{StaticResource FilterComboStyle}"
+                                <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding DocumentStatusOptions}"
                                           SelectedItem="{Binding SelectedDocumentStatus}" />
-                                <Button Content="Tìm"
-                                        Style="{StaticResource RoundedPrimaryButtonStyle}"
-                                        Command="{Binding SearchDocumentsCommand}"
-                                        Margin="0,0,8,0"
-                                        MinWidth="90" />
-                                <Button Content="Xóa lọc"
-                                        Style="{StaticResource OutlineButtonStyle}"
-                                        Command="{Binding ClearDocumentFiltersCommand}"
-                                        MinWidth="90" />
+                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                        Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
+                                <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
+                                        Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
-
                             <Grid Grid.Row="1" Margin="0,0,0,10">
                                 <DataGrid ItemsSource="{Binding Documents}"
                                           SelectedItem="{Binding SelectedDocument}"
                                           Style="{StaticResource WarehouseDataGridStyle}"
                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                          grid:DataGridColumnLayout.SettingsKey="warehouse-receipts"
                                           Visibility="{Binding IsDocumentsEmpty, Converter={StaticResource InverseBoolToVis}}">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                        <DataGridTextColumn Header="Ngày" Binding="{Binding DocumentDateText, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Số phiếu" Binding="{Binding Code, Mode=OneWay}" Width="130" />
-                                        <DataGridTextColumn Header="Loại" Binding="{Binding DocumentTypeDisplay, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
-                                        <DataGridTextColumn Header="Kho nguồn" Binding="{Binding SourceLocationName, Mode=OneWay}" Width="120" />
-                                        <DataGridTextColumn Header="Kho đích" Binding="{Binding DestinationLocationName, Mode=OneWay}" Width="120" />
-                                        <DataGridTextColumn Header="Đối tác" Binding="{Binding CounterpartyName, Mode=OneWay}" Width="*" MinWidth="120" />
-                                        <DataGridTextColumn Header="Số dòng" Binding="{Binding LineCount, Mode=OneWay}" Width="80" />
-                                        <DataGridTextColumn Header="Tổng tiền" Binding="{Binding TotalAmountText, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                        <DataGridTextColumn Header="Ngày" grid:DataGridColumnLayout.Key="Date" Binding="{Binding DocumentDateText, Mode=OneWay}" Width="100" />
+                                        <DataGridTextColumn Header="Số phiếu" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
+                                        <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="Type" Binding="{Binding DocumentTypeDisplay, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Kho nguồn" grid:DataGridColumnLayout.Key="Source" Binding="{Binding SourceLocationName, Mode=OneWay}" Width="120" />
+                                        <DataGridTextColumn Header="Kho đích" grid:DataGridColumnLayout.Key="Destination" Binding="{Binding DestinationLocationName, Mode=OneWay}" Width="120" />
+                                        <DataGridTextColumn Header="Đối tác" grid:DataGridColumnLayout.Key="Counterparty" Binding="{Binding CounterpartyName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                        <DataGridTextColumn Header="Tổng tiền" grid:DataGridColumnLayout.Key="Total" Binding="{Binding TotalAmountText, Mode=OneWay}" Width="110" />
                                     </DataGrid.Columns>
                                 </DataGrid>
-                                <TextBlock Text="Không có phiếu kho."
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
+                                <TextBlock Text="Không có phiếu nhập kho."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="{DynamicResource FontSize.Body}"
                                            Visibility="{Binding IsDocumentsEmpty, Converter={StaticResource BoolToVis}}" />
                             </Grid>
-
                             <Border Grid.Row="2" Style="{DynamicResource CardBorderStyle}" Padding="10">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="280" />
+                                        <ColumnDefinition Width="260" />
                                         <ColumnDefinition Width="12" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-
                                     <ScrollViewer VerticalScrollBarVisibility="Auto"
                                                   Visibility="{Binding HasDocumentDetail, Converter={StaticResource BoolToVis}}">
                                         <StackPanel>
-                                            <TextBlock Text="Chi tiết phiếu (chỉ đọc)"
-                                                       FontWeight="SemiBold"
+                                            <TextBlock Text="Chi tiết phiếu (chỉ đọc)" FontWeight="SemiBold"
                                                        FontSize="{DynamicResource FontSize.Body}"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                       Margin="0,0,0,8" />
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="Số phiếu" Style="{StaticResource DetailLabelStyle}" />
                                             <TextBox Text="{Binding DetailCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
                                             <TextBlock Text="Ngày" Style="{StaticResource DetailLabelStyle}" />
@@ -541,49 +1077,27 @@
                                             <TextBox Text="{Binding DetailType, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
                                             <TextBlock Text="Trạng thái" Style="{StaticResource DetailLabelStyle}" />
                                             <TextBox Text="{Binding DetailStatus, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                                            <TextBlock Text="Tham chiếu" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBox Text="{Binding DetailReference, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
                                             <TextBlock Text="Đối tác" Style="{StaticResource DetailLabelStyle}" />
                                             <TextBox Text="{Binding DetailCounterparty, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                                            <TextBlock Text="Ghi chú" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBox Text="{Binding DetailNotes, Mode=OneWay}"
-                                                    Style="{StaticResource DetailValueStyle}"
-                                                    TextWrapping="Wrap"
-                                                    AcceptsReturn="True"
-                                                    MinHeight="56"
-                                                    VerticalScrollBarVisibility="Auto" />
-                                            <TextBlock Text="Người tạo" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBox Text="{Binding DetailCreatedBy, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                                            <TextBlock Text="Người ghi sổ" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBox Text="{Binding DetailPostedBy, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                                            <TextBlock Text="Thời điểm ghi sổ" Style="{StaticResource DetailLabelStyle}" />
-                                            <TextBox Text="{Binding DetailPostedAt, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
                                         </StackPanel>
                                     </ScrollViewer>
-
-                                    <TextBlock Grid.Column="0"
-                                               Text="Chọn một phiếu để xem chi tiết."
-                                               VerticalAlignment="Center"
-                                               HorizontalAlignment="Center"
-                                               TextWrapping="Wrap"
+                                    <TextBlock Grid.Column="0" Text="Chọn một phiếu để xem chi tiết."
+                                               VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                FontSize="{DynamicResource FontSize.Body}"
                                                Visibility="{Binding HasDocumentDetail, Converter={StaticResource InverseBoolToVis}}" />
-
-                                    <DataGrid Grid.Column="2"
-                                              ItemsSource="{Binding DocumentLines}"
+                                    <DataGrid Grid.Column="2" ItemsSource="{Binding DocumentLines}"
                                               Style="{StaticResource WarehouseDataGridStyle}"
                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                              grid:DataGridColumnLayout.SettingsKey="warehouse-receipt-lines"
                                               Visibility="{Binding HasDocumentDetail, Converter={StaticResource BoolToVis}}">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="#" Binding="{Binding LineNumber, Mode=OneWay}" Width="40" />
-                                            <DataGridTextColumn Header="Mã NVL" Binding="{Binding MaterialCode, Mode=OneWay}" Width="100" />
-                                            <DataGridTextColumn Header="Tên" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="120" />
-                                            <DataGridTextColumn Header="SL" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
-                                            <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="60" />
-                                            <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitCostText, Mode=OneWay}" Width="90" />
-                                            <DataGridTextColumn Header="Thành tiền" Binding="{Binding LineAmountText, Mode=OneWay}" Width="100" />
-                                            <DataGridTextColumn Header="Lô" Binding="{Binding LotNo, Mode=OneWay}" Width="90" />
+                                            <DataGridTextColumn Header="#" grid:DataGridColumnLayout.Key="LineNumber" Binding="{Binding LineNumber, Mode=OneWay}" Width="40" />
+                                            <DataGridTextColumn Header="Mã NVL" grid:DataGridColumnLayout.Key="MaterialCode" Binding="{Binding MaterialCode, Mode=OneWay}" Width="100" />
+                                            <DataGridTextColumn Header="Tên" grid:DataGridColumnLayout.Key="MaterialName" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                            <DataGridTextColumn Header="SL" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="60" />
+                                            <DataGridTextColumn Header="Thành tiền" grid:DataGridColumnLayout.Key="LineAmount" Binding="{Binding LineAmountText, Mode=OneWay}" Width="100" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Grid>
@@ -591,68 +1105,114 @@
                         </Grid>
                     </TabItem>
 
-                    <!-- Sổ giao dịch -->
-                    <TabItem Header="Sổ giao dịch">
+                    <TabItem Header="↑  Xuất kho">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" MinHeight="220" />
                             </Grid.RowDefinitions>
-
                             <WrapPanel Grid.Row="0" Margin="0,0,0,10">
-                                <TextBox Width="240"
-                                         Style="{StaticResource FilterFieldStyle}"
-                                         Text="{Binding MovementSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="Tìm số phiếu, mã/tên NVL" />
-                                <ComboBox Width="220"
-                                          Style="{StaticResource FilterComboStyle}"
-                                          ItemsSource="{Binding MovementLocations}"
-                                          SelectedItem="{Binding SelectedMovementLocation}"
-                                          DisplayMemberPath="DisplayName" />
-                                <Button Content="Tìm"
-                                        Style="{StaticResource RoundedPrimaryButtonStyle}"
-                                        Command="{Binding SearchMovementsCommand}"
-                                        Margin="0,0,8,0"
-                                        MinWidth="90" />
-                                <Button Content="Xóa lọc"
-                                        Style="{StaticResource OutlineButtonStyle}"
-                                        Command="{Binding ClearMovementFiltersCommand}"
-                                        MinWidth="90" />
+                                <TextBox Width="240" Style="{StaticResource FilterFieldStyle}"
+                                         Text="{Binding DocumentSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding DocumentStatusOptions}"
+                                          SelectedItem="{Binding SelectedDocumentStatus}" />
+                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                        Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
+                                <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
+                                        Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
-
                             <Grid Grid.Row="1">
-                                <DataGrid ItemsSource="{Binding Movements}"
-                                          SelectedItem="{Binding SelectedMovement}"
+                                <DataGrid ItemsSource="{Binding Documents}"
+                                          SelectedItem="{Binding SelectedDocument}"
                                           Style="{StaticResource WarehouseDataGridStyle}"
                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
-                                          Visibility="{Binding IsMovementsEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                          grid:DataGridColumnLayout.SettingsKey="warehouse-issues"
+                                          Visibility="{Binding IsDocumentsEmpty, Converter={StaticResource InverseBoolToVis}}">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                        <DataGridTextColumn Header="Thời điểm" Binding="{Binding OccurredAtText, Mode=OneWay}" Width="130" />
-                                        <DataGridTextColumn Header="Số phiếu" Binding="{Binding DocumentCode, Mode=OneWay}" Width="120" />
-                                        <DataGridTextColumn Header="Loại phiếu" Binding="{Binding DocumentTypeDisplay, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Mã NVL" Binding="{Binding MaterialCode, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Tên NVL" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="140" />
-                                        <DataGridTextColumn Header="Vị trí" Binding="{Binding LocationName, Mode=OneWay}" Width="120" />
-                                        <DataGridTextColumn Header="Loại GD" Binding="{Binding MovementTypeDisplay, Mode=OneWay}" Width="80" />
-                                        <DataGridTextColumn Header="SL" Binding="{Binding QuantityChangeText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitCostText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Giá trị" Binding="{Binding ValueChangeText, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Người thực hiện" Binding="{Binding CreatedByName, Mode=OneWay}" Width="140" />
+                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                        <DataGridTextColumn Header="Ngày" grid:DataGridColumnLayout.Key="Date" Binding="{Binding DocumentDateText, Mode=OneWay}" Width="100" />
+                                        <DataGridTextColumn Header="Số phiếu" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
+                                        <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="Type" Binding="{Binding DocumentTypeDisplay, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Kho nguồn" grid:DataGridColumnLayout.Key="Source" Binding="{Binding SourceLocationName, Mode=OneWay}" Width="120" />
+                                        <DataGridTextColumn Header="Đối tác" grid:DataGridColumnLayout.Key="Counterparty" Binding="{Binding CounterpartyName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                        <DataGridTextColumn Header="Tổng tiền" grid:DataGridColumnLayout.Key="Total" Binding="{Binding TotalAmountText, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Người tạo" grid:DataGridColumnLayout.Key="CreatedBy" Binding="{Binding CreatedByName, Mode=OneWay}" Width="120" />
                                     </DataGrid.Columns>
                                 </DataGrid>
-                                <TextBlock Text="Không có giao dịch kho."
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
+                                <TextBlock Text="Không có phiếu xuất kho."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="{DynamicResource FontSize.Body}"
-                                           Visibility="{Binding IsMovementsEmpty, Converter={StaticResource BoolToVis}}" />
+                                           Visibility="{Binding IsDocumentsEmpty, Converter={StaticResource BoolToVis}}" />
                             </Grid>
                         </Grid>
                     </TabItem>
 
-                    <TabItem Header="Kho thành phẩm" IsEnabled="False" ToolTip="TASK-009E" />
-                    <TabItem Header="Kiểm kê" IsEnabled="False" ToolTip="TASK-009F" />
+                    <TabItem Header="⇄  Chuyển kho">
+                        <Grid Margin="0,12,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" MinHeight="220" />
+                            </Grid.RowDefinitions>
+                            <WrapPanel Grid.Row="0" Margin="0,0,0,10">
+                                <TextBox Width="240" Style="{StaticResource FilterFieldStyle}"
+                                         Text="{Binding DocumentSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding DocumentStatusOptions}"
+                                          SelectedItem="{Binding SelectedDocumentStatus}" />
+                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                        Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
+                                <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
+                                        Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
+                            </WrapPanel>
+                            <Grid Grid.Row="1">
+                                <DataGrid ItemsSource="{Binding Documents}"
+                                          SelectedItem="{Binding SelectedDocument}"
+                                          Style="{StaticResource WarehouseDataGridStyle}"
+                                          ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                          grid:DataGridColumnLayout.SettingsKey="warehouse-transfers"
+                                          Visibility="{Binding IsDocumentsEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                        <DataGridTextColumn Header="Ngày" grid:DataGridColumnLayout.Key="Date" Binding="{Binding DocumentDateText, Mode=OneWay}" Width="100" />
+                                        <DataGridTextColumn Header="Số phiếu" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
+                                        <DataGridTextColumn Header="Loại" grid:DataGridColumnLayout.Key="Type" Binding="{Binding DocumentTypeDisplay, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Kho nguồn" grid:DataGridColumnLayout.Key="Source" Binding="{Binding SourceLocationName, Mode=OneWay}" Width="120" />
+                                        <DataGridTextColumn Header="Kho đích" grid:DataGridColumnLayout.Key="Destination" Binding="{Binding DestinationLocationName, Mode=OneWay}" Width="120" />
+                                        <DataGridTextColumn Header="Tổng tiền" grid:DataGridColumnLayout.Key="Total" Binding="{Binding TotalAmountText, Mode=OneWay}" Width="110" />
+                                        <DataGridTextColumn Header="Người tạo" grid:DataGridColumnLayout.Key="CreatedBy" Binding="{Binding CreatedByName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock Text="Không có phiếu chuyển kho."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="{DynamicResource FontSize.Body}"
+                                           Visibility="{Binding IsDocumentsEmpty, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- 7 Kiểm kê -->
+                    <TabItem Header="☑  Kiểm kê">
+                        <Border Margin="0,12,0,0" Style="{StaticResource DashboardPanelStyle}" MinHeight="220">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="Chức năng kiểm kê đang được chuẩn bị."
+                                           FontSize="{DynamicResource FontSize.Subtitle}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="Tab đã mở để điều hướng; dữ liệu kiểm kê sẽ bổ sung khi backend sẵn sàng."
+                                           FontSize="{DynamicResource FontSize.Body}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,8,0,0"
+                                           HorizontalAlignment="Center"
+                                           TextAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </TabItem>
                 </TabControl>
 
                 <Grid Grid.Row="1" Margin="0,8,0,0">

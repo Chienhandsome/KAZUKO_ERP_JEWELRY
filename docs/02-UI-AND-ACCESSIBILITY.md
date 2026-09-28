@@ -35,15 +35,19 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Logo/background thương hiệu là hình minh họa cố định; text, card, border và trạng thái tương tác vẫn dùng semantic `DynamicResource`.
 - Khi không đủ chiều cao hoặc font scale lớn, nội dung trang chủ cuộn theo chiều dọc; không giảm cỡ chữ để ép vừa.
 
-## DataGrid (convention module-local)
+## DataGrid (convention module-local + shared column layout)
 
-CRUD đầu tiên (`Kazuko.Modules.Customers`) giữ style DataGrid **local trong module**, chưa đưa vào `Kazuko.Shared.UI`:
+Style DataGrid (brush/typography) vẫn **local trong module** (`CustomerDataGridStyle`, `WarehouseDataGridStyle`, …) dùng `DynamicResource`:
 
-- Style khóa local (`CustomerDataGridStyle`, `CustomerDataGridColumnHeaderStyle`) dùng `DynamicResource` cho brush/typography.
 - `IsReadOnly=True`, không auto-generate cột, hàng xen kẽ `SurfaceBrush` / `SurfaceAltBrush`.
 - Cột thao tác dùng `DataGridTemplateColumn` + command trên ViewModel (không SQL trong View).
 - Binding tới property read-only phải ghi `Mode=OneWay` khi dependency property mặc định TwoWay.
-- Chưa tạo global DataGrid style; module sau có thể copy pattern local trước khi promote.
+
+Quick menu cột (chuột phải header) và lưu layout là **tái sử dụng** qua `Kazuko.Shared.UI.DataGridLayout`:
+
+- Gắn `grid:DataGridColumnLayout.SettingsKey` (file JSON dưới `%LocalAppData%\KazukoERP\`), `EnableHeaderMenu=True`, tùy chọn `AutoFitOnFirstLoad=True`.
+- Mỗi cột gắn `grid:DataGridColumnLayout.Key` ổn định (không dùng header tiếng Việt làm khóa).
+- Menu: **Cột hiển thị** (ẩn/hiện + đổi thứ tự) và **Dãn cột**; visibility/order lưu trên máy, không ghi Firebird.
 
 Dialog tạo/sửa nghiệp vụ: Window riêng, owner-centered, `ScrollViewer`, Enter lưu / Escape hủy, không hard-code màu/font size.
 

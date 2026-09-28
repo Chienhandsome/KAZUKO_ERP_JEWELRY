@@ -9,18 +9,42 @@ namespace Kazuko.Modules.Warehouse;
 
 public sealed class WarehouseViewModel : ObservableObject
 {
+    private const int OverviewPreviewLimit = 8;
+    private const int RecentHistoryLimit = 6;
+
     private static readonly CultureInfo ViCulture = CultureInfo.GetCultureInfo("vi-VN");
 
     private readonly IWarehouseRepository _repository;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
+    private bool _suppressTabSideEffects;
 
     private string _balanceSearchText = string.Empty;
     private string _selectedMaterialType = "Tất cả";
     private WarehouseLocationOption? _selectedLocation;
     private bool _lowStockOnly;
     private MaterialBalanceRowViewModel? _selectedBalance;
+
+    private string _overviewRawSearchText = string.Empty;
+    private string _overviewRawGoldType = "Tất cả loại vàng";
+    private string _overviewRawStatus = "Tất cả trạng thái";
+    private string _overviewFinishedSearchText = string.Empty;
+    private string _overviewFinishedGoldType = "Tất cả loại vàng";
+    private string _overviewFinishedStatus = "Tất cả trạng thái";
+    private string _overviewSaleSearchText = string.Empty;
+    private string _overviewSaleGoldType = "Tất cả loại vàng";
+    private string _overviewSaleStatus = "Tất cả trạng thái";
+
+    private string _finishedSearchText = string.Empty;
+    private string _selectedFinishedGoldType = "Tất cả loại vàng";
+    private string _selectedFinishedStatus = "Tất cả trạng thái";
+    private FinishedProductRowViewModel? _selectedFinishedProduct;
+
+    private string _saleSearchText = string.Empty;
+    private string _selectedSaleGoldType = "Tất cả loại vàng";
+    private string _selectedSaleStatus = "Tất cả trạng thái";
+    private SaleItemRowViewModel? _selectedSaleItem;
 
     private string _documentSearchText = string.Empty;
     private string _selectedDocumentType = "Tất cả";
@@ -35,14 +59,19 @@ public sealed class WarehouseViewModel : ObservableObject
     private string _errorMessage = string.Empty;
     private bool _isLoading;
     private bool _isBalancesEmpty = true;
+    private bool _isFinishedEmpty = true;
+    private bool _isSalesEmpty = true;
     private bool _isDocumentsEmpty = true;
     private bool _isMovementsEmpty = true;
+    private bool _isRecentHistoryEmpty = true;
     private bool _hasDocumentDetail;
     private int _selectedTabIndex;
 
+    private decimal _rawMaterialStockValue;
+    private decimal _finishedProductStockValue;
+    private decimal _salesGoodsStockValue;
     private int _balanceCount;
     private int _lowStockCount;
-    private decimal _materialStockValue;
     private int _documentCount;
     private int _todayDocumentCount;
 
@@ -56,6 +85,9 @@ public sealed class WarehouseViewModel : ObservableObject
     private string _detailCreatedBy = string.Empty;
     private string _detailPostedBy = string.Empty;
     private string _detailPostedAt = string.Empty;
+
+    private string _donutCenterText = "0";
+    private string _donutCenterSubText = "Triệu VNĐ";
 
     public WarehouseViewModel(IWarehouseRepository repository, ICurrentSessionAccessor sessionAccessor)
     {
@@ -72,6 +104,24 @@ public sealed class WarehouseViewModel : ObservableObject
         MaterialTypeOptions.Add("STONE");
         MaterialTypeOptions.Add("ACCESSORY");
 
+        GoldTypeFilterOptions.Add("Tất cả loại vàng");
+        GoldTypeFilterOptions.Add("24K");
+        GoldTypeFilterOptions.Add("18K");
+        GoldTypeFilterOptions.Add("14K");
+        GoldTypeFilterOptions.Add("10K");
+
+        StatusFilterOptions.Add("Tất cả trạng thái");
+        StatusFilterOptions.Add("OK");
+        StatusFilterOptions.Add("Thấp");
+
+        FinishedStatusOptions.Add("Tất cả trạng thái");
+        FinishedStatusOptions.Add("IN_STOCK");
+        FinishedStatusOptions.Add("RESERVED");
+        FinishedStatusOptions.Add("WAITING_RECEIPT");
+
+        SaleStatusOptions.Add("Tất cả trạng thái");
+        SaleStatusOptions.Add("DISPLAYED");
+
         DocumentTypeOptions.Add("Tất cả");
         DocumentTypeOptions.Add("OPENING");
         DocumentTypeOptions.Add("RECEIPT");
@@ -84,23 +134,52 @@ public sealed class WarehouseViewModel : ObservableObject
         DocumentStatusOptions.Add("CANCELLED");
 
         SearchBalancesCommand = new AsyncRelayCommand(SearchBalancesAsync, () => !IsLoading);
+        SearchFinishedProductsCommand = new AsyncRelayCommand(SearchFinishedProductsAsync, () => !IsLoading);
+        SearchSaleItemsCommand = new AsyncRelayCommand(SearchSaleItemsAsync, () => !IsLoading);
         SearchDocumentsCommand = new AsyncRelayCommand(SearchDocumentsAsync, () => !IsLoading);
         SearchMovementsCommand = new AsyncRelayCommand(SearchMovementsAsync, () => !IsLoading);
         RefreshCommand = new AsyncRelayCommand(RefreshAllAsync, () => !IsLoading);
         ClearBalanceFiltersCommand = new RelayCommand(ClearBalanceFilters, () => !IsLoading);
+        ClearFinishedFiltersCommand = new RelayCommand(ClearFinishedFilters, () => !IsLoading);
+        ClearSaleFiltersCommand = new RelayCommand(ClearSaleFilters, () => !IsLoading);
         ClearDocumentFiltersCommand = new RelayCommand(ClearDocumentFilters, () => !IsLoading);
         ClearMovementFiltersCommand = new RelayCommand(ClearMovementFilters, () => !IsLoading);
+
+        NavigateToTabCommand = new RelayCommand<int>(NavigateToTab);
+        OpenReceiptTabCommand = new RelayCommand(() => OpenDocumentTab("RECEIPT", WarehouseTabs.Receipt));
+        OpenIssueTabCommand = new RelayCommand(() => OpenDocumentTab("ISSUE", WarehouseTabs.Issue));
+        OpenTransferTabCommand = new RelayCommand(() => OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer));
+        ViewAllRawMaterialsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.RawMaterials));
+        ViewAllFinishedProductsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.FinishedProducts));
+        ViewAllSalesGoodsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.SalesGoods));
+        ViewAllRecentHistoryCommand = new RelayCommand(() => OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer));
+        ApplyOverviewRawFiltersCommand = new RelayCommand(ApplyOverviewRawFilters);
+        ApplyOverviewFinishedFiltersCommand = new RelayCommand(ApplyOverviewFinishedFilters);
+        ApplyOverviewSaleFiltersCommand = new RelayCommand(ApplyOverviewSaleFilters);
 
         _ = InitializeAsync();
     }
 
     public ObservableCollection<MaterialBalanceRowViewModel> Balances { get; } = new();
+    public ObservableCollection<MaterialBalanceRowViewModel> OverviewRawBalances { get; } = new();
+    public ObservableCollection<FinishedProductRowViewModel> FinishedProducts { get; } = new();
+    public ObservableCollection<FinishedProductRowViewModel> OverviewFinishedProducts { get; } = new();
+    public ObservableCollection<SaleItemRowViewModel> SaleItems { get; } = new();
+    public ObservableCollection<SaleItemRowViewModel> OverviewSaleItems { get; } = new();
     public ObservableCollection<StockDocumentRowViewModel> Documents { get; } = new();
     public ObservableCollection<StockDocumentLineRowViewModel> DocumentLines { get; } = new();
     public ObservableCollection<StockMovementRowViewModel> Movements { get; } = new();
+    public ObservableCollection<StockMovementRowViewModel> RecentMovements { get; } = new();
+    public ObservableCollection<StockDocumentRowViewModel> RecentDocuments { get; } = new();
+    public ObservableCollection<ChartSliceViewModel> CompositionSlices { get; } = new();
+    public ObservableCollection<ChartSliceViewModel> GoldTypeBars { get; } = new();
     public ObservableCollection<WarehouseLocationOption> Locations { get; } = new();
     public ObservableCollection<WarehouseLocationOption> MovementLocations { get; } = new();
     public ObservableCollection<string> MaterialTypeOptions { get; } = new();
+    public ObservableCollection<string> GoldTypeFilterOptions { get; } = new();
+    public ObservableCollection<string> StatusFilterOptions { get; } = new();
+    public ObservableCollection<string> FinishedStatusOptions { get; } = new();
+    public ObservableCollection<string> SaleStatusOptions { get; } = new();
     public ObservableCollection<string> DocumentTypeOptions { get; } = new();
     public ObservableCollection<string> DocumentStatusOptions { get; } = new();
 
@@ -132,6 +211,144 @@ public sealed class WarehouseViewModel : ObservableObject
     {
         get => _selectedBalance;
         set => SetProperty(ref _selectedBalance, value);
+    }
+
+    public string OverviewRawSearchText
+    {
+        get => _overviewRawSearchText;
+        set
+        {
+            if (SetProperty(ref _overviewRawSearchText, value))
+                ApplyOverviewRawFilters();
+        }
+    }
+
+    public string OverviewRawGoldType
+    {
+        get => _overviewRawGoldType;
+        set
+        {
+            if (SetProperty(ref _overviewRawGoldType, value))
+                ApplyOverviewRawFilters();
+        }
+    }
+
+    public string OverviewRawStatus
+    {
+        get => _overviewRawStatus;
+        set
+        {
+            if (SetProperty(ref _overviewRawStatus, value))
+                ApplyOverviewRawFilters();
+        }
+    }
+
+    public string OverviewFinishedSearchText
+    {
+        get => _overviewFinishedSearchText;
+        set
+        {
+            if (SetProperty(ref _overviewFinishedSearchText, value))
+                ApplyOverviewFinishedFilters();
+        }
+    }
+
+    public string OverviewFinishedGoldType
+    {
+        get => _overviewFinishedGoldType;
+        set
+        {
+            if (SetProperty(ref _overviewFinishedGoldType, value))
+                ApplyOverviewFinishedFilters();
+        }
+    }
+
+    public string OverviewFinishedStatus
+    {
+        get => _overviewFinishedStatus;
+        set
+        {
+            if (SetProperty(ref _overviewFinishedStatus, value))
+                ApplyOverviewFinishedFilters();
+        }
+    }
+
+    public string OverviewSaleSearchText
+    {
+        get => _overviewSaleSearchText;
+        set
+        {
+            if (SetProperty(ref _overviewSaleSearchText, value))
+                ApplyOverviewSaleFilters();
+        }
+    }
+
+    public string OverviewSaleGoldType
+    {
+        get => _overviewSaleGoldType;
+        set
+        {
+            if (SetProperty(ref _overviewSaleGoldType, value))
+                ApplyOverviewSaleFilters();
+        }
+    }
+
+    public string OverviewSaleStatus
+    {
+        get => _overviewSaleStatus;
+        set
+        {
+            if (SetProperty(ref _overviewSaleStatus, value))
+                ApplyOverviewSaleFilters();
+        }
+    }
+
+    public string FinishedSearchText
+    {
+        get => _finishedSearchText;
+        set => SetProperty(ref _finishedSearchText, value);
+    }
+
+    public string SelectedFinishedGoldType
+    {
+        get => _selectedFinishedGoldType;
+        set => SetProperty(ref _selectedFinishedGoldType, value);
+    }
+
+    public string SelectedFinishedStatus
+    {
+        get => _selectedFinishedStatus;
+        set => SetProperty(ref _selectedFinishedStatus, value);
+    }
+
+    public FinishedProductRowViewModel? SelectedFinishedProduct
+    {
+        get => _selectedFinishedProduct;
+        set => SetProperty(ref _selectedFinishedProduct, value);
+    }
+
+    public string SaleSearchText
+    {
+        get => _saleSearchText;
+        set => SetProperty(ref _saleSearchText, value);
+    }
+
+    public string SelectedSaleGoldType
+    {
+        get => _selectedSaleGoldType;
+        set => SetProperty(ref _selectedSaleGoldType, value);
+    }
+
+    public string SelectedSaleStatus
+    {
+        get => _selectedSaleStatus;
+        set => SetProperty(ref _selectedSaleStatus, value);
+    }
+
+    public SaleItemRowViewModel? SelectedSaleItem
+    {
+        get => _selectedSaleItem;
+        set => SetProperty(ref _selectedSaleItem, value);
     }
 
     public string DocumentSearchText
@@ -211,6 +428,22 @@ public sealed class WarehouseViewModel : ObservableObject
         private set => SetProperty(ref _isBalancesEmpty, value);
     }
 
+    public bool IsFinishedEmpty
+    {
+        get => _isFinishedEmpty;
+        private set => SetProperty(ref _isFinishedEmpty, value);
+    }
+
+    public bool IsSalesEmpty
+    {
+        get => _isSalesEmpty;
+        private set => SetProperty(ref _isSalesEmpty, value);
+    }
+
+    public bool IsOverviewRawEmpty => OverviewRawBalances.Count == 0;
+    public bool IsOverviewFinishedEmpty => OverviewFinishedProducts.Count == 0;
+    public bool IsOverviewSaleEmpty => OverviewSaleItems.Count == 0;
+
     public bool IsDocumentsEmpty
     {
         get => _isDocumentsEmpty;
@@ -223,6 +456,12 @@ public sealed class WarehouseViewModel : ObservableObject
         private set => SetProperty(ref _isMovementsEmpty, value);
     }
 
+    public bool IsRecentHistoryEmpty
+    {
+        get => _isRecentHistoryEmpty;
+        private set => SetProperty(ref _isRecentHistoryEmpty, value);
+    }
+
     public bool HasDocumentDetail
     {
         get => _hasDocumentDetail;
@@ -232,7 +471,73 @@ public sealed class WarehouseViewModel : ObservableObject
     public int SelectedTabIndex
     {
         get => _selectedTabIndex;
-        set => SetProperty(ref _selectedTabIndex, value);
+        set
+        {
+            if (!SetProperty(ref _selectedTabIndex, value) || _suppressTabSideEffects)
+                return;
+            OnTabChanged(value);
+        }
+    }
+
+    public decimal RawMaterialStockValue
+    {
+        get => _rawMaterialStockValue;
+        private set
+        {
+            if (SetProperty(ref _rawMaterialStockValue, value))
+            {
+                OnPropertyChanged(nameof(RawMaterialStockValueText));
+                OnPropertyChanged(nameof(TotalStockValue));
+                OnPropertyChanged(nameof(TotalStockValueText));
+            }
+        }
+    }
+
+    public decimal FinishedProductStockValue
+    {
+        get => _finishedProductStockValue;
+        private set
+        {
+            if (SetProperty(ref _finishedProductStockValue, value))
+            {
+                OnPropertyChanged(nameof(FinishedProductStockValueText));
+                OnPropertyChanged(nameof(TotalStockValue));
+                OnPropertyChanged(nameof(TotalStockValueText));
+            }
+        }
+    }
+
+    public decimal SalesGoodsStockValue
+    {
+        get => _salesGoodsStockValue;
+        private set
+        {
+            if (SetProperty(ref _salesGoodsStockValue, value))
+            {
+                OnPropertyChanged(nameof(SalesGoodsStockValueText));
+                OnPropertyChanged(nameof(TotalStockValue));
+                OnPropertyChanged(nameof(TotalStockValueText));
+            }
+        }
+    }
+
+    public decimal TotalStockValue => RawMaterialStockValue + FinishedProductStockValue + SalesGoodsStockValue;
+
+    public string RawMaterialStockValueText => FormatMoney(RawMaterialStockValue);
+    public string FinishedProductStockValueText => FormatMoney(FinishedProductStockValue);
+    public string SalesGoodsStockValueText => FormatMoney(SalesGoodsStockValue);
+    public string TotalStockValueText => FormatMoney(TotalStockValue);
+
+    public string DonutCenterText
+    {
+        get => _donutCenterText;
+        private set => SetProperty(ref _donutCenterText, value);
+    }
+
+    public string DonutCenterSubText
+    {
+        get => _donutCenterSubText;
+        private set => SetProperty(ref _donutCenterSubText, value);
     }
 
     public int BalanceCount
@@ -247,17 +552,8 @@ public sealed class WarehouseViewModel : ObservableObject
         private set => SetProperty(ref _lowStockCount, value);
     }
 
-    public decimal MaterialStockValue
-    {
-        get => _materialStockValue;
-        private set
-        {
-            if (SetProperty(ref _materialStockValue, value))
-                OnPropertyChanged(nameof(MaterialStockValueText));
-        }
-    }
-
-    public string MaterialStockValueText => MaterialStockValue.ToString("N0", ViCulture) + " đ";
+    public decimal MaterialStockValue => RawMaterialStockValue;
+    public string MaterialStockValueText => RawMaterialStockValueText;
 
     public int DocumentCount
     {
@@ -332,12 +628,27 @@ public sealed class WarehouseViewModel : ObservableObject
     }
 
     public ICommand SearchBalancesCommand { get; }
+    public ICommand SearchFinishedProductsCommand { get; }
+    public ICommand SearchSaleItemsCommand { get; }
     public ICommand SearchDocumentsCommand { get; }
     public ICommand SearchMovementsCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand ClearBalanceFiltersCommand { get; }
+    public ICommand ClearFinishedFiltersCommand { get; }
+    public ICommand ClearSaleFiltersCommand { get; }
     public ICommand ClearDocumentFiltersCommand { get; }
     public ICommand ClearMovementFiltersCommand { get; }
+    public ICommand NavigateToTabCommand { get; }
+    public ICommand OpenReceiptTabCommand { get; }
+    public ICommand OpenIssueTabCommand { get; }
+    public ICommand OpenTransferTabCommand { get; }
+    public ICommand ViewAllRawMaterialsCommand { get; }
+    public ICommand ViewAllFinishedProductsCommand { get; }
+    public ICommand ViewAllSalesGoodsCommand { get; }
+    public ICommand ViewAllRecentHistoryCommand { get; }
+    public ICommand ApplyOverviewRawFiltersCommand { get; }
+    public ICommand ApplyOverviewFinishedFiltersCommand { get; }
+    public ICommand ApplyOverviewSaleFiltersCommand { get; }
 
     private async Task InitializeAsync()
     {
@@ -347,9 +658,69 @@ public sealed class WarehouseViewModel : ObservableObject
 
     private async Task RefreshAllAsync()
     {
-        await SearchBalancesAsync();
-        await SearchDocumentsAsync();
-        await SearchMovementsAsync();
+        var session = RequireSession();
+        if (session is null)
+            return;
+
+        using var scope = BeginLoad("Đang tải dữ liệu kho...");
+        try
+        {
+            // Dashboard KPIs/charts require full branch stock; tab filters stay client-side until explicit Search.
+            var balanceFilter = new MaterialBalanceSearchFilter(string.Empty, string.Empty, 0, false);
+            var finishedFilter = new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty);
+            var saleFilter = new SaleItemSearchFilter(string.Empty, string.Empty, string.Empty);
+            var documentFilter = BuildDocumentFilterForCurrentTab();
+            var movementFilter = new StockMovementSearchFilter(0, 0, string.Empty);
+
+            var balancesTask = _repository.SearchMaterialBalancesAsync(balanceFilter, session, scope.Token);
+            var finishedTask = _repository.SearchFinishedProductStockAsync(finishedFilter, session, scope.Token);
+            var saleTask = _repository.SearchSaleItemStockAsync(saleFilter, session, scope.Token);
+            var documentsTask = _repository.SearchDocumentsAsync(documentFilter, session, scope.Token);
+            var movementsTask = _repository.SearchMovementsAsync(movementFilter, session, scope.Token);
+
+            await Task.WhenAll(balancesTask, finishedTask, saleTask, documentsTask, movementsTask);
+            scope.Token.ThrowIfCancellationRequested();
+
+            ApplyBalances(balancesTask.Result);
+            ApplyFinishedProducts(finishedTask.Result);
+            ApplySaleItems(saleTask.Result);
+            ApplyDocuments(documentsTask.Result);
+            ApplyMovements(movementsTask.Result);
+            RebuildDashboardMetrics();
+
+            StatusMessage = $"Đã tải: {Balances.Count} NVL, {FinishedProducts.Count} thành phẩm, {SaleItems.Count} hàng bán.";
+            await LoadDocumentDetailAsync(SelectedDocument);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            Balances.Clear();
+            FinishedProducts.Clear();
+            SaleItems.Clear();
+            Documents.Clear();
+            Movements.Clear();
+            OverviewRawBalances.Clear();
+            OverviewFinishedProducts.Clear();
+            OverviewSaleItems.Clear();
+            RecentMovements.Clear();
+            RecentDocuments.Clear();
+            CompositionSlices.Clear();
+            GoldTypeBars.Clear();
+            IsBalancesEmpty = true;
+            IsFinishedEmpty = true;
+            IsSalesEmpty = true;
+            IsDocumentsEmpty = true;
+            IsMovementsEmpty = true;
+            IsRecentHistoryEmpty = true;
+            RawMaterialStockValue = 0;
+            FinishedProductStockValue = 0;
+            SalesGoodsStockValue = 0;
+            ErrorMessage = "Không thể tải dữ liệu kho. Vui lòng thử lại.";
+            StatusMessage = string.Empty;
+            NotifyOverviewEmptyFlags();
+        }
     }
 
     private async Task LoadLocationsAsync()
@@ -402,24 +773,8 @@ public sealed class WarehouseViewModel : ObservableObject
 
             var rows = await _repository.SearchMaterialBalancesAsync(filter, session, scope.Token);
             scope.Token.ThrowIfCancellationRequested();
-
-            (long MaterialId, long LocationId)? previousKey = SelectedBalance is null
-                ? null
-                : (SelectedBalance.MaterialId, SelectedBalance.LocationId);
-            Balances.Clear();
-            var index = 1;
-            foreach (var row in rows)
-                Balances.Add(new MaterialBalanceRowViewModel(row, index++));
-
-            SelectedBalance = previousKey is { } key
-                ? Balances.FirstOrDefault(x => x.MaterialId == key.MaterialId && x.LocationId == key.LocationId)
-                  ?? Balances.FirstOrDefault()
-                : Balances.FirstOrDefault();
-
-            IsBalancesEmpty = Balances.Count == 0;
-            BalanceCount = Balances.Count;
-            LowStockCount = Balances.Count(x => x.IsLowStock);
-            MaterialStockValue = Balances.Sum(x => x.StockValue);
+            ApplyBalances(rows);
+            RebuildDashboardMetrics();
             StatusMessage = IsBalancesEmpty
                 ? "Không có tồn nguyên vật liệu phù hợp."
                 : $"Hiển thị {Balances.Count} dòng tồn NVL.";
@@ -430,13 +785,89 @@ public sealed class WarehouseViewModel : ObservableObject
         catch (Exception)
         {
             Balances.Clear();
+            OverviewRawBalances.Clear();
             SelectedBalance = null;
             IsBalancesEmpty = true;
             BalanceCount = 0;
             LowStockCount = 0;
-            MaterialStockValue = 0;
+            RawMaterialStockValue = 0;
             ErrorMessage = "Không thể tải tồn nguyên vật liệu. Vui lòng thử lại.";
             StatusMessage = string.Empty;
+            NotifyOverviewEmptyFlags();
+        }
+    }
+
+    private async Task SearchFinishedProductsAsync()
+    {
+        var session = RequireSession();
+        if (session is null)
+            return;
+
+        using var scope = BeginLoad("Đang tải tồn thành phẩm...");
+        try
+        {
+            var filter = new FinishedProductSearchFilter(
+                FinishedSearchText,
+                NormalizeGoldType(SelectedFinishedGoldType),
+                NormalizeStatusCode(SelectedFinishedStatus));
+            var rows = await _repository.SearchFinishedProductStockAsync(filter, session, scope.Token);
+            scope.Token.ThrowIfCancellationRequested();
+            ApplyFinishedProducts(rows);
+            RebuildDashboardMetrics();
+            StatusMessage = IsFinishedEmpty
+                ? "Không có thành phẩm tồn kho."
+                : $"Hiển thị {FinishedProducts.Count} thành phẩm.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            FinishedProducts.Clear();
+            OverviewFinishedProducts.Clear();
+            SelectedFinishedProduct = null;
+            IsFinishedEmpty = true;
+            FinishedProductStockValue = 0;
+            ErrorMessage = "Không thể tải tồn thành phẩm. Vui lòng thử lại.";
+            StatusMessage = string.Empty;
+            NotifyOverviewEmptyFlags();
+        }
+    }
+
+    private async Task SearchSaleItemsAsync()
+    {
+        var session = RequireSession();
+        if (session is null)
+            return;
+
+        using var scope = BeginLoad("Đang tải kho bán hàng...");
+        try
+        {
+            var filter = new SaleItemSearchFilter(
+                SaleSearchText,
+                NormalizeGoldType(SelectedSaleGoldType),
+                NormalizeStatusCode(SelectedSaleStatus));
+            var rows = await _repository.SearchSaleItemStockAsync(filter, session, scope.Token);
+            scope.Token.ThrowIfCancellationRequested();
+            ApplySaleItems(rows);
+            RebuildDashboardMetrics();
+            StatusMessage = IsSalesEmpty
+                ? "Không có hàng bán trưng bày."
+                : $"Hiển thị {SaleItems.Count} hàng bán.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            SaleItems.Clear();
+            OverviewSaleItems.Clear();
+            SelectedSaleItem = null;
+            IsSalesEmpty = true;
+            SalesGoodsStockValue = 0;
+            ErrorMessage = "Không thể tải kho bán hàng. Vui lòng thử lại.";
+            StatusMessage = string.Empty;
+            NotifyOverviewEmptyFlags();
         }
     }
 
@@ -449,42 +880,13 @@ public sealed class WarehouseViewModel : ObservableObject
         using var scope = BeginLoad("Đang tải phiếu kho...");
         try
         {
-            var filter = new StockDocumentSearchFilter(
-                DocumentSearchText,
-                SelectedDocumentType == "Tất cả" ? string.Empty : SelectedDocumentType,
-                SelectedDocumentStatus == "Tất cả" ? string.Empty : SelectedDocumentStatus,
-                null,
-                null);
-
+            var filter = BuildDocumentFilterForCurrentTab();
             var rows = await _repository.SearchDocumentsAsync(filter, session, scope.Token);
             scope.Token.ThrowIfCancellationRequested();
-
-            var previousId = SelectedDocument?.Id;
-            Documents.Clear();
-            var index = 1;
-            foreach (var row in rows)
-                Documents.Add(new StockDocumentRowViewModel(row, index++));
-
-            _suppressDocumentDetailLoad = true;
-            try
-            {
-                SelectedDocument = previousId is long id
-                    ? Documents.FirstOrDefault(x => x.Id == id) ?? Documents.FirstOrDefault()
-                    : Documents.FirstOrDefault();
-            }
-            finally
-            {
-                _suppressDocumentDetailLoad = false;
-            }
-
-            IsDocumentsEmpty = Documents.Count == 0;
-            DocumentCount = Documents.Count;
-            var today = DateTime.Today;
-            TodayDocumentCount = Documents.Count(x => x.DocumentDate.Date == today);
+            ApplyDocuments(rows);
             StatusMessage = IsDocumentsEmpty
                 ? "Không có phiếu kho phù hợp."
                 : $"Hiển thị {Documents.Count} phiếu kho.";
-
             await LoadDocumentDetailAsync(SelectedDocument);
         }
         catch (OperationCanceledException)
@@ -493,6 +895,7 @@ public sealed class WarehouseViewModel : ObservableObject
         catch (Exception)
         {
             Documents.Clear();
+            RecentDocuments.Clear();
             _suppressDocumentDetailLoad = true;
             try
             {
@@ -504,6 +907,7 @@ public sealed class WarehouseViewModel : ObservableObject
             }
             ClearDocumentDetail();
             IsDocumentsEmpty = true;
+            IsRecentHistoryEmpty = RecentMovements.Count == 0;
             DocumentCount = 0;
             TodayDocumentCount = 0;
             ErrorMessage = "Không thể tải danh sách phiếu kho. Vui lòng thử lại.";
@@ -580,18 +984,7 @@ public sealed class WarehouseViewModel : ObservableObject
 
             var rows = await _repository.SearchMovementsAsync(filter, session, scope.Token);
             scope.Token.ThrowIfCancellationRequested();
-
-            var previousId = SelectedMovement?.Id;
-            Movements.Clear();
-            var index = 1;
-            foreach (var row in rows)
-                Movements.Add(new StockMovementRowViewModel(row, index++));
-
-            SelectedMovement = previousId is long id
-                ? Movements.FirstOrDefault(x => x.Id == id) ?? Movements.FirstOrDefault()
-                : Movements.FirstOrDefault();
-
-            IsMovementsEmpty = Movements.Count == 0;
+            ApplyMovements(rows);
             StatusMessage = IsMovementsEmpty
                 ? "Không có giao dịch kho phù hợp."
                 : $"Hiển thị {Movements.Count} giao dịch kho.";
@@ -602,11 +995,346 @@ public sealed class WarehouseViewModel : ObservableObject
         catch (Exception)
         {
             Movements.Clear();
+            RecentMovements.Clear();
             SelectedMovement = null;
             IsMovementsEmpty = true;
+            IsRecentHistoryEmpty = RecentDocuments.Count == 0;
             ErrorMessage = "Không thể tải sổ giao dịch kho. Vui lòng thử lại.";
             StatusMessage = string.Empty;
         }
+    }
+
+    private void ApplyBalances(IReadOnlyList<MaterialBalanceItem> rows)
+    {
+        (long MaterialId, long LocationId)? previousKey = SelectedBalance is null
+            ? null
+            : (SelectedBalance.MaterialId, SelectedBalance.LocationId);
+        Balances.Clear();
+        var index = 1;
+        foreach (var row in rows)
+            Balances.Add(new MaterialBalanceRowViewModel(row, index++));
+
+        SelectedBalance = previousKey is { } key
+            ? Balances.FirstOrDefault(x => x.MaterialId == key.MaterialId && x.LocationId == key.LocationId)
+              ?? Balances.FirstOrDefault()
+            : Balances.FirstOrDefault();
+
+        IsBalancesEmpty = Balances.Count == 0;
+        BalanceCount = Balances.Count;
+        LowStockCount = Balances.Count(x => x.IsLowStock);
+        RawMaterialStockValue = Balances.Sum(x => x.StockValue);
+        ApplyOverviewRawFilters();
+    }
+
+    private void ApplyFinishedProducts(IReadOnlyList<FinishedProductStockItem> rows)
+    {
+        var previousId = SelectedFinishedProduct?.Id;
+        FinishedProducts.Clear();
+        var index = 1;
+        foreach (var row in rows)
+            FinishedProducts.Add(new FinishedProductRowViewModel(row, index++));
+
+        SelectedFinishedProduct = previousId is long id
+            ? FinishedProducts.FirstOrDefault(x => x.Id == id) ?? FinishedProducts.FirstOrDefault()
+            : FinishedProducts.FirstOrDefault();
+
+        IsFinishedEmpty = FinishedProducts.Count == 0;
+        FinishedProductStockValue = FinishedProducts.Sum(x => x.StockValue);
+        ApplyOverviewFinishedFilters();
+    }
+
+    private void ApplySaleItems(IReadOnlyList<SaleItemStockItem> rows)
+    {
+        var previousId = SelectedSaleItem?.Id;
+        SaleItems.Clear();
+        var index = 1;
+        foreach (var row in rows)
+            SaleItems.Add(new SaleItemRowViewModel(row, index++));
+
+        SelectedSaleItem = previousId is long id
+            ? SaleItems.FirstOrDefault(x => x.Id == id) ?? SaleItems.FirstOrDefault()
+            : SaleItems.FirstOrDefault();
+
+        IsSalesEmpty = SaleItems.Count == 0;
+        SalesGoodsStockValue = SaleItems.Sum(x => x.StockValue);
+        ApplyOverviewSaleFilters();
+    }
+
+    private void ApplyDocuments(IReadOnlyList<StockDocumentSummary> rows)
+    {
+        var previousId = SelectedDocument?.Id;
+        Documents.Clear();
+        var index = 1;
+        foreach (var row in rows)
+            Documents.Add(new StockDocumentRowViewModel(row, index++));
+
+        _suppressDocumentDetailLoad = true;
+        try
+        {
+            SelectedDocument = previousId is long id
+                ? Documents.FirstOrDefault(x => x.Id == id) ?? Documents.FirstOrDefault()
+                : Documents.FirstOrDefault();
+        }
+        finally
+        {
+            _suppressDocumentDetailLoad = false;
+        }
+
+        IsDocumentsEmpty = Documents.Count == 0;
+        DocumentCount = Documents.Count;
+        var today = DateTime.Today;
+        TodayDocumentCount = Documents.Count(x => x.DocumentDate.Date == today);
+
+        RecentDocuments.Clear();
+        foreach (var doc in Documents.Take(RecentHistoryLimit))
+            RecentDocuments.Add(doc);
+        IsRecentHistoryEmpty = RecentDocuments.Count == 0 && RecentMovements.Count == 0;
+    }
+
+    private void ApplyMovements(IReadOnlyList<StockMovementItem> rows)
+    {
+        var previousId = SelectedMovement?.Id;
+        Movements.Clear();
+        var index = 1;
+        foreach (var row in rows)
+            Movements.Add(new StockMovementRowViewModel(row, index++));
+
+        SelectedMovement = previousId is long id
+            ? Movements.FirstOrDefault(x => x.Id == id) ?? Movements.FirstOrDefault()
+            : Movements.FirstOrDefault();
+
+        IsMovementsEmpty = Movements.Count == 0;
+
+        RecentMovements.Clear();
+        foreach (var movement in Movements.Take(RecentHistoryLimit))
+            RecentMovements.Add(movement);
+        IsRecentHistoryEmpty = RecentDocuments.Count == 0 && RecentMovements.Count == 0;
+    }
+
+    private void RebuildDashboardMetrics()
+    {
+        CompositionSlices.Clear();
+        CompositionSlices.Add(new ChartSliceViewModel("NVL", RawMaterialStockValue, "ChartBrush.Raw", "Nguyên liệu"));
+        CompositionSlices.Add(new ChartSliceViewModel("Thành phẩm", FinishedProductStockValue, "ChartBrush.Finished"));
+        CompositionSlices.Add(new ChartSliceViewModel("Bán hàng", SalesGoodsStockValue, "ChartBrush.Sale"));
+
+        var millions = TotalStockValue / 1_000_000m;
+        DonutCenterText = millions.ToString("N0", ViCulture);
+        DonutCenterSubText = "Triệu VNĐ";
+
+        var goldGroups = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in Balances)
+        {
+            var key = ClassifyGoldType(row.PurityCode, row.MaterialType);
+            goldGroups[key] = goldGroups.GetValueOrDefault(key) + row.StockValue;
+        }
+
+        foreach (var row in FinishedProducts)
+        {
+            var key = ClassifyGoldType(row.GoldPurity, string.Empty);
+            goldGroups[key] = goldGroups.GetValueOrDefault(key) + row.StockValue;
+        }
+
+        foreach (var row in SaleItems)
+        {
+            var key = ClassifyGoldType(row.GoldPurity, string.Empty);
+            goldGroups[key] = goldGroups.GetValueOrDefault(key) + row.StockValue;
+        }
+
+        GoldTypeBars.Clear();
+        var ordered = new[]
+        {
+            ("Vàng 24K", "24K", "ChartBrush.Raw"),
+            ("Vàng 18K", "18K", "ChartBrush.Finished"),
+            ("Bạc", "Bạc", "ChartBrush.Sale"),
+            ("Đá quý", "Đá quý", "ChartBrush.Purple"),
+            ("Khác", "Khác", "ChartBrush.Muted")
+        };
+        foreach (var (label, key, brush) in ordered)
+        {
+            goldGroups.TryGetValue(key, out var value);
+            GoldTypeBars.Add(new ChartSliceViewModel(label, value, brush));
+        }
+    }
+
+    private void ApplyOverviewRawFilters()
+    {
+        OverviewRawBalances.Clear();
+        var search = OverviewRawSearchText.Trim();
+        var gold = NormalizeGoldType(OverviewRawGoldType);
+        var status = OverviewRawStatus;
+        var index = 1;
+        foreach (var row in Balances)
+        {
+            if (search.Length > 0
+                && row.MaterialCode.Contains(search, StringComparison.OrdinalIgnoreCase) == false
+                && row.MaterialName.Contains(search, StringComparison.OrdinalIgnoreCase) == false)
+                continue;
+            if (gold.Length > 0
+                && !row.GoldTypeDisplay.Contains(gold, StringComparison.OrdinalIgnoreCase)
+                && !row.PurityCode.Contains(gold, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (status == "Thấp" && !row.IsLowStock)
+                continue;
+            if (status == "OK" && row.IsLowStock)
+                continue;
+
+            OverviewRawBalances.Add(new MaterialBalanceRowViewModel(row.Item, index++));
+            if (OverviewRawBalances.Count >= OverviewPreviewLimit)
+                break;
+        }
+
+        NotifyOverviewEmptyFlags();
+    }
+
+    private void ApplyOverviewFinishedFilters()
+    {
+        OverviewFinishedProducts.Clear();
+        var search = OverviewFinishedSearchText.Trim();
+        var gold = NormalizeGoldType(OverviewFinishedGoldType);
+        var status = NormalizeStatusCode(OverviewFinishedStatus);
+        var index = 1;
+        foreach (var row in FinishedProducts)
+        {
+            if (search.Length > 0
+                && row.Code.Contains(search, StringComparison.OrdinalIgnoreCase) == false
+                && row.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase) == false)
+                continue;
+            if (gold.Length > 0 && !row.GoldPurity.Contains(gold, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (status.Length > 0 && !row.StatusCode.Equals(status, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            OverviewFinishedProducts.Add(new FinishedProductRowViewModel(row.Item, index++));
+            if (OverviewFinishedProducts.Count >= OverviewPreviewLimit)
+                break;
+        }
+
+        NotifyOverviewEmptyFlags();
+    }
+
+    private void ApplyOverviewSaleFilters()
+    {
+        OverviewSaleItems.Clear();
+        var search = OverviewSaleSearchText.Trim();
+        var gold = NormalizeGoldType(OverviewSaleGoldType);
+        var status = NormalizeStatusCode(OverviewSaleStatus);
+        var index = 1;
+        foreach (var row in SaleItems)
+        {
+            if (search.Length > 0
+                && row.Code.Contains(search, StringComparison.OrdinalIgnoreCase) == false
+                && row.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase) == false)
+                continue;
+            if (gold.Length > 0 && !row.GoldPurity.Contains(gold, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (status.Length > 0 && !row.StatusCode.Equals(status, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            OverviewSaleItems.Add(new SaleItemRowViewModel(row.Item, index++));
+            if (OverviewSaleItems.Count >= OverviewPreviewLimit)
+                break;
+        }
+
+        NotifyOverviewEmptyFlags();
+    }
+
+    private void NotifyOverviewEmptyFlags()
+    {
+        OnPropertyChanged(nameof(IsOverviewRawEmpty));
+        OnPropertyChanged(nameof(IsOverviewFinishedEmpty));
+        OnPropertyChanged(nameof(IsOverviewSaleEmpty));
+    }
+
+    private void NavigateToTab(int? tabIndex)
+    {
+        if (tabIndex is null)
+            return;
+        NavigateToTab(tabIndex.Value);
+    }
+
+    private void NavigateToTab(int tabIndex)
+    {
+        if (tabIndex is WarehouseTabs.Receipt)
+        {
+            OpenDocumentTab("RECEIPT", WarehouseTabs.Receipt);
+            return;
+        }
+
+        if (tabIndex is WarehouseTabs.Issue)
+        {
+            OpenDocumentTab("ISSUE", WarehouseTabs.Issue);
+            return;
+        }
+
+        if (tabIndex is WarehouseTabs.Transfer)
+        {
+            OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer);
+            return;
+        }
+
+        _suppressTabSideEffects = true;
+        try
+        {
+            SelectedTabIndex = tabIndex;
+        }
+        finally
+        {
+            _suppressTabSideEffects = false;
+        }
+    }
+
+    private void OpenDocumentTab(string documentType, int tabIndex)
+    {
+        _suppressTabSideEffects = true;
+        try
+        {
+            SelectedDocumentType = documentType;
+            SelectedTabIndex = tabIndex;
+        }
+        finally
+        {
+            _suppressTabSideEffects = false;
+        }
+
+        _ = SearchDocumentsAsync();
+    }
+
+    private void OnTabChanged(int tabIndex)
+    {
+        switch (tabIndex)
+        {
+            case WarehouseTabs.Receipt:
+                SelectedDocumentType = "RECEIPT";
+                _ = SearchDocumentsAsync();
+                break;
+            case WarehouseTabs.Issue:
+                SelectedDocumentType = "ISSUE";
+                _ = SearchDocumentsAsync();
+                break;
+            case WarehouseTabs.Transfer:
+                SelectedDocumentType = "TRANSFER";
+                _ = SearchDocumentsAsync();
+                break;
+        }
+    }
+
+    private StockDocumentSearchFilter BuildDocumentFilterForCurrentTab()
+    {
+        var type = SelectedDocumentType == "Tất cả" ? string.Empty : SelectedDocumentType;
+        if (SelectedTabIndex == WarehouseTabs.Receipt)
+            type = "RECEIPT";
+        else if (SelectedTabIndex == WarehouseTabs.Issue)
+            type = "ISSUE";
+        else if (SelectedTabIndex == WarehouseTabs.Transfer)
+            type = "TRANSFER";
+
+        return new StockDocumentSearchFilter(
+            DocumentSearchText,
+            type,
+            SelectedDocumentStatus == "Tất cả" ? string.Empty : SelectedDocumentStatus,
+            null,
+            null);
     }
 
     private void ClearBalanceFilters()
@@ -618,10 +1346,34 @@ public sealed class WarehouseViewModel : ObservableObject
         _ = SearchBalancesAsync();
     }
 
+    private void ClearFinishedFilters()
+    {
+        FinishedSearchText = string.Empty;
+        SelectedFinishedGoldType = "Tất cả loại vàng";
+        SelectedFinishedStatus = "Tất cả trạng thái";
+        _ = SearchFinishedProductsAsync();
+    }
+
+    private void ClearSaleFilters()
+    {
+        SaleSearchText = string.Empty;
+        SelectedSaleGoldType = "Tất cả loại vàng";
+        SelectedSaleStatus = "Tất cả trạng thái";
+        _ = SearchSaleItemsAsync();
+    }
+
     private void ClearDocumentFilters()
     {
         DocumentSearchText = string.Empty;
-        SelectedDocumentType = "Tất cả";
+        if (SelectedTabIndex is WarehouseTabs.Receipt or WarehouseTabs.Issue or WarehouseTabs.Transfer)
+        {
+            // Keep the tab-forced document type.
+        }
+        else
+        {
+            SelectedDocumentType = "Tất cả";
+        }
+
         SelectedDocumentStatus = "Tất cả";
         _ = SearchDocumentsAsync();
     }
@@ -648,6 +1400,43 @@ public sealed class WarehouseViewModel : ObservableObject
         DetailPostedAt = string.Empty;
         DocumentLines.Clear();
     }
+
+    private static string NormalizeGoldType(string? value)
+    {
+        var text = (value ?? string.Empty).Trim();
+        if (text.Length == 0 || text.StartsWith("Tất cả", StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+        return text.ToUpperInvariant();
+    }
+
+    private static string NormalizeStatusCode(string? value)
+    {
+        var text = (value ?? string.Empty).Trim();
+        if (text.Length == 0 || text.StartsWith("Tất cả", StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+        return text.ToUpperInvariant();
+    }
+
+    private static string ClassifyGoldType(string purityOrType, string materialType)
+    {
+        var text = $"{purityOrType} {materialType}".ToUpperInvariant();
+        if (text.Contains("24", StringComparison.Ordinal))
+            return "24K";
+        if (text.Contains("18", StringComparison.Ordinal))
+            return "18K";
+        if (text.Contains("SILVER", StringComparison.Ordinal) || text.Contains("BẠC", StringComparison.Ordinal) || text.Contains("BAC", StringComparison.Ordinal))
+            return "Bạc";
+        if (text.Contains("STONE", StringComparison.Ordinal) || text.Contains("ĐÁ", StringComparison.Ordinal) || text.Contains("DA", StringComparison.Ordinal))
+            return "Đá quý";
+        if (materialType.Equals("GOLD", StringComparison.OrdinalIgnoreCase) && text.Contains("14", StringComparison.Ordinal))
+            return "Khác";
+        if (materialType.Equals("GOLD", StringComparison.OrdinalIgnoreCase))
+            return "Khác";
+        return "Khác";
+    }
+
+    private static string FormatMoney(decimal value) =>
+        value.ToString("N0", ViCulture) + " VNĐ";
 
     private AuthenticatedSession? RequireSession()
     {

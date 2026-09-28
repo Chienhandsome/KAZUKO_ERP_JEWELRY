@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:Kazuko.Modules.Customers.Converters"
+             xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              MinWidth="900" MinHeight="520">
     <UserControl.InputBindings>
         <KeyBinding Key="F1" Command="{Binding AddCommand}" />
@@ -401,9 +402,9 @@
                     <Grid Margin="0,12,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="220" />
+                            <RowDefinition Height="0.72*" MinHeight="150" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="220" />
+                            <RowDefinition Height="1.28*" MinHeight="260" />
                         </Grid.RowDefinitions>
 
                         <WrapPanel Grid.Row="0" Margin="0,0,0,10">
@@ -444,21 +445,48 @@
                         </WrapPanel>
 
                         <Grid Grid.Row="1">
-                            <DataGrid ItemsSource="{Binding Customers}"
+                            <DataGrid x:Name="CustomerListGrid"
+                                      ItemsSource="{Binding Customers}"
                                       SelectedItem="{Binding SelectedCustomer}"
                                       Style="{StaticResource CustomerDataGridStyle}"
-                                      ColumnHeaderStyle="{StaticResource CustomerDataGridColumnHeaderStyle}">
+                                      ColumnHeaderStyle="{StaticResource CustomerDataGridColumnHeaderStyle}"
+                                      grid:DataGridColumnLayout.SettingsKey="customers-grid-layout"
+                                      grid:DataGridColumnLayout.EnableHeaderMenu="True">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                                    <DataGridTextColumn Header="Mã KH" Binding="{Binding Code, Mode=OneWay}" Width="100" />
-                                    <DataGridTextColumn Header="Họ và tên" Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" />
-                                    <DataGridTextColumn Header="Số điện thoại" Binding="{Binding Phone, Mode=OneWay}" Width="120" />
-                                    <DataGridTextColumn Header="Nhóm khách hàng" Binding="{Binding CustomerGroupName, Mode=OneWay}" Width="140" />
-                                    <DataGridTextColumn Header="Khu vực" Binding="{Binding Region, Mode=OneWay}" Width="120" />
-                                    <DataGridTextColumn Header="Tổng mua (VND)" Binding="{Binding TotalSalesText, Mode=OneWay}" Width="120" />
-                                    <DataGridTextColumn Header="Nợ hiện tại (VND)" Binding="{Binding CurrentDebtText, Mode=OneWay}" Width="130" />
-                                    <DataGridTextColumn Header="Lần mua cuối" Binding="{Binding LastPurchaseText, Mode=OneWay}" Width="110" />
-                                    <DataGridTemplateColumn Header="Trạng thái" Width="130">
+                                    <DataGridTextColumn Header="STT"
+                                                        grid:DataGridColumnLayout.Key="Index"
+                                                        Binding="{Binding Index, Mode=OneWay}" Width="50" />
+                                    <DataGridTextColumn Header="Mã KH"
+                                                        grid:DataGridColumnLayout.Key="Code"
+                                                        Binding="{Binding Code, Mode=OneWay}"
+                                                        Width="100"
+                                                        Visibility="Collapsed" />
+                                    <DataGridTextColumn Header="Họ và tên"
+                                                        grid:DataGridColumnLayout.Key="Name"
+                                                        Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" />
+                                    <DataGridTextColumn Header="Số điện thoại"
+                                                        grid:DataGridColumnLayout.Key="Phone"
+                                                        Binding="{Binding Phone, Mode=OneWay}" Width="120" />
+                                    <DataGridTextColumn Header="Nhóm khách hàng"
+                                                        grid:DataGridColumnLayout.Key="CustomerGroup"
+                                                        Binding="{Binding CustomerGroupName, Mode=OneWay}" Width="140" />
+                                    <DataGridTextColumn Header="Khu vực"
+                                                        grid:DataGridColumnLayout.Key="Region"
+                                                        Binding="{Binding Region, Mode=OneWay}"
+                                                        Width="120"
+                                                        Visibility="Collapsed" />
+                                    <DataGridTextColumn Header="Tổng mua (VND)"
+                                                        grid:DataGridColumnLayout.Key="TotalSales"
+                                                        Binding="{Binding TotalSalesText, Mode=OneWay}" Width="120" />
+                                    <DataGridTextColumn Header="Nợ hiện tại (VND)"
+                                                        grid:DataGridColumnLayout.Key="CurrentDebt"
+                                                        Binding="{Binding CurrentDebtText, Mode=OneWay}" Width="130" />
+                                    <DataGridTextColumn Header="Lần mua cuối"
+                                                        grid:DataGridColumnLayout.Key="LastPurchase"
+                                                        Binding="{Binding LastPurchaseText, Mode=OneWay}" Width="110" />
+                                    <DataGridTemplateColumn Header="Trạng thái"
+                                                            grid:DataGridColumnLayout.Key="Status"
+                                                            Width="130">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -480,7 +508,9 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="Thao tác" Width="160">
+                                    <DataGridTemplateColumn Header="Thao tác"
+                                                            grid:DataGridColumnLayout.Key="Actions"
+                                                            Width="160">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
