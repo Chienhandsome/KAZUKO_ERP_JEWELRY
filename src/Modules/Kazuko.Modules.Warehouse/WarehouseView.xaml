@@ -588,8 +588,9 @@
                                                         <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
                                                                 Command="{Binding OpenReceiptTabCommand}"
                                                                 ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
-                                                        <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenCraftTrackingCommand}" />
+                                                        <Button Content="Thợ ngoài" Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                Command="{Binding OpenCraftTrackingCommand}"
+                                                                ToolTip="Danh mục thợ ngoài (dùng cho sản xuất OUTSOURCED)" />
                                                         <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
                                                                 Command="{Binding OpenMaterialIssueCommand}" />
                                                     </StackPanel>
@@ -887,8 +888,9 @@
                                     <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
                                             Command="{Binding OpenReceiptTabCommand}"
                                             ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
-                                    <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
-                                            Command="{Binding OpenCraftTrackingCommand}" />
+                                    <Button Content="Thợ ngoài" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Command="{Binding OpenCraftTrackingCommand}"
+                                            ToolTip="Danh mục thợ ngoài (dùng cho sản xuất OUTSOURCED)" />
                                     <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
                                             Command="{Binding OpenMaterialIssueCommand}" />
                                 </StackPanel>

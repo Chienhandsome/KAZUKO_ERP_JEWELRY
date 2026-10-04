@@ -87,10 +87,23 @@
 
                         <TextBlock Text="Thợ ngoài" Foreground="{DynamicResource TextSecondaryBrush}"
                                    Visibility="{Binding IsOutsourced, Converter={StaticResource BoolToVis}}" />
-                        <ComboBox ItemsSource="{Binding ExternalWorkers}" DisplayMemberPath="DisplayName"
-                                  SelectedValue="{Binding ExternalWorkerId}" SelectedValuePath="Id"
-                                  MinHeight="36" Margin="0,4,0,8" IsEnabled="{Binding IsDraft}"
-                                  Visibility="{Binding IsOutsourced, Converter={StaticResource BoolToVis}}" />
+                        <Grid Margin="0,4,0,8"
+                              Visibility="{Binding IsOutsourced, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox ItemsSource="{Binding ExternalWorkers}" DisplayMemberPath="DisplayName"
+                                      SelectedValue="{Binding ExternalWorkerId}" SelectedValuePath="Id"
+                                      MinHeight="36" IsEnabled="{Binding IsDraft}" />
+                            <Button Grid.Column="2" Content="Thêm thợ"
+                                    Command="{Binding CreateExternalWorkerCommand}"
+                                    Style="{DynamicResource PrimaryButtonStyle}"
+                                    MinHeight="36" Padding="12,0"
+                                    IsEnabled="{Binding IsDraft}"
+                                    ToolTip="Mở nhanh danh mục thêm/sửa thợ ngoài" />
+                        </Grid>
 
                         <Grid Margin="0,8,0,0">
                             <Grid.ColumnDefinitions>

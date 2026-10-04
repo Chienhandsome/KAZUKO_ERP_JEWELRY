@@ -17,6 +17,11 @@ public sealed class WarehouseModule : IKazukoModule
 
     public void RegisterServices(IServiceRegistry services)
     {
+        var workers = GetRequiredService<IExternalWorkerRepository>(services);
+        var craft = GetRequiredService<IOutsourcedCraftService>(services);
+        var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        services.AddSingleton<IExternalWorkerEditorService>(
+            new ExternalWorkerEditorService(workers, craft, session));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

@@ -1472,25 +1472,26 @@ public sealed class WarehouseViewModel : ObservableObject
         }
     }
 
-    private async Task OpenCraftTrackingAsync()
+    private Task OpenCraftTrackingAsync()
     {
         try
         {
             var session = RequireSession()
                 ?? throw new InvalidOperationException("Chưa đăng nhập.");
-            var rows = await _outsourcedCraft.SearchHoldingsAsync(null, string.Empty, session);
-            var message = rows.Count == 0
-                ? "Chưa có NVL đang giao thợ ngoài."
-                : string.Join(Environment.NewLine, rows.Take(20).Select(r =>
-                    $"{r.WorkerName}: {r.MaterialCode} giao {r.QuantityIssued:N4} còn {r.QuantityOutstanding:N4} ({r.StatusCode})"));
-            MessageBox.Show(message, "Theo dõi chế tác ngoài", MessageBoxButton.OK, MessageBoxImage.Information);
-            _ = _externalWorkers;
+            var dialog = new ExternalWorkerDialog(
+                new ExternalWorkerDialogViewModel(_externalWorkers, _outsourcedCraft, session))
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            dialog.ShowDialog();
             _ = _finishedGoods;
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
         }
+
+        return Task.CompletedTask;
     }
 
     private void OpenDocumentTab(string documentType, int tabIndex)

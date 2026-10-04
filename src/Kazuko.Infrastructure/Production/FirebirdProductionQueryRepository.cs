@@ -358,7 +358,7 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
             FROM LOCATIONS L
             WHERE L.BRANCH_ID = @BRANCH_ID
               AND L.IS_ACTIVE = TRUE
-            ORDER BY L.DISPLAY_ORDER, L.NAME
+            ORDER BY L.NAME, L.CODE
             """, connection);
         command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
 

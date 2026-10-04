@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Production;
+using Kazuko.Core.Warehouse;
 using Microsoft.Win32;
 
 namespace Kazuko.Modules.Production;
@@ -18,6 +19,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private readonly IProductionPrintDataService _printData;
     private readonly ProductionPrintService _printer = new();
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly IExternalWorkerEditorService _externalWorkerEditor;
     private readonly long _branchId;
 
     private long? _id;
@@ -57,6 +59,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         IProductionAttachmentStore attachments,
         IProductionPrintDataService printData,
         ICurrentSessionAccessor sessionAccessor,
+        IExternalWorkerEditorService externalWorkerEditor,
         long branchId)
     {
         _orderId = orderId;
@@ -65,6 +68,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         _attachments = attachments;
         _printData = printData;
         _sessionAccessor = sessionAccessor;
+        _externalWorkerEditor = externalWorkerEditor;
         _branchId = branchId;
 
         SaveDraftCommand = new AsyncRelayCommand(SaveDraftAsync, () => IsDraft && !IsBusy);
@@ -81,6 +85,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         RefreshSalesOrdersCommand = new AsyncRelayCommand(LoadSalesOrdersAsync);
         RefreshEmployeesCommand = new AsyncRelayCommand(LoadEmployeesAsync);
         RefreshWorkersCommand = new AsyncRelayCommand(LoadExternalWorkersAsync);
+        CreateExternalWorkerCommand = new RelayCommand(CreateExternalWorker, () => IsDraft && !IsBusy);
         RefreshStockMaterialsCommand = new AsyncRelayCommand(LoadStockMaterialsAsync, () => CanIssueMaterials && !IsBusy);
         AddIssueLineCommand = new RelayCommand(AddIssueLine, () => CanIssueMaterials && !IsBusy);
         RemoveIssueLineCommand = new ParameterRelayCommand(
@@ -347,6 +352,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ICommand RefreshSalesOrdersCommand { get; }
     public ICommand RefreshEmployeesCommand { get; }
     public ICommand RefreshWorkersCommand { get; }
+    public ICommand CreateExternalWorkerCommand { get; }
     public ICommand RefreshStockMaterialsCommand { get; }
     public ICommand AddIssueLineCommand { get; }
     public ICommand RemoveIssueLineCommand { get; }
@@ -450,6 +456,27 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ExternalWorkers.Clear();
         foreach (var item in items)
             ExternalWorkers.Add(new ProductionExternalWorkerItemViewModel(item));
+    }
+
+    private void CreateExternalWorker()
+    {
+        try
+        {
+            var created = _externalWorkerEditor.Show();
+            _ = ReloadExternalWorkersAsync(created?.Id);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task ReloadExternalWorkersAsync(long? selectId)
+    {
+        var previousId = selectId ?? ExternalWorkerId;
+        await LoadExternalWorkersAsync();
+        if (previousId is > 0 && ExternalWorkers.Any(x => x.Id == previousId))
+            ExternalWorkerId = previousId;
     }
 
     private async Task LoadDetailAsync(long orderId)

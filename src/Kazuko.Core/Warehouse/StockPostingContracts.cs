@@ -203,6 +203,18 @@ public sealed record OutsourcedHoldingRow(
     decimal LaborDebtRemainingVnd,
     string StatusCode);
 
+public sealed record ExternalWorkerEditResult(
+    long Id,
+    string Code,
+    string Name,
+    bool IsActive);
+
+public interface IExternalWorkerEditorService
+{
+    /// <summary>Mở dialog danh mục thợ ngoài (thêm/sửa). Trả về thợ vừa lưu hoặc đang chọn khi đóng.</summary>
+    ExternalWorkerEditResult? Show();
+}
+
 public interface IExternalWorkerRepository
 {
     Task<IReadOnlyList<ExternalWorkerListItem>> SearchAsync(

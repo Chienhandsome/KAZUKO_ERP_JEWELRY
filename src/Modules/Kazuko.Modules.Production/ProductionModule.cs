@@ -2,6 +2,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Production;
+using Kazuko.Core.Warehouse;
 
 namespace Kazuko.Modules.Production;
 
@@ -30,9 +31,14 @@ public sealed class ProductionModule : IKazukoModule
             string.Empty,
             10,
             ProductionPermissions.OrderRead,
-            () => new ProductionView
+            () =>
             {
-                DataContext = new ProductionViewModel(queries, application, attachments, printData, session)
+                var externalWorkerEditor = GetRequiredService<IExternalWorkerEditorService>(services);
+                return new ProductionView
+                {
+                    DataContext = new ProductionViewModel(
+                        queries, application, attachments, printData, session, externalWorkerEditor)
+                };
             },
             AssetRoot + "SX.png",
             "Quản lý quy trình\nsản xuất trang sức",

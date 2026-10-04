@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Production;
+using Kazuko.Core.Warehouse;
 
 namespace Kazuko.Modules.Production;
 
@@ -17,6 +18,7 @@ public sealed class ProductionViewModel : ObservableObject
     private readonly IProductionAttachmentStore _attachments;
     private readonly IProductionPrintDataService _printData;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly IExternalWorkerEditorService _externalWorkerEditor;
     private CancellationTokenSource? _loadCts;
 
     private string _searchText = string.Empty;
@@ -41,13 +43,15 @@ public sealed class ProductionViewModel : ObservableObject
         IProductionApplicationService application,
         IProductionAttachmentStore attachments,
         IProductionPrintDataService printData,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        IExternalWorkerEditorService externalWorkerEditor)
     {
         _queries = queries;
         _application = application;
         _attachments = attachments;
         _printData = printData;
         _sessionAccessor = sessionAccessor;
+        _externalWorkerEditor = externalWorkerEditor;
 
         var today = DateTime.Today;
         _fromDate = new DateTime(today.Year, today.Month, 1);
@@ -282,6 +286,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _attachments,
                     _printData,
                     _sessionAccessor,
+                    _externalWorkerEditor,
                     branchId)
             };
             dialog.ShowDialog();
@@ -311,6 +316,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _attachments,
                     _printData,
                     _sessionAccessor,
+                    _externalWorkerEditor,
                     branchId)
             };
             dialog.ShowDialog();
