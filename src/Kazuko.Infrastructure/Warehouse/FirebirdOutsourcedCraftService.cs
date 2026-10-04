@@ -83,7 +83,7 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
                 if (!MaterialTypes.IsRawMaterial(material.MaterialType))
                     throw new InvalidOperationException("Chỉ được xuất NVL cho thợ ngoài.");
 
-                decimal avgCost = 0;
+                decimal issueCost = 0;
                 await using (var costCmd = new FbCommand("""
                     SELECT COALESCE(AVERAGE_COST, 0) FROM STOCK_BALANCES
                     WHERE MATERIAL_ID = @MID AND LOCATION_ID = @LID
@@ -93,28 +93,43 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
                     costCmd.Parameters.Add("@LID", FbDbType.BigInt).Value = draft.SourceLocationId;
                     var costObj = await costCmd.ExecuteScalarAsync(cancellationToken);
                     if (costObj is not null and not DBNull)
-                        avgCost = Convert.ToDecimal(costObj);
+                        issueCost = Convert.ToDecimal(costObj);
+                }
+
+                WarehouseGoldPriceSnapshot? warehouseGoldPrice = null;
+                if (string.Equals(material.MaterialType, MaterialTypes.Gold, StringComparison.OrdinalIgnoreCase))
+                {
+                    warehouseGoldPrice = await FirebirdWarehouseGoldPricingSupport.ResolveAsync(
+                        connection, fbTx, companyId,
+                        string.IsNullOrWhiteSpace(material.PurityCode) ? material.Code : material.PurityCode,
+                        cancellationToken);
+                    issueCost = warehouseGoldPrice.IssuePricePerChi;
                 }
 
                 long lineId;
                 await using (var insertLine = new FbCommand("""
                     INSERT INTO STOCK_DOCUMENT_LINES
                         (DOCUMENT_ID, LINE_NUMBER, MATERIAL_ID, QUANTITY, UNIT_COST, LINE_AMOUNT,
-                         STANDARD_UNIT_CODE, CURRENCY_CODE, EXCHANGE_RATE, UNIT_PRICE, AMOUNT_VND, NOTES)
+                         STANDARD_UNIT_CODE, CURRENCY_CODE, EXCHANGE_RATE, UNIT_PRICE, AMOUNT_VND,
+                         WAREHOUSE_GOLD_PRICE_ID, WAREHOUSE_GOLD_PRICE_PER_CHI, NOTES)
                     VALUES
                         (@DOC, @LN, @MID, @QTY, @COST, @AMT,
-                         @UNIT, 'VND', 1, @COST, @AMT, @NOTES)
+                         @UNIT, 'VND', 1, @COST, @AMT, @WGP, @WGPRICE, @NOTES)
                     RETURNING ID
                     """, connection, fbTx))
                 {
-                    var amount = line.Quantity * avgCost;
+                    var amount = line.Quantity * issueCost;
                     insertLine.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
                     insertLine.Parameters.Add("@LN", FbDbType.Integer).Value = lineNumber;
                     insertLine.Parameters.Add("@MID", FbDbType.BigInt).Value = line.MaterialId;
                     insertLine.Parameters.Add("@QTY", FbDbType.Decimal).Value = line.Quantity;
-                    insertLine.Parameters.Add("@COST", FbDbType.Decimal).Value = avgCost;
+                    insertLine.Parameters.Add("@COST", FbDbType.Decimal).Value = issueCost;
                     insertLine.Parameters.Add("@AMT", FbDbType.Decimal).Value = amount;
                     insertLine.Parameters.Add("@UNIT", FbDbType.VarChar, 20).Value = material.UnitCode;
+                    insertLine.Parameters.Add("@WGP", FbDbType.BigInt).Value =
+                        warehouseGoldPrice is null ? DBNull.Value : warehouseGoldPrice.Id;
+                    insertLine.Parameters.Add("@WGPRICE", FbDbType.Decimal).Value =
+                        warehouseGoldPrice is null ? DBNull.Value : warehouseGoldPrice.IssuePricePerChi;
                     insertLine.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
                         (object?)line.Notes ?? DBNull.Value;
                     lineId = Convert.ToInt64(await insertLine.ExecuteScalarAsync(cancellationToken));
@@ -122,11 +137,11 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
 
                 await StockPostingSupport.ApplyMaterialBalanceChangeAsync(
                     connection, fbTx, line.MaterialId, draft.SourceLocationId,
-                    -line.Quantity, avgCost, cancellationToken);
+                    -line.Quantity, issueCost, cancellationToken);
 
                 await StockPostingSupport.InsertMovementAsync(
                     connection, fbTx, documentId, lineId, line.MaterialId,
-                    draft.SourceLocationId, "OUT", -line.Quantity, avgCost,
+                    draft.SourceLocationId, "OUT", -line.Quantity, issueCost,
                     session.UserId, cancellationToken);
 
                 await using var insertHold = new FbCommand("""
@@ -637,9 +652,11 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
                 UPDATE FINISHED_PRODUCTS
                    SET LOCATION_ID = @LOC,
                        TOTAL_WEIGHT = @W,
+                       GOLD_WEIGHT = @W,
                        GOLD_PURITY = COALESCE(@PURITY, GOLD_PURITY),
                        MATERIAL_COST = @MAT,
                        LABOR_COST = @LABOR,
+                       NON_GOLD_MATERIAL_COST = @NON_GOLD,
                        TOTAL_COST = @TOTAL,
                        PRODUCTION_ORDER_ID = COALESCE(@PO, PRODUCTION_ORDER_ID),
                        SALES_ORDER_ID = COALESCE(@SO, SALES_ORDER_ID),
@@ -655,6 +672,8 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
                 (object?)output.GoldPurity ?? DBNull.Value;
             update.Parameters.Add("@MAT", FbDbType.Decimal).Value = output.MaterialValueVnd;
             update.Parameters.Add("@LABOR", FbDbType.Decimal).Value = output.AllocatedLaborCostVnd;
+            update.Parameters.Add("@NON_GOLD", FbDbType.Decimal).Value =
+                Math.Max(0, output.TotalCostVnd - output.MaterialValueVnd - output.AllocatedLaborCostVnd);
             update.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = output.TotalCostVnd;
             update.Parameters.Add("@PO", FbDbType.BigInt).Value =
                 output.ProductionOrderId is > 0 ? output.ProductionOrderId.Value : DBNull.Value;
@@ -680,12 +699,12 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
             INSERT INTO FINISHED_PRODUCTS
                 (COMPANY_ID, BRANCH_ID, PRODUCTION_ORDER_ID, SALES_ORDER_ID,
                  CODE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT,
-                 MATERIAL_COST, LABOR_COST, TOTAL_COST,
+                 GOLD_WEIGHT, MATERIAL_COST, LABOR_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST,
                  LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT)
             VALUES
                 (@CID, @BID, @PO, @SO,
                  @CODE, @NAME, @PURITY, @W,
-                 @MAT, @LABOR, @TOTAL,
+                 @W, @MAT, @LABOR, @NON_GOLD, @TOTAL,
                  @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
             RETURNING ID
             """, connection, transaction);
@@ -702,6 +721,8 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
         insert.Parameters.Add("@W", FbDbType.Decimal).Value = output.Weight;
         insert.Parameters.Add("@MAT", FbDbType.Decimal).Value = output.MaterialValueVnd;
         insert.Parameters.Add("@LABOR", FbDbType.Decimal).Value = output.AllocatedLaborCostVnd;
+        insert.Parameters.Add("@NON_GOLD", FbDbType.Decimal).Value =
+            Math.Max(0, output.TotalCostVnd - output.MaterialValueVnd - output.AllocatedLaborCostVnd);
         insert.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = output.TotalCostVnd;
         insert.Parameters.Add("@LOC", FbDbType.BigInt).Value = output.DestinationLocationId;
         insert.Parameters.Add("@BY", FbDbType.BigInt).Value = userId > 0 ? userId : DBNull.Value;

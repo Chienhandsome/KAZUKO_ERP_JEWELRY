@@ -7,6 +7,10 @@ public static class WarehouseWritePermissions
 {
     public const string ReceiptWrite = "warehouse.receipt.write";
     public const string ReceiptPost = "warehouse.receipt.post";
+    public const string IssueWrite = "warehouse.issue.write";
+    public const string IssuePost = "warehouse.issue.post";
+    public const string TransferWrite = "warehouse.transfer.write";
+    public const string TransferPost = "warehouse.transfer.post";
     public const string CraftOutsource = "warehouse.craft.outsource";
     public const string CraftSettleOverride = "warehouse.craft.settle.override";
     public const string FinishedIssue = "warehouse.finished.issue";
@@ -72,6 +76,18 @@ public sealed record MaterialReceiptPostResult(
     decimal PaidAmountVnd,
     decimal DebtAmountVnd,
     long? PayableDebtId);
+
+public sealed record MaterialIssueLineDraft(
+    long MaterialId,
+    decimal Quantity,
+    string? Notes);
+
+public sealed record MaterialIssueDraft(
+    DateTime DocumentDate,
+    long SourceLocationId,
+    string ReceivedByName,
+    string? Notes,
+    IReadOnlyList<MaterialIssueLineDraft> Lines);
 
 public sealed record ExternalWorkerListItem(
     long Id,
@@ -210,6 +226,14 @@ public interface IMaterialReceiptService
 {
     Task<MaterialReceiptPostResult> CreateDraftAndPostAsync(
         MaterialReceiptDraft draft,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IMaterialIssueService
+{
+    Task<long> CreateAndPostAsync(
+        MaterialIssueDraft draft,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 }

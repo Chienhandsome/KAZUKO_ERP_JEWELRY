@@ -265,3 +265,49 @@ COMMIT;
   ```
 - **Rollback (dev):** `ALTER TABLE CUSTOMERS DROP PHOTO_PATH;` → xóa ledger 39. Production: restore `.fbk`.
 
+---
+
+## 13. Migration Version 45: `0045__production_order_core.sql`
+
+- **Phiên bản:** `45` — lõi lệnh sản xuất (header, dòng mẫu, nhân viên gắn lệnh, đính kèm ảnh).
+- **Bảng:** `PRODUCTION_ORDERS`, `PRODUCTION_ORDER_LINES`, `PRODUCTION_ORDER_WORKERS`, `PRODUCTION_ATTACHMENTS`.
+- **Legacy WinForms:** bảng `PRODUCTION_ORDERS` cũ (PRODUCT_NAME/QUANTITY, status PLANNED/WAITING_QC…) được **nâng cấp tại chỗ**: thêm `ORDER_SOURCE`, `ORDER_DATE`, `EXECUTION_TYPE`, kho, `ROW_VERSION`, `COMPLETED_*`; nới CHECK status để có `DRAFT`; giữ cột cũ để đọc lịch sử.
+- **Ràng buộc module mới:** CHECK nguồn/hình thức/status; unique filtered `SALES_ORDER_ID`; index danh sách.
+- **Sequence:** seed `DOCUMENT_SEQUENCES` với `DOCUMENT_TYPE = 'PRODUCTION_ORDER'` (prefix hiển thị `LSX`).
+- **Verification:** `database/verification/verify_production_order_core.sql`.
+- **Checksum:** computed by `Invoke-KazukoMigration.ps1` on apply.
+- **Áp dụng (sau backup, đóng app):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0045__production_order_core.sql"
+  ```
+- **Rollback (dev, chưa có lệnh SX thật):** DROP theo thứ tự attachments → workers → lines → orders; xóa ledger 45. Production: restore `.fbk`.
+
+---
+
+## 14. Migration Version 46: `0046__production_execution_qc.sql`
+
+- **Phiên bản:** `46` — giao/nhận NVL, QC và cấu thành cho lệnh sản xuất.
+- **Mở rộng:** `STOCK_DOCUMENTS` types `PRODUCTION_MATERIAL_ISSUE` / `PRODUCTION_RETURN_RECEIPT` / `PRODUCTION_FINISHED_RECEIPT`; purposes `PRODUCTION_MATERIAL_DELIVERY` / `PRODUCTION_RETURN` / `PRODUCTION_FINISHED_RECEIPT`; FK `PRODUCTION_ORDER_ID`; unique filtered index mỗi loại chứng từ active/lệnh.
+- **Bảng:** `PRODUCTION_MATERIAL_BALANCES`, `PRODUCTION_QC_UNITS`, `PRODUCTION_QC_ATTEMPTS`, `PRODUCTION_UNIT_COMPONENTS`, `PRODUCTION_QC_IMAGES`.
+- **Sequence:** seed `PRODUCTION_MATERIAL_ISSUE` (GX), `PRODUCTION_RETURN_RECEIPT` (NT), `PRODUCTION_FINISHED_RECEIPT` (NTP).
+- **Preflight:** orphan `PRODUCTION_ORDER_ID` trên stock/finished/craft output → dừng, không tự sửa.
+- **Verification:** `database/verification/verify_production_execution_qc.sql`.
+- **Áp dụng (sau backup, đóng app):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0046__production_execution_qc.sql"
+  ```
+- **Rollback production:** restore `.fbk` trước migration 46.
+
+---
+
+## 15. Migration Version 47: `0047__production_completion_guards.sql`
+
+- **Phiên bản:** `47` — guard hoàn tất: FK thành phẩm → lệnh, liên kết QC unit, unique công nợ theo lệnh.
+- **Thay đổi:** FK `FINISHED_PRODUCTS.PRODUCTION_ORDER_ID`; cột/unique `PRODUCTION_QC_UNIT_ID`; unique filtered `PAYABLE_DEBTS` với `ORIGIN_DOCUMENT_TYPE = 'PRODUCTION_ORDER'`; index danh sách lệnh.
+- **Verification:** `database/verification/verify_production_completion_guards.sql`.
+- **Áp dụng (sau backup, đóng app):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0047__production_completion_guards.sql"
+  ```
+- **Rollback production:** restore `.fbk` trước migration 47.
+

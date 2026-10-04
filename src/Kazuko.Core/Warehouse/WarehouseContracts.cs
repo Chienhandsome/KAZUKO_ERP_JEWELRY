@@ -2,12 +2,22 @@ using Kazuko.Core.Authentication;
 
 namespace Kazuko.Core.Warehouse;
 
+public static class InventoryScopes
+{
+    public const string General = "GENERAL";
+    public const string RawMaterial = "RAW_MATERIAL";
+    public const string FinishedGoods = "FINISHED_GOODS";
+    public const string SalesFloor = "SALES_FLOOR";
+    public const string Service = "SERVICE";
+}
+
 public sealed record WarehouseLocationOption(
     long Id,
     long BranchId,
     string Code,
     string Name,
-    string LocationType)
+    string LocationType,
+    string InventoryScope = InventoryScopes.General)
 {
     public string DisplayName => $"{Code} - {Name}";
     public override string ToString() => DisplayName;
@@ -65,6 +75,16 @@ public sealed record SaleItemStockItem(
     long? LocationId,
     string LocationName,
     string StatusCode);
+
+public sealed record WarehouseSalesOrderOption(
+    long Id,
+    string Code,
+    string CustomerName,
+    string StatusCode)
+{
+    public string DisplayName => $"{Code} - {CustomerName}";
+    public override string ToString() => DisplayName;
+}
 
 public sealed record StockDocumentSummary(
     long Id,
@@ -187,6 +207,15 @@ public interface IWarehouseRepository
 
     Task<IReadOnlyList<SaleItemStockItem>> SearchSaleItemStockAsync(
         SaleItemSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<WarehouseSalesOrderOption>> SearchIssueSalesOrdersAsync(
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<FinishedProductStockItem>> SearchIssueCandidatesAsync(
+        long salesOrderId,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 

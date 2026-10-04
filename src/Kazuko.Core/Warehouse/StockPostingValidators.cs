@@ -206,7 +206,7 @@ public static class FinishedGoodsIssueValidator
     public static bool IsConfirmedSalesOrderStatus(string? statusCode)
     {
         var status = (statusCode ?? string.Empty).Trim().ToUpperInvariant();
-        return status is not ("DRAFT" or "CANCELLED") && status.Length > 0;
+        return status is "CONFIRMED" or "DEPOSITED" or "IN_PRODUCTION" or "READY" or "PARTIALLY_DELIVERED";
     }
 
     public static bool RejectManualFinishedReceipt(string documentType, string? purposeCode, long? productionOrderId)
@@ -240,5 +240,50 @@ public static class FinishedGoodsIssueValidator
             if (!MaterialTypes.IsRawMaterial(type))
                 throw new InvalidOperationException($"Mặt hàng loại '{type}' không phải NVL — không nhập bằng phiếu nhập NVL.");
         }
+    }
+}
+
+public static class MaterialIssueValidator
+{
+    public static IReadOnlyList<string> Validate(MaterialIssueDraft draft)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        var errors = new List<string>();
+        if (draft.SourceLocationId <= 0)
+            errors.Add("Phải chọn kho xuất.");
+        if (draft.Lines is null || draft.Lines.Count == 0)
+            errors.Add("Phiếu xuất phải có ít nhất một dòng NVL.");
+
+        var lineNo = 0;
+        foreach (var line in draft.Lines ?? Array.Empty<MaterialIssueLineDraft>())
+        {
+            lineNo++;
+            if (line.MaterialId <= 0)
+                errors.Add($"Dòng {lineNo}: thiếu NVL.");
+            if (line.Quantity <= 0)
+                errors.Add($"Dòng {lineNo}: số lượng phải lớn hơn 0.");
+        }
+
+        return errors;
+    }
+}
+
+public static class FinishedProductTransferValidator
+{
+    public static IReadOnlyList<string> Validate(FinishedProductTransferDraft draft)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        var errors = new List<string>();
+        if (draft.SourceLocationId <= 0 || draft.DestinationLocationId <= 0)
+            errors.Add("Phải chọn kho nguồn và kho đích.");
+        if (draft.SourceLocationId == draft.DestinationLocationId)
+            errors.Add("Kho nguồn và kho đích phải khác nhau.");
+        if (draft.FinishedProductIds is null || draft.FinishedProductIds.Count == 0)
+            errors.Add("Phải chọn ít nhất một thành phẩm.");
+        if (draft.FinishedProductIds?.Any(id => id <= 0) == true)
+            errors.Add("Danh sách thành phẩm có mã không hợp lệ.");
+        if (draft.FinishedProductIds?.Distinct().Count() != draft.FinishedProductIds?.Count)
+            errors.Add("Một thành phẩm không được xuất hiện hai lần trên cùng phiếu.");
+        return errors;
     }
 }

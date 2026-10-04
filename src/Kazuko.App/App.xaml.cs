@@ -7,6 +7,7 @@ using Kazuko.Core.Finance;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Modules;
 using Kazuko.Core.PriceBoard;
+using Kazuko.Core.Production;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Updates;
 using Kazuko.Core.Warehouse;
@@ -15,6 +16,7 @@ using Kazuko.Infrastructure.Customers;
 using Kazuko.Infrastructure.Finance;
 using Kazuko.Infrastructure.HumanResources;
 using Kazuko.Infrastructure.PriceBoard;
+using Kazuko.Infrastructure.Production;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Suppliers;
 using Kazuko.Infrastructure.Updates;
@@ -26,6 +28,7 @@ using Kazuko.Modules.Dashboard;
 using Kazuko.Modules.Debt;
 using Kazuko.Modules.HumanResources;
 using Kazuko.Modules.PriceBoard;
+using Kazuko.Modules.Production;
 using Kazuko.Modules.Suppliers;
 using Kazuko.Modules.Warehouse;
 using Kazuko.Shared.UI.Services;
@@ -64,13 +67,16 @@ public partial class App : Application
         ICustomerRepository customers = new FirebirdCustomerRepository();
         ISupplierRepository suppliers = new FirebirdSupplierRepository();
         IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
+        IWarehouseGoldPriceRepository warehouseGoldPrices = new FirebirdWarehouseGoldPriceRepository();
         IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();
         IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
         IMaterialReceiptService materialReceipts = new FirebirdMaterialReceiptService();
+        IMaterialIssueService materialIssues = new FirebirdMaterialIssueService();
         IOutsourcedCraftService outsourcedCraft = new FirebirdOutsourcedCraftService();
         IFinishedGoodsIssueService finishedGoodsIssue = new FirebirdFinishedGoodsIssueService();
         IExternalWorkerRepository externalWorkers = new FirebirdExternalWorkerRepository();
         IStockTransferService stockTransfers = new FirebirdStockTransferService();
+        IFinishedProductTransferService finishedProductTransfers = new FirebirdFinishedProductTransferService();
         IStockAdjustmentService stockAdjustments = new FirebirdStockAdjustmentService();
         ICashFundRepository cashFunds = new FirebirdCashFundRepository();
         IBankAccountRepository bankAccounts = new FirebirdBankAccountRepository();
@@ -81,6 +87,11 @@ public partial class App : Application
         IReceivableDebtRepository receivableDebts = new FirebirdReceivableDebtRepository();
         IDocumentReversalService documentReversals = new FirebirdDocumentReversalService();
         IPartyCreditService partyCredits = new FirebirdPartyCreditService();
+        IProductionQueryRepository productionQueries = new FirebirdProductionQueryRepository();
+        IProductionAttachmentStore productionAttachments = new LocalProductionAttachmentStore();
+        IProductionApplicationService productionApplication =
+            new FirebirdProductionApplicationService(productionAttachments);
+        IProductionPrintDataService productionPrintData = new FirebirdProductionPrintDataService();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -95,13 +106,16 @@ public partial class App : Application
         _services.AddSingleton(customers);
         _services.AddSingleton(suppliers);
         _services.AddSingleton(warehouse);
+        _services.AddSingleton(warehouseGoldPrices);
         _services.AddSingleton(humanResources);
         _services.AddSingleton(priceBoard);
         _services.AddSingleton(materialReceipts);
+        _services.AddSingleton(materialIssues);
         _services.AddSingleton(outsourcedCraft);
         _services.AddSingleton(finishedGoodsIssue);
         _services.AddSingleton(externalWorkers);
         _services.AddSingleton(stockTransfers);
+        _services.AddSingleton(finishedProductTransfers);
         _services.AddSingleton(stockAdjustments);
         _services.AddSingleton(cashFunds);
         _services.AddSingleton(bankAccounts);
@@ -112,6 +126,10 @@ public partial class App : Application
         _services.AddSingleton(receivableDebts);
         _services.AddSingleton(documentReversals);
         _services.AddSingleton(partyCredits);
+        _services.AddSingleton(productionQueries);
+        _services.AddSingleton(productionApplication);
+        _services.AddSingleton(productionAttachments);
+        _services.AddSingleton(productionPrintData);
     }
 
     private void RegisterModules()
@@ -119,6 +137,7 @@ public partial class App : Application
         IKazukoModule[] modules =
         [
             new DashboardModule(),
+            new ProductionModule(),
             new CustomersModule(),
             new SuppliersModule(),
             new WarehouseModule(),

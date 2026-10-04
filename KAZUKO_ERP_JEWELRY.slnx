@@ -8,5 +8,6 @@
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/Kazuko.Modules.Authentication/Kazuko.Modules.Authentication.csproj" />
     <Project Path="src/Modules/Kazuko.Modules.Dashboard/Kazuko.Modules.Dashboard.csproj" />
+    <Project Path="src/Modules/Kazuko.Modules.Production/Kazuko.Modules.Production.csproj" />
   </Folder>
 </Solution>

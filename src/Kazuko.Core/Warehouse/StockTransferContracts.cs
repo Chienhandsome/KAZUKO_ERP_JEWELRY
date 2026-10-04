@@ -20,6 +20,13 @@ public sealed record StockTransferDraft(
     string? Notes,
     IReadOnlyList<StockTransferLineDraft> Lines);
 
+public sealed record FinishedProductTransferDraft(
+    DateTime DocumentDate,
+    long SourceLocationId,
+    long DestinationLocationId,
+    string? Notes,
+    IReadOnlyList<long> FinishedProductIds);
+
 public sealed record StockAdjustmentLineDraft(
     long MaterialId,
     decimal QuantityChange,
@@ -37,6 +44,14 @@ public interface IStockTransferService
 {
     Task<long> CreateAndPostAsync(
         StockTransferDraft draft,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IFinishedProductTransferService
+{
+    Task<long> CreateAndPostAsync(
+        FinishedProductTransferDraft draft,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 }

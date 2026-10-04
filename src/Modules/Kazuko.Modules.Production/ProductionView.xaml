@@ -1,0 +1,122 @@
+<UserControl x:Class="Kazuko.Modules.Production.ProductionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
+             xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
+             MinWidth="900" MinHeight="520"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
+    <UserControl.Resources>
+        <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
+        <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+    </UserControl.Resources>
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="Sản xuất"
+                       FontSize="{DynamicResource FontSize.Heading}"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+            <TextBlock Text="Quản lý lệnh sản xuất, mẫu và bản nháp."
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
+
+        <UniformGrid DockPanel.Dock="Top" Rows="1" Columns="4" Margin="0,0,0,12">
+            <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="Đang làm" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding InProgressCount}" FontSize="{DynamicResource FontSize.Heading}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="Hoàn thành kỳ" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding CompletedPeriodCount}" FontSize="{DynamicResource FontSize.Heading}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="Thợ ngoài (đang làm)" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding OutsourcedCount}" FontSize="{DynamicResource FontSize.Heading}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{DynamicResource CardBorderStyle}" Padding="12">
+                <StackPanel>
+                    <TextBlock Text="Nội bộ (đang làm)" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding InHouseCount}" FontSize="{DynamicResource FontSize.Heading}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Tạo lệnh" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding CreateOrderCommand}"
+                    MinHeight="40" Margin="0,0,8,0" />
+            <Button Content="Mở chi tiết" Style="{DynamicResource NavButtonStyle}"
+                    Command="{Binding OpenDetailCommand}" CommandParameter="{Binding SelectedOrder}"
+                    MinHeight="40" />
+        </StackPanel>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                <TextBox Width="220" MinHeight="36" Margin="0,0,8,8" Padding="10,4"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Mã lệnh, mẫu, đơn bán, thợ/nhân viên" />
+                <ComboBox Width="150" MinHeight="36" Margin="0,0,8,8"
+                          ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding SelectedStatusFilter}" />
+                <ComboBox Width="150" MinHeight="36" Margin="0,0,8,8"
+                          ItemsSource="{Binding SourceFilterOptions}" SelectedItem="{Binding SelectedSourceFilter}" />
+                <ComboBox Width="150" MinHeight="36" Margin="0,0,8,8"
+                          ItemsSource="{Binding ExecutionFilterOptions}" SelectedItem="{Binding SelectedExecutionFilter}" />
+                <DatePicker Width="130" Margin="0,0,8,8" SelectedDate="{Binding FromDate}" />
+                <DatePicker Width="130" Margin="0,0,8,8" SelectedDate="{Binding ToDate}" />
+                <CheckBox Content="Gồm bản nháp" IsChecked="{Binding IncludeDrafts}" VerticalAlignment="Center" Margin="0,0,8,8" />
+                <Button Content="Làm mới (F5)" Style="{DynamicResource NavButtonStyle}" Command="{Binding RefreshCommand}"
+                        MinHeight="36" />
+            </WrapPanel>
+
+            <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
+                       TextWrapping="Wrap" Margin="0,0,0,4" Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding Orders}"
+                      SelectedItem="{Binding SelectedOrder}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single"
+                      grid:DataGridColumnLayout.SettingsKey="production.orders"
+                      grid:DataGridColumnLayout.EnableHeaderMenu="True"
+                      grid:DataGridColumnLayout.AutoFitOnFirstLoad="True">
+                <DataGrid.InputBindings>
+                    <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding OpenDetailCommand}"
+                                  CommandParameter="{Binding SelectedOrder}" />
+                </DataGrid.InputBindings>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Mã LSX" grid:DataGridColumnLayout.Key="Code"
+                                        Binding="{Binding Code}" Width="130" />
+                    <DataGridTextColumn Header="Ngày lập" grid:DataGridColumnLayout.Key="OrderDate"
+                                        Binding="{Binding OrderDateDisplay}" Width="100" />
+                    <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status"
+                                        Binding="{Binding StatusDisplay}" Width="110" />
+                    <DataGridTextColumn Header="Nguồn" grid:DataGridColumnLayout.Key="Source"
+                                        Binding="{Binding SourceDisplay}" Width="110" />
+                    <DataGridTextColumn Header="Hình thức" grid:DataGridColumnLayout.Key="Execution"
+                                        Binding="{Binding ExecutionDisplay}" Width="100" />
+                    <DataGridTextColumn Header="Đơn bán" grid:DataGridColumnLayout.Key="SalesOrder"
+                                        Binding="{Binding SalesOrderCode}" Width="120" />
+                    <DataGridTextColumn Header="Thợ / NV" grid:DataGridColumnLayout.Key="Worker"
+                                        Binding="{Binding WorkerDisplayName}" Width="160" />
+                    <DataGridTextColumn Header="Mẫu" grid:DataGridColumnLayout.Key="Models"
+                                        Binding="{Binding ModelSummary}" Width="*" MinWidth="140" />
+                    <DataGridTextColumn Header="SL kế hoạch" grid:DataGridColumnLayout.Key="Qty"
+                                        Binding="{Binding PlannedQuantityTotal}" Width="90" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+    </DockPanel>
+</UserControl>

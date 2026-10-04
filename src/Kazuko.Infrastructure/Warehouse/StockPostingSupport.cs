@@ -162,7 +162,7 @@ internal static class StockPostingSupport
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public static async Task<(string Code, string MaterialType, string UnitCode)> GetMaterialAsync(
+    public static async Task<(string Code, string MaterialType, string UnitCode, string PurityCode)> GetMaterialAsync(
         FbConnection connection,
         FbTransaction transaction,
         long companyId,
@@ -170,7 +170,7 @@ internal static class StockPostingSupport
         CancellationToken cancellationToken)
     {
         await using var command = new FbCommand("""
-            SELECT CODE, MATERIAL_TYPE, UNIT_CODE
+            SELECT CODE, MATERIAL_TYPE, UNIT_CODE, COALESCE(PURITY_CODE, '')
             FROM MATERIALS
             WHERE ID = @ID AND COMPANY_ID = @CID AND IS_ACTIVE = TRUE
             """, connection, transaction);
@@ -179,6 +179,6 @@ internal static class StockPostingSupport
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
             throw new InvalidOperationException($"Không tìm thấy NVL #{materialId}.");
-        return (reader.GetString(0), reader.GetString(1), reader.GetString(2));
+        return (reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3));
     }
 }

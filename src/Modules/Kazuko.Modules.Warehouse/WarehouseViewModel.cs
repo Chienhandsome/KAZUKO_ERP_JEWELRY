@@ -19,10 +19,13 @@ public sealed class WarehouseViewModel : ObservableObject
     private static readonly CultureInfo ViCulture = CultureInfo.GetCultureInfo("vi-VN");
 
     private readonly IWarehouseRepository _repository;
+    private readonly IWarehouseGoldPriceRepository _warehouseGoldPrices;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IMaterialReceiptService _materialReceipts;
+    private readonly IMaterialIssueService _materialIssues;
     private readonly IOutsourcedCraftService _outsourcedCraft;
     private readonly IFinishedGoodsIssueService _finishedGoods;
+    private readonly IFinishedProductTransferService _finishedProductTransfers;
     private readonly IExternalWorkerRepository _externalWorkers;
     private readonly ISupplierRepository _suppliers;
     private readonly ICustomerRepository _customers;
@@ -105,10 +108,13 @@ public sealed class WarehouseViewModel : ObservableObject
 
     public WarehouseViewModel(
         IWarehouseRepository repository,
+        IWarehouseGoldPriceRepository warehouseGoldPrices,
         ICurrentSessionAccessor sessionAccessor,
         IMaterialReceiptService materialReceipts,
+        IMaterialIssueService materialIssues,
         IOutsourcedCraftService outsourcedCraft,
         IFinishedGoodsIssueService finishedGoods,
+        IFinishedProductTransferService finishedProductTransfers,
         IExternalWorkerRepository externalWorkers,
         ISupplierRepository suppliers,
         ICustomerRepository customers,
@@ -118,10 +124,13 @@ public sealed class WarehouseViewModel : ObservableObject
         IBankAccountRepository banks)
     {
         _repository = repository;
+        _warehouseGoldPrices = warehouseGoldPrices;
         _sessionAccessor = sessionAccessor;
         _materialReceipts = materialReceipts;
+        _materialIssues = materialIssues;
         _outsourcedCraft = outsourcedCraft;
         _finishedGoods = finishedGoods;
+        _finishedProductTransfers = finishedProductTransfers;
         _externalWorkers = externalWorkers;
         _suppliers = suppliers;
         _customers = customers;
@@ -153,7 +162,6 @@ public sealed class WarehouseViewModel : ObservableObject
         FinishedStatusOptions.Add("Tất cả trạng thái");
         FinishedStatusOptions.Add("IN_STOCK");
         FinishedStatusOptions.Add("RESERVED");
-        FinishedStatusOptions.Add("WAITING_RECEIPT");
 
         SaleStatusOptions.Add("Tất cả trạng thái");
         SaleStatusOptions.Add("DISPLAYED");
@@ -189,6 +197,11 @@ public sealed class WarehouseViewModel : ObservableObject
         OpenReceiptTabCommand = new RelayCommand(OpenMaterialReceiptDialog);
         OpenIssueTabCommand = new RelayCommand(() => OpenDocumentTab("ISSUE", WarehouseTabs.Issue));
         OpenTransferTabCommand = new RelayCommand(() => OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer));
+        OpenMaterialIssueCommand = new RelayCommand(OpenMaterialIssueDialog);
+        OpenFinishedGoodsIssueCommand = new RelayCommand(() => OpenFinishedGoodsIssueDialog(InventoryScopes.FinishedGoods));
+        OpenSalesGoodsIssueCommand = new RelayCommand(() => OpenFinishedGoodsIssueDialog(InventoryScopes.SalesFloor));
+        OpenFinishedProductTransferCommand = new RelayCommand(OpenFinishedProductTransferDialog);
+        OpenWarehouseGoldPricesCommand = new RelayCommand(OpenWarehouseGoldPriceDialog);
         OpenCraftTrackingCommand = new AsyncRelayCommand(OpenCraftTrackingAsync);
         ViewAllRawMaterialsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.RawMaterials));
         ViewAllFinishedProductsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.FinishedProducts));
@@ -701,6 +714,11 @@ public sealed class WarehouseViewModel : ObservableObject
     public ICommand OpenReceiptTabCommand { get; }
     public ICommand OpenIssueTabCommand { get; }
     public ICommand OpenTransferTabCommand { get; }
+    public ICommand OpenMaterialIssueCommand { get; }
+    public ICommand OpenFinishedGoodsIssueCommand { get; }
+    public ICommand OpenSalesGoodsIssueCommand { get; }
+    public ICommand OpenFinishedProductTransferCommand { get; }
+    public ICommand OpenWarehouseGoldPricesCommand { get; }
     public ICommand OpenCraftTrackingCommand { get; }
     public ICommand ViewAllRawMaterialsCommand { get; }
     public ICommand ViewAllFinishedProductsCommand { get; }
@@ -1371,6 +1389,86 @@ public sealed class WarehouseViewModel : ObservableObject
         {
             OpenDocumentTab("RECEIPT", WarehouseTabs.Receipt);
             _ = SearchDocumentsAsync();
+        }
+    }
+
+    private void OpenMaterialIssueDialog()
+    {
+        var session = RequireSession();
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var dialog = new MaterialIssueDialog(
+            new MaterialIssueDialogViewModel(_materialIssues, _repository, session))
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            OpenDocumentTab("ISSUE", WarehouseTabs.Issue);
+            _ = RefreshAllAsync();
+        }
+    }
+
+    private void OpenFinishedProductTransferDialog()
+    {
+        var session = RequireSession();
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var dialog = new FinishedProductTransferDialog(
+            new FinishedProductTransferDialogViewModel(_finishedProductTransfers, _repository, session))
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer);
+            _ = RefreshAllAsync();
+        }
+    }
+
+    private void OpenWarehouseGoldPriceDialog()
+    {
+        var session = RequireSession();
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var dialog = new WarehouseGoldPriceDialog(
+            new WarehouseGoldPriceDialogViewModel(_warehouseGoldPrices, session))
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+    }
+
+    private void OpenFinishedGoodsIssueDialog(string preferredScope)
+    {
+        var session = RequireSession();
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var dialog = new FinishedGoodsIssueDialog(
+            new FinishedGoodsIssueDialogViewModel(_finishedGoods, _repository, session, preferredScope))
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            OpenDocumentTab("FINISHED_GOODS_ISSUE", WarehouseTabs.Issue);
+            _ = RefreshAllAsync();
         }
     }
 

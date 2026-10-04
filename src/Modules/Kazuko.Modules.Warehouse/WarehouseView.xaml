@@ -381,12 +381,16 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
             </StackPanel>
-            <Button Grid.Column="1"
-                    Content="Làm mới"
-                    Style="{StaticResource OutlineButtonStyle}"
-                    Command="{Binding RefreshCommand}"
-                    MinWidth="120"
-                    Margin="0" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="Bảng giá vàng kho"
+                        Style="{StaticResource OutlineButtonStyle}"
+                        Command="{Binding OpenWarehouseGoldPricesCommand}"
+                        MinWidth="170" Margin="0,0,8,0" />
+                <Button Content="Làm mới"
+                        Style="{StaticResource OutlineButtonStyle}"
+                        Command="{Binding RefreshCommand}"
+                        MinWidth="120" Margin="0" />
+            </StackPanel>
         </Grid>
 
         <Border Grid.Row="1" Style="{DynamicResource CardBorderStyle}" Padding="12">
@@ -587,7 +591,7 @@
                                                         <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
                                                                 Command="{Binding OpenCraftTrackingCommand}" />
                                                         <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenIssueTabCommand}" />
+                                                                Command="{Binding OpenMaterialIssueCommand}" />
                                                     </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Grid.Row="1" Margin="0,0,0,8">
@@ -648,13 +652,8 @@
                                                         <TextBlock Text="Trang sức hoàn thiện, sản phẩm chế tác" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
-                                                                Command="{Binding OpenReceiptTabCommand}"
-                                                                ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
-                                                        <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenCraftTrackingCommand}" />
                                                         <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenIssueTabCommand}" />
+                                                                Command="{Binding OpenFinishedGoodsIssueCommand}" />
                                                     </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Grid.Row="1" Margin="0,0,0,8">
@@ -679,7 +678,6 @@
                                                             <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="100" />
                                                             <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="120" />
                                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
-                                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
                                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="56" />
                                                         </DataGrid.Columns>
                                                     </DataGrid>
@@ -715,13 +713,11 @@
                                                         <TextBlock Text="Hàng trưng bày, hàng bán lẻ" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
-                                                                Command="{Binding OpenReceiptTabCommand}"
-                                                                ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
-                                                        <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenCraftTrackingCommand}" />
+                                                        <Button Content="+ Nhập từ kho thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenFinishedProductTransferCommand}"
+                                                                ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
                                                         <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenIssueTabCommand}" />
+                                                                Command="{Binding OpenSalesGoodsIssueCommand}" />
                                                     </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Grid.Row="1" Margin="0,0,0,8">
@@ -746,7 +742,6 @@
                                                             <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="100" />
                                                             <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="120" />
                                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
-                                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
                                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="56" />
                                                         </DataGrid.Columns>
                                                     </DataGrid>
@@ -888,6 +883,15 @@
                                         Command="{Binding SearchBalancesCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearBalanceFiltersCommand}" MinWidth="90" />
+                                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                    <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                            Command="{Binding OpenReceiptTabCommand}"
+                                            ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
+                                    <Button Content="Theo dõi thợ" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Command="{Binding OpenCraftTrackingCommand}" />
+                                    <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Command="{Binding OpenMaterialIssueCommand}" />
+                                </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
@@ -1018,6 +1022,10 @@
                                         Command="{Binding SearchFinishedProductsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearFinishedFiltersCommand}" MinWidth="90" />
+                                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                    <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Command="{Binding OpenFinishedGoodsIssueCommand}" />
+                                </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
@@ -1037,7 +1045,6 @@
                                             <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
                                             <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
-                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
                                             <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
                                             <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
@@ -1069,9 +1076,6 @@
                                                          TextWrapping="Wrap" />
                                                 <TextBlock Text="Loại vàng" Style="{StaticResource DetailLabelStyle}" />
                                                 <TextBox Text="{Binding SelectedFinishedProduct.GoldPurity, Mode=OneWay, TargetNullValue=—}"
-                                                         Style="{StaticResource DetailValueStyle}" />
-                                                <TextBlock Text="Tồn kho" Style="{StaticResource DetailLabelStyle}" />
-                                                <TextBox Text="{Binding SelectedFinishedProduct.QuantityText, Mode=OneWay, TargetNullValue=—}"
                                                          Style="{StaticResource DetailValueStyle}" />
                                                 <TextBlock Text="Đơn vị tính" Style="{StaticResource DetailLabelStyle}" />
                                                 <TextBox Text="{Binding SelectedFinishedProduct.UnitCode, Mode=OneWay, TargetNullValue=—}"
@@ -1121,6 +1125,13 @@
                                         Command="{Binding SearchSaleItemsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearSaleFiltersCommand}" MinWidth="90" />
+                                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                    <Button Content="+ Nhập từ kho thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
+                                            Command="{Binding OpenFinishedProductTransferCommand}"
+                                            ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
+                                    <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Command="{Binding OpenSalesGoodsIssueCommand}" />
+                                </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
@@ -1140,7 +1151,6 @@
                                             <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
                                             <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
-                                            <DataGridTextColumn Header="Tồn kho" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
                                             <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
                                             <DataGridTextColumn Header="Vị trí" grid:DataGridColumnLayout.Key="Location" Binding="{Binding LocationName, Mode=OneWay}" Width="140" />
@@ -1172,9 +1182,6 @@
                                                          TextWrapping="Wrap" />
                                                 <TextBlock Text="Loại vàng" Style="{StaticResource DetailLabelStyle}" />
                                                 <TextBox Text="{Binding SelectedSaleItem.GoldPurity, Mode=OneWay, TargetNullValue=—}"
-                                                         Style="{StaticResource DetailValueStyle}" />
-                                                <TextBlock Text="Tồn kho" Style="{StaticResource DetailLabelStyle}" />
-                                                <TextBox Text="{Binding SelectedSaleItem.QuantityText, Mode=OneWay, TargetNullValue=—}"
                                                          Style="{StaticResource DetailValueStyle}" />
                                                 <TextBlock Text="Đơn vị tính" Style="{StaticResource DetailLabelStyle}" />
                                                 <TextBox Text="{Binding SelectedSaleItem.UnitCode, Mode=OneWay, TargetNullValue=—}"
@@ -1313,6 +1320,12 @@
                                         Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
+                                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                    <Button Content="+ Xuất NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                            Command="{Binding OpenMaterialIssueCommand}" />
+                                    <Button Content="+ Xuất thành phẩm" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Command="{Binding OpenFinishedGoodsIssueCommand}" />
+                                </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
                                 <DataGrid ItemsSource="{Binding Documents}"
@@ -1358,6 +1371,10 @@
                                         Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
+                                <Button Content="+ Chuyển TP sang bán hàng"
+                                        Style="{StaticResource PrimaryActionButtonStyle}"
+                                        Command="{Binding OpenFinishedProductTransferCommand}"
+                                        Margin="12,0,0,0" />
                             </WrapPanel>
                             <Grid Grid.Row="1">
                                 <DataGrid ItemsSource="{Binding Documents}"

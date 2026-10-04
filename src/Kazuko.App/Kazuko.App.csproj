@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.Authentication\Kazuko.Modules.Authentication.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.Dashboard\Kazuko.Modules.Dashboard.csproj" />
+    <ProjectReference Include="..\Modules\Kazuko.Modules.Production\Kazuko.Modules.Production.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.Customers\Kazuko.Modules.Customers.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.Suppliers\Kazuko.Modules.Suppliers.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.Warehouse\Kazuko.Modules.Warehouse.csproj" />

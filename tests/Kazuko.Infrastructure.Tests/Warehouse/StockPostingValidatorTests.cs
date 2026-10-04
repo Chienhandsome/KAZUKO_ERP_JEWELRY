@@ -95,6 +95,7 @@ public sealed class StockPostingValidatorTests
     {
         Assert.False(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("DRAFT"));
         Assert.False(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("CANCELLED"));
+        Assert.False(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("COMPLETED"));
         Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("CONFIRMED"));
         Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("DEPOSITED"));
     }
@@ -147,5 +148,41 @@ public sealed class StockPostingValidatorTests
         var loss = CraftSettlementValidator.ComputeLoss(10, 7, 1, 0.5m);
         Assert.Equal(1.5m, loss);
         Assert.Equal(0.5m, CraftSettlementValidator.ComputeVariance(loss, 1m));
+    }
+
+    [Fact]
+    public void MaterialIssue_RejectsMissingLinesAndInvalidLocation()
+    {
+        var errors = MaterialIssueValidator.Validate(
+            new MaterialIssueDraft(DateTime.Today, 0, string.Empty, null, Array.Empty<MaterialIssueLineDraft>()));
+
+        Assert.Contains(errors, e => e.Contains("kho xuất", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, e => e.Contains("ít nhất một dòng", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void FinishedProductTransfer_RejectsDuplicateSerialAndSameLocation()
+    {
+        var errors = FinishedProductTransferValidator.Validate(
+            new FinishedProductTransferDraft(DateTime.Today, 1, 1, null, [10, 10]));
+
+        Assert.Contains(errors, e => e.Contains("khác nhau", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, e => e.Contains("hai lần", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void WarehouseIssuePrice_CalculatesFinishedProductFromSnapshottedComponents()
+    {
+        var value = WarehouseIssuePricing.CalculateFinishedProductIssueValue(
+            1.25m, 8_000_000m, 550_000m, 175_000m);
+
+        Assert.Equal(10_725_000m, value);
+    }
+
+    [Fact]
+    public void WarehouseIssuePrice_RejectsNegativeComponents()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            WarehouseIssuePricing.CalculateFinishedProductIssueValue(1, 8_000_000, -1, 0));
     }
 }

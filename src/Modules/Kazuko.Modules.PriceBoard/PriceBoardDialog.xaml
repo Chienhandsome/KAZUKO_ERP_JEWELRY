@@ -66,6 +66,24 @@
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="MinWidth" Value="125" />
         </Style>
+        <Style x:Key="PbCurrencyBuyRateTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="PbCurrencySellRateTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="PbCurrencyRateEditingTextStyle" TargetType="TextBox">
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+        </Style>
         <Style x:Key="PbTabItemStyle" TargetType="TabItem">
             <Setter Property="Padding" Value="14,8" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
@@ -145,6 +163,10 @@
             <Setter Property="BorderThickness" Value="0,0,1,1" />
             <Setter Property="Height" Value="42" />
         </Style>
+        <Style x:Key="PbCurrencyColumnHeaderStyle" TargetType="DataGridColumnHeader"
+               BasedOn="{StaticResource PbDataGridColumnHeaderStyle}">
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+        </Style>
     </Window.Resources>
 
     <Grid Margin="12">
@@ -209,7 +231,9 @@
                               ItemsSource="{Binding GoldPrices}"
                               SelectedItem="{Binding SelectedGold}"
                               Style="{StaticResource PbDataGridStyle}"
-                              ColumnHeaderStyle="{StaticResource PbDataGridColumnHeaderStyle}">
+                              FontSize="{DynamicResource FontSize.Subtitle}"
+                              RowHeight="46"
+                              ColumnHeaderStyle="{StaticResource PbCurrencyColumnHeaderStyle}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" IsReadOnly="True" />
                             <DataGridTextColumn Header="Loại vàng" Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" IsReadOnly="True">
@@ -221,21 +245,24 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Mua vào" Binding="{Binding BuyPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N0}" Width="120">
+                            <DataGridTextColumn Header="Mua vào" Binding="{Binding BuyPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N0}" Width="140">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                                         <Setter Property="HorizontalAlignment" Value="Right" />
                                         <Setter Property="VerticalAlignment" Value="Center" />
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                                 <DataGridTextColumn.EditingElementStyle>
                                     <Style TargetType="TextBox">
+                                        <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                                         <Setter Property="HorizontalContentAlignment" Value="Right" />
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Bán ra" Binding="{Binding SellPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N0}" Width="120">
+                            <DataGridTextColumn Header="Bán ra" Binding="{Binding SellPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N0}" Width="140">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold" />
@@ -246,6 +273,7 @@
                                 </DataGridTextColumn.ElementStyle>
                                 <DataGridTextColumn.EditingElementStyle>
                                     <Style TargetType="TextBox">
+                                        <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
                                         <Setter Property="HorizontalContentAlignment" Value="Right" />
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
@@ -285,7 +313,8 @@
                               ItemsSource="{Binding Currencies}"
                               SelectedItem="{Binding SelectedCurrency}"
                               Style="{StaticResource PbDataGridStyle}"
-                              ColumnHeaderStyle="{StaticResource PbDataGridColumnHeaderStyle}">
+                              FontSize="{DynamicResource FontSize.Subtitle}"
+                              ColumnHeaderStyle="{StaticResource PbCurrencyColumnHeaderStyle}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" IsReadOnly="True" />
                             <DataGridTextColumn Header="Ngoại tệ" Binding="{Binding CurrencyCode, Mode=OneWay}" Width="80" IsReadOnly="True">
@@ -301,22 +330,23 @@
                             <DataGridTextColumn Header="Tên ngoại tệ" Binding="{Binding CurrencyName, Mode=OneWay}" Width="*" MinWidth="120" IsReadOnly="True" />
                             <DataGridTextColumn Header="Mua vào (VND)" Binding="{Binding BuyRate, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}" Width="130">
                                 <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                        <Setter Property="HorizontalAlignment" Value="Right" />
-                                        <Setter Property="VerticalAlignment" Value="Center" />
-                                    </Style>
+                                    <StaticResource ResourceKey="PbCurrencyBuyRateTextStyle" />
                                 </DataGridTextColumn.ElementStyle>
+                                <DataGridTextColumn.EditingElementStyle>
+                                    <Style TargetType="TextBox" BasedOn="{StaticResource PbCurrencyRateEditingTextStyle}">
+                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                    </Style>
+                                </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="Bán ra (VND)" Binding="{Binding SellRate, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}" Width="130">
                                 <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                                        <Setter Property="HorizontalAlignment" Value="Right" />
-                                        <Setter Property="VerticalAlignment" Value="Center" />
-                                    </Style>
+                                    <StaticResource ResourceKey="PbCurrencySellRateTextStyle" />
                                 </DataGridTextColumn.ElementStyle>
+                                <DataGridTextColumn.EditingElementStyle>
+                                    <Style TargetType="TextBox" BasedOn="{StaticResource PbCurrencyRateEditingTextStyle}">
+                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                    </Style>
+                                </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="Cập nhật cuối cùng lúc" Binding="{Binding UpdatedAtDisplay, Mode=OneWay}" Width="160" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>

@@ -22,10 +22,13 @@ public sealed class WarehouseModule : IKazukoModule
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
     {
         var repository = GetRequiredService<IWarehouseRepository>(services);
+        var warehouseGoldPrices = GetRequiredService<IWarehouseGoldPriceRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
         var materialReceipts = GetRequiredService<IMaterialReceiptService>(services);
+        var materialIssues = GetRequiredService<IMaterialIssueService>(services);
         var outsourcedCraft = GetRequiredService<IOutsourcedCraftService>(services);
         var finishedGoods = GetRequiredService<IFinishedGoodsIssueService>(services);
+        var finishedProductTransfers = GetRequiredService<IFinishedProductTransferService>(services);
         var externalWorkers = GetRequiredService<IExternalWorkerRepository>(services);
         var suppliers = GetRequiredService<ISupplierRepository>(services);
         var customers = GetRequiredService<ICustomerRepository>(services);
@@ -44,10 +47,13 @@ public sealed class WarehouseModule : IKazukoModule
             {
                 DataContext = new WarehouseViewModel(
                     repository,
+                    warehouseGoldPrices,
                     session,
                     materialReceipts,
+                    materialIssues,
                     outsourcedCraft,
                     finishedGoods,
+                    finishedProductTransfers,
                     externalWorkers,
                     suppliers,
                     customers,

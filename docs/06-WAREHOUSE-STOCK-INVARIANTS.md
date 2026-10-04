@@ -12,6 +12,16 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 - Không tạo `STOCK_DOCUMENTS` loại `RECEIPT` với `PURPOSE_CODE = FINISHED_RECEIPT` nếu thiếu `PRODUCTION_ORDER_ID` hợp lệ.
 - Điều chỉnh tồn thành phẩm dùng `STOCK_ADJUSTMENT` (quyền + audit), không dùng nhập kho thường.
 
+### 1.1. Thành phẩm là cá thể duy nhất
+
+- Mỗi dòng `FINISHED_PRODUCTS` là đúng **một món**; `CODE` và `BARCODE_VALUE` duy nhất trong công ty.
+- Không lưu tồn thành phẩm bằng một bản ghi có số lượng lớn hơn 1. Tổng số món dùng `COUNT(*)`.
+- Vị trí vật lý nằm ở `LOCATION_ID`; vai trò kho nằm ở `LOCATIONS.INVENTORY_SCOPE`.
+- Kho thành phẩm dùng scope `FINISHED_GOODS`; Kho bán hàng dùng scope `SALES_FLOOR`.
+- Một món chỉ có một `LOCATION_ID` hiện hành. Chuyển kho là cập nhật vị trí, không sao chép bản ghi.
+- `FINISHED_PRODUCT_DOCUMENT_LINES` lưu từng serial trên chứng từ; một serial không được lặp trong cùng chứng từ.
+- `ROW_VERSION` bắt buộc tăng mỗi lần chuyển/xuất để phát hiện hai session cùng thao tác một món.
+
 ## 2. Đơn vị chuẩn
 
 - Vàng / kim loại quý (`MATERIAL_TYPE = GOLD`): đơn vị tồn chuẩn **`CHI`**.
@@ -101,7 +111,26 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 - Chỉ xuất phần đã hoàn thành (`FINISHED_PRODUCTS` gắn đơn, trạng thái tồn hợp lệ).
 - Một đơn tối đa **một** phiếu `FINISHED_GOODS_ISSUE` còn hiệu lực (DRAFT hoặc POSTED).
 - Không xuất thủ công không có đơn; không vượt tồn / phần hoàn thành.
-- Khi POST: đánh dấu đơn đã xuất. Khi hủy đúng quy trình: hoàn tồn TP, bỏ đánh dấu, audit đầy đủ.
+- Khi POST: đặt `STATUS_CODE = SOLD`, `LOCATION_ID = NULL`, ghi dòng chứng từ và movement; món đã bán không còn trong query tồn active.
+- Không xóa `FINISHED_PRODUCTS` đã bán; hóa đơn/chứng từ/movement giữ lịch sử serial phục vụ báo cáo, bảo hành và kiểm toán.
+- Khi hủy đúng quy trình: hoàn đúng vị trí và trạng thái trước xuất, bỏ đánh dấu đơn, tăng `ROW_VERSION`, ghi movement đảo và audit đầy đủ.
+
+### 8.1. Chuyển Kho thành phẩm sang Kho bán hàng
+
+- Chỉ chuyển món đang `IN_STOCK` tại location scope `FINISHED_GOODS`.
+- Kho đích phải có scope `SALES_FLOOR`.
+- POST trong một transaction: tạo phiếu `TRANSFER`, tạo một dòng/serial, cập nhật location, đổi trạng thái sang `DISPLAYED`, ghi hai movement OUT/IN và audit.
+- Sau commit, query Kho thành phẩm không còn món đó; query Kho bán hàng mới hiển thị món đó.
+- Query Kho bán hàng chỉ lấy `DISPLAYED` tại `SALES_FLOOR`; `SOLD` tuyệt đối không xuất hiện trong danh sách active.
+
+### 8.2. Bảng giá vàng kho và giá trị xuất kho
+
+- `WAREHOUSE_GOLD_PRICES` là bảng giá nội bộ theo loại/tuổi vàng, dùng chung toàn công ty và độc lập với bảng giá bán lẻ.
+- Giá mua/bán trong `GOLD_PRICES` chỉ hiển thị tham chiếu; thay đổi giá kho không làm đổi giá bán lẻ và ngược lại.
+- Xuất NVL vàng dùng `ISSUE_PRICE_PER_CHI`; đá/phụ kiện vẫn dùng giá vốn tồn kho hiện hành.
+- Giá trị xuất thành phẩm = `GOLD_WEIGHT × ISSUE_PRICE_PER_CHI + LABOR_COST + NON_GOLD_MATERIAL_COST`.
+- Khi POST phải chốt ID bảng giá, giá/chỉ, trọng lượng vàng, tiền công và chi phí phi vàng trên dòng chứng từ. Thay đổi bảng giá sau này không được làm đổi chứng từ cũ.
+- Loại vàng kho chưa có dòng tương ứng hoặc có giá bằng 0 phải chặn ghi sổ với thông báo cấu hình bảng giá.
 
 ## 9. Transaction và đồng thời
 
@@ -115,6 +144,8 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 | `warehouse.material.read` | Đọc tồn / chứng từ |
 | `warehouse.receipt.write` | Nháp / ghi sổ nhập NVL |
 | `warehouse.receipt.post` | Ghi sổ nhập |
+| `warehouse.issue.write` / `warehouse.issue.post` | Lập / ghi sổ xuất NVL |
+| `warehouse.transfer.write` / `warehouse.transfer.post` | Lập / ghi sổ chuyển kho |
 | `warehouse.craft.outsource` | Xuất / thu hồi thợ ngoài |
 | `warehouse.craft.settle.override` | Thu hồi vượt lượng (điều chỉnh) |
 | `warehouse.finished.issue` | Xuất thành phẩm theo đơn |

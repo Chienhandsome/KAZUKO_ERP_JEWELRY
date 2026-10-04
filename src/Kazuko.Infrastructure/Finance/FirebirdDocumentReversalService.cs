@@ -72,7 +72,12 @@ public sealed class FirebirdDocumentReversalService : IDocumentReversalService
                 connection, fbTx, documentId, reason, session.UserId, cancellationToken);
 
             if (docType == StockDocumentTypes.FinishedGoodsIssue)
-                await ClearFinishedGoodsIssueMarkAsync(connection, fbTx, documentId, session.BranchId, cancellationToken);
+                await ClearFinishedGoodsIssueMarkAsync(
+                    connection, fbTx, companyId, documentId, session.BranchId, session.UserId, cancellationToken);
+
+            if (docType == StockDocumentTypes.Transfer)
+                await ReverseFinishedProductTransferAsync(
+                    connection, fbTx, companyId, documentId, session.BranchId, session.UserId, cancellationToken);
 
             if (docType == StockDocumentTypes.CraftReturnReceipt)
                 await ReverseCraftReturnOutputsAsync(connection, fbTx, companyId, session.BranchId, documentId, session.UserId, cancellationToken);
@@ -543,18 +548,26 @@ public sealed class FirebirdDocumentReversalService : IDocumentReversalService
     private static async Task ClearFinishedGoodsIssueMarkAsync(
         FbConnection connection,
         FbTransaction transaction,
+        long companyId,
         long documentId,
         long branchId,
+        long userId,
         CancellationToken cancellationToken)
     {
         long? salesOrderId = null;
+        long? documentSourceLocationId = null;
         await using (var cmd = new FbCommand(
-            "SELECT SALES_ORDER_ID FROM STOCK_DOCUMENTS WHERE ID = @ID", connection, transaction))
+            "SELECT SALES_ORDER_ID, SOURCE_LOCATION_ID FROM STOCK_DOCUMENTS WHERE ID = @ID", connection, transaction))
         {
             cmd.Parameters.Add("@ID", FbDbType.BigInt).Value = documentId;
-            var obj = await cmd.ExecuteScalarAsync(cancellationToken);
-            if (obj is not null and not DBNull)
-                salesOrderId = Convert.ToInt64(obj);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                if (!reader.IsDBNull(0))
+                    salesOrderId = reader.GetInt64(0);
+                if (!reader.IsDBNull(1))
+                    documentSourceLocationId = reader.GetInt64(1);
+            }
         }
 
         if (salesOrderId is not > 0)
@@ -571,14 +584,118 @@ public sealed class FirebirdDocumentReversalService : IDocumentReversalService
         clearSo.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
         await clearSo.ExecuteNonQueryAsync(cancellationToken);
 
-        await using var restoreFp = new FbCommand("""
-            UPDATE FINISHED_PRODUCTS
-               SET STATUS_CODE = 'IN_STOCK'
-             WHERE SALES_ORDER_ID = @SO AND STATUS_CODE = 'SOLD' AND BRANCH_ID = @BID
-            """, connection, transaction);
-        restoreFp.Parameters.Add("@SO", FbDbType.BigInt).Value = salesOrderId.Value;
-        restoreFp.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
-        await restoreFp.ExecuteNonQueryAsync(cancellationToken);
+        var products = new List<(long ProductId, long SourceLocationId, string StatusBefore, decimal UnitCost)>();
+        await using (var lineCmd = new FbCommand("""
+            SELECT FINISHED_PRODUCT_ID, SOURCE_LOCATION_ID, STATUS_BEFORE, UNIT_COST
+            FROM FINISHED_PRODUCT_DOCUMENT_LINES
+            WHERE DOCUMENT_ID = @DOC
+            ORDER BY LINE_NUMBER
+            """, connection, transaction))
+        {
+            lineCmd.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+            await using var reader = await lineCmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                products.Add((reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetDecimal(3)));
+        }
+
+        // Chứng từ tạo trước migration 0040 chưa lưu từng serial trong bảng dòng thành phẩm.
+        // Giữ khả năng hoàn tác cũ bằng cách khôi phục các món SOLD của chính đơn hàng về kho nguồn chứng từ.
+        if (products.Count == 0 && documentSourceLocationId is > 0)
+        {
+            await using var legacyProducts = new FbCommand("""
+                SELECT ID, COALESCE(TOTAL_COST, 0)
+                FROM FINISHED_PRODUCTS
+                WHERE SALES_ORDER_ID = @SO AND STATUS_CODE = 'SOLD'
+                  AND LOCATION_ID IS NULL AND BRANCH_ID = @BID
+                ORDER BY ID
+                WITH LOCK
+                """, connection, transaction);
+            legacyProducts.Parameters.Add("@SO", FbDbType.BigInt).Value = salesOrderId.Value;
+            legacyProducts.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+            await using var legacyReader = await legacyProducts.ExecuteReaderAsync(cancellationToken);
+            while (await legacyReader.ReadAsync(cancellationToken))
+                products.Add((legacyReader.GetInt64(0), documentSourceLocationId.Value, "IN_STOCK", legacyReader.GetDecimal(1)));
+        }
+
+        foreach (var product in products)
+        {
+            await using var restoreFp = new FbCommand("""
+                UPDATE FINISHED_PRODUCTS
+                   SET STATUS_CODE = @STATUS,
+                       LOCATION_ID = @LOCATION,
+                       ROW_VERSION = ROW_VERSION + 1
+                 WHERE ID = @ID AND STATUS_CODE = 'SOLD' AND LOCATION_ID IS NULL AND BRANCH_ID = @BID
+                """, connection, transaction);
+            restoreFp.Parameters.Add("@STATUS", FbDbType.VarChar, 30).Value = product.StatusBefore;
+            restoreFp.Parameters.Add("@LOCATION", FbDbType.BigInt).Value = product.SourceLocationId;
+            restoreFp.Parameters.Add("@ID", FbDbType.BigInt).Value = product.ProductId;
+            restoreFp.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+            if (await restoreFp.ExecuteNonQueryAsync(cancellationToken) != 1)
+                throw new InvalidOperationException($"Không thể hoàn tồn thành phẩm #{product.ProductId}.");
+
+            await FirebirdFinishedProductTransferService.InsertMovementAsync(
+                connection, transaction, companyId, branchId, product.ProductId,
+                "IN", "FINISHED_GOODS_ISSUE", documentId, 1m, product.UnitCost,
+                product.SourceLocationId, null, product.SourceLocationId,
+                "SOLD", product.StatusBefore, userId, cancellationToken);
+        }
+    }
+
+    private static async Task ReverseFinishedProductTransferAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long documentId,
+        long branchId,
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        var products = new List<(long ProductId, long SourceId, long DestinationId, string Before, string After, decimal Cost)>();
+        await using (var command = new FbCommand("""
+            SELECT FINISHED_PRODUCT_ID, SOURCE_LOCATION_ID, DESTINATION_LOCATION_ID,
+                   STATUS_BEFORE, STATUS_AFTER, UNIT_COST
+            FROM FINISHED_PRODUCT_DOCUMENT_LINES
+            WHERE DOCUMENT_ID = @DOC AND DESTINATION_LOCATION_ID IS NOT NULL
+            ORDER BY LINE_NUMBER
+            """, connection, transaction))
+        {
+            command.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                products.Add((reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2),
+                    reader.GetString(3), reader.GetString(4), reader.GetDecimal(5)));
+        }
+
+        foreach (var product in products)
+        {
+            await using var update = new FbCommand("""
+                UPDATE FINISHED_PRODUCTS
+                   SET LOCATION_ID = @SOURCE,
+                       STATUS_CODE = @BEFORE,
+                       ROW_VERSION = ROW_VERSION + 1
+                 WHERE ID = @ID AND BRANCH_ID = @BID
+                   AND LOCATION_ID = @DESTINATION AND STATUS_CODE = @AFTER
+                """, connection, transaction);
+            update.Parameters.Add("@SOURCE", FbDbType.BigInt).Value = product.SourceId;
+            update.Parameters.Add("@BEFORE", FbDbType.VarChar, 30).Value = product.Before;
+            update.Parameters.Add("@ID", FbDbType.BigInt).Value = product.ProductId;
+            update.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+            update.Parameters.Add("@DESTINATION", FbDbType.BigInt).Value = product.DestinationId;
+            update.Parameters.Add("@AFTER", FbDbType.VarChar, 30).Value = product.After;
+            if (await update.ExecuteNonQueryAsync(cancellationToken) != 1)
+                throw new InvalidOperationException($"Không thể hoàn chuyển thành phẩm #{product.ProductId}.");
+
+            await FirebirdFinishedProductTransferService.InsertMovementAsync(
+                connection, transaction, companyId, branchId, product.ProductId,
+                "OUT", "TRANSFER", documentId, -1m, product.Cost,
+                product.DestinationId, product.DestinationId, product.SourceId,
+                product.After, product.Before, userId, cancellationToken);
+            await FirebirdFinishedProductTransferService.InsertMovementAsync(
+                connection, transaction, companyId, branchId, product.ProductId,
+                "IN", "TRANSFER", documentId, 1m, product.Cost,
+                product.SourceId, product.DestinationId, product.SourceId,
+                product.After, product.Before, userId, cancellationToken);
+        }
     }
 
     private static async Task ReverseCraftReturnOutputsAsync(
