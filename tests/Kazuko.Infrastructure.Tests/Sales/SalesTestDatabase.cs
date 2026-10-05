@@ -61,6 +61,7 @@ internal sealed class SalesTestDatabase : IDisposable
     public long SalesFloorLocationId { get; private set; }
     public long OldGoldLocationId { get; private set; }
     public long OldGoldMaterialId { get; private set; }
+    public long OldGoldPriceId { get; private set; }
     public long RetailGoldPriceId { get; private set; }
     public long NamedCustomerId { get; private set; }
     public long SalespersonId { get; private set; }
@@ -211,25 +212,32 @@ internal sealed class SalesTestDatabase : IDisposable
                 .Concat(boundedLocations.Take(99))
                 .ToArray();
 
-            OldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
-                "T3_GOLD_750", "Task 3 Gold 750", "T3_750", true);
-            _ = await InsertMaterialAsync(connection, transaction, CompanyId,
-                "T3_GOLD_INACTIVE", "Task 3 Inactive Gold", "T3_INACTIVE", false);
-            _ = await InsertMaterialAsync(connection, transaction, OtherCompanyId,
-                "T3_GOLD_750", "Task 3 Other Gold 750", "T3_750", true);
             RetailGoldPriceId = await InsertGoldPriceAsync(connection, transaction, CompanyId,
                 "T3_750", "Task 3 Price 750", 0.75m, 77m, 111m, true);
+            OldGoldPriceId = RetailGoldPriceId;
+            _ = await InsertGoldPriceAsync(connection, transaction, CompanyId,
+                "T3_TASK_ALT", "Task 3 Alternate Price 750", 0.75m, 66m, 99m, true);
             var otherCompanyGoldPriceId = await InsertGoldPriceAsync(connection, transaction, OtherCompanyId,
                 "T3_750", "Task 3 Other Price 750", 0.75m, 88m, 222m, true);
             var inactiveGoldPriceId = await InsertGoldPriceAsync(connection, transaction, CompanyId,
                 "T3_INACTIVE_PRICE", "Task 3 Inactive Price", 0.75m, 66m, 99m, false);
+            OldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_750", "Task 3 Gold 750", "T3_750", true, OldGoldPriceId);
+            _ = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_INACTIVE", "Task 3 Inactive Gold", "T3_INACTIVE", false, OldGoldPriceId);
+            _ = await InsertMaterialAsync(connection, transaction, OtherCompanyId,
+                "T3_GOLD_750", "Task 3 Other Gold 750", "T3_750", true, otherCompanyGoldPriceId);
+            _ = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "GOLD_T3_TASK_ALT", "Task 3 Ambiguous Gold", "T3_750", true);
+            _ = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_UNMAPPED", "Task 3 Unmapped Gold", "NO_PRICE", true);
             var boundedMaterials = new List<long>();
             for (var index = 0; index < 105; index++)
             {
                 var sortKey = 104 - index;
                 boundedMaterials.Insert(0, await InsertMaterialAsync(connection, transaction, CompanyId,
                     $"T3_BOUND_GOLD_{index:000}", $"000 Task 3 Gold Material {sortKey:000}",
-                    "T3_750", true));
+                    "T3_750", true, OldGoldPriceId));
             }
             ExpectedOldGoldMaterialIds = boundedMaterials.Take(100).ToArray();
 
@@ -406,15 +414,17 @@ internal sealed class SalesTestDatabase : IDisposable
         string code,
         string name,
         string purity,
-        bool active) =>
+        bool active,
+        long? oldGoldPriceId = null) =>
         InsertIdAsync(connection, transaction, """
             INSERT INTO MATERIALS
                 (COMPANY_ID, CODE, NAME, MATERIAL_TYPE, PURITY_CODE, UNIT_CODE,
-                 REFERENCE_COST, IS_ACTIVE, TRACKING_MODE, MIN_STOCK)
-            VALUES (@CID, @CODE, @NAME, 'GOLD', @PURITY, 'CHI', 0, @ACTIVE, 'WEIGHT', 0)
+                 REFERENCE_COST, IS_ACTIVE, TRACKING_MODE, MIN_STOCK, OLD_GOLD_PRICE_ID)
+            VALUES (@CID, @CODE, @NAME, 'GOLD', @PURITY, 'CHI', 0, @ACTIVE, 'WEIGHT', 0,
+                    @OLD_GOLD_PRICE)
             RETURNING ID
             """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
-            ("@PURITY", purity), ("@ACTIVE", active));
+            ("@PURITY", purity), ("@ACTIVE", active), ("@OLD_GOLD_PRICE", oldGoldPriceId));
 
     private static Task<long> InsertGoldPriceAsync(
         FbConnection connection,

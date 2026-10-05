@@ -35,6 +35,16 @@ public sealed class SalesContractTests
     }
 
     [Fact]
+    public void Old_gold_material_lookup_carries_explicit_price_source_identity()
+    {
+        var material = new OldGoldMaterialOption(1, "GOLD_750", "Gold 750", 2, 75m, 77m);
+
+        Assert.Equal(2L, material.OldGoldPriceId);
+        Assert.Equal(75m, material.ValuePercent);
+        Assert.Equal(77m, material.SourceBuyPricePerChi);
+    }
+
+    [Fact]
     public void Receipt_preserves_cashier_snapshot_independently_from_salesperson()
     {
         var detail = new SalesCheckoutDetail(1, "MB26/00001", SalesCheckoutTypes.Sale, new DateTime(2026, 10, 5),

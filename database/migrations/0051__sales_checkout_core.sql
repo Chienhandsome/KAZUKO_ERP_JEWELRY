@@ -4,9 +4,9 @@ KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
 ================================================================================
 Migration Version: 51
 Migration Name:    SALES_CHECKOUT_CORE
-Description:       Add explicit retail price sources, immutable checkout headers,
-                   old-gold snapshots, offsets, sales-line price snapshots,
-                   payment linkage and CARD support.
+Description:       Add explicit retail and old-gold price sources, immutable
+                   checkout headers, old-gold snapshots, offsets, sales-line
+                   price snapshots, payment linkage and CARD support.
 Target Database:   Firebird 5.0 (Dialect 3, UTF8)
 
 Rollback notes (forward-only ledger):
@@ -41,9 +41,9 @@ BEGIN
         'STOCK_DOCUMENTS', 'STOCK_DOCUMENT_LINES', 'FINANCIAL_SETTLEMENTS',
         'FINANCIAL_SETTLEMENT_ALLOCATIONS', 'RECEIVABLE_DEBTS',
         'CASH_VOUCHERS', 'PERMISSIONS', 'ROLE_PERMISSIONS',
-        'FINISHED_PRODUCTS', 'GOLD_PRICES')
+        'FINISHED_PRODUCTS', 'MATERIALS', 'GOLD_PRICES')
     INTO :v_cnt;
-    IF (:v_cnt <> 13) THEN
+    IF (:v_cnt <> 14) THEN
         EXCEPTION EX_MIGRATION_CHECK 'Thieu bang tien quyet cho sales checkout.';
 END^
 SET TERM ; ^
@@ -54,6 +54,13 @@ ALTER TABLE FINISHED_PRODUCTS ADD CONSTRAINT FK_FP_RETAIL_GOLD_PRICE
     FOREIGN KEY (RETAIL_GOLD_PRICE_ID) REFERENCES GOLD_PRICES (ID);
 CREATE INDEX IX_FP_RETAIL_GOLD_PRICE
     ON FINISHED_PRODUCTS (RETAIL_GOLD_PRICE_ID);
+
+/* ---- Explicit, persisted buy-price source for each old-gold material ---- */
+ALTER TABLE MATERIALS ADD OLD_GOLD_PRICE_ID BIGINT;
+ALTER TABLE MATERIALS ADD CONSTRAINT FK_MATERIAL_OLD_GOLD_PRICE
+    FOREIGN KEY (OLD_GOLD_PRICE_ID) REFERENCES GOLD_PRICES (ID);
+CREATE INDEX IX_MATERIAL_OLD_GOLD_PRICE
+    ON MATERIALS (OLD_GOLD_PRICE_ID);
 
 /* ---- Immutable checkout header / idempotency boundary ---- */
 CREATE TABLE SALES_CHECKOUTS (
@@ -321,6 +328,37 @@ WHERE F.RETAIL_GOLD_PRICE_ID IS NULL
         AND GP.IS_ACTIVE = TRUE
         AND UPPER(TRIM(GP.CODE)) = UPPER(TRIM(COALESCE(F.GOLD_PURITY, ''))));
 
+/*
+Old-gold materials are backfilled only when all exact canonical candidates
+resolve to one active price row in the same company. A candidate may match the
+exact purity/price code, the exact material/price code, or the exact suffix of
+a canonical GOLD_<price-code> material code. Ambiguous or unmapped rows remain
+NULL and are intentionally ineligible until explicitly configured.
+*/
+UPDATE MATERIALS M
+SET M.OLD_GOLD_PRICE_ID = (
+    SELECT MIN(GP.ID)
+    FROM GOLD_PRICES GP
+    WHERE GP.COMPANY_ID = M.COMPANY_ID
+      AND GP.IS_ACTIVE = TRUE
+      AND (
+          UPPER(TRIM(GP.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
+          OR UPPER(TRIM(GP.CODE)) = UPPER(TRIM(M.CODE))
+          OR (UPPER(TRIM(M.CODE)) STARTING WITH 'GOLD_'
+              AND UPPER(TRIM(GP.CODE)) = UPPER(TRIM(SUBSTRING(TRIM(M.CODE) FROM 6))))))
+WHERE M.OLD_GOLD_PRICE_ID IS NULL
+  AND M.MATERIAL_TYPE = 'GOLD'
+  AND 1 = (
+      SELECT COUNT(*)
+      FROM GOLD_PRICES GP
+      WHERE GP.COMPANY_ID = M.COMPANY_ID
+        AND GP.IS_ACTIVE = TRUE
+        AND (
+            UPPER(TRIM(GP.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
+            OR UPPER(TRIM(GP.CODE)) = UPPER(TRIM(M.CODE))
+            OR (UPPER(TRIM(M.CODE)) STARTING WITH 'GOLD_'
+                AND UPPER(TRIM(GP.CODE)) = UPPER(TRIM(SUBSTRING(TRIM(M.CODE) FROM 6))))));
+
 /* ---- Canonical branch/year document sequences ---- */
 INSERT INTO DOCUMENT_SEQUENCES
     (DOCUMENT_TYPE, BRANCH_ID, YEAR_NO, LAST_NUMBER, UPDATED_AT)
@@ -397,6 +435,13 @@ BEGIN
     INTO :v_cnt;
     IF (:v_cnt <> 1) THEN
         EXCEPTION EX_MIGRATION_CHECK 'Khong tao RETAIL_GOLD_PRICE_ID.';
+
+    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
+    WHERE RDB$RELATION_NAME = 'MATERIALS'
+      AND RDB$FIELD_NAME = 'OLD_GOLD_PRICE_ID'
+    INTO :v_cnt;
+    IF (:v_cnt <> 1) THEN
+        EXCEPTION EX_MIGRATION_CHECK 'Khong tao OLD_GOLD_PRICE_ID.';
 
     SELECT COUNT(*) FROM RDB$RELATIONS
     WHERE RDB$RELATION_NAME IN (

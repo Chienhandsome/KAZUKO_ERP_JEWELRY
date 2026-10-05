@@ -107,7 +107,7 @@ public sealed class SalesQueryRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetOldGoldMaterialsAsync_ReturnsActiveCompanyGoldWithTrustedBuyPrice()
+    public async Task GetOldGoldMaterialsAsync_ReturnsOnlyExplicitActiveCompanyPriceMappings()
     {
         var result = await _repository.GetOldGoldMaterialsAsync(
             _database.BranchSession(_database.LimitedUserId));
@@ -116,10 +116,13 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         Assert.Equal(_database.ExpectedOldGoldMaterialIds, result.Select(item => item.Id));
         Assert.All(result, material =>
         {
+            Assert.Equal(_database.OldGoldPriceId, material.OldGoldPriceId);
             Assert.Equal(75m, material.ValuePercent);
             Assert.Equal(77m, material.SourceBuyPricePerChi);
         });
         Assert.DoesNotContain(result, item => item.Code == "T3_GOLD_INACTIVE");
+        Assert.DoesNotContain(result, item => item.Name == "Task 3 Ambiguous Gold");
+        Assert.DoesNotContain(result, item => item.Code == "T3_GOLD_UNMAPPED");
         Assert.DoesNotContain(result, item => item.Name == "Task 3 Other Gold 750");
     }
 

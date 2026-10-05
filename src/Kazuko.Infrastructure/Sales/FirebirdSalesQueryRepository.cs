@@ -180,20 +180,12 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
             return result;
 
         await using var command = new FbCommand($"""
-            SELECT M.ID, M.CODE, M.NAME, GP.PURITY_RATE * 100, GP.BUY_PRICE_PER_CHI
+            SELECT M.ID, M.CODE, M.NAME, GP.ID,
+                   GP.PURITY_RATE * 100, GP.BUY_PRICE_PER_CHI
             FROM MATERIALS M
-            JOIN GOLD_PRICES GP ON GP.ID = (
-                SELECT FIRST 1 GX.ID
-                FROM GOLD_PRICES GX
-                WHERE GX.COMPANY_ID = M.COMPANY_ID
-                  AND GX.IS_ACTIVE = TRUE
-                  AND (UPPER(TRIM(GX.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
-                       OR UPPER(TRIM(COALESCE(M.PURITY_CODE, ''))) CONTAINING UPPER(TRIM(GX.CODE)))
-                ORDER BY
-                    CASE WHEN UPPER(TRIM(GX.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
-                         THEN 0 ELSE 1 END,
-                    CHAR_LENGTH(TRIM(GX.CODE)) DESC,
-                    GX.ID)
+            JOIN GOLD_PRICES GP ON GP.ID = M.OLD_GOLD_PRICE_ID
+                               AND GP.COMPANY_ID = M.COMPANY_ID
+                               AND GP.IS_ACTIVE = TRUE
             WHERE M.COMPANY_ID = @COMPANY_ID
               AND M.MATERIAL_TYPE = 'GOLD'
               AND M.IS_ACTIVE = TRUE
@@ -209,8 +201,9 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
                 reader.GetInt64(0),
                 reader.GetString(1),
                 reader.GetString(2),
-                reader.GetDecimal(3),
-                reader.GetDecimal(4)));
+                reader.GetInt64(3),
+                reader.GetDecimal(4),
+                reader.GetDecimal(5)));
         }
 
         return result;
