@@ -360,12 +360,13 @@ COMMIT;
 - **Tệp nguồn:** `database/migrations/0051__sales_checkout_core.sql`.
 - **Verification:** `database/verification/verify_sales_checkout_core.sql` (fail-fast bằng `EX_VERIFY_FAILED`).
 - **Artifact SHA-256 đã xác minh trên bản copy:**
-  `2390791BAEE7795E980AD35DBE34857F2C3C82A7BBD6E79D48E00C9BD5EA3E96`.
+  `7A2067052AD3E5F071AC9B8205B48016CE6E263FDE24A1F5CD225A2C5A24B5E4`.
 - **Tính nguyên tử:** artifact không tự kết thúc transaction; `Invoke-KazukoMigration.ps1` quản lý snapshot, ranh giới DDL/DML, ledger và khôi phục khi lỗi.
 
 ### 19.1. Schema checkout và snapshot
 
 - `SALES_CHECKOUTS` lưu công ty/chi nhánh, mã/ngày/loại checkout, khách hàng, nhân viên bán hàng, kho, bốn tổng tiền (`SALE_GROSS_VND`, `OLD_GOLD_TOTAL_VND`, `DISCOUNT_AMOUNT_VND`, `NET_AMOUNT_VND`), các chứng từ con, audit và trạng thái `POSTED`.
+- Mã checkout unique theo `(BRANCH_ID, CODE)`, cùng scope với sequence chi nhánh/năm; các chi nhánh có thể dùng cùng tiền tố và số thứ tự mà không va chạm nhau.
 - `NET_AMOUNT_VND` là số có dấu và được ràng buộc bằng `SALE_GROSS_VND - DISCOUNT_AMOUNT_VND - OLD_GOLD_TOTAL_VND`; chỉ ba thành phần đầu vào phải không âm.
 - Idempotency dùng `CLIENT_REQUEST_ID CHAR(36)` và `REQUEST_HASH CHAR(64)`; unique `(BRANCH_ID, CLIENT_REQUEST_ID)` ngăn ghi hai checkout cho cùng yêu cầu trong một chi nhánh.
 - `SALES_OLD_GOLD_LINES` lưu toàn bộ input/derived snapshot: số món, trọng lượng tổng/đá/tạp chất/vàng/quy đổi, phần trăm giá trị, giá mua nguồn/áp dụng, thành tiền, override/lý do, material và một `STOCK_DOCUMENT_LINE_ID` duy nhất để truy xuất từng lô.
