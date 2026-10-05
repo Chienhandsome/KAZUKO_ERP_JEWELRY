@@ -81,3 +81,7 @@ Schema dự kiến gồm `FORM_DEFINITIONS`, `FORM_FIELDS`, `FORM_ACTIONS`, `FOR
 - Nội dung migration có checksum; production phải dừng nếu checksum của migration đã chạy bị thay đổi.
 - Migration module chạy sau backup và trước activation.
 - Mỗi migration phải idempotent khi hợp lý và có kế hoạch phục hồi dữ liệu.
+
+## Báo cáo / in ấn
+
+Quyết định mẫu báo cáo A4 và xem trước/in: xem `docs/09-REPORTING.md` (FastReport Open Source + file `.frx`).

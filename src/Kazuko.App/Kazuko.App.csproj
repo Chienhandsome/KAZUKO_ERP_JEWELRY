@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Modules\Kazuko.Modules.Debt\Kazuko.Modules.Debt.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.HumanResources\Kazuko.Modules.HumanResources.csproj" />
     <ProjectReference Include="..\Modules\Kazuko.Modules.PriceBoard\Kazuko.Modules.PriceBoard.csproj" />
+    <ProjectReference Include="..\Modules\Kazuko.Modules.Reports\Kazuko.Modules.Reports.csproj" />
   </ItemGroup>
   <ItemGroup Condition="Exists('$(FirebirdHome)\fbclient.dll')">
     <Content Include="$(FirebirdHome)\*.dll">

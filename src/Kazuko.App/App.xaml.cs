@@ -8,6 +8,7 @@ using Kazuko.Core.HumanResources;
 using Kazuko.Core.Modules;
 using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
+using Kazuko.Core.Reports;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Updates;
 using Kazuko.Core.Warehouse;
@@ -17,6 +18,7 @@ using Kazuko.Infrastructure.Finance;
 using Kazuko.Infrastructure.HumanResources;
 using Kazuko.Infrastructure.PriceBoard;
 using Kazuko.Infrastructure.Production;
+using Kazuko.Infrastructure.Reports;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Suppliers;
 using Kazuko.Infrastructure.Updates;
@@ -29,6 +31,7 @@ using Kazuko.Modules.Debt;
 using Kazuko.Modules.HumanResources;
 using Kazuko.Modules.PriceBoard;
 using Kazuko.Modules.Production;
+using Kazuko.Modules.Reports;
 using Kazuko.Modules.Sales;
 using Kazuko.Modules.Suppliers;
 using Kazuko.Modules.Warehouse;
@@ -93,6 +96,7 @@ public partial class App : Application
         IProductionApplicationService productionApplication =
             new FirebirdProductionApplicationService(productionAttachments);
         IProductionPrintDataService productionPrintData = new FirebirdProductionPrintDataService();
+        IJewelryOnHandReportService jewelryOnHandReport = new FirebirdJewelryOnHandReportService();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -131,6 +135,7 @@ public partial class App : Application
         _services.AddSingleton(productionApplication);
         _services.AddSingleton(productionAttachments);
         _services.AddSingleton(productionPrintData);
+        _services.AddSingleton(jewelryOnHandReport);
     }
 
     private void RegisterModules()
@@ -145,7 +150,8 @@ public partial class App : Application
             new WarehouseModule(),
             new DebtModule(),
             new HumanResourcesModule(),
-            new PriceBoardModule()
+            new PriceBoardModule(),
+            new ReportsModule()
         ];
         foreach (var module in modules)
         {
