@@ -24,4 +24,4 @@ public static class SalesCheckoutStatuses
 
 public sealed record SalesPermissionSnapshot(bool CanPost, bool CanOverridePrice, bool CanApproveDebt, bool CanChangeSalesperson, bool CanReadHistory, bool CanPrintReceipt);
 /// <summary>HasPriceOverride is resolved against trusted source prices by the application service.</summary>
-public sealed record SalesValidationContext(bool IsWalkInCustomer, long CurrentUserId, SalesPermissionSnapshot Permissions, bool HasPriceOverride = false);
+public sealed record SalesValidationContext(bool IsWalkInCustomer, long CurrentUserId, SalesPermissionSnapshot Permissions, bool HasPriceOverride);
