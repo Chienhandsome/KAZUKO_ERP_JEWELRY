@@ -127,6 +127,13 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             throw new InvalidOperationException(
                 "Đơn bán đã được gắn với một lệnh sản xuất khác. Không thể tạo lệnh thứ hai cho cùng đơn bán.");
         }
+        catch (FbException ex) when (IsLegacyNotNullViolation(ex))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException(
+                "Không lưu được lệnh: cột legacy trên PRODUCTION_ORDERS vẫn bắt buộc NOT NULL. " +
+                "Đóng app và chạy migration 50 (`0050__production_legacy_columns_nullable.sql`).");
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -1530,7 +1537,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                            ORIGINAL_FILE_NAME = @ORIG,
                            MIME_TYPE = @MIME,
                            CAPTION = @CAP,
-                           DISPLAY_ORDER = @ORD
+                           DISPLAY_ORDER = @ORD,
+                           LINE_NUMBER = @LN
                      WHERE ID = @ID AND PRODUCTION_ORDER_ID = @OID
                     """, connection, transaction);
                 update.Parameters.Add("@ID", FbDbType.BigInt).Value = attachment.Id.Value;
@@ -1543,6 +1551,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 update.Parameters.Add("@CAP", FbDbType.VarChar, 300).Value =
                     string.IsNullOrWhiteSpace(attachment.Caption) ? DBNull.Value : attachment.Caption.Trim();
                 update.Parameters.Add("@ORD", FbDbType.Integer).Value = attachment.DisplayOrder;
+                update.Parameters.Add("@LN", FbDbType.Integer).Value =
+                    attachment.LineNumber is > 0 ? attachment.LineNumber.Value : DBNull.Value;
                 await update.ExecuteNonQueryAsync(cancellationToken);
             }
             else
@@ -1550,9 +1560,9 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 await using var insert = new FbCommand("""
                     INSERT INTO PRODUCTION_ATTACHMENTS
                         (PRODUCTION_ORDER_ID, ATTACHMENT_KIND, STORED_PATH, ORIGINAL_FILE_NAME,
-                         MIME_TYPE, CAPTION, DISPLAY_ORDER, CREATED_BY)
+                         MIME_TYPE, CAPTION, DISPLAY_ORDER, LINE_NUMBER, CREATED_BY)
                     VALUES
-                        (@OID, @KIND, @PATH, @ORIG, @MIME, @CAP, @ORD, @BY)
+                        (@OID, @KIND, @PATH, @ORIG, @MIME, @CAP, @ORD, @LN, @BY)
                     """, connection, transaction);
                 insert.Parameters.Add("@OID", FbDbType.BigInt).Value = orderId;
                 insert.Parameters.Add("@KIND", FbDbType.VarChar, 30).Value = attachment.AttachmentKind.Trim().ToUpperInvariant();
@@ -1563,6 +1573,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 insert.Parameters.Add("@CAP", FbDbType.VarChar, 300).Value =
                     string.IsNullOrWhiteSpace(attachment.Caption) ? DBNull.Value : attachment.Caption.Trim();
                 insert.Parameters.Add("@ORD", FbDbType.Integer).Value = attachment.DisplayOrder;
+                insert.Parameters.Add("@LN", FbDbType.Integer).Value =
+                    attachment.LineNumber is > 0 ? attachment.LineNumber.Value : DBNull.Value;
                 insert.Parameters.Add("@BY", FbDbType.BigInt).Value = userId > 0 ? userId : DBNull.Value;
                 await insert.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -2024,4 +2036,20 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
     private static bool IsSalesOrderUniqueViolation(FbException ex) =>
         ex.ErrorCode == 335544665
         || (ex.Message?.Contains("UQ_PO_SALES_ORDER", StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private static bool IsLegacyNotNullViolation(FbException ex)
+    {
+        var message = ex.Message ?? string.Empty;
+        if (!message.Contains("validation error", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("*** null ***", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return message.Contains("SALES_ORDER_ID", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("SALES_ORDER_ITEM_ID", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("CUSTOMER_ID", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("DESIGN_ID", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("BOM_ID", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("PRODUCT_NAME", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("\"QUANTITY\"", StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -4,11 +4,18 @@ namespace Kazuko.Infrastructure.Production;
 
 public sealed class LocalProductionAttachmentStore : IProductionAttachmentStore
 {
-    private const long MaxFileBytes = 10 * 1024 * 1024;
+    private const long MaxImageBytes = 10 * 1024 * 1024;
+    private const long MaxDesignBytes = 50 * 1024 * 1024;
 
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".webp"
+    };
+
+    private static readonly HashSet<string> DesignExtraExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pdf", ".ai", ".cdr", ".dxf", ".dwg", ".psd", ".svg",
+        ".zip", ".rar", ".7z", ".doc", ".docx", ".xls", ".xlsx"
     };
 
     public string ManagedRoot => Path.Combine(
@@ -20,19 +27,40 @@ public sealed class LocalProductionAttachmentStore : IProductionAttachmentStore
 
     public async Task<string> ImportToStagingAsync(
         string sourceFilePath,
+        string attachmentKind = ProductionAttachmentKinds.CustomerRequirement,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceFilePath);
         if (!File.Exists(sourceFilePath))
             throw new FileNotFoundException("Không tìm thấy file đã chọn.", sourceFilePath);
 
+        var kind = (attachmentKind ?? string.Empty).Trim().ToUpperInvariant();
         var extension = Path.GetExtension(sourceFilePath);
-        if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension))
-            throw new InvalidOperationException("Chỉ hỗ trợ ảnh JPG, JPEG, PNG hoặc WEBP.");
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new InvalidOperationException("File không có phần mở rộng hợp lệ.");
+
+        var isDesign = kind == ProductionAttachmentKinds.Design;
+        var allowed = isDesign
+            ? ImageExtensions.Concat(DesignExtraExtensions).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : ImageExtensions;
+
+        if (!allowed.Contains(extension))
+        {
+            throw new InvalidOperationException(isDesign
+                ? "File thiết kế chỉ hỗ trợ ảnh (JPG/PNG/WEBP), PDF, AI, CDR, DXF, DWG, PSD, SVG hoặc ZIP/RAR/7Z/Office."
+                : "Ảnh mẫu chỉ hỗ trợ JPG, JPEG, PNG hoặc WEBP.");
+        }
 
         var info = new FileInfo(sourceFilePath);
-        if (info.Length > MaxFileBytes)
-            throw new InvalidOperationException("File ảnh vượt quá 10 MB.");
+        var maxBytes = isDesign ? MaxDesignBytes : MaxImageBytes;
+        if (info.Length > maxBytes)
+        {
+            var limitMb = maxBytes / (1024 * 1024);
+            throw new InvalidOperationException(
+                isDesign
+                    ? $"File thiết kế vượt quá {limitMb} MB."
+                    : $"Ảnh mẫu vượt quá {limitMb} MB.");
+        }
 
         Directory.CreateDirectory(StagingRoot);
         var fileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";

@@ -1,0 +1,180 @@
+<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="720" Height="720"
+        MinWidth="640" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="FieldErrorStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Margin" Value="0,2,0,8" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="DialogFieldStyle" TargetType="TextBox">
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="IsEnabled" Value="{Binding IsEditable, Mode=OneWay}" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Hủy" Style="{DynamicResource NavButtonStyle}"
+                    Command="{Binding CancelCommand}" MinHeight="40" MinWidth="96" Margin="0,0,8,0"
+                    IsCancel="True" />
+            <Button Content="Lưu mẫu" Style="{DynamicResource PrimaryButtonStyle}"
+                    Command="{Binding SaveCommand}" MinHeight="40" MinWidth="120"
+                    IsDefault="True"
+                    Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}" />
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource FieldErrorStyle}"
+                           Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Mã mẫu" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding ModelCode, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Tên mẫu *" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,4" />
+                        <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Mã loại vàng *" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,4" />
+                        <TextBox Text="{Binding GoldTypeCode, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}"
+                                 ToolTip="Ví dụ: 9999, 18K, 14K" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Tên loại vàng *" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding GoldTypeName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}"
+                                 ToolTip="Ví dụ: Vàng 9999, Vàng 18K" />
+
+                        <TextBlock Text="Số lượng cần làm *" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,4" />
+                        <TextBox Text="{Binding PlannedQuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Tiền công mỗi món" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,4" />
+                        <TextBox Text="{Binding LaborCostPerUnitText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Mô tả mẫu" Style="{StaticResource FieldLabelStyle}" Margin="0,12,0,4" />
+                <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource DialogFieldStyle}"
+                         MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True"
+                         VerticalContentAlignment="Top" />
+
+                <TextBlock Text="Ghi chú" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,4" />
+                <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource DialogFieldStyle}"
+                         MinHeight="56" TextWrapping="Wrap" AcceptsReturn="True"
+                         VerticalContentAlignment="Top" />
+
+                <TextBlock Text="Ảnh mẫu" FontSize="{DynamicResource FontSize.Subtitle}"
+                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,16,0,8" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8"
+                            Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}">
+                    <Button Content="Thêm ảnh mẫu..." Style="{DynamicResource NavButtonStyle}"
+                            Command="{Binding AddSampleImageCommand}" MinHeight="36" />
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding SampleImages}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Background="{DynamicResource SurfaceBrush}" Padding="8" Margin="0,0,0,6">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Content="Mở" Style="{DynamicResource NavButtonStyle}"
+                                                Command="{Binding DataContext.OpenAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" MinHeight="32" Margin="0,0,4,0" />
+                                        <Button Content="Gỡ" Style="{DynamicResource NavButtonStyle}"
+                                                Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" MinHeight="32"
+                                                Visibility="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding OriginalFileName}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Chưa có ảnh mẫu." Foreground="{DynamicResource TextSecondaryBrush}"
+                           Margin="0,0,0,8"
+                           Visibility="{Binding HasSampleImages, Converter={StaticResource InverseBoolToVis}}" />
+
+                <TextBlock Text="File thiết kế" FontSize="{DynamicResource FontSize.Subtitle}"
+                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,8" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8"
+                            Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}">
+                    <Button Content="Thêm file thiết kế..." Style="{DynamicResource NavButtonStyle}"
+                            Command="{Binding AddDesignFileCommand}" MinHeight="36" />
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding DesignFiles}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Background="{DynamicResource SurfaceBrush}" Padding="8" Margin="0,0,0,6">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Content="Mở" Style="{DynamicResource NavButtonStyle}"
+                                                Command="{Binding DataContext.OpenAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" MinHeight="32" Margin="0,0,4,0" />
+                                        <Button Content="Gỡ" Style="{DynamicResource NavButtonStyle}"
+                                                Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" MinHeight="32"
+                                                Visibility="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+                                    </StackPanel>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding OriginalFileName}"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding KindDisplayName}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="{DynamicResource FontSize.Caption}" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Chưa có file thiết kế." Foreground="{DynamicResource TextSecondaryBrush}"
+                           Visibility="{Binding HasDesignFiles, Converter={StaticResource InverseBoolToVis}}" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

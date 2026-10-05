@@ -35,7 +35,8 @@ Không được trộn nhân viên nội bộ và thợ ngoài trong cùng một
 
 - Một lệnh có 1-nhiều dòng mẫu.
 - Mỗi dòng gồm tối thiểu: tên/mã mẫu, loại vàng, số lượng cần làm, tiền công cho **mỗi món**, mô tả và ghi chú.
-- Có thể đính kèm nhiều ảnh mẫu/yêu cầu khách hàng cho lệnh.
+- Mỗi dòng mẫu có thể đính kèm nhiều **ảnh mẫu** (`CUSTOMER_REQUIREMENT`) và **file thiết kế** (`DESIGN`); liên kết theo `LINE_NUMBER` trên `PRODUCTION_ATTACHMENTS` (ổn định khi replace dòng nháp).
+- Nhập/sửa mẫu qua dialog form, không nhập trực tiếp trên DataGrid.
 - Không lập BOM dự kiến và không nhập ngày dự kiến hoàn thành.
 
 ### 2.4. Giao và nhận nguyên liệu
@@ -168,8 +169,9 @@ Không lưu “quantity” trong `FINISHED_PRODUCTS`; `PLANNED_QUANTITY` chỉ t
 #### `PRODUCTION_ATTACHMENTS`
 
 - `ID`, `PRODUCTION_ORDER_ID`, `ATTACHMENT_KIND` (`DESIGN`, `CUSTOMER_REQUIREMENT`).
+- `LINE_NUMBER` (nullable; migration 48) — gắn đính kèm với dòng mẫu theo số thứ tự; null chỉ còn với dữ liệu cũ cấp lệnh.
 - `STORED_PATH`, `ORIGINAL_FILE_NAME`, `MIME_TYPE`, `CAPTION`, `DISPLAY_ORDER`, audit columns.
-- File ảnh được import qua `IProductionAttachmentStore`; DB không lưu đường dẫn nguồn tạm của người dùng.
+- File được import qua `IProductionAttachmentStore`: ảnh mẫu (JPG/PNG/WEBP) và file thiết kế (thêm PDF/AI/CDR/DXF/DWG/ZIP…); DB không lưu đường dẫn nguồn tạm của người dùng.
 
 #### Sequence
 
@@ -353,7 +355,7 @@ Module tile/sidebar: **SẢN XUẤT**.
 Dùng một cửa sổ/detail page có các tab thông tin, không gọi là “công đoạn”:
 
 1. **Thông tin lệnh**: nguồn, đơn bán, hình thức, thợ/nhân viên, kho, ghi chú.
-2. **Mẫu sản phẩm**: nhiều dòng mẫu, quantity, loại vàng, tiền công/món, ảnh thiết kế.
+2. **Mẫu sản phẩm**: danh sách chỉ đọc; thêm/sửa qua dialog (quantity, loại vàng, tiền công/món, mô tả, ảnh mẫu + file thiết kế theo từng dòng).
 3. **Giao nguyên liệu**: chọn NVL từ tồn kho, số lượng, đơn vị, giá snapshot chỉ đọc, ghi sổ một lần.
 4. **Nhận & đối soát**: actual in-product/trả lại/phế liệu/hao hụt, cảnh báo lệch, ghi nhận một lần.
 5. **QC từng món**: cây/list nhóm theo mẫu; form QC, cấu thành, gallery nhiều ảnh, lịch sử làm lại.

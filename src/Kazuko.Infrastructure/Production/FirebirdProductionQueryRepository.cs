@@ -494,10 +494,10 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
     {
         var attachments = new List<ProductionAttachmentDto>();
         await using var command = new FbCommand("""
-            SELECT ID, ATTACHMENT_KIND, STORED_PATH, ORIGINAL_FILE_NAME, MIME_TYPE, CAPTION, DISPLAY_ORDER
+            SELECT ID, ATTACHMENT_KIND, STORED_PATH, ORIGINAL_FILE_NAME, MIME_TYPE, CAPTION, DISPLAY_ORDER, LINE_NUMBER
             FROM PRODUCTION_ATTACHMENTS
             WHERE PRODUCTION_ORDER_ID = @ID
-            ORDER BY DISPLAY_ORDER, ID
+            ORDER BY COALESCE(LINE_NUMBER, 0), DISPLAY_ORDER, ID
             """, connection);
         command.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -510,7 +510,8 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                 reader.GetString(3),
                 reader.IsDBNull(4) ? null : reader.GetString(4),
                 reader.IsDBNull(5) ? null : reader.GetString(5),
-                reader.GetInt32(6)));
+                reader.GetInt32(6),
+                reader.IsDBNull(7) ? null : reader.GetInt32(7)));
         }
 
         return attachments;

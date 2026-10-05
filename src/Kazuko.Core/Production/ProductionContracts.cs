@@ -157,7 +157,8 @@ public sealed record ProductionAttachmentDto(
     string OriginalFileName,
     string? MimeType,
     string? Caption,
-    int DisplayOrder);
+    int DisplayOrder,
+    int? LineNumber);
 
 public sealed record ProductionMaterialBalanceDto(
     long Id,
@@ -306,6 +307,7 @@ public sealed record ProductionAttachmentDraft(
     string? MimeType,
     string? Caption,
     int DisplayOrder,
+    int? LineNumber = null,
     bool MarkDeleted = false);
 
 public sealed record ProductionOrderDraft(
@@ -503,8 +505,13 @@ public interface IProductionAttachmentStore
 {
     string ManagedRoot { get; }
 
+    /// <summary>
+    /// Import file vào staging. <paramref name="attachmentKind"/> quyết định allow-list:
+    /// CUSTOMER_REQUIREMENT = ảnh mẫu; DESIGN = ảnh hoặc file thiết kế.
+    /// </summary>
     Task<string> ImportToStagingAsync(
         string sourceFilePath,
+        string attachmentKind = ProductionAttachmentKinds.CustomerRequirement,
         CancellationToken cancellationToken = default);
 
     Task<string> FinalizeAsync(

@@ -142,6 +142,30 @@ public sealed class ProductionValidatorTests
     }
 
     [Fact]
+    public void Draft_RejectsAttachmentLinkedToMissingLine()
+    {
+        var draft = ValidStockDraft() with
+        {
+            Attachments =
+            [
+                new ProductionAttachmentDraft(
+                    null,
+                    ProductionAttachmentKinds.Design,
+                    "stage.pdf",
+                    null,
+                    "mau.pdf",
+                    "application/pdf",
+                    null,
+                    0,
+                    LineNumber: 9)
+            ]
+        };
+
+        var errors = ProductionOrderDraftValidator.Validate(draft);
+        Assert.Contains(errors, e => e.Contains("dòng mẫu", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void MaterialIssue_RejectsEmptyOrDuplicateLines()
     {
         var draft = new ProductionMaterialIssueDraft(

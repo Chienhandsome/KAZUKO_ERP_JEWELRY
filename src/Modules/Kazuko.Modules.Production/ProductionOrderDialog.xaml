@@ -42,11 +42,9 @@
                                 <DatePicker SelectedDate="{Binding OrderDate}" MinHeight="36" Margin="0,0,0,8"
                                             IsEnabled="{Binding IsDraft}" />
                                 <TextBlock Text="Nguồn lệnh" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                <ComboBox SelectedValue="{Binding OrderSource}" SelectedValuePath="Content"
-                                          MinHeight="36" Margin="0,0,0,8" IsEnabled="{Binding IsDraft}">
-                                    <ComboBoxItem Content="STOCK" />
-                                    <ComboBoxItem Content="SALES_ORDER" />
-                                </ComboBox>
+                                <ComboBox ItemsSource="{Binding OrderSourceOptions}"
+                                          SelectedItem="{Binding OrderSource, UpdateSourceTrigger=PropertyChanged}"
+                                          MinHeight="36" Margin="0,0,0,8" IsEnabled="{Binding IsDraft}" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Đơn bán" Foreground="{DynamicResource TextSecondaryBrush}"
@@ -56,11 +54,9 @@
                                           MinHeight="36" Margin="0,0,0,8" IsEnabled="{Binding IsDraft}"
                                           Visibility="{Binding IsSalesOrderSource, Converter={StaticResource BoolToVis}}" />
                                 <TextBlock Text="Hình thức" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                <ComboBox SelectedValue="{Binding ExecutionType}" SelectedValuePath="Content"
-                                          MinHeight="36" Margin="0,0,0,8" IsEnabled="{Binding IsDraft}">
-                                    <ComboBoxItem Content="IN_HOUSE" />
-                                    <ComboBoxItem Content="OUTSOURCED" />
-                                </ComboBox>
+                                <ComboBox ItemsSource="{Binding ExecutionTypeOptions}"
+                                          SelectedItem="{Binding ExecutionType, UpdateSourceTrigger=PropertyChanged}"
+                                          MinHeight="36" Margin="0,0,0,8" IsEnabled="{Binding IsDraft}" />
                                 <TextBlock Text="Kho xuất NVL" Foreground="{DynamicResource TextSecondaryBrush}" />
                                 <ComboBox ItemsSource="{Binding Locations}" DisplayMemberPath="DisplayName"
                                           SelectedValue="{Binding SourceLocationId}" SelectedValuePath="Id"
@@ -132,49 +128,47 @@
 
             <TabItem Header="Mẫu sản phẩm">
                 <DockPanel Margin="8">
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
-                        <Button Content="Thêm dòng mẫu" Style="{DynamicResource NavButtonStyle}" Command="{Binding AddLineCommand}"
-                                MinHeight="36" IsEnabled="{Binding IsDraft}" />
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="Thêm/sửa mẫu bằng hộp thoại. Mỗi mẫu có thể đính kèm ảnh mẫu và file thiết kế."
+                                   Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Thêm mẫu" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding AddLineCommand}"
+                                    MinHeight="36" Margin="0,0,8,0" IsEnabled="{Binding IsDraft}" />
+                            <Button Content="Sửa / xem" Style="{DynamicResource NavButtonStyle}" Command="{Binding EditLineCommand}"
+                                    CommandParameter="{Binding SelectedLine}" MinHeight="36" Margin="0,0,8,0" />
+                            <Button Content="Xóa mẫu" Style="{DynamicResource NavButtonStyle}" Command="{Binding RemoveLineCommand}"
+                                    CommandParameter="{Binding SelectedLine}" MinHeight="36" IsEnabled="{Binding IsDraft}" />
+                        </StackPanel>
                     </StackPanel>
-                    <DataGrid ItemsSource="{Binding Lines}" AutoGenerateColumns="False"
-                              CanUserAddRows="False" MinHeight="200" IsReadOnly="{Binding IsDraft, Converter={StaticResource InverseBool}}">
+                    <DataGrid ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
+                              AutoGenerateColumns="False" CanUserAddRows="False" MinHeight="200"
+                              IsReadOnly="True" SelectionMode="Single"
+                              MouseDoubleClick="LinesGrid_OnMouseDoubleClick">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="STT" Binding="{Binding LineNumber, UpdateSourceTrigger=PropertyChanged}" Width="50" />
-                            <DataGridTextColumn Header="Mã mẫu" Binding="{Binding ModelCode, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                            <DataGridTextColumn Header="Tên mẫu *" Binding="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
-                            <DataGridTextColumn Header="Mã vàng *" Binding="{Binding GoldTypeCode, UpdateSourceTrigger=PropertyChanged}" Width="90" />
-                            <DataGridTextColumn Header="Loại vàng *" Binding="{Binding GoldTypeName, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                            <DataGridTextColumn Header="SL *" Binding="{Binding PlannedQuantity, UpdateSourceTrigger=PropertyChanged}" Width="60" />
-                            <DataGridTextColumn Header="Tiền công/món" Binding="{Binding LaborCostPerUnit, UpdateSourceTrigger=PropertyChanged}" Width="110" />
-                            <DataGridTemplateColumn Header="" Width="70">
+                            <DataGridTextColumn Header="STT" Binding="{Binding LineNumber, Mode=OneWay}" Width="50" />
+                            <DataGridTextColumn Header="Mã mẫu" Binding="{Binding ModelCode, Mode=OneWay}" Width="100" />
+                            <DataGridTextColumn Header="Tên mẫu" Binding="{Binding ModelName, Mode=OneWay}" Width="*" MinWidth="120" />
+                            <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldTypeName, Mode=OneWay}" Width="120" />
+                            <DataGridTextColumn Header="SL" Binding="{Binding PlannedQuantity, Mode=OneWay}" Width="60" />
+                            <DataGridTextColumn Header="Tiền công/món" Binding="{Binding LaborCostPerUnit, Mode=OneWay, StringFormat=N0}" Width="110" />
+                            <DataGridTextColumn Header="Đính kèm" Binding="{Binding AttachmentSummary, Mode=OneWay}" Width="130" />
+                            <DataGridTemplateColumn Header="" Width="140">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="Xóa" Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}" Style="{DynamicResource NavButtonStyle}" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Sửa" Margin="0,0,4,0"
+                                                    Command="{Binding DataContext.EditLineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" Style="{DynamicResource NavButtonStyle}" />
+                                            <Button Content="Xóa"
+                                                    Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" Style="{DynamicResource NavButtonStyle}"
+                                                    IsEnabled="{Binding DataContext.IsDraft, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Thêm ảnh mẫu" Style="{DynamicResource NavButtonStyle}" Command="{Binding AddAttachmentCommand}"
-                                    MinHeight="36" IsEnabled="{Binding IsDraft}" />
-                        </StackPanel>
-                        <ItemsControl ItemsSource="{Binding Attachments}" Margin="0,8,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <DockPanel Margin="0,0,0,4">
-                                        <Button DockPanel.Dock="Right" Content="Gỡ" Style="{DynamicResource NavButtonStyle}"
-                                                Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}" />
-                                        <TextBlock Text="{Binding OriginalFileName}" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    </DockPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
                 </DockPanel>
             </TabItem>
 

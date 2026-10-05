@@ -6,6 +6,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
+using Kazuko.Modules.Production.Dialogs;
 using Microsoft.Win32;
 
 namespace Kazuko.Modules.Production;
@@ -42,6 +43,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private bool _isLoaded;
     private readonly List<ProductionAttachmentEditorViewModel> _removedAttachments = [];
 
+    private ProductionLineEditorViewModel? _selectedLine;
     private ProductionMaterialStockOption? _selectedStockMaterial;
     private decimal _issueQuantity = 1m;
     private ProductionQcUnitEditorViewModel? _selectedQcUnit;
@@ -74,14 +76,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         SaveDraftCommand = new AsyncRelayCommand(SaveDraftAsync, () => IsDraft && !IsBusy);
         CancelDraftCommand = new AsyncRelayCommand(CancelDraftAsync, () => CanCancel && !IsBusy);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke(false));
-        AddLineCommand = new RelayCommand(AddLine, () => IsDraft);
+        AddLineCommand = new RelayCommand(AddLine, () => IsDraft && !IsBusy);
+        EditLineCommand = new ParameterRelayCommand(
+            p => EditLine(p as ProductionLineEditorViewModel ?? SelectedLine),
+            p => (p as ProductionLineEditorViewModel ?? SelectedLine) is not null && !IsBusy);
         RemoveLineCommand = new ParameterRelayCommand(
-            p => RemoveLine(p as ProductionLineEditorViewModel),
-            p => IsDraft && p is ProductionLineEditorViewModel);
-        AddAttachmentCommand = new AsyncRelayCommand(AddAttachmentAsync, () => IsDraft);
-        RemoveAttachmentCommand = new ParameterRelayCommand(
-            p => RemoveAttachment(p as ProductionAttachmentEditorViewModel),
-            p => IsDraft && p is ProductionAttachmentEditorViewModel);
+            p => RemoveLine(p as ProductionLineEditorViewModel ?? SelectedLine),
+            p => IsDraft && (p as ProductionLineEditorViewModel ?? SelectedLine) is not null && Lines.Count > 1);
         RefreshSalesOrdersCommand = new AsyncRelayCommand(LoadSalesOrdersAsync);
         RefreshEmployeesCommand = new AsyncRelayCommand(LoadEmployeesAsync);
         RefreshWorkersCommand = new AsyncRelayCommand(LoadExternalWorkersAsync);
@@ -107,7 +108,6 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         PrintFinishedCommand = new AsyncRelayCommand(() => PrintAsync(4), () => _id is > 0 && !IsBusy);
         PrintSettlementCommand = new AsyncRelayCommand(() => PrintAsync(5), () => _id is > 0 && !IsBusy);
 
-        Lines.Add(new ProductionLineEditorViewModel(1));
         _ = InitializeAsync();
     }
 
@@ -118,7 +118,6 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ObservableCollection<ProductionEmployeePickViewModel> Employees { get; } = [];
     public ObservableCollection<ProductionExternalWorkerItemViewModel> ExternalWorkers { get; } = [];
     public ObservableCollection<ProductionLineEditorViewModel> Lines { get; } = [];
-    public ObservableCollection<ProductionAttachmentEditorViewModel> Attachments { get; } = [];
     public ObservableCollection<ProductionMaterialStockOption> StockMaterials { get; } = [];
     public ObservableCollection<ProductionIssueLineEditorViewModel> IssueLines { get; } = [];
     public ObservableCollection<ProductionReturnLineEditorViewModel> ReturnLines { get; } = [];
@@ -150,13 +149,24 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public bool CanCancel => (IsDraft || IsInProgress) && _id is > 0;
     public bool CanUseExecutionTabs => _id is > 0;
 
+    public IReadOnlyList<string> OrderSourceOptions { get; } =
+        [ProductionOrderSources.Stock, ProductionOrderSources.SalesOrder];
+
+    public IReadOnlyList<string> ExecutionTypeOptions { get; } =
+        [ProductionExecutionTypes.InHouse, ProductionExecutionTypes.Outsourced];
+
     public string OrderSource
     {
         get => _orderSource;
         set
         {
-            if (SetProperty(ref _orderSource, value))
+            var normalized = string.IsNullOrWhiteSpace(value)
+                ? ProductionOrderSources.Stock
+                : value.Trim().ToUpperInvariant();
+            if (SetProperty(ref _orderSource, normalized))
             {
+                if (!IsSalesOrderSource)
+                    SalesOrderId = null;
                 OnPropertyChanged(nameof(IsSalesOrderSource));
                 NotifyCommands();
             }
@@ -177,8 +187,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         get => _executionType;
         set
         {
-            if (SetProperty(ref _executionType, value))
+            var normalized = string.IsNullOrWhiteSpace(value)
+                ? ProductionExecutionTypes.InHouse
+                : value.Trim().ToUpperInvariant();
+            if (SetProperty(ref _executionType, normalized))
             {
+                if (IsInHouse)
+                    ExternalWorkerId = null;
                 OnPropertyChanged(nameof(IsInHouse));
                 OnPropertyChanged(nameof(IsOutsourced));
                 NotifyCommands();
@@ -278,6 +293,12 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         set => SetProperty(ref _issueQuantity, value);
     }
 
+    public ProductionLineEditorViewModel? SelectedLine
+    {
+        get => _selectedLine;
+        set => SetProperty(ref _selectedLine, value);
+    }
+
     public ProductionQcUnitEditorViewModel? SelectedQcUnit
     {
         get => _selectedQcUnit;
@@ -346,9 +367,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ICommand CancelDraftCommand { get; }
     public ICommand CloseCommand { get; }
     public ICommand AddLineCommand { get; }
+    public ICommand EditLineCommand { get; }
     public ICommand RemoveLineCommand { get; }
-    public ICommand AddAttachmentCommand { get; }
-    public ICommand RemoveAttachmentCommand { get; }
     public ICommand RefreshSalesOrdersCommand { get; }
     public ICommand RefreshEmployeesCommand { get; }
     public ICommand RefreshWorkersCommand { get; }
@@ -516,19 +536,31 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
         Lines.Clear();
         foreach (var line in detail.Lines)
-        {
             Lines.Add(new ProductionLineEditorViewModel(line));
-        }
-
-        if (Lines.Count == 0)
-            Lines.Add(new ProductionLineEditorViewModel(1));
 
         foreach (var employee in Employees)
             employee.IsSelected = detail.Workers.Any(w => w.EmployeeId == employee.Id);
 
-        Attachments.Clear();
-        foreach (var attachment in detail.Attachments)
-            Attachments.Add(new ProductionAttachmentEditorViewModel(attachment));
+        _removedAttachments.Clear();
+        foreach (var line in Lines)
+            line.Attachments.Clear();
+
+        if (Lines.Count > 0)
+        {
+            foreach (var attachment in detail.Attachments)
+            {
+                var vm = new ProductionAttachmentEditorViewModel(attachment);
+                var target = Lines.FirstOrDefault(l => l.LineNumber == attachment.LineNumber)
+                    ?? Lines[0];
+                vm.LineNumber = target.LineNumber;
+                target.Attachments.Add(vm);
+            }
+
+            foreach (var line in Lines)
+                line.NotifyAttachmentSummaryChanged();
+        }
+
+        SelectedLine = Lines.FirstOrDefault();
 
         _hasMaterialIssue = detail.MaterialIssueDocumentId is > 0;
         _hasReturn = detail.ReturnDocumentId is > 0;
@@ -851,45 +883,89 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private void AddLine()
     {
         var next = Lines.Count == 0 ? 1 : Lines.Max(x => x.LineNumber) + 1;
-        Lines.Add(new ProductionLineEditorViewModel(next));
+        var draft = new ProductionLineEditorViewModel(next);
+        if (!ShowLineDialog(draft, isNew: true))
+            return;
+
+        Lines.Add(draft);
+        SelectedLine = draft;
+    }
+
+    private void EditLine(ProductionLineEditorViewModel? line)
+    {
+        if (line is null)
+            return;
+
+        ShowLineDialog(line, isNew: false);
+    }
+
+    private bool ShowLineDialog(ProductionLineEditorViewModel line, bool isNew)
+    {
+        var dialogVm = new ProductionLineEditDialogViewModel(
+            _attachments,
+            line.LineNumber,
+            IsDraft,
+            isNew ? null : line);
+
+        var dialog = new ProductionLineEditDialog
+        {
+            Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                ?? Application.Current.MainWindow,
+            DataContext = dialogVm
+        };
+
+        var accepted = dialog.ShowDialog() == true;
+        if (!accepted)
+            return false;
+
+        var previousAttachments = line.Attachments.ToList();
+        dialogVm.ApplyTo(line);
+
+        foreach (var removed in dialogVm.RemovedAttachments)
+        {
+            if (removed.Id is > 0 && _removedAttachments.All(x => x.Id != removed.Id))
+                _removedAttachments.Add(removed);
+        }
+
+        foreach (var old in previousAttachments)
+        {
+            if (old.Id is > 0)
+                continue;
+            if (string.IsNullOrWhiteSpace(old.StagingPath))
+                continue;
+            if (line.Attachments.Any(a => a.StagingPath == old.StagingPath))
+                continue;
+            _attachments.TryDeleteStagingFile(old.StagingPath);
+        }
+
+        return true;
     }
 
     private void RemoveLine(ProductionLineEditorViewModel? line)
     {
         if (line is null || Lines.Count <= 1)
             return;
+
+        foreach (var attachment in line.Attachments.ToList())
+        {
+            attachment.MarkDeleted = true;
+            if (attachment.Id is > 0)
+                _removedAttachments.Add(attachment);
+            else
+                _attachments.TryDeleteStagingFile(attachment.StagingPath);
+        }
+
         Lines.Remove(line);
         var no = 1;
         foreach (var item in Lines.OrderBy(x => x.LineNumber))
-            item.LineNumber = no++;
-    }
-
-    private async Task AddAttachmentAsync()
-    {
-        var dialog = new OpenFileDialog
         {
-            Filter = "Ảnh|*.jpg;*.jpeg;*.png;*.webp",
-            Multiselect = false
-        };
-        if (dialog.ShowDialog() != true)
-            return;
+            item.LineNumber = no;
+            foreach (var attachment in item.Attachments)
+                attachment.LineNumber = no;
+            no++;
+        }
 
-        var staging = await _attachments.ImportToStagingAsync(dialog.FileName);
-        Attachments.Add(new ProductionAttachmentEditorViewModel(
-            staging,
-            Path.GetFileName(dialog.FileName)));
-    }
-
-    private void RemoveAttachment(ProductionAttachmentEditorViewModel? attachment)
-    {
-        if (attachment is null)
-            return;
-        attachment.MarkDeleted = true;
-        Attachments.Remove(attachment);
-        if (attachment.Id is > 0)
-            _removedAttachments.Add(attachment);
-        else
-            _attachments.TryDeleteStagingFile(attachment.StagingPath);
+        SelectedLine = Lines.FirstOrDefault();
     }
 
     private async Task SaveDraftAsync()
@@ -901,8 +977,12 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
             var employeeIds = Employees.Where(x => x.IsSelected).Select(x => x.Id).ToList();
             var lineDrafts = Lines.Select(x => x.ToDraft()).ToList();
-            var attachmentDrafts = Attachments
-                .Select((x, index) => x.ToDraft(index))
+            var attachmentDrafts = Lines
+                .SelectMany(line => line.Attachments.Select((att, index) =>
+                {
+                    att.LineNumber = line.LineNumber;
+                    return att.ToDraft(index);
+                }))
                 .Concat(_removedAttachments.Select(x => x.ToDraft(0)))
                 .ToList();
 
@@ -1074,35 +1154,105 @@ public sealed class ProductionExternalWorkerItemViewModel
 
 public sealed class ProductionLineEditorViewModel : ObservableObject
 {
+    private int _lineNumber;
+    private string? _modelCode;
+    private string _modelName = string.Empty;
+    private string _goldTypeCode = string.Empty;
+    private string _goldTypeName = string.Empty;
+    private int _plannedQuantity = 1;
+    private decimal _laborCostPerUnit;
+    private string? _description;
+    private string? _notes;
+
     public ProductionLineEditorViewModel(int lineNumber)
     {
-        LineNumber = lineNumber;
+        _lineNumber = lineNumber;
     }
 
     public ProductionLineEditorViewModel(ProductionOrderLineDto line)
     {
         Id = line.Id;
-        LineNumber = line.LineNumber;
-        ModelCode = line.ModelCode;
-        ModelName = line.ModelName;
-        GoldTypeCode = line.GoldTypeCode;
-        GoldTypeName = line.GoldTypeName;
-        PlannedQuantity = line.PlannedQuantity;
-        LaborCostPerUnit = line.LaborCostPerUnit;
-        Description = line.Description;
-        Notes = line.Notes;
+        _lineNumber = line.LineNumber;
+        _modelCode = line.ModelCode;
+        _modelName = line.ModelName;
+        _goldTypeCode = line.GoldTypeCode;
+        _goldTypeName = line.GoldTypeName;
+        _plannedQuantity = line.PlannedQuantity;
+        _laborCostPerUnit = line.LaborCostPerUnit;
+        _description = line.Description;
+        _notes = line.Notes;
     }
 
     public long? Id { get; }
-    public int LineNumber { get; set; }
-    public string? ModelCode { get; set; }
-    public string ModelName { get; set; } = string.Empty;
-    public string GoldTypeCode { get; set; } = string.Empty;
-    public string GoldTypeName { get; set; } = string.Empty;
-    public int PlannedQuantity { get; set; } = 1;
-    public decimal LaborCostPerUnit { get; set; }
-    public string? Description { get; set; }
-    public string? Notes { get; set; }
+    public ObservableCollection<ProductionAttachmentEditorViewModel> Attachments { get; } = [];
+
+    public int LineNumber
+    {
+        get => _lineNumber;
+        set => SetProperty(ref _lineNumber, value);
+    }
+
+    public string? ModelCode
+    {
+        get => _modelCode;
+        set => SetProperty(ref _modelCode, value);
+    }
+
+    public string ModelName
+    {
+        get => _modelName;
+        set => SetProperty(ref _modelName, value ?? string.Empty);
+    }
+
+    public string GoldTypeCode
+    {
+        get => _goldTypeCode;
+        set => SetProperty(ref _goldTypeCode, value ?? string.Empty);
+    }
+
+    public string GoldTypeName
+    {
+        get => _goldTypeName;
+        set => SetProperty(ref _goldTypeName, value ?? string.Empty);
+    }
+
+    public int PlannedQuantity
+    {
+        get => _plannedQuantity;
+        set => SetProperty(ref _plannedQuantity, value);
+    }
+
+    public decimal LaborCostPerUnit
+    {
+        get => _laborCostPerUnit;
+        set => SetProperty(ref _laborCostPerUnit, value);
+    }
+
+    public string? Description
+    {
+        get => _description;
+        set => SetProperty(ref _description, value);
+    }
+
+    public string? Notes
+    {
+        get => _notes;
+        set => SetProperty(ref _notes, value);
+    }
+
+    public string AttachmentSummary
+    {
+        get
+        {
+            var images = Attachments.Count(x => x.IsSampleImage);
+            var designs = Attachments.Count(x => !x.IsSampleImage);
+            if (images == 0 && designs == 0)
+                return "—";
+            return $"{images} ảnh, {designs} thiết kế";
+        }
+    }
+
+    public void NotifyAttachmentSummaryChanged() => OnPropertyChanged(nameof(AttachmentSummary));
 
     public ProductionOrderLineDraft ToDraft() =>
         new(Id, LineNumber, ModelCode, ModelName, GoldTypeCode, GoldTypeName,
@@ -1111,11 +1261,11 @@ public sealed class ProductionLineEditorViewModel : ObservableObject
 
 public sealed class ProductionAttachmentEditorViewModel
 {
-    public ProductionAttachmentEditorViewModel(string stagingPath, string originalFileName)
+    public ProductionAttachmentEditorViewModel(string stagingPath, string originalFileName, string attachmentKind)
     {
         StagingPath = stagingPath;
         OriginalFileName = originalFileName;
-        AttachmentKind = ProductionAttachmentKinds.Design;
+        AttachmentKind = attachmentKind;
     }
 
     public ProductionAttachmentEditorViewModel(ProductionAttachmentDto dto)
@@ -1127,6 +1277,31 @@ public sealed class ProductionAttachmentEditorViewModel
         MimeType = dto.MimeType;
         Caption = dto.Caption;
         DisplayOrder = dto.DisplayOrder;
+        LineNumber = dto.LineNumber;
+    }
+
+    private ProductionAttachmentEditorViewModel(
+        long? id,
+        string attachmentKind,
+        string? stagingPath,
+        string? storedPath,
+        string originalFileName,
+        string? mimeType,
+        string? caption,
+        int displayOrder,
+        int? lineNumber,
+        bool markDeleted)
+    {
+        Id = id;
+        AttachmentKind = attachmentKind;
+        StagingPath = stagingPath;
+        StoredPath = storedPath;
+        OriginalFileName = originalFileName;
+        MimeType = mimeType;
+        Caption = caption;
+        DisplayOrder = displayOrder;
+        LineNumber = lineNumber;
+        MarkDeleted = markDeleted;
     }
 
     public long? Id { get; }
@@ -1134,13 +1309,22 @@ public sealed class ProductionAttachmentEditorViewModel
     public string? StagingPath { get; }
     public string? StoredPath { get; }
     public string OriginalFileName { get; }
-    public string? MimeType { get; }
+    public string? MimeType { get; set; }
     public string? Caption { get; set; }
     public int DisplayOrder { get; set; }
+    public int? LineNumber { get; set; }
     public bool MarkDeleted { get; set; }
 
+    public bool IsSampleImage =>
+        string.Equals(AttachmentKind, ProductionAttachmentKinds.CustomerRequirement, StringComparison.OrdinalIgnoreCase);
+
+    public string KindDisplayName => IsSampleImage ? "Ảnh mẫu" : "File thiết kế";
+
+    public ProductionAttachmentEditorViewModel CloneForEdit() =>
+        new(Id, AttachmentKind, StagingPath, StoredPath, OriginalFileName, MimeType, Caption, DisplayOrder, LineNumber, MarkDeleted);
+
     public ProductionAttachmentDraft ToDraft(int displayOrder) =>
-        new(Id, AttachmentKind, StagingPath, StoredPath, OriginalFileName, MimeType, Caption, displayOrder, MarkDeleted);
+        new(Id, AttachmentKind, StagingPath, StoredPath, OriginalFileName, MimeType, Caption, displayOrder, LineNumber, MarkDeleted);
 }
 
 public sealed class ProductionIssueLineEditorViewModel

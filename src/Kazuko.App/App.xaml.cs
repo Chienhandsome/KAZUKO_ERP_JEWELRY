@@ -29,6 +29,7 @@ using Kazuko.Modules.Debt;
 using Kazuko.Modules.HumanResources;
 using Kazuko.Modules.PriceBoard;
 using Kazuko.Modules.Production;
+using Kazuko.Modules.Sales;
 using Kazuko.Modules.Suppliers;
 using Kazuko.Modules.Warehouse;
 using Kazuko.Shared.UI.Services;
@@ -138,6 +139,7 @@ public partial class App : Application
         [
             new DashboardModule(),
             new ProductionModule(),
+            new SalesModule(),
             new CustomersModule(),
             new SuppliersModule(),
             new WarehouseModule(),

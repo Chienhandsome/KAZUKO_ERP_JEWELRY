@@ -86,11 +86,13 @@ public static class ProductionOrderDraftValidator
 
             var kind = Normalize(attachment.AttachmentKind);
             if (kind is not (ProductionAttachmentKinds.Design or ProductionAttachmentKinds.CustomerRequirement))
-                errors.Add($"Ảnh {attachmentIndex}: loại đính kèm không hợp lệ.");
+                errors.Add($"Đính kèm {attachmentIndex}: loại không hợp lệ.");
             if (string.IsNullOrWhiteSpace(attachment.OriginalFileName))
-                errors.Add($"Ảnh {attachmentIndex}: thiếu tên file.");
+                errors.Add($"Đính kèm {attachmentIndex}: thiếu tên file.");
             if (string.IsNullOrWhiteSpace(attachment.StagingPath) && string.IsNullOrWhiteSpace(attachment.StoredPath))
-                errors.Add($"Ảnh {attachmentIndex}: thiếu đường dẫn file.");
+                errors.Add($"Đính kèm {attachmentIndex}: thiếu đường dẫn file.");
+            if (attachment.LineNumber is int lineNo && lineNo > 0 && !lineNos.Contains(lineNo))
+                errors.Add($"Đính kèm {attachmentIndex}: dòng mẫu {lineNo} không tồn tại.");
         }
 
         return errors;

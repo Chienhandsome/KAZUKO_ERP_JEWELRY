@@ -311,3 +311,44 @@ COMMIT;
   ```
 - **Rollback production:** restore `.fbk` trước migration 47.
 
+---
+
+## 16. Migration Version 48: `0048__production_attachment_line_number.sql`
+
+- **Phiên bản:** `48` — gắn đính kèm lệnh sản xuất với dòng mẫu.
+- **Thay đổi:** thêm `PRODUCTION_ATTACHMENTS.LINE_NUMBER` (nullable, CHECK > 0 hoặc null); index `IX_PA_LINE`.
+- **Verification:** `database/verification/verify_production_attachment_line_number.sql`.
+- **Áp dụng (sau backup, đóng app):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0048__production_attachment_line_number.sql"
+  ```
+- **Rollback (dev):** `DROP INDEX IX_PA_LINE;` → `ALTER TABLE PRODUCTION_ATTACHMENTS DROP CONSTRAINT CK_PA_LINE_NO;` → `ALTER TABLE PRODUCTION_ATTACHMENTS DROP LINE_NUMBER;` → xóa ledger 48. Production: restore `.fbk`.
+
+---
+
+## 17. Migration Version 49: `0049__production_sales_order_id_nullable.sql`
+
+- **Phiên bản:** `49` — nới `PRODUCTION_ORDERS.SALES_ORDER_ID` về nullable (lệnh `STOCK` không gắn đơn bán).
+- **Lý do:** schema WinForms/legacy có thể để cột NOT NULL; lưu bản nháp nguồn kho bị lỗi `validation error ... SALES_ORDER_ID ... null`.
+- **Giữ:** `CK_PO_SOURCE` (STOCK ⇒ null, SALES_ORDER ⇒ not null).
+- **Verification:** `database/verification/verify_production_sales_order_id_nullable.sql`.
+- **Áp dụng (sau backup, đóng app; cần 48 trước):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0049__production_sales_order_id_nullable.sql"
+  ```
+- **Rollback production:** restore `.fbk` trước migration 49.
+
+---
+
+## 18. Migration Version 50: `0050__production_legacy_columns_nullable.sql`
+
+- **Phiên bản:** `50` — nới các cột header legacy WinForms trên `PRODUCTION_ORDERS` để module mới lưu lệnh `STOCK`/`DRAFT` không cần đơn bán / thiết kế / BOM cấp lệnh.
+- **Cột (nếu còn NOT NULL):** `SALES_ORDER_ITEM_ID`, `CUSTOMER_ID`, `DESIGN_ID`, `BOM_ID`, `PRODUCT_NAME`, `QUANTITY`.
+- **CHECK:** thay `CK_PRODUCTION_QTY` bằng `CK_PO_LEGACY_QTY` (`QUANTITY IS NULL OR QUANTITY > 0`).
+- **Verification:** `database/verification/verify_production_legacy_columns_nullable.sql`.
+- **Áp dụng (sau backup, đóng app; cần 49 trước):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0050__production_legacy_columns_nullable.sql"
+  ```
+- **Rollback production:** restore `.fbk` trước migration 50.
+
