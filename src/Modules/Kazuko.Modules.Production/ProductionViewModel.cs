@@ -22,9 +22,9 @@ public sealed class ProductionViewModel : ObservableObject
     private CancellationTokenSource? _loadCts;
 
     private string _searchText = string.Empty;
-    private string _selectedStatusFilter = "Tất cả";
-    private string _selectedSourceFilter = "Tất cả";
-    private string _selectedExecutionFilter = "Tất cả";
+    private string _selectedStatusFilter = "Tất cả trạng thái";
+    private string _selectedSourceFilter = "Tất cả nguồn";
+    private string _selectedExecutionFilter = "Tất cả hình thức";
     private DateTime? _fromDate;
     private DateTime? _toDate;
     private bool _includeDrafts = true;
@@ -57,25 +57,28 @@ public sealed class ProductionViewModel : ObservableObject
         _fromDate = new DateTime(today.Year, today.Month, 1);
         _toDate = today;
 
-        StatusFilterOptions.Add("Tất cả");
-        StatusFilterOptions.Add(ProductionOrderStatuses.Draft);
-        StatusFilterOptions.Add(ProductionOrderStatuses.InProgress);
-        StatusFilterOptions.Add(ProductionOrderStatuses.Completed);
-        StatusFilterOptions.Add(ProductionOrderStatuses.Cancelled);
+        StatusFilterOptions.Add("Tất cả trạng thái");
+        StatusFilterOptions.Add("Bản nháp");
+        StatusFilterOptions.Add("Đang làm");
+        StatusFilterOptions.Add("Hoàn thành");
+        StatusFilterOptions.Add("Hủy");
 
-        SourceFilterOptions.Add("Tất cả");
-        SourceFilterOptions.Add(ProductionOrderSources.Stock);
-        SourceFilterOptions.Add(ProductionOrderSources.SalesOrder);
+        SourceFilterOptions.Add("Tất cả nguồn");
+        SourceFilterOptions.Add("Nhập kho");
+        SourceFilterOptions.Add("Theo đơn bán");
 
-        ExecutionFilterOptions.Add("Tất cả");
-        ExecutionFilterOptions.Add(ProductionExecutionTypes.InHouse);
-        ExecutionFilterOptions.Add(ProductionExecutionTypes.Outsourced);
+        ExecutionFilterOptions.Add("Tất cả hình thức");
+        ExecutionFilterOptions.Add("Nội bộ");
+        ExecutionFilterOptions.Add("Thợ ngoài");
 
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
         CreateOrderCommand = new AsyncRelayCommand(CreateOrderAsync);
         OpenDetailCommand = new ParameterRelayCommand(
             p => _ = OpenDetailAsync(p as ProductionOrderRowViewModel),
             p => p is ProductionOrderRowViewModel);
+        DeleteOrderCommand = new ParameterRelayCommand(
+            p => _ = DeleteOrderAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
+            p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is { CanDelete: true });
 
         _ = LoadAsync();
     }
@@ -206,6 +209,7 @@ public sealed class ProductionViewModel : ObservableObject
     public ICommand RefreshCommand { get; }
     public ICommand CreateOrderCommand { get; }
     public ICommand OpenDetailCommand { get; }
+    public ICommand DeleteOrderCommand { get; }
 
     private long RequireBranchId()
     {
@@ -258,9 +262,26 @@ public sealed class ProductionViewModel : ObservableObject
 
     private ProductionOrderListFilter BuildFilter()
     {
-        string? status = SelectedStatusFilter is "Tất cả" ? null : SelectedStatusFilter;
-        string? source = SelectedSourceFilter is "Tất cả" ? null : SelectedSourceFilter;
-        string? execution = SelectedExecutionFilter is "Tất cả" ? null : SelectedExecutionFilter;
+        string? status = SelectedStatusFilter switch
+        {
+            "Bản nháp" => ProductionOrderStatuses.Draft,
+            "Đang làm" => ProductionOrderStatuses.InProgress,
+            "Hoàn thành" => ProductionOrderStatuses.Completed,
+            "Hủy" => ProductionOrderStatuses.Cancelled,
+            _ => null
+        };
+        string? source = SelectedSourceFilter switch
+        {
+            "Nhập kho" => ProductionOrderSources.Stock,
+            "Theo đơn bán" => ProductionOrderSources.SalesOrder,
+            _ => null
+        };
+        string? execution = SelectedExecutionFilter switch
+        {
+            "Nội bộ" => ProductionExecutionTypes.InHouse,
+            "Thợ ngoài" => ProductionExecutionTypes.Outsourced,
+            _ => null
+        };
         return new ProductionOrderListFilter(
             SearchText,
             status,
@@ -327,6 +348,38 @@ public sealed class ProductionViewModel : ObservableObject
             ErrorMessage = ex.Message;
         }
     }
+
+    private async Task DeleteOrderAsync(ProductionOrderRowViewModel? row)
+    {
+        if (row is null || !row.CanDelete)
+            return;
+
+        var session = _sessionAccessor.Current
+            ?? throw new InvalidOperationException("Phiên đăng nhập đã hết hạn.");
+
+        var prompt = row.IsDraft
+            ? $"Xóa/hủy lệnh bản nháp {row.Code}? Thao tác không hoàn tác."
+            : $"Hủy lệnh đang làm {row.Code}? Chỉ hủy được khi chưa nhập thành phẩm/công nợ và NVL đã đối soát về 0.";
+
+        if (MessageBox.Show(
+                prompt,
+                "Xác nhận",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            ErrorMessage = string.Empty;
+            await _application.CancelAsync(row.Id, row.RowVersion, null, session);
+            StatusMessage = $"Đã hủy lệnh {row.Code}.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
 }
 
 public sealed class ProductionOrderRowViewModel
@@ -357,6 +410,9 @@ public sealed class ProductionOrderRowViewModel
         PlannedQuantityTotal = item.PlannedQuantityTotal;
         RowVersion = item.RowVersion;
         StatusCode = item.StatusCode;
+        IsDraft = string.Equals(item.StatusCode, ProductionOrderStatuses.Draft, StringComparison.OrdinalIgnoreCase);
+        IsInProgress = string.Equals(item.StatusCode, ProductionOrderStatuses.InProgress, StringComparison.OrdinalIgnoreCase);
+        CanDelete = IsDraft || IsInProgress;
     }
 
     public long Id { get; }
@@ -371,4 +427,7 @@ public sealed class ProductionOrderRowViewModel
     public int PlannedQuantityTotal { get; }
     public long RowVersion { get; }
     public string StatusCode { get; }
+    public bool IsDraft { get; }
+    public bool IsInProgress { get; }
+    public bool CanDelete { get; }
 }

@@ -615,8 +615,19 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             await EnsureOrderInProgressForQcAsync(
                 connection, fbTx, companyId, session.BranchId, unit.ProductionOrderId, cancellationToken);
 
+            if (unit.FinishedProductId is > 0)
+                throw new InvalidOperationException("Món đã gắn thành phẩm — không thể điều chỉnh QC.");
+
+            var isAdjustment =
+                string.Equals(unit.StatusCode, ProductionQcUnitStatuses.Passed, StringComparison.OrdinalIgnoreCase)
+                && draft.IsAdjustment;
+
             var remainingByBalance = await LoadRemainingInProductAsync(
-                connection, fbTx, unit.ProductionOrderId, cancellationToken);
+                connection,
+                fbTx,
+                unit.ProductionOrderId,
+                excludeQcUnitId: isAdjustment ? draft.QcUnitId : null,
+                cancellationToken);
             var errors = ProductionQcValidator.Validate(
                 draft, unit.StatusCode, id => remainingByBalance.TryGetValue(id, out var rem) ? rem : null);
             if (errors.Count > 0)
@@ -669,6 +680,16 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 attemptId = Convert.ToInt64(await insertAttempt.ExecuteScalarAsync(cancellationToken));
             }
 
+            if (isAdjustment)
+            {
+                await using var deleteComp = new FbCommand("""
+                    DELETE FROM PRODUCTION_UNIT_COMPONENTS
+                    WHERE QC_UNIT_ID = @UNIT
+                    """, connection, fbTx);
+                deleteComp.Parameters.Add("@UNIT", FbDbType.BigInt).Value = draft.QcUnitId;
+                await deleteComp.ExecuteNonQueryAsync(cancellationToken);
+            }
+
             if (result == ProductionQcResultCodes.Pass)
             {
                 var balances = (await LoadMaterialBalancesLockedAsync(
@@ -693,14 +714,14 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                              QUANTITY_USED, UNIT_CODE, UNIT_COST_SNAPSHOT, AMOUNT_VND,
                              WAREHOUSE_GOLD_PRICE_ID, GOLD_PRICE_PER_CHI_SNAPSHOT)
                         VALUES
-                            (@UNIT, @BAL, @MID, @KIND, @QTY, @UNIT, @COST, @AMT, @WGP, @WGPRICE)
+                            (@QCU, @BAL, @MID, @KIND, @QTY, @UCODE, @COST, @AMT, @WGP, @WGPRICE)
                         """, connection, fbTx);
-                    insertComp.Parameters.Add("@UNIT", FbDbType.BigInt).Value = draft.QcUnitId;
+                    insertComp.Parameters.Add("@QCU", FbDbType.BigInt).Value = draft.QcUnitId;
                     insertComp.Parameters.Add("@BAL", FbDbType.BigInt).Value = component.MaterialBalanceId;
                     insertComp.Parameters.Add("@MID", FbDbType.BigInt).Value = balance.MaterialId;
                     insertComp.Parameters.Add("@KIND", FbDbType.VarChar, 20).Value = kind;
                     insertComp.Parameters.Add("@QTY", FbDbType.Decimal).Value = component.QuantityUsed;
-                    insertComp.Parameters.Add("@UNIT", FbDbType.VarChar, 20).Value = balance.UnitCode;
+                    insertComp.Parameters.Add("@UCODE", FbDbType.VarChar, 20).Value = balance.UnitCode;
                     insertComp.Parameters.Add("@COST", FbDbType.Decimal).Value = balance.UnitCostSnapshot;
                     insertComp.Parameters.Add("@AMT", FbDbType.Decimal).Value = amount;
                     insertComp.Parameters.Add("@WGP", FbDbType.BigInt).Value =
@@ -775,9 +796,16 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                     throw new InvalidOperationException("Đơn vị QC đã thay đổi. Vui lòng tải lại.");
             }
 
+            var auditAction = isAdjustment
+                ? (result == ProductionQcResultCodes.Pass
+                    ? "PRODUCTION_QC_ADJUSTED_PASS"
+                    : "PRODUCTION_QC_ADJUSTED_FAIL")
+                : (result == ProductionQcResultCodes.Pass
+                    ? "PRODUCTION_QC_PASSED"
+                    : "PRODUCTION_QC_FAILED");
             await AuditLogWriter.WriteAsync(
                 connection, fbTx,
-                result == ProductionQcResultCodes.Pass ? "PRODUCTION_QC_PASSED" : "PRODUCTION_QC_FAILED",
+                auditAction,
                 session.UserId, session.Username, session.BranchId,
                 "PRODUCTION_QC_UNIT", draft.QcUnitId.ToString(), unit.OrderCode, cancellationToken);
 
@@ -977,12 +1005,12 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 await using (var insertFp = new FbCommand("""
                     INSERT INTO FINISHED_PRODUCTS
                         (COMPANY_ID, BRANCH_ID, PRODUCTION_ORDER_ID, SALES_ORDER_ID, PRODUCTION_QC_UNIT_ID,
-                         CODE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT,
+                         CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT,
                          MATERIAL_COST, LABOR_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST,
                          LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT)
                     VALUES
                         (@CID, @BID, @PO, @SO, @QC,
-                         @CODE, @NAME, @PURITY, @TW, @GW,
+                         @CODE, @BARCODE, @QR, @NAME, @PURITY, @TW, @GW,
                          @MAT, @LABOR, @NON, @TOTAL,
                          @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
                     RETURNING ID
@@ -995,6 +1023,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                         order.SalesOrderId is > 0 ? order.SalesOrderId.Value : DBNull.Value;
                     insertFp.Parameters.Add("@QC", FbDbType.BigInt).Value = unit.Id;
                     insertFp.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = serial;
+                    insertFp.Parameters.Add("@BARCODE", FbDbType.VarChar, 80).Value = serial;
+                    insertFp.Parameters.Add("@QR", FbDbType.VarChar, 80).Value = serial;
                     insertFp.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = unit.ModelName;
                     insertFp.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
                         string.IsNullOrWhiteSpace(unit.GoldPurityCode) ? DBNull.Value : unit.GoldPurityCode;
@@ -1639,7 +1669,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         string OrderCode,
         string StatusCode,
         long RowVersion,
-        int AttemptCount);
+        int AttemptCount,
+        long? FinishedProductId);
 
     private sealed record UnitComponentRow(
         string ComponentKind,
@@ -1764,11 +1795,16 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         long expectedRowVersion,
         CancellationToken cancellationToken)
     {
+        // Firebird: WITH LOCK chỉ dùng với một bảng vật lý — không JOIN.
         await using var command = new FbCommand("""
-            SELECT U.ID, U.PRODUCTION_ORDER_ID, O.CODE, U.STATUS_CODE, U.ROW_VERSION,
-                   (SELECT COUNT(*) FROM PRODUCTION_QC_ATTEMPTS A WHERE A.QC_UNIT_ID = U.ID)
+            SELECT U.ID,
+                   U.PRODUCTION_ORDER_ID,
+                   (SELECT O.CODE FROM PRODUCTION_ORDERS O WHERE O.ID = U.PRODUCTION_ORDER_ID),
+                   U.STATUS_CODE,
+                   U.ROW_VERSION,
+                   (SELECT COUNT(*) FROM PRODUCTION_QC_ATTEMPTS A WHERE A.QC_UNIT_ID = U.ID),
+                   U.FINISHED_PRODUCT_ID
             FROM PRODUCTION_QC_UNITS U
-            JOIN PRODUCTION_ORDERS O ON O.ID = U.PRODUCTION_ORDER_ID
             WHERE U.ID = @ID
             WITH LOCK
             """, connection, transaction);
@@ -1782,7 +1818,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             reader.GetString(2),
             reader.GetString(3),
             reader.GetInt64(4),
-            Convert.ToInt32(reader.GetValue(5)));
+            Convert.ToInt32(reader.GetValue(5)),
+            reader.IsDBNull(6) ? null : reader.GetInt64(6));
         if (unit.RowVersion != expectedRowVersion)
             throw new InvalidOperationException("Đơn vị QC đã thay đổi. Vui lòng tải lại.");
         return unit;
@@ -1818,6 +1855,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         FbConnection connection,
         FbTransaction transaction,
         long orderId,
+        long? excludeQcUnitId,
         CancellationToken cancellationToken)
     {
         var remaining = new Dictionary<long, decimal>();
@@ -1828,11 +1866,13 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                        FROM PRODUCTION_UNIT_COMPONENTS C
                        JOIN PRODUCTION_QC_UNITS U ON U.ID = C.QC_UNIT_ID
                        WHERE C.MATERIAL_BALANCE_ID = B.ID
-                         AND U.STATUS_CODE = 'PASSED'), 0)
+                         AND U.STATUS_CODE = 'PASSED'
+                         AND (@EXCLUDE = 0 OR U.ID <> @EXCLUDE)), 0)
             FROM PRODUCTION_MATERIAL_BALANCES B
             WHERE B.PRODUCTION_ORDER_ID = @PO
             """, connection, transaction);
         command.Parameters.Add("@PO", FbDbType.BigInt).Value = orderId;
+        command.Parameters.Add("@EXCLUDE", FbDbType.BigInt).Value = excludeQcUnitId ?? 0;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
             remaining[reader.GetInt64(0)] = reader.GetDecimal(1);

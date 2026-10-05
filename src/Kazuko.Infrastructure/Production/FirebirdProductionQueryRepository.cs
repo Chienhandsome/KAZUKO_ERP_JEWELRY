@@ -558,6 +558,101 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         return items;
     }
 
+    public async Task<IReadOnlyList<ProductionUnitComponentDto>> GetQcUnitComponentsAsync(
+        long qcUnitId,
+        CancellationToken cancellationToken = default)
+    {
+        if (qcUnitId <= 0)
+            return Array.Empty<ProductionUnitComponentDto>();
+
+        var items = new List<ProductionUnitComponentDto>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT ID, QC_UNIT_ID, MATERIAL_BALANCE_ID, MATERIAL_ID, COMPONENT_KIND,
+                   QUANTITY_USED, UNIT_CODE, UNIT_COST_SNAPSHOT, AMOUNT_VND,
+                   WAREHOUSE_GOLD_PRICE_ID, GOLD_PRICE_PER_CHI_SNAPSHOT
+            FROM PRODUCTION_UNIT_COMPONENTS
+            WHERE QC_UNIT_ID = @ID
+            ORDER BY ID
+            """, connection);
+        command.Parameters.Add("@ID", FbDbType.BigInt).Value = qcUnitId;
+        try
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(new ProductionUnitComponentDto(
+                    reader.GetInt64(0),
+                    reader.GetInt64(1),
+                    reader.GetInt64(2),
+                    reader.GetInt64(3),
+                    reader.GetString(4),
+                    reader.GetDecimal(5),
+                    reader.GetString(6),
+                    reader.GetDecimal(7),
+                    reader.GetDecimal(8),
+                    reader.IsDBNull(9) ? null : reader.GetInt64(9),
+                    reader.IsDBNull(10) ? null : reader.GetDecimal(10)));
+            }
+        }
+        catch (FbException)
+        {
+            return Array.Empty<ProductionUnitComponentDto>();
+        }
+
+        return items;
+    }
+
+    public async Task<IReadOnlyList<ProductionMaterialBalanceAllocationDto>> GetMaterialBalanceAllocationsAsync(
+        long productionOrderId,
+        long? excludeQcUnitId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (productionOrderId <= 0)
+            return Array.Empty<ProductionMaterialBalanceAllocationDto>();
+
+        var items = new List<ProductionMaterialBalanceAllocationDto>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT B.ID,
+                   B.QUANTITY_IN_PRODUCT,
+                   COALESCE((
+                       SELECT SUM(C.QUANTITY_USED)
+                       FROM PRODUCTION_UNIT_COMPONENTS C
+                       JOIN PRODUCTION_QC_UNITS U ON U.ID = C.QC_UNIT_ID
+                       WHERE C.MATERIAL_BALANCE_ID = B.ID
+                         AND U.STATUS_CODE = 'PASSED'
+                         AND (@EXCLUDE = 0 OR U.ID <> @EXCLUDE)), 0)
+            FROM PRODUCTION_MATERIAL_BALANCES B
+            WHERE B.PRODUCTION_ORDER_ID = @PO
+            ORDER BY B.ID
+            """, connection);
+        command.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
+        command.Parameters.Add("@EXCLUDE", FbDbType.BigInt).Value = excludeQcUnitId ?? 0;
+        try
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var inProduct = reader.GetDecimal(1);
+                var used = reader.GetDecimal(2);
+                items.Add(new ProductionMaterialBalanceAllocationDto(
+                    reader.GetInt64(0),
+                    inProduct,
+                    used,
+                    inProduct - used));
+            }
+        }
+        catch (FbException)
+        {
+            return Array.Empty<ProductionMaterialBalanceAllocationDto>();
+        }
+
+        return items;
+    }
+
     private static async Task<IReadOnlyList<ProductionQcUnitDto>> LoadQcUnitsAsync(
         FbConnection connection,
         long orderId,

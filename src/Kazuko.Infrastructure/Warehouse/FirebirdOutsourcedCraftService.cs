@@ -698,12 +698,12 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
         await using var insert = new FbCommand("""
             INSERT INTO FINISHED_PRODUCTS
                 (COMPANY_ID, BRANCH_ID, PRODUCTION_ORDER_ID, SALES_ORDER_ID,
-                 CODE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT,
+                 CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT,
                  GOLD_WEIGHT, MATERIAL_COST, LABOR_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST,
                  LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT)
             VALUES
                 (@CID, @BID, @PO, @SO,
-                 @CODE, @NAME, @PURITY, @W,
+                 @CODE, @BARCODE, @QR, @NAME, @PURITY, @W,
                  @W, @MAT, @LABOR, @NON_GOLD, @TOTAL,
                  @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
             RETURNING ID
@@ -715,6 +715,8 @@ public sealed class FirebirdOutsourcedCraftService : IOutsourcedCraftService
         insert.Parameters.Add("@SO", FbDbType.BigInt).Value =
             output.SalesOrderId is > 0 ? output.SalesOrderId.Value : DBNull.Value;
         insert.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
+        insert.Parameters.Add("@BARCODE", FbDbType.VarChar, 80).Value = code;
+        insert.Parameters.Add("@QR", FbDbType.VarChar, 80).Value = code;
         insert.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
         insert.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
             (object?)output.GoldPurity ?? DBNull.Value;

@@ -221,6 +221,15 @@ public sealed record ProductionUnitComponentDto(
     long? WarehouseGoldPriceId,
     decimal? GoldPricePerChiSnapshot);
 
+/// <summary>
+/// Phân bổ cấu thành theo balance: lượng vào TP, đã dùng bởi món Đạt, còn lại cho món đang QC.
+/// </summary>
+public sealed record ProductionMaterialBalanceAllocationDto(
+    long MaterialBalanceId,
+    decimal QuantityInProduct,
+    decimal QuantityUsedByPassed,
+    decimal QuantityRemaining);
+
 public sealed record ProductionOrderDetail(
     long Id,
     string Code,
@@ -396,7 +405,8 @@ public sealed record ProductionQcDraft(
     string? GoldPurityCode,
     string? DefectNotes,
     IReadOnlyList<ProductionQcComponentDraft> Components,
-    IReadOnlyList<ProductionQcImageDraft> Images);
+    IReadOnlyList<ProductionQcImageDraft> Images,
+    bool IsAdjustment = false);
 
 public sealed record ProductionReworkReturnDraft(
     long QcUnitId,
@@ -457,6 +467,15 @@ public interface IProductionQueryRepository
         long branchId,
         long locationId,
         string? searchText,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ProductionUnitComponentDto>> GetQcUnitComponentsAsync(
+        long qcUnitId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ProductionMaterialBalanceAllocationDto>> GetMaterialBalanceAllocationsAsync(
+        long productionOrderId,
+        long? excludeQcUnitId = null,
         CancellationToken cancellationToken = default);
 }
 

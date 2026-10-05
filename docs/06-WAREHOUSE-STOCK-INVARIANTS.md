@@ -14,7 +14,7 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 
 ### 1.1. Thành phẩm là cá thể duy nhất
 
-- Mỗi dòng `FINISHED_PRODUCTS` là đúng **một món**; `CODE` và `BARCODE_VALUE` duy nhất trong công ty.
+- Mỗi dòng `FINISHED_PRODUCTS` là đúng **một món**; `CODE`, `BARCODE_VALUE` và `QR_VALUE` duy nhất trong công ty (khi tạo thành phẩm từ sản xuất/chế tác, mặc định gán cả ba bằng mã serial).
 - Không lưu tồn thành phẩm bằng một bản ghi có số lượng lớn hơn 1. Tổng số món dùng `COUNT(*)`.
 - Vị trí vật lý nằm ở `LOCATION_ID`; vai trò kho nằm ở `LOCATIONS.INVENTORY_SCOPE`.
 - Kho thành phẩm dùng scope `FINISHED_GOODS`; Kho bán hàng dùng scope `SALES_FLOOR`.

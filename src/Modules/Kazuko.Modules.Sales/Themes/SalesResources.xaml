@@ -13,39 +13,375 @@
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Margin" Value="0,0,0,10" />
     </Style>
 
-    <Style x:Key="SalesSummaryValueStyle" TargetType="TextBox">
-        <Setter Property="IsReadOnly" Value="True" />
-        <Setter Property="MinHeight" Value="32" />
-        <Setter Property="Padding" Value="8,4" />
-        <Setter Property="HorizontalContentAlignment" Value="Right" />
-        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+    <Style x:Key="SalesHintStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="SalesCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="14" />
+    </Style>
+
+    <Style x:Key="SalesRoundedTextBoxStyle" TargetType="TextBox">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.7" />
+                        </Trigger>
+                        <Trigger Property="IsReadOnly" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SalesCodeTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource SalesRoundedTextBoxStyle}">
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="SalesNumericTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource SalesRoundedTextBoxStyle}">
+        <Setter Property="HorizontalContentAlignment" Value="Right" />
+        <Setter Property="Padding" Value="8,6" />
+    </Style>
+
+    <Style x:Key="SalesSummaryValueStyle" TargetType="TextBox" BasedOn="{StaticResource SalesRoundedTextBoxStyle}">
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="HorizontalContentAlignment" Value="Right" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+
+    <!-- Combo nghiệp vụ: không ghi đè ControlTemplate (tránh lỗi dropdown). -->
+    <Style x:Key="SalesComboStyle" TargetType="ComboBox">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="10,4" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="MaxDropDownHeight" Value="320" />
+    </Style>
+
+    <Style x:Key="SalesPrimaryButtonStyle" TargetType="Button">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="16,6" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SalesOutlineButtonStyle" TargetType="Button">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SalesGhostButtonStyle" TargetType="Button">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SalesDangerButtonStyle" TargetType="Button" BasedOn="{StaticResource SalesGhostButtonStyle}">
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+    </Style>
+
+    <Style x:Key="SalesIconButtonStyle" TargetType="Button" BasedOn="{StaticResource SalesGhostButtonStyle}">
+        <Setter Property="MinWidth" Value="40" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <Style x:Key="SalesGridActionButtonStyle" TargetType="Button">
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="MinWidth" Value="64" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SalesTabControlStyle" TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style x:Key="SalesTabItemStyle" TargetType="TabItem">
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="TabBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}"
+                            Margin="{TemplateBinding Margin}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter ContentSource="Header"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsSelected" Value="False" />
+                                <Condition Property="IsMouseOver" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                        </MultiTrigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.55" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SalesInnerTabItemStyle" TargetType="TabItem" BasedOn="{StaticResource SalesTabItemStyle}">
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+    </Style>
+
+    <Style x:Key="SalesAmountHeroStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,14" />
+        <Setter Property="Margin" Value="0,12,0,0" />
     </Style>
 
     <Style x:Key="SalesDataGridStyle" TargetType="DataGrid">
-        <Setter Property="AutoGenerateColumns" Value="False" />
-        <Setter Property="IsReadOnly" Value="True" />
-        <Setter Property="CanUserAddRows" Value="False" />
-        <Setter Property="CanUserDeleteRows" Value="False" />
-        <Setter Property="SelectionMode" Value="Single" />
-        <Setter Property="HeadersVisibility" Value="Column" />
-        <Setter Property="GridLinesVisibility" Value="Horizontal" />
-        <Setter Property="RowHeaderWidth" Value="0" />
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-        <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}" />
+        <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="GridLinesVisibility" Value="Horizontal" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="SelectionUnit" Value="FullRow" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="CanUserDeleteRows" Value="False" />
+        <Setter Property="CanUserResizeRows" Value="False" />
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="RowHeaderWidth" Value="0" />
+        <Setter Property="RowHeight" Value="34" />
+        <Setter Property="ColumnHeaderHeight" Value="34" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
         <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
         <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
         <Setter Property="grid:DataGridColumnLayout.EnableHeaderMenu" Value="True" />
         <Setter Property="grid:DataGridColumnLayout.AutoFitOnFirstLoad" Value="True" />
+        <Setter Property="ColumnHeaderStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+                    <Setter Property="Padding" Value="8,6" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                    <Setter Property="BorderThickness" Value="0,0,1,1" />
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="CellStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="Padding" Value="8,4" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Padding="{TemplateBinding Padding}"
+                                        Background="{TemplateBinding Background}"
+                                        SnapsToDevicePixels="True">
+                                    <ContentPresenter VerticalAlignment="Center" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Setter.Value>
+        </Setter>
     </Style>
 </ResourceDictionary>

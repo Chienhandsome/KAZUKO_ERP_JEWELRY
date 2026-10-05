@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
@@ -44,15 +46,18 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private readonly List<ProductionAttachmentEditorViewModel> _removedAttachments = [];
 
     private ProductionLineEditorViewModel? _selectedLine;
+    private ProductionGalleryItemViewModel? _selectedGalleryImage;
     private ProductionMaterialStockOption? _selectedStockMaterial;
     private decimal _issueQuantity = 1m;
     private ProductionQcUnitEditorViewModel? _selectedQcUnit;
     private string _qcResultCode = ProductionQcResultCodes.Pass;
     private decimal? _qcGoldWeight;
+    private string _qcGoldWeightText = string.Empty;
     private string _qcWeightUnit = "CHI";
     private string _qcPurityCode = string.Empty;
     private string _qcDefectNotes = string.Empty;
     private string _completionPreview = string.Empty;
+    private bool _isQcAdjustmentMode;
 
     public ProductionOrderDialogViewModel(
         long? orderId,
@@ -76,9 +81,9 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         SaveDraftCommand = new AsyncRelayCommand(SaveDraftAsync, () => IsDraft && !IsBusy);
         CancelDraftCommand = new AsyncRelayCommand(CancelDraftAsync, () => CanCancel && !IsBusy);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke(false));
-        AddLineCommand = new RelayCommand(AddLine, () => IsDraft && !IsBusy);
+        AddLineCommand = new AsyncRelayCommand(AddLineAsync, () => IsDraft && !IsBusy);
         EditLineCommand = new ParameterRelayCommand(
-            p => EditLine(p as ProductionLineEditorViewModel ?? SelectedLine),
+            p => _ = EditLineAsync(p as ProductionLineEditorViewModel ?? SelectedLine),
             p => (p as ProductionLineEditorViewModel ?? SelectedLine) is not null && !IsBusy);
         RemoveLineCommand = new ParameterRelayCommand(
             p => RemoveLine(p as ProductionLineEditorViewModel ?? SelectedLine),
@@ -98,8 +103,14 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             p => CanIssueMaterials && p is ProductionIssueLineEditorViewModel);
         PostMaterialIssueCommand = new AsyncRelayCommand(PostMaterialIssueAsync, () => CanIssueMaterials && !IsBusy);
         PostWorkerReturnCommand = new AsyncRelayCommand(PostWorkerReturnAsync, () => CanPostReturn && !IsBusy);
-        AddQcImageCommand = new AsyncRelayCommand(AddQcImageAsync, () => CanWriteQc && SelectedQcUnit is not null && !IsBusy);
-        RecordQcCommand = new AsyncRelayCommand(RecordQcAsync, () => CanWriteQc && SelectedQcUnit is not null && !IsBusy);
+        AddQcImageCommand = new AsyncRelayCommand(AddQcImageAsync, () => CanEditSelectedQc && !IsBusy);
+        RecordQcCommand = new AsyncRelayCommand(RecordQcAsync, () => CanEditSelectedQc && !IsBusy);
+        StartQcAdjustmentCommand = new AsyncRelayCommand(
+            StartQcAdjustmentAsync,
+            () => CanStartQcAdjustment && !IsBusy);
+        CancelQcAdjustmentCommand = new RelayCommand(
+            CancelQcAdjustment,
+            () => IsQcAdjustmentMode && !IsBusy);
         RecordReworkCommand = new AsyncRelayCommand(RecordReworkAsync, () => CanWriteQc && SelectedQcUnit is { CanRework: true } && !IsBusy);
         CompleteOrderCommand = new AsyncRelayCommand(CompleteOrderAsync, () => CanComplete && !IsBusy);
         PrintMaterialIssueCommand = new AsyncRelayCommand(() => PrintAsync(1), () => _id is > 0 && !IsBusy);
@@ -107,6 +118,25 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         PrintQcCommand = new AsyncRelayCommand(() => PrintAsync(3), () => _id is > 0 && !IsBusy);
         PrintFinishedCommand = new AsyncRelayCommand(() => PrintAsync(4), () => _id is > 0 && !IsBusy);
         PrintSettlementCommand = new AsyncRelayCommand(() => PrintAsync(5), () => _id is > 0 && !IsBusy);
+        SelectGalleryImageCommand = new ParameterRelayCommand(
+            p =>
+            {
+                if (p is ProductionGalleryItemViewModel item)
+                    SelectedGalleryImage = item;
+            },
+            p => p is ProductionGalleryItemViewModel);
+        OpenGalleryImageCommand = new ParameterRelayCommand(
+            p => OpenGalleryImage(p as ProductionGalleryItemViewModel ?? SelectedGalleryImage),
+            p => (p as ProductionGalleryItemViewModel ?? SelectedGalleryImage) is not null);
+        GoToCurrentWorkflowStepCommand = new RelayCommand(GoToCurrentWorkflowStep);
+        SelectWorkflowStepCommand = new ParameterRelayCommand(
+            p =>
+            {
+                if (p is ProductionWorkflowStepViewModel step && step.CanNavigate)
+                    SelectedTabIndex = step.TabIndex;
+            },
+            p => p is ProductionWorkflowStepViewModel { CanNavigate: true });
+        RefreshWorkflowSteps();
 
         _ = InitializeAsync();
     }
@@ -118,6 +148,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ObservableCollection<ProductionEmployeePickViewModel> Employees { get; } = [];
     public ObservableCollection<ProductionExternalWorkerItemViewModel> ExternalWorkers { get; } = [];
     public ObservableCollection<ProductionLineEditorViewModel> Lines { get; } = [];
+    public ObservableCollection<ProductionGalleryItemViewModel> GalleryImages { get; } = [];
     public ObservableCollection<ProductionMaterialStockOption> StockMaterials { get; } = [];
     public ObservableCollection<ProductionIssueLineEditorViewModel> IssueLines { get; } = [];
     public ObservableCollection<ProductionReturnLineEditorViewModel> ReturnLines { get; } = [];
@@ -142,18 +173,187 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private bool _hasReturn;
 
     public bool HasMaterialIssue => _hasMaterialIssue;
+    public bool HasReturn => _hasReturn;
     public bool CanIssueMaterials => IsDraft && _id is > 0 && !_hasMaterialIssue;
     public bool CanPostReturn => IsInProgress && _hasMaterialIssue && !_hasReturn && ReturnLines.Count > 0;
     public bool CanWriteQc => IsInProgress && _hasReturn && QcUnits.Count > 0;
+    public bool IsQcAdjustmentMode
+    {
+        get => _isQcAdjustmentMode;
+        private set
+        {
+            if (SetProperty(ref _isQcAdjustmentMode, value))
+            {
+                OnPropertyChanged(nameof(CanEditSelectedQc));
+                OnPropertyChanged(nameof(CanStartQcAdjustment));
+                OnPropertyChanged(nameof(QcChecklistText));
+                ((AsyncRelayCommand)StartQcAdjustmentCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)CancelQcAdjustmentCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)AddQcImageCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)RecordQcCommand).NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool CanStartQcAdjustment =>
+        CanWriteQc
+        && !IsCompleted
+        && SelectedQcUnit is { IsPassed: true, FinishedProductId: null }
+        && !IsQcAdjustmentMode;
+
+    public bool CanEditSelectedQc =>
+        CanWriteQc
+        && SelectedQcUnit is not null
+        && (!SelectedQcUnit.IsPassed || IsQcAdjustmentMode);
     public bool CanComplete => IsInProgress && _hasReturn && QcUnits.Count > 0 && QcUnits.All(x => x.IsPassed);
     public bool CanCancel => (IsDraft || IsInProgress) && _id is > 0;
     public bool CanUseExecutionTabs => _id is > 0;
+    public bool ShowIssueComposer => CanIssueMaterials;
+    public bool ShowIssueHistory => HasMaterialIssue;
+    public bool ShowReturnReady => CanPostReturn || (HasMaterialIssue && HasReturn);
+    public bool ShowReturnBlocked => !HasMaterialIssue;
+    public bool ShowQcReady => CanWriteQc;
+    public bool ShowQcBlocked => !CanWriteQc;
+    public bool ShowCompleteReady => CanComplete || IsCompleted;
 
-    public IReadOnlyList<string> OrderSourceOptions { get; } =
-        [ProductionOrderSources.Stock, ProductionOrderSources.SalesOrder];
+    public ObservableCollection<ProductionWorkflowStepViewModel> WorkflowSteps { get; } = [];
 
-    public IReadOnlyList<string> ExecutionTypeOptions { get; } =
-        [ProductionExecutionTypes.InHouse, ProductionExecutionTypes.Outsourced];
+    public string WorkflowHint
+    {
+        get
+        {
+            if (IsCompleted)
+                return "Lệnh đã hoàn tất. Có thể in chứng từ ở tab Tổng kết.";
+            if (_id is not > 0)
+                return "Bước 1: điền thông tin, thêm mẫu, rồi Lưu bản nháp.";
+            if (IsDraft && Lines.Count == 0)
+                return "Bước 1: thêm ít nhất một mẫu sản phẩm, rồi Lưu bản nháp.";
+            if (CanIssueMaterials)
+                return "Bước 2: chọn NVL còn tồn → Thêm dòng → Ghi sổ giao NVL (một lần).";
+            if (HasMaterialIssue && !HasReturn)
+                return "Bước 3: đối soát đã giao = vào TP + trả lại + phế liệu + hao hụt, rồi Ghi nhận nhận hàng.";
+            if (CanWriteQc && !CanComplete)
+                return "Bước 4: QC từng món (Đạt cần TL vàng, tuổi, cấu thành > 0 và ≥ 1 ảnh).";
+            if (CanComplete)
+                return "Bước 5: kiểm tra tổng kết rồi Hoàn tất lệnh để sinh serial/thành phẩm.";
+            return "Theo dõi tiến trình lệnh trên thanh bước phía trên.";
+        }
+    }
+
+    public string IssueTabEmptyMessage =>
+        _id is not > 0
+            ? "Cần Lưu bản nháp trước khi giao nguyên liệu."
+            : "Đã ghi sổ giao NVL. Dữ liệu bên dưới chỉ đọc.";
+
+    public string ReturnTabEmptyMessage =>
+        !HasMaterialIssue
+            ? "Cần ghi sổ giao NVL trước khi nhận & đối soát."
+            : HasReturn
+                ? "Đã ghi nhận nhận hàng. Bảng đối soát bên dưới chỉ đọc."
+                : string.Empty;
+
+    public string QcTabEmptyMessage =>
+        !HasMaterialIssue
+            ? "Cần giao NVL và nhận hàng trước khi QC."
+            : !HasReturn
+                ? "Cần ghi nhận nhận hàng trước — hệ thống sẽ tạo đơn vị QC theo số lượng mẫu."
+                : "Chọn một món bên trái để nhập hoặc xem kết quả QC.";
+
+    public string CompleteTabBlockedMessage
+    {
+        get
+        {
+            if (IsCompleted)
+                return string.Empty;
+            if (!HasMaterialIssue)
+                return "Chưa giao NVL — chưa thể hoàn tất.";
+            if (!HasReturn)
+                return "Chưa nhận hàng / đối soát — chưa thể hoàn tất.";
+            if (QcUnits.Count == 0)
+                return "Chưa có đơn vị QC.";
+            var pending = QcUnits.Count(x => !x.IsPassed);
+            return pending > 0
+                ? $"Còn {pending}/{QcUnits.Count} món chưa đạt QC. Hoàn tất khi mọi món đều Đạt."
+                : string.Empty;
+        }
+    }
+
+    public string ReturnBalanceSummary
+    {
+        get
+        {
+            if (ReturnLines.Count == 0)
+                return "Chưa có dòng đối soát.";
+            var balanced = ReturnLines.Count(x => x.IsBalanced);
+            if (balanced == ReturnLines.Count)
+                return $"Đối soát cân bằng: {balanced}/{ReturnLines.Count} dòng.";
+            return $"Còn lệch: {ReturnLines.Count - balanced}/{ReturnLines.Count} dòng (đã giao phải bằng tổng các cột còn lại).";
+        }
+    }
+
+    public bool IsReturnFullyBalanced =>
+        ReturnLines.Count > 0 && ReturnLines.All(x => x.IsBalanced);
+
+    public string QcChecklistText
+    {
+        get
+        {
+            if (SelectedQcUnit is null)
+                return "Chọn một món để xem checklist QC.";
+            if (SelectedQcUnit.IsPassed && !IsQcAdjustmentMode)
+            {
+                return "Đã đạt QC — form chỉ xem. Bấm Điều chỉnh QC để sửa (tạo lần điều chỉnh có audit).";
+            }
+
+            var isPass = string.Equals(QcResultCode, ProductionQcResultCodes.Pass, StringComparison.OrdinalIgnoreCase);
+            if (IsQcAdjustmentMode)
+            {
+                var reasonOk = !string.IsNullOrWhiteSpace(QcDefectNotes);
+                if (!isPass)
+                    return $"Điều chỉnh → Không đạt: {(reasonOk ? "✓" : "○")} Lý do";
+
+                var weightOk = QcGoldWeight is > 0;
+                var unitOk = !string.IsNullOrWhiteSpace(QcWeightUnit);
+                var purityOk = !string.IsNullOrWhiteSpace(QcPurityCode);
+                var componentOk = QcComponents.Any(x => x.QuantityUsed > 0);
+                var imageOk = QcImages.Count > 0;
+                return $"Điều chỉnh → Đạt: {(reasonOk ? "✓" : "○")} Lý do  {(weightOk ? "✓" : "○")} TL  {(unitOk ? "✓" : "○")} ĐVT  {(purityOk ? "✓" : "○")} Tuổi  {(componentOk ? "✓" : "○")} Cấu thành  {(imageOk ? "✓" : "○")} Ảnh mới";
+            }
+
+            if (!isPass)
+            {
+                var noteOk = !string.IsNullOrWhiteSpace(QcDefectNotes);
+                return $"Không đạt: {(noteOk ? "✓" : "○")} Lý do lỗi";
+            }
+
+            {
+                var weightOk = QcGoldWeight is > 0;
+                var unitOk = !string.IsNullOrWhiteSpace(QcWeightUnit);
+                var purityOk = !string.IsNullOrWhiteSpace(QcPurityCode);
+                var componentOk = QcComponents.Any(x => x.QuantityUsed > 0);
+                var imageOk = QcImages.Count > 0;
+                return $"Đạt: {(weightOk ? "✓" : "○")} TL vàng  {(unitOk ? "✓" : "○")} ĐVT  {(purityOk ? "✓" : "○")} Tuổi vàng  {(componentOk ? "✓" : "○")} Cấu thành  {(imageOk ? "✓" : "○")} Ảnh QC";
+            }
+        }
+    }
+
+    public IReadOnlyList<ProductionNamedOption> OrderSourceOptions { get; } =
+    [
+        new(ProductionOrderSources.Stock, "Nhập kho"),
+        new(ProductionOrderSources.SalesOrder, "Theo đơn bán")
+    ];
+
+    public IReadOnlyList<ProductionNamedOption> ExecutionTypeOptions { get; } =
+    [
+        new(ProductionExecutionTypes.InHouse, "Nội bộ"),
+        new(ProductionExecutionTypes.Outsourced, "Thợ ngoài")
+    ];
+
+    public IReadOnlyList<ProductionNamedOption> QcResultOptions { get; } =
+    [
+        new(ProductionQcResultCodes.Pass, "Đạt"),
+        new(ProductionQcResultCodes.Fail, "Không đạt")
+    ];
 
     public string OrderSource
     {
@@ -168,8 +368,42 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 if (!IsSalesOrderSource)
                     SalesOrderId = null;
                 OnPropertyChanged(nameof(IsSalesOrderSource));
+                OnPropertyChanged(nameof(SelectedOrderSourceOption));
                 NotifyCommands();
             }
+        }
+    }
+
+    public ProductionNamedOption? SelectedOrderSourceOption
+    {
+        get => OrderSourceOptions.FirstOrDefault(x =>
+            string.Equals(x.Code, OrderSource, StringComparison.OrdinalIgnoreCase));
+        set
+        {
+            if (value is not null)
+                OrderSource = value.Code;
+        }
+    }
+
+    public ProductionNamedOption? SelectedExecutionTypeOption
+    {
+        get => ExecutionTypeOptions.FirstOrDefault(x =>
+            string.Equals(x.Code, ExecutionType, StringComparison.OrdinalIgnoreCase));
+        set
+        {
+            if (value is not null)
+                ExecutionType = value.Code;
+        }
+    }
+
+    public ProductionNamedOption? SelectedQcResultOption
+    {
+        get => QcResultOptions.FirstOrDefault(x =>
+            string.Equals(x.Code, QcResultCode, StringComparison.OrdinalIgnoreCase));
+        set
+        {
+            if (value is not null)
+                QcResultCode = value.Code;
         }
     }
 
@@ -196,6 +430,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                     ExternalWorkerId = null;
                 OnPropertyChanged(nameof(IsInHouse));
                 OnPropertyChanged(nameof(IsOutsourced));
+                OnPropertyChanged(nameof(SelectedExecutionTypeOption));
                 NotifyCommands();
             }
         }
@@ -256,7 +491,31 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public int SelectedTabIndex
     {
         get => _selectedTabIndex;
-        set => SetProperty(ref _selectedTabIndex, value);
+        set
+        {
+            if (!SetProperty(ref _selectedTabIndex, value))
+                return;
+
+            // Tab "Giao NVL" = index 2 — tải tồn khi người dùng mở tab.
+            if (value == 2 && CanIssueMaterials)
+                _ = LoadStockMaterialsAsync();
+        }
+    }
+
+    public string StockMaterialsHint
+    {
+        get
+        {
+            if (HasMaterialIssue)
+                return "Đã ghi sổ giao NVL — danh sách bên dưới là lịch sử chỉ đọc.";
+            if (!CanIssueMaterials)
+                return "Chỉ giao NVL khi lệnh còn bản nháp và chưa ghi sổ giao. Hãy Lưu bản nháp trước.";
+            if (SourceLocationId <= 0)
+                return "Chọn kho xuất NVL ở tab Thông tin lệnh trước.";
+            if (StockMaterials.Count == 0)
+                return "Không có tồn NVL (> 0) tại kho xuất đã chọn. Bấm Tải tồn hoặc đổi kho.";
+            return $"Có {StockMaterials.Count} NVL còn tồn — chọn rồi bấm Thêm dòng.";
+        }
     }
 
     public string ErrorMessage
@@ -299,6 +558,22 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         set => SetProperty(ref _selectedLine, value);
     }
 
+    public ProductionGalleryItemViewModel? SelectedGalleryImage
+    {
+        get => _selectedGalleryImage;
+        set
+        {
+            if (SetProperty(ref _selectedGalleryImage, value))
+            {
+                foreach (var item in GalleryImages)
+                    item.IsSelected = ReferenceEquals(item, value);
+                OnPropertyChanged(nameof(HasGalleryImages));
+            }
+        }
+    }
+
+    public bool HasGalleryImages => GalleryImages.Count > 0;
+
     public ProductionQcUnitEditorViewModel? SelectedQcUnit
     {
         get => _selectedQcUnit;
@@ -306,22 +581,10 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedQcUnit, value))
             {
-                QcComponents.Clear();
-                QcImages.Clear();
-                if (value is not null)
-                {
-                    foreach (var balance in ReturnLines)
-                    {
-                        QcComponents.Add(new ProductionQcComponentEditorViewModel(
-                            balance.MaterialBalanceId,
-                            balance.MaterialCode,
-                            balance.MaterialName,
-                            InferComponentKind(balance.MaterialType),
-                            balance.QuantityInProduct,
-                            balance.UnitCode));
-                    }
-                }
-
+                _isQcAdjustmentMode = false;
+                OnPropertyChanged(nameof(IsQcAdjustmentMode));
+                OnPropertyChanged(nameof(CanStartQcAdjustment));
+                _ = HydrateQcFormFromSelectedUnitAsync();
                 NotifyCommands();
             }
         }
@@ -330,31 +593,102 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public string QcResultCode
     {
         get => _qcResultCode;
-        set => SetProperty(ref _qcResultCode, value);
+        set
+        {
+            if (SetProperty(ref _qcResultCode, value))
+            {
+                OnPropertyChanged(nameof(SelectedQcResultOption));
+                OnPropertyChanged(nameof(QcChecklistText));
+            }
+        }
     }
 
     public decimal? QcGoldWeight
     {
         get => _qcGoldWeight;
-        set => SetProperty(ref _qcGoldWeight, value);
+        set
+        {
+            if (!SetProperty(ref _qcGoldWeight, value))
+                return;
+
+            var text = value is null
+                ? string.Empty
+                : value.Value.ToString("0.####", CultureInfo.CurrentCulture);
+            if (!string.Equals(_qcGoldWeightText, text, StringComparison.Ordinal))
+            {
+                _qcGoldWeightText = text;
+                OnPropertyChanged(nameof(QcGoldWeightText));
+            }
+
+            OnPropertyChanged(nameof(QcChecklistText));
+        }
+    }
+
+    /// <summary>Cho phép gõ số thập phân (dấu phẩy/chấm theo locale) ở ô trọng lượng vàng.</summary>
+    public string QcGoldWeightText
+    {
+        get => _qcGoldWeightText;
+        set
+        {
+            var text = value ?? string.Empty;
+            if (!SetProperty(ref _qcGoldWeightText, text))
+                return;
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                if (_qcGoldWeight is not null)
+                    SetProperty(ref _qcGoldWeight, null, nameof(QcGoldWeight));
+                OnPropertyChanged(nameof(QcChecklistText));
+                return;
+            }
+
+            if (decimal.TryParse(
+                    text.Trim(),
+                    NumberStyles.Number,
+                    CultureInfo.CurrentCulture,
+                    out var parsed)
+                || decimal.TryParse(
+                    text.Trim().Replace(',', '.'),
+                    NumberStyles.Number,
+                    CultureInfo.InvariantCulture,
+                    out parsed))
+            {
+                if (_qcGoldWeight != parsed)
+                    SetProperty(ref _qcGoldWeight, parsed, nameof(QcGoldWeight));
+            }
+
+            OnPropertyChanged(nameof(QcChecklistText));
+        }
     }
 
     public string QcWeightUnit
     {
         get => _qcWeightUnit;
-        set => SetProperty(ref _qcWeightUnit, value);
+        set
+        {
+            if (SetProperty(ref _qcWeightUnit, value))
+                OnPropertyChanged(nameof(QcChecklistText));
+        }
     }
 
     public string QcPurityCode
     {
         get => _qcPurityCode;
-        set => SetProperty(ref _qcPurityCode, value);
+        set
+        {
+            if (SetProperty(ref _qcPurityCode, value))
+                OnPropertyChanged(nameof(QcChecklistText));
+        }
     }
 
     public string QcDefectNotes
     {
         get => _qcDefectNotes;
-        set => SetProperty(ref _qcDefectNotes, value);
+        set
+        {
+            if (SetProperty(ref _qcDefectNotes, value))
+                OnPropertyChanged(nameof(QcChecklistText));
+        }
     }
 
     public string CompletionPreview
@@ -369,6 +703,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ICommand AddLineCommand { get; }
     public ICommand EditLineCommand { get; }
     public ICommand RemoveLineCommand { get; }
+    public ICommand SelectGalleryImageCommand { get; }
+    public ICommand OpenGalleryImageCommand { get; }
     public ICommand RefreshSalesOrdersCommand { get; }
     public ICommand RefreshEmployeesCommand { get; }
     public ICommand RefreshWorkersCommand { get; }
@@ -380,6 +716,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ICommand PostWorkerReturnCommand { get; }
     public ICommand AddQcImageCommand { get; }
     public ICommand RecordQcCommand { get; }
+    public ICommand StartQcAdjustmentCommand { get; }
+    public ICommand CancelQcAdjustmentCommand { get; }
     public ICommand RecordReworkCommand { get; }
     public ICommand CompleteOrderCommand { get; }
     public ICommand PrintMaterialIssueCommand { get; }
@@ -387,6 +725,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ICommand PrintQcCommand { get; }
     public ICommand PrintFinishedCommand { get; }
     public ICommand PrintSettlementCommand { get; }
+    public ICommand GoToCurrentWorkflowStepCommand { get; }
+    public ICommand SelectWorkflowStepCommand { get; }
 
     private AuthenticatedSession RequireSession() =>
         _sessionAccessor.Current ?? throw new InvalidOperationException("Phiên đăng nhập đã hết hạn.");
@@ -561,6 +901,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         }
 
         SelectedLine = Lines.FirstOrDefault();
+        RefreshGalleryImages();
 
         _hasMaterialIssue = detail.MaterialIssueDocumentId is > 0;
         _hasReturn = detail.ReturnDocumentId is > 0;
@@ -568,9 +909,17 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ReturnLines.Clear();
         foreach (var balance in detail.MaterialBalances)
         {
-            ReturnLines.Add(new ProductionReturnLineEditorViewModel(balance, !_hasReturn && IsInProgress));
+            if (_hasMaterialIssue)
+            {
+                IssueLines.Add(ProductionIssueLineEditorViewModel.FromPostedBalance(balance));
+            }
+
+            var returnLine = new ProductionReturnLineEditorViewModel(balance, !_hasReturn && IsInProgress);
+            returnLine.PropertyChanged += OnReturnLinePropertyChanged;
+            ReturnLines.Add(returnLine);
         }
 
+        var previousQcId = SelectedQcUnit?.Id;
         QcUnits.Clear();
         foreach (var unit in detail.QcUnits)
             QcUnits.Add(new ProductionQcUnitEditorViewModel(unit));
@@ -582,22 +931,51 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(IsInProgress));
         OnPropertyChanged(nameof(IsCompleted));
         OnPropertyChanged(nameof(HasMaterialIssue));
+        OnPropertyChanged(nameof(HasReturn));
         OnPropertyChanged(nameof(CanIssueMaterials));
         OnPropertyChanged(nameof(CanPostReturn));
         OnPropertyChanged(nameof(CanWriteQc));
         OnPropertyChanged(nameof(CanComplete));
         OnPropertyChanged(nameof(CanUseExecutionTabs));
+        OnPropertyChanged(nameof(ReturnBalanceSummary));
+        OnPropertyChanged(nameof(IsReturnFullyBalanced));
+        RefreshWorkflowSteps();
         NotifyCommands();
+
+        SelectedQcUnit = previousQcId is > 0
+            ? QcUnits.FirstOrDefault(x => x.Id == previousQcId) ?? QcUnits.FirstOrDefault()
+            : QcUnits.FirstOrDefault();
     }
 
     private async Task LoadStockMaterialsAsync()
     {
-        if (SourceLocationId <= 0)
-            return;
-        var items = await _queries.SearchMaterialStockAsync(_branchId, SourceLocationId, null);
-        StockMaterials.Clear();
-        foreach (var item in items)
-            StockMaterials.Add(item);
+        try
+        {
+            if (SourceLocationId <= 0)
+            {
+                StockMaterials.Clear();
+                OnPropertyChanged(nameof(StockMaterialsHint));
+                return;
+            }
+
+            var items = await _queries.SearchMaterialStockAsync(_branchId, SourceLocationId, null);
+            StockMaterials.Clear();
+            foreach (var item in items)
+                StockMaterials.Add(item);
+
+            if (SelectedStockMaterial is not null
+                && StockMaterials.All(x => x.MaterialId != SelectedStockMaterial.MaterialId))
+            {
+                SelectedStockMaterial = null;
+            }
+
+            OnPropertyChanged(nameof(StockMaterialsHint));
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            OnPropertyChanged(nameof(StockMaterialsHint));
+        }
     }
 
     private void AddIssueLine()
@@ -616,6 +994,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
         IssueLines.Add(new ProductionIssueLineEditorViewModel(SelectedStockMaterial, IssueQuantity));
         ErrorMessage = string.Empty;
+        RefreshWorkflowSteps();
     }
 
     private async Task PostMaterialIssueAsync()
@@ -714,12 +1093,24 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         var staging = await _attachments.ImportToStagingAsync(dialog.FileName);
         QcImages.Add(new ProductionQcImageEditorViewModel(
             staging, Path.GetFileName(dialog.FileName), QcImages.Count));
+        OnPropertyChanged(nameof(QcChecklistText));
     }
 
     private async Task RecordQcAsync()
     {
         if (SelectedQcUnit is null || _id is not > 0)
             return;
+
+        var adjusting = IsQcAdjustmentMode && SelectedQcUnit.IsPassed;
+        if (adjusting)
+        {
+            if (MessageBox.Show(
+                    "Lưu điều chỉnh QC? Hệ thống tạo lần QC mới (audit), không ghi đè lịch sử cũ.",
+                    "Xác nhận điều chỉnh",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+        }
 
         try
         {
@@ -741,11 +1132,17 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 QcPurityCode,
                 QcDefectNotes,
                 components,
-                images);
+                images,
+                IsAdjustment: adjusting);
             await _application.RecordQcAsync(draft, RequireSession());
+            IsQcAdjustmentMode = false;
             await LoadDetailAsync(_id.Value);
             SelectedQcUnit = QcUnits.FirstOrDefault(x => x.Id == draft.QcUnitId);
-            MessageBox.Show("Đã lưu kết quả QC.", "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                adjusting ? "Đã lưu điều chỉnh QC." : "Đã lưu kết quả QC.",
+                "Thành công",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
@@ -755,6 +1152,42 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private async Task StartQcAdjustmentAsync()
+    {
+        if (SelectedQcUnit is null || !CanStartQcAdjustment)
+            return;
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            IsQcAdjustmentMode = true;
+            QcImages.Clear();
+
+            if (string.IsNullOrWhiteSpace(QcDefectNotes))
+                QcDefectNotes = string.Empty;
+
+            await RebuildQcComponentsAsync(SelectedQcUnit, isAdjustment: true);
+            OnPropertyChanged(nameof(QcChecklistText));
+            OnPropertyChanged(nameof(CanEditSelectedQc));
+        }
+        catch (Exception ex)
+        {
+            IsQcAdjustmentMode = false;
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void CancelQcAdjustment()
+    {
+        IsQcAdjustmentMode = false;
+        _ = HydrateQcFormFromSelectedUnitAsync();
     }
 
     private async Task RecordReworkAsync()
@@ -867,44 +1300,249 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     {
         if (QcUnits.Count == 0)
         {
-            CompletionPreview = "Chưa có đơn vị QC.";
+            CompletionPreview = !HasReturn
+                ? "Chưa nhận hàng — chưa có đơn vị QC / serial dự kiến."
+                : "Chưa có đơn vị QC.";
             return;
         }
 
         var passed = QcUnits.Count(x => x.IsPassed);
         var labor = QcUnits.Where(x => x.IsPassed).Sum(x => x.LaborCostSnapshot);
+        var serialPreview = CanComplete || IsCompleted
+            ? $"Sẽ tạo {passed} serial/thành phẩm (mỗi món đạt = 1)."
+            : $"Dự kiến tối đa {QcUnits.Count} serial khi mọi món đạt ({passed} đã đạt).";
         CompletionPreview =
-            $"Đạt QC: {passed}/{QcUnits.Count}. Tổng tiền công dự kiến: {labor:N0} VND. " +
+            $"{serialPreview} Tổng tiền công dự kiến: {labor:N0} VND. " +
             (IsOutsourced && labor > 0
                 ? "Hoàn tất sẽ sinh một công nợ tiền công thợ ngoài."
                 : "Lệnh nội bộ không sinh công nợ tiền công.");
     }
 
-    private void AddLine()
+    private async Task HydrateQcFormFromSelectedUnitAsync()
+    {
+        var unit = SelectedQcUnit;
+        QcComponents.Clear();
+        QcImages.Clear();
+
+        if (unit is null)
+        {
+            QcResultCode = ProductionQcResultCodes.Pass;
+            QcGoldWeight = null;
+            QcWeightUnit = "CHI";
+            QcPurityCode = string.Empty;
+            QcDefectNotes = string.Empty;
+            OnPropertyChanged(nameof(CanEditSelectedQc));
+            OnPropertyChanged(nameof(QcChecklistText));
+            return;
+        }
+
+        QcGoldWeight = unit.ActualGoldWeight;
+        QcWeightUnit = string.IsNullOrWhiteSpace(unit.ActualWeightUnitCode)
+            ? "CHI"
+            : unit.ActualWeightUnitCode!;
+        QcPurityCode = unit.GoldPurityCode ?? string.Empty;
+        QcDefectNotes = unit.DefectNotes ?? string.Empty;
+        QcResultCode = unit.IsPassed
+            ? ProductionQcResultCodes.Pass
+            : unit.CanRework
+                ? ProductionQcResultCodes.Fail
+                : ProductionQcResultCodes.Pass;
+
+        try
+        {
+            await RebuildQcComponentsAsync(unit, isAdjustment: false);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+
+        OnPropertyChanged(nameof(CanEditSelectedQc));
+        OnPropertyChanged(nameof(QcChecklistText));
+    }
+
+    private async Task RebuildQcComponentsAsync(ProductionQcUnitEditorViewModel unit, bool isAdjustment)
+    {
+        if (_id is not > 0)
+            return;
+
+        // Khi xem/điều chỉnh món Đạt: loại trừ chính món đó khỏi "đã dùng" để hiện trần còn lại đúng.
+        long? excludeId = unit.IsPassed ? unit.Id : null;
+        var allocations = await _queries.GetMaterialBalanceAllocationsAsync(_id.Value, excludeId);
+        var remainingByBalance = allocations.ToDictionary(x => x.MaterialBalanceId, x => x);
+
+        IReadOnlyDictionary<long, ProductionUnitComponentDto> savedByBalance =
+            new Dictionary<long, ProductionUnitComponentDto>();
+        if (unit.IsPassed || isAdjustment)
+        {
+            var saved = await _queries.GetQcUnitComponentsAsync(unit.Id);
+            savedByBalance = saved.ToDictionary(x => x.MaterialBalanceId);
+        }
+
+        QcComponents.Clear();
+        foreach (var balance in ReturnLines)
+        {
+            remainingByBalance.TryGetValue(balance.MaterialBalanceId, out var allocation);
+            var remaining = allocation?.QuantityRemaining ?? balance.QuantityInProduct;
+            // Trần nhập = còn lại (đã cộng lại phần của món Đạt đang xem/điều chỉnh).
+            var maxForEdit = remaining < 0 ? 0 : remaining;
+
+            var component = new ProductionQcComponentEditorViewModel(
+                balance.MaterialBalanceId,
+                balance.MaterialCode,
+                balance.MaterialName,
+                InferComponentKind(balance.MaterialType),
+                maxForEdit,
+                balance.UnitCode,
+                allocation?.QuantityUsedByPassed ?? 0m,
+                balance.QuantityInProduct);
+
+            if (savedByBalance.TryGetValue(balance.MaterialBalanceId, out var prior))
+            {
+                component.ComponentKind = prior.ComponentKind;
+                component.QuantityUsed = prior.QuantityUsed;
+            }
+
+            component.PropertyChanged += (_, _) => OnPropertyChanged(nameof(QcChecklistText));
+            QcComponents.Add(component);
+        }
+    }
+
+    private void OnReturnLinePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ProductionReturnLineEditorViewModel.QuantityInProduct)
+            or nameof(ProductionReturnLineEditorViewModel.QuantityReturned)
+            or nameof(ProductionReturnLineEditorViewModel.QuantityScrap)
+            or nameof(ProductionReturnLineEditorViewModel.QuantityLoss)
+            or nameof(ProductionReturnLineEditorViewModel.IsBalanced)
+            or nameof(ProductionReturnLineEditorViewModel.BalanceStatus))
+        {
+            OnPropertyChanged(nameof(ReturnBalanceSummary));
+            OnPropertyChanged(nameof(IsReturnFullyBalanced));
+        }
+    }
+
+    private void RefreshWorkflowSteps()
+    {
+        var current = ResolveWorkflowStepIndex();
+        var definitions = new (string Title, int TabIndex)[]
+        {
+            ("1. Nháp", 0),
+            ("2. Giao NVL", 2),
+            ("3. Nhận hàng", 3),
+            ("4. QC", 4),
+            ("5. Hoàn tất", 5)
+        };
+
+        WorkflowSteps.Clear();
+        for (var i = 0; i < definitions.Length; i++)
+        {
+            var (title, tabIndex) = definitions[i];
+            var isDone = i < current || (i == 4 && IsCompleted);
+            var isCurrent = IsCompleted ? i == 4 : i == current;
+            var canNavigate = tabIndex <= 1 || (_id is > 0 && CanUseExecutionTabs);
+
+            WorkflowSteps.Add(new ProductionWorkflowStepViewModel(
+                i, title, tabIndex, isCurrent, isDone, canNavigate));
+        }
+
+        OnPropertyChanged(nameof(WorkflowHint));
+        OnPropertyChanged(nameof(ShowIssueComposer));
+        OnPropertyChanged(nameof(ShowIssueHistory));
+        OnPropertyChanged(nameof(ShowReturnReady));
+        OnPropertyChanged(nameof(ShowReturnBlocked));
+        OnPropertyChanged(nameof(ShowQcReady));
+        OnPropertyChanged(nameof(ShowQcBlocked));
+        OnPropertyChanged(nameof(ShowCompleteReady));
+        OnPropertyChanged(nameof(IssueTabEmptyMessage));
+        OnPropertyChanged(nameof(ReturnTabEmptyMessage));
+        OnPropertyChanged(nameof(QcTabEmptyMessage));
+        OnPropertyChanged(nameof(CompleteTabBlockedMessage));
+        OnPropertyChanged(nameof(CanEditSelectedQc));
+    }
+
+    private int ResolveWorkflowStepIndex()
+    {
+        if (IsCompleted)
+            return 4;
+        if (_id is not > 0 || (IsDraft && Lines.Count == 0))
+            return 0;
+        if (CanIssueMaterials || (IsDraft && !_hasMaterialIssue))
+            return 1;
+        if (HasMaterialIssue && !HasReturn)
+            return 2;
+        if (CanWriteQc && !CanComplete)
+            return 3;
+        if (CanComplete)
+            return 4;
+        return 0;
+    }
+
+    private void GoToCurrentWorkflowStep()
+    {
+        var current = ResolveWorkflowStepIndex();
+        SelectedTabIndex = current switch
+        {
+            0 => Lines.Count == 0 ? 1 : 0,
+            1 => 2,
+            2 => 3,
+            3 => 4,
+            _ => 5
+        };
+    }
+
+    private async Task AddLineAsync()
     {
         var next = Lines.Count == 0 ? 1 : Lines.Max(x => x.LineNumber) + 1;
         var draft = new ProductionLineEditorViewModel(next);
-        if (!ShowLineDialog(draft, isNew: true))
+        if (!await ShowLineDialogAsync(draft, isNew: true))
             return;
 
         Lines.Add(draft);
         SelectedLine = draft;
+        RefreshGalleryImages();
+        RefreshWorkflowSteps();
     }
 
-    private void EditLine(ProductionLineEditorViewModel? line)
+    private async Task EditLineAsync(ProductionLineEditorViewModel? line)
     {
         if (line is null)
             return;
 
-        ShowLineDialog(line, isNew: false);
+        if (await ShowLineDialogAsync(line, isNew: false))
+            RefreshGalleryImages();
     }
 
-    private bool ShowLineDialog(ProductionLineEditorViewModel line, bool isNew)
+    private async Task<bool> ShowLineDialogAsync(ProductionLineEditorViewModel line, bool isNew)
     {
+        if (SourceLocationId <= 0)
+        {
+            ErrorMessage = "Vui lòng chọn kho xuất trước khi thêm/sửa mẫu.";
+            return false;
+        }
+
+        IReadOnlyList<ProductionMaterialStockOption> goldStock;
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            goldStock = await LoadGoldStockOptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
         var dialogVm = new ProductionLineEditDialogViewModel(
             _attachments,
             line.LineNumber,
             IsDraft,
+            goldStock,
             isNew ? null : line);
 
         var dialog = new ProductionLineEditDialog
@@ -941,6 +1579,17 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         return true;
     }
 
+    private async Task<IReadOnlyList<ProductionMaterialStockOption>> LoadGoldStockOptionsAsync()
+    {
+        if (SourceLocationId <= 0)
+            return Array.Empty<ProductionMaterialStockOption>();
+
+        var items = await _queries.SearchMaterialStockAsync(_branchId, SourceLocationId, null);
+        return items
+            .Where(x => string.Equals(x.MaterialType, MaterialTypes.Gold, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
     private void RemoveLine(ProductionLineEditorViewModel? line)
     {
         if (line is null || Lines.Count <= 1)
@@ -966,6 +1615,48 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         }
 
         SelectedLine = Lines.FirstOrDefault();
+        RefreshGalleryImages();
+        RefreshWorkflowSteps();
+    }
+
+    private void RefreshGalleryImages()
+    {
+        var previousPath = SelectedGalleryImage?.LocalPath;
+        GalleryImages.Clear();
+
+        foreach (var line in Lines.OrderBy(x => x.LineNumber))
+        {
+            foreach (var attachment in line.Attachments.Where(a => a.IsPreviewableImage))
+            {
+                var label = string.IsNullOrWhiteSpace(line.ModelName)
+                    ? $"Mẫu #{line.LineNumber}"
+                    : $"{line.ModelName} · {attachment.KindDisplayName}";
+                GalleryImages.Add(new ProductionGalleryItemViewModel(
+                    attachment.LocalPath!,
+                    attachment.OriginalFileName,
+                    label));
+            }
+        }
+
+        SelectedGalleryImage = GalleryImages.FirstOrDefault(x =>
+                string.Equals(x.LocalPath, previousPath, StringComparison.OrdinalIgnoreCase))
+            ?? GalleryImages.FirstOrDefault();
+        OnPropertyChanged(nameof(HasGalleryImages));
+    }
+
+    private void OpenGalleryImage(ProductionGalleryItemViewModel? item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(item.LocalPath) || !File.Exists(item.LocalPath))
+            return;
+
+        SelectedGalleryImage = item;
+        var dialog = new ProductionImageViewerDialog
+        {
+            Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                ?? Application.Current.MainWindow,
+            DataContext = new ProductionImageViewerViewModel(item.LocalPath, item.Title)
+        };
+        dialog.ShowDialog();
     }
 
     private async Task SaveDraftAsync()
@@ -1030,11 +1721,14 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         if (_id is not > 0)
             return;
 
+        var cancelPrompt = IsDraft
+            ? "Hủy lệnh bản nháp này? Thao tác không hoàn tác."
+            : "Hủy lệnh đang thực hiện? Chỉ hủy được khi chưa hoàn tất và đủ điều kiện nghiệp vụ. Thao tác không hoàn tác.";
         if (MessageBox.Show(
-                "Hủy lệnh bản nháp này?",
+                cancelPrompt,
                 "Xác nhận",
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
         try
@@ -1060,15 +1754,26 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(CanIssueMaterials));
         OnPropertyChanged(nameof(CanPostReturn));
         OnPropertyChanged(nameof(CanWriteQc));
+        OnPropertyChanged(nameof(CanEditSelectedQc));
+        OnPropertyChanged(nameof(CanStartQcAdjustment));
         OnPropertyChanged(nameof(CanComplete));
         OnPropertyChanged(nameof(CanCancel));
+        OnPropertyChanged(nameof(StockMaterialsHint));
+        OnPropertyChanged(nameof(ReturnBalanceSummary));
+        OnPropertyChanged(nameof(IsReturnFullyBalanced));
+        OnPropertyChanged(nameof(QcChecklistText));
+        RefreshWorkflowSteps();
         ((AsyncRelayCommand)SaveDraftCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)CancelDraftCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)AddLineCommand).NotifyCanExecuteChanged();
+        ((ParameterRelayCommand)EditLineCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RefreshStockMaterialsCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PostMaterialIssueCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PostWorkerReturnCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)AddQcImageCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RecordQcCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)StartQcAdjustmentCommand).NotifyCanExecuteChanged();
+        ((RelayCommand)CancelQcAdjustmentCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RecordReworkCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)CompleteOrderCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PrintMaterialIssueCommand).NotifyCanExecuteChanged();
@@ -1077,6 +1782,23 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ((AsyncRelayCommand)PrintFinishedCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PrintSettlementCommand).NotifyCanExecuteChanged();
     }
+}
+
+public sealed class ProductionWorkflowStepViewModel(
+    int index,
+    string title,
+    int tabIndex,
+    bool isCurrent,
+    bool isDone,
+    bool canNavigate)
+{
+    public int Index { get; } = index;
+    public string Title { get; } = title;
+    public int TabIndex { get; } = tabIndex;
+    public bool IsCurrent { get; } = isCurrent;
+    public bool IsDone { get; } = isDone;
+    public bool CanNavigate { get; } = canNavigate;
+    public bool IsPending => !IsCurrent && !IsDone;
 }
 
 public sealed class ProductionLocationItemViewModel
@@ -1091,6 +1813,35 @@ public sealed class ProductionLocationItemViewModel
     public long Id { get; }
     public string DisplayName { get; }
     public string InventoryScope { get; }
+}
+
+public sealed record ProductionNamedOption(string Code, string DisplayName)
+{
+    public override string ToString() => DisplayName;
+}
+
+public sealed class ProductionGalleryItemViewModel : ObservableObject
+{
+    private bool _isSelected;
+
+    public ProductionGalleryItemViewModel(string localPath, string fileName, string caption)
+    {
+        LocalPath = localPath;
+        FileName = fileName;
+        Caption = caption;
+        Title = string.IsNullOrWhiteSpace(caption) ? fileName : $"{caption} — {fileName}";
+    }
+
+    public string LocalPath { get; }
+    public string FileName { get; }
+    public string Caption { get; }
+    public string Title { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
 }
 
 public sealed class ProductionSalesOrderItemViewModel
@@ -1320,6 +2071,21 @@ public sealed class ProductionAttachmentEditorViewModel
 
     public string KindDisplayName => IsSampleImage ? "Ảnh mẫu" : "File thiết kế";
 
+    public string? LocalPath =>
+        !string.IsNullOrWhiteSpace(StagingPath) ? StagingPath : StoredPath;
+
+    public bool IsPreviewableImage
+    {
+        get
+        {
+            var path = LocalPath;
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            return ext is ".jpg" or ".jpeg" or ".png" or ".webp" or ".bmp" or ".gif";
+        }
+    }
+
     public ProductionAttachmentEditorViewModel CloneForEdit() =>
         new(Id, AttachmentKind, StagingPath, StoredPath, OriginalFileName, MimeType, Caption, DisplayOrder, LineNumber, MarkDeleted);
 
@@ -1337,7 +2103,22 @@ public sealed class ProductionIssueLineEditorViewModel
         UnitCode = stock.UnitCode;
         SnapshotCostHint = stock.AverageCost;
         Quantity = quantity;
+        IsPostedHistory = false;
     }
+
+    private ProductionIssueLineEditorViewModel(ProductionMaterialBalanceDto balance)
+    {
+        MaterialId = balance.MaterialId;
+        MaterialCode = balance.MaterialCode;
+        MaterialName = balance.MaterialName;
+        UnitCode = balance.UnitCode;
+        SnapshotCostHint = balance.UnitCostSnapshot;
+        Quantity = balance.QuantityIssued;
+        IsPostedHistory = true;
+    }
+
+    public static ProductionIssueLineEditorViewModel FromPostedBalance(ProductionMaterialBalanceDto balance) =>
+        new(balance);
 
     public long MaterialId { get; }
     public string MaterialCode { get; }
@@ -1346,7 +2127,10 @@ public sealed class ProductionIssueLineEditorViewModel
     public decimal SnapshotCostHint { get; }
     public decimal Quantity { get; set; }
     public string? Notes { get; set; }
-    public string DisplayCostHint => $"{SnapshotCostHint:N0} / {UnitCode} (ước tính tồn)";
+    public bool IsPostedHistory { get; }
+    public string DisplayCostHint => IsPostedHistory
+        ? $"{SnapshotCostHint:N0} / {UnitCode} (snapshot khi giao)"
+        : $"{SnapshotCostHint:N0} / {UnitCode} (ước tính tồn)";
 }
 
 public sealed class ProductionReturnLineEditorViewModel : ObservableObject
@@ -1384,25 +2168,53 @@ public sealed class ProductionReturnLineEditorViewModel : ObservableObject
     public decimal QuantityInProduct
     {
         get => _quantityInProduct;
-        set => SetProperty(ref _quantityInProduct, value);
+        set
+        {
+            if (SetProperty(ref _quantityInProduct, value))
+                NotifyBalanceChanged();
+        }
     }
 
     public decimal QuantityReturned
     {
         get => _quantityReturned;
-        set => SetProperty(ref _quantityReturned, value);
+        set
+        {
+            if (SetProperty(ref _quantityReturned, value))
+                NotifyBalanceChanged();
+        }
     }
 
     public decimal QuantityScrap
     {
         get => _quantityScrap;
-        set => SetProperty(ref _quantityScrap, value);
+        set
+        {
+            if (SetProperty(ref _quantityScrap, value))
+                NotifyBalanceChanged();
+        }
     }
 
     public decimal QuantityLoss
     {
         get => _quantityLoss;
-        set => SetProperty(ref _quantityLoss, value);
+        set
+        {
+            if (SetProperty(ref _quantityLoss, value))
+                NotifyBalanceChanged();
+        }
+    }
+
+    public bool IsBalanced =>
+        ProductionMaterialBalanceValidator.IsBalanced(
+            QuantityIssued, QuantityInProduct, QuantityReturned, QuantityScrap, QuantityLoss);
+
+    public string BalanceStatus => IsBalanced ? "Đủ" : "Lệch";
+
+    private void NotifyBalanceChanged()
+    {
+        OnPropertyChanged(nameof(IsBalanced));
+        OnPropertyChanged(nameof(BalanceStatus));
     }
 
     public ProductionReturnBalanceLineDraft ToDraft() =>
@@ -1421,6 +2233,10 @@ public sealed class ProductionQcUnitEditorViewModel
         LaborCostSnapshot = dto.LaborCostSnapshot;
         RowVersion = dto.RowVersion;
         DefectNotes = dto.DefectNotes;
+        ActualGoldWeight = dto.ActualGoldWeight;
+        ActualWeightUnitCode = dto.ActualWeightUnitCode;
+        GoldPurityCode = dto.GoldPurityCode;
+        FinishedProductId = dto.FinishedProductId;
         IsPassed = string.Equals(dto.StatusCode, ProductionQcUnitStatuses.Passed, StringComparison.OrdinalIgnoreCase);
         CanRework = string.Equals(dto.StatusCode, ProductionQcUnitStatuses.ReworkRequired, StringComparison.OrdinalIgnoreCase);
         DisplayName = $"{dto.ModelName} — món {dto.UnitNumber} ({StatusDisplay})";
@@ -1434,6 +2250,10 @@ public sealed class ProductionQcUnitEditorViewModel
     public decimal LaborCostSnapshot { get; }
     public long RowVersion { get; }
     public string? DefectNotes { get; }
+    public decimal? ActualGoldWeight { get; }
+    public string? ActualWeightUnitCode { get; }
+    public string? GoldPurityCode { get; }
+    public long? FinishedProductId { get; }
     public bool IsPassed { get; }
     public bool CanRework { get; }
     public string DisplayName { get; }
@@ -1441,13 +2261,18 @@ public sealed class ProductionQcUnitEditorViewModel
 
 public sealed class ProductionQcComponentEditorViewModel : ObservableObject
 {
+    private decimal _quantityUsed;
+    private string _quantityUsedText = "0";
+
     public ProductionQcComponentEditorViewModel(
         long materialBalanceId,
         string materialCode,
         string materialName,
         string componentKind,
         decimal maxQuantity,
-        string unitCode)
+        string unitCode,
+        decimal quantityUsedByOthers = 0m,
+        decimal quantityInProduct = 0m)
     {
         MaterialBalanceId = materialBalanceId;
         MaterialCode = materialCode;
@@ -1455,6 +2280,8 @@ public sealed class ProductionQcComponentEditorViewModel : ObservableObject
         ComponentKind = componentKind;
         MaxQuantity = maxQuantity;
         UnitCode = unitCode;
+        QuantityUsedByOthers = quantityUsedByOthers;
+        QuantityInProduct = quantityInProduct > 0 ? quantityInProduct : maxQuantity;
     }
 
     public long MaterialBalanceId { get; }
@@ -1463,15 +2290,61 @@ public sealed class ProductionQcComponentEditorViewModel : ObservableObject
     public string ComponentKind { get; set; }
     public decimal MaxQuantity { get; }
     public string UnitCode { get; }
+    public decimal QuantityUsedByOthers { get; }
+    public decimal QuantityInProduct { get; }
 
-    private decimal _quantityUsed;
     public decimal QuantityUsed
     {
         get => _quantityUsed;
-        set => SetProperty(ref _quantityUsed, value);
+        set
+        {
+            if (!SetProperty(ref _quantityUsed, value))
+                return;
+            var text = value.ToString("0.####", CultureInfo.CurrentCulture);
+            if (!string.Equals(_quantityUsedText, text, StringComparison.Ordinal))
+            {
+                _quantityUsedText = text;
+                OnPropertyChanged(nameof(QuantityUsedText));
+            }
+        }
     }
 
-    public string DisplayName => $"{MaterialCode} — {MaterialName} (tối đa {MaxQuantity:0.####} {UnitCode})";
+    /// <summary>Cho phép gõ số thập phân (dấu phẩy/chấm theo locale) trong DataGrid.</summary>
+    public string QuantityUsedText
+    {
+        get => _quantityUsedText;
+        set
+        {
+            var text = value ?? string.Empty;
+            if (!SetProperty(ref _quantityUsedText, text))
+                return;
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                if (_quantityUsed != 0m)
+                    SetProperty(ref _quantityUsed, 0m, nameof(QuantityUsed));
+                return;
+            }
+
+            if (decimal.TryParse(
+                    text.Trim(),
+                    NumberStyles.Number,
+                    CultureInfo.CurrentCulture,
+                    out var parsed)
+                || decimal.TryParse(
+                    text.Trim().Replace(',', '.'),
+                    NumberStyles.Number,
+                    CultureInfo.InvariantCulture,
+                    out parsed))
+            {
+                if (_quantityUsed != parsed)
+                    SetProperty(ref _quantityUsed, parsed, nameof(QuantityUsed));
+            }
+        }
+    }
+
+    public string DisplayName =>
+        $"{MaterialCode} — {MaterialName} (còn lại {MaxQuantity:0.####}/{QuantityInProduct:0.####} {UnitCode}; món khác đã dùng {QuantityUsedByOthers:0.####})";
 }
 
 public sealed class ProductionQcImageEditorViewModel

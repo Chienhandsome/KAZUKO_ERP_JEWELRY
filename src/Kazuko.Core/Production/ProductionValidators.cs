@@ -223,16 +223,32 @@ public static class ProductionQcValidator
             errors.Add("Thiếu đơn vị QC.");
 
         var status = (currentUnitStatus ?? string.Empty).Trim().ToUpperInvariant();
-        if (status == ProductionQcUnitStatuses.Passed)
-            errors.Add("Đơn vị đã đạt QC; muốn điều chỉnh phải tạo attempt điều chỉnh có audit.");
-        if (status is not (ProductionQcUnitStatuses.Pending or ProductionQcUnitStatuses.ReworkRequired or ProductionQcUnitStatuses.Passed))
+        if (status is not (
+            ProductionQcUnitStatuses.Pending or
+            ProductionQcUnitStatuses.ReworkRequired or
+            ProductionQcUnitStatuses.Passed))
+        {
             errors.Add("Trạng thái đơn vị QC không hợp lệ.");
+        }
+
+        if (status == ProductionQcUnitStatuses.Passed && !draft.IsAdjustment)
+            errors.Add("Đơn vị đã đạt QC; bấm Điều chỉnh QC để tạo lần điều chỉnh có audit.");
+
+        if (draft.IsAdjustment)
+        {
+            if (status != ProductionQcUnitStatuses.Passed)
+                errors.Add("Chỉ điều chỉnh được món đang ở trạng thái Đạt.");
+            if (string.IsNullOrWhiteSpace(draft.DefectNotes))
+                errors.Add("Điều chỉnh QC phải nhập lý do điều chỉnh.");
+        }
 
         var result = (draft.ResultCode ?? string.Empty).Trim().ToUpperInvariant();
         if (result == ProductionQcResultCodes.Fail)
         {
             if (string.IsNullOrWhiteSpace(draft.DefectNotes))
-                errors.Add("QC không đạt phải nhập lý do lỗi.");
+                errors.Add(draft.IsAdjustment
+                    ? "Điều chỉnh sang Không đạt phải nhập lý do."
+                    : "QC không đạt phải nhập lý do lỗi.");
         }
         else if (result == ProductionQcResultCodes.Pass)
         {
@@ -245,7 +261,9 @@ public static class ProductionQcValidator
             if (draft.Components is null || draft.Components.Count == 0)
                 errors.Add("QC đạt phải phân bổ cấu thành nguyên liệu.");
             if (draft.Images is null || draft.Images.Count == 0)
-                errors.Add("QC đạt phải có ít nhất một ảnh sản phẩm.");
+                errors.Add(draft.IsAdjustment
+                    ? "Điều chỉnh QC đạt phải thêm ít nhất một ảnh mới cho lần điều chỉnh."
+                    : "QC đạt phải có ít nhất một ảnh sản phẩm.");
         }
         else
         {

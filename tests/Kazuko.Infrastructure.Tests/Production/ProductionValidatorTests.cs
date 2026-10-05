@@ -98,6 +98,30 @@ public sealed class ProductionValidatorTests
     }
 
     [Fact]
+    public void Qc_PassedRequiresExplicitAdjustmentFlag()
+    {
+        var draft = new ProductionQcDraft(
+            1,
+            0,
+            ProductionQcResultCodes.Pass,
+            1.2m,
+            "CHI",
+            "9999",
+            "Sửa TL",
+            [new ProductionQcComponentDraft(10, ProductionComponentKinds.Gold, 1)],
+            [new ProductionQcImageDraft("stage.jpg", "a.jpg", "image/jpeg", null, 0)]);
+
+        var blocked = ProductionQcValidator.Validate(draft, ProductionQcUnitStatuses.Passed, _ => 1m);
+        Assert.Contains(blocked, e => e.Contains("Điều chỉnh QC", StringComparison.OrdinalIgnoreCase));
+
+        var allowed = ProductionQcValidator.Validate(
+            draft with { IsAdjustment = true },
+            ProductionQcUnitStatuses.Passed,
+            _ => 1m);
+        Assert.Empty(allowed);
+    }
+
+    [Fact]
     public void Cost_UsesPerLotGoldSnapshot_NotAverage()
     {
         var result = ProductionCostCalculator.Calculate(

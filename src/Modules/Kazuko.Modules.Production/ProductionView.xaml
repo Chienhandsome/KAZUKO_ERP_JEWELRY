@@ -6,117 +6,185 @@
              MinWidth="900" MinHeight="520"
              PreviewKeyDown="UserControl_PreviewKeyDown">
     <UserControl.Resources>
-        <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
-        <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/ProductionResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
+            <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+            <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
+        </ResourceDictionary>
     </UserControl.Resources>
-    <DockPanel Margin="16">
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-            <TextBlock Text="Sản xuất"
-                       FontSize="{DynamicResource FontSize.Heading}"
-                       Foreground="{DynamicResource TextPrimaryBrush}" />
-            <TextBlock Text="Quản lý lệnh sản xuất, mẫu và bản nháp."
-                       Foreground="{DynamicResource TextSecondaryBrush}" />
-        </StackPanel>
 
-        <UniformGrid DockPanel.Dock="Top" Rows="1" Columns="4" Margin="0,0,0,12">
-            <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="/Kazuko.Modules.Production;component/Assets/icons/SX.png"
+                       Width="48" Height="48" Stretch="Uniform" Margin="0,0,12,0" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="SẢN XUẤT"
+                               Foreground="{DynamicResource PrimaryBrush}"
+                               FontSize="{DynamicResource FontSize.Heading}"
+                               FontWeight="Bold" />
+                    <TextBlock Text="Quản lý lệnh sản xuất, mẫu và bản nháp"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Body}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Làm mới (F5)"
+                        Style="{StaticResource ProductionOutlineButtonStyle}"
+                        Command="{Binding RefreshCommand}" />
+                <Button Content="Tạo lệnh"
+                        Style="{StaticResource ProductionPrimaryButtonStyle}"
+                        Command="{Binding CreateOrderCommand}"
+                        Margin="0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- KPI cards -->
+        <UniformGrid Grid.Row="1" Rows="1" Columns="4" Margin="0,0,0,12">
+            <Border Style="{StaticResource ProductionMetricCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Đang làm" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding InProgressCount}" FontSize="{DynamicResource FontSize.Heading}"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="Đang làm" Style="{StaticResource ProductionMetricLabelStyle}" />
+                    <TextBlock Text="{Binding InProgressCount}" Style="{StaticResource ProductionMetricValueStyle}" />
                 </StackPanel>
             </Border>
-            <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+            <Border Style="{StaticResource ProductionMetricCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Hoàn thành kỳ" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding CompletedPeriodCount}" FontSize="{DynamicResource FontSize.Heading}"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="Hoàn thành kỳ" Style="{StaticResource ProductionMetricLabelStyle}" />
+                    <TextBlock Text="{Binding CompletedPeriodCount}" Style="{StaticResource ProductionMetricValueStyle}" />
                 </StackPanel>
             </Border>
-            <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+            <Border Style="{StaticResource ProductionMetricCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Thợ ngoài (đang làm)" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding OutsourcedCount}" FontSize="{DynamicResource FontSize.Heading}"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="Thợ ngoài (đang làm)" Style="{StaticResource ProductionMetricLabelStyle}" />
+                    <TextBlock Text="{Binding OutsourcedCount}" Style="{StaticResource ProductionMetricValueStyle}" />
                 </StackPanel>
             </Border>
-            <Border Style="{DynamicResource CardBorderStyle}" Padding="12">
+            <Border Style="{StaticResource ProductionMetricCardStyle}" Margin="0">
                 <StackPanel>
-                    <TextBlock Text="Nội bộ (đang làm)" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding InHouseCount}" FontSize="{DynamicResource FontSize.Heading}"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="Nội bộ (đang làm)" Style="{StaticResource ProductionMetricLabelStyle}" />
+                    <TextBlock Text="{Binding InHouseCount}" Style="{StaticResource ProductionMetricValueStyle}" />
                 </StackPanel>
             </Border>
         </UniformGrid>
 
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="Tạo lệnh" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding CreateOrderCommand}"
-                    MinHeight="40" Margin="0,0,8,0" />
-            <Button Content="Mở chi tiết" Style="{DynamicResource NavButtonStyle}"
-                    Command="{Binding OpenDetailCommand}" CommandParameter="{Binding SelectedOrder}"
-                    MinHeight="40" />
-        </StackPanel>
+        <!-- Filters -->
+        <Border Grid.Row="2" Style="{StaticResource ProductionCardStyle}" Padding="12,10" Margin="0,0,0,12">
+            <StackPanel>
+                <WrapPanel>
+                    <TextBox Width="240"
+                             Style="{StaticResource ProductionFilterFieldStyle}"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Mã lệnh, mẫu, đơn bán, thợ/nhân viên" />
+                    <ComboBox Width="150"
+                              Style="{StaticResource ProductionFilterComboStyle}"
+                              ItemsSource="{Binding StatusFilterOptions}"
+                              SelectedItem="{Binding SelectedStatusFilter}" />
+                    <ComboBox Width="150"
+                              Style="{StaticResource ProductionFilterComboStyle}"
+                              ItemsSource="{Binding SourceFilterOptions}"
+                              SelectedItem="{Binding SelectedSourceFilter}" />
+                    <ComboBox Width="150"
+                              Style="{StaticResource ProductionFilterComboStyle}"
+                              ItemsSource="{Binding ExecutionFilterOptions}"
+                              SelectedItem="{Binding SelectedExecutionFilter}" />
+                    <DatePicker Width="140" Margin="0,0,8,8" SelectedDate="{Binding FromDate}"
+                                VerticalContentAlignment="Center" />
+                    <DatePicker Width="140" Margin="0,0,8,8" SelectedDate="{Binding ToDate}"
+                                VerticalContentAlignment="Center" />
+                    <CheckBox Content="Gồm bản nháp"
+                              IsChecked="{Binding IncludeDrafts}"
+                              Style="{StaticResource ProductionCheckBoxStyle}"
+                              Margin="4,8,8,8"
+                              VerticalAlignment="Center" />
+                </WrapPanel>
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Style="{StaticResource ProductionErrorStyle}"
+                           Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+            </StackPanel>
+        </Border>
 
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <WrapPanel Grid.Row="0" Margin="0,0,0,8">
-                <TextBox Width="220" MinHeight="36" Margin="0,0,8,8" Padding="10,4"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Mã lệnh, mẫu, đơn bán, thợ/nhân viên" />
-                <ComboBox Width="150" MinHeight="36" Margin="0,0,8,8"
-                          ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding SelectedStatusFilter}" />
-                <ComboBox Width="150" MinHeight="36" Margin="0,0,8,8"
-                          ItemsSource="{Binding SourceFilterOptions}" SelectedItem="{Binding SelectedSourceFilter}" />
-                <ComboBox Width="150" MinHeight="36" Margin="0,0,8,8"
-                          ItemsSource="{Binding ExecutionFilterOptions}" SelectedItem="{Binding SelectedExecutionFilter}" />
-                <DatePicker Width="130" Margin="0,0,8,8" SelectedDate="{Binding FromDate}" />
-                <DatePicker Width="130" Margin="0,0,8,8" SelectedDate="{Binding ToDate}" />
-                <CheckBox Content="Gồm bản nháp" IsChecked="{Binding IncludeDrafts}" VerticalAlignment="Center" Margin="0,0,8,8" />
-                <Button Content="Làm mới (F5)" Style="{DynamicResource NavButtonStyle}" Command="{Binding RefreshCommand}"
-                        MinHeight="36" />
-            </WrapPanel>
-
-            <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
-                       TextWrapping="Wrap" Margin="0,0,0,4" Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
-
-            <DataGrid Grid.Row="1"
+        <!-- Grid -->
+        <Border Grid.Row="3" Style="{StaticResource ProductionCardStyle}" Padding="0">
+            <DataGrid Style="{StaticResource ProductionDataGridStyle}"
                       ItemsSource="{Binding Orders}"
                       SelectedItem="{Binding SelectedOrder}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      SelectionMode="Single"
-                      grid:DataGridColumnLayout.SettingsKey="production.orders"
-                      grid:DataGridColumnLayout.EnableHeaderMenu="True"
-                      grid:DataGridColumnLayout.AutoFitOnFirstLoad="True">
+                      BorderThickness="0"
+                      grid:DataGridColumnLayout.SettingsKey="production.orders">
                 <DataGrid.InputBindings>
-                    <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding OpenDetailCommand}"
+                    <MouseBinding MouseAction="LeftDoubleClick"
+                                  Command="{Binding OpenDetailCommand}"
                                   CommandParameter="{Binding SelectedOrder}" />
                 </DataGrid.InputBindings>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Mã LSX" grid:DataGridColumnLayout.Key="Code"
-                                        Binding="{Binding Code}" Width="130" />
+                                        Binding="{Binding Code, Mode=OneWay}" Width="130" />
                     <DataGridTextColumn Header="Ngày lập" grid:DataGridColumnLayout.Key="OrderDate"
-                                        Binding="{Binding OrderDateDisplay}" Width="100" />
+                                        Binding="{Binding OrderDateDisplay, Mode=OneWay}" Width="100" />
                     <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status"
-                                        Binding="{Binding StatusDisplay}" Width="110" />
+                                        Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
                     <DataGridTextColumn Header="Nguồn" grid:DataGridColumnLayout.Key="Source"
-                                        Binding="{Binding SourceDisplay}" Width="110" />
+                                        Binding="{Binding SourceDisplay, Mode=OneWay}" Width="110" />
                     <DataGridTextColumn Header="Hình thức" grid:DataGridColumnLayout.Key="Execution"
-                                        Binding="{Binding ExecutionDisplay}" Width="100" />
+                                        Binding="{Binding ExecutionDisplay, Mode=OneWay}" Width="100" />
                     <DataGridTextColumn Header="Đơn bán" grid:DataGridColumnLayout.Key="SalesOrder"
-                                        Binding="{Binding SalesOrderCode}" Width="120" />
+                                        Binding="{Binding SalesOrderCode, Mode=OneWay}" Width="120" />
                     <DataGridTextColumn Header="Thợ / NV" grid:DataGridColumnLayout.Key="Worker"
-                                        Binding="{Binding WorkerDisplayName}" Width="160" />
+                                        Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="160" />
                     <DataGridTextColumn Header="Mẫu" grid:DataGridColumnLayout.Key="Models"
-                                        Binding="{Binding ModelSummary}" Width="*" MinWidth="140" />
+                                        Binding="{Binding ModelSummary, Mode=OneWay}" Width="*" MinWidth="140" />
                     <DataGridTextColumn Header="SL kế hoạch" grid:DataGridColumnLayout.Key="Qty"
-                                        Binding="{Binding PlannedQuantityTotal}" Width="90" />
+                                        Binding="{Binding PlannedQuantityTotal, Mode=OneWay}" Width="90" />
+                    <DataGridTemplateColumn Header="" Width="150" grid:DataGridColumnLayout.Key="Actions">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Mở"
+                                            Style="{StaticResource ProductionGridActionButtonStyle}"
+                                            Command="{Binding DataContext.OpenDetailCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="Xóa"
+                                            Style="{StaticResource ProductionGridActionButtonStyle}"
+                                            Command="{Binding DataContext.DeleteOrderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Visibility="{Binding CanDelete, Converter={StaticResource BoolToVis}}"
+                                            ToolTip="Hủy lệnh (bản nháp hoặc đang làm đủ điều kiện)" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
-        </Grid>
-    </DockPanel>
+        </Border>
+
+        <DockPanel Grid.Row="4" Margin="0,12,0,0" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left"
+                       Text="{Binding StatusMessage}"
+                       VerticalAlignment="Center"
+                       Style="{StaticResource ProductionHintStyle}" />
+            <Button DockPanel.Dock="Right"
+                    Content="Mở chi tiết"
+                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                    Command="{Binding OpenDetailCommand}"
+                    CommandParameter="{Binding SelectedOrder}"
+                    Margin="0" />
+        </DockPanel>
+    </Grid>
 </UserControl>

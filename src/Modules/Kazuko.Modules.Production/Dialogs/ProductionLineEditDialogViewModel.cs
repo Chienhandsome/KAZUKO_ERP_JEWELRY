@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Production;
 using Microsoft.Win32;
@@ -22,6 +23,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
     private string _modelName = string.Empty;
     private string _goldTypeCode = string.Empty;
     private string _goldTypeName = string.Empty;
+    private ProductionMaterialStockOption? _selectedGoldStock;
     private string _plannedQuantityText = "1";
     private string _laborCostPerUnitText = "0";
     private string? _description;
@@ -32,6 +34,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         IProductionAttachmentStore attachments,
         int lineNumber,
         bool isEditable,
+        IReadOnlyList<ProductionMaterialStockOption> goldStockOptions,
         ProductionLineEditorViewModel? source = null)
     {
         _attachments = attachments;
@@ -40,8 +43,17 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
 
         SampleImages = [];
         DesignFiles = [];
+        GoldStockOptions = [];
         SampleImages.CollectionChanged += OnAttachmentCollectionChanged;
         DesignFiles.CollectionChanged += OnAttachmentCollectionChanged;
+
+        foreach (var item in goldStockOptions
+                     .Where(x => string.Equals(x.MaterialType, MaterialTypes.Gold, StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+                     .ThenBy(x => x.Code, StringComparer.OrdinalIgnoreCase))
+        {
+            GoldStockOptions.Add(item);
+        }
 
         if (source is not null)
         {
@@ -63,6 +75,8 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
                     DesignFiles.Add(clone);
             }
         }
+
+        SelectGoldStockFromCurrentValues();
 
         SaveCommand = new RelayCommand(Save, () => IsEditable);
         CancelCommand = new RelayCommand(Cancel);
@@ -90,9 +104,11 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
 
     public ObservableCollection<ProductionAttachmentEditorViewModel> SampleImages { get; }
     public ObservableCollection<ProductionAttachmentEditorViewModel> DesignFiles { get; }
+    public ObservableCollection<ProductionMaterialStockOption> GoldStockOptions { get; }
 
     public bool HasSampleImages => SampleImages.Count > 0;
     public bool HasDesignFiles => DesignFiles.Count > 0;
+    public bool HasGoldStockOptions => GoldStockOptions.Count > 0;
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
     public IReadOnlyList<ProductionAttachmentEditorViewModel> RemovedAttachments => _removedAttachments;
@@ -116,13 +132,54 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
     public string GoldTypeCode
     {
         get => _goldTypeCode;
-        set => SetProperty(ref _goldTypeCode, value ?? string.Empty);
+        private set => SetProperty(ref _goldTypeCode, value ?? string.Empty);
     }
 
     public string GoldTypeName
     {
         get => _goldTypeName;
-        set => SetProperty(ref _goldTypeName, value ?? string.Empty);
+        private set => SetProperty(ref _goldTypeName, value ?? string.Empty);
+    }
+
+    public ProductionMaterialStockOption? SelectedGoldStock
+    {
+        get => _selectedGoldStock;
+        set
+        {
+            if (!SetProperty(ref _selectedGoldStock, value))
+                return;
+
+            if (value is null)
+            {
+                GoldTypeCode = string.Empty;
+                GoldTypeName = string.Empty;
+            }
+            else
+            {
+                GoldTypeCode = value.Code;
+                GoldTypeName = value.Name;
+            }
+
+            OnPropertyChanged(nameof(SelectedGoldStockHint));
+        }
+    }
+
+    public string SelectedGoldStockHint
+    {
+        get
+        {
+            if (SelectedGoldStock is null)
+            {
+                return HasGoldStockOptions
+                    ? "Chọn loại vàng còn tồn tại kho xuất."
+                    : "Không có vàng còn tồn tại kho xuất. Kiểm tra kho NVL / vị trí xuất.";
+            }
+
+            var purity = string.IsNullOrWhiteSpace(SelectedGoldStock.PurityCode)
+                ? "—"
+                : SelectedGoldStock.PurityCode;
+            return $"Mã {SelectedGoldStock.Code} · Độ tuổi {purity} · Tồn {SelectedGoldStock.QuantityOnHand:0.###} {SelectedGoldStock.UnitCode}";
+        }
     }
 
     public string PlannedQuantityText
@@ -197,9 +254,17 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(GoldTypeCode) || string.IsNullOrWhiteSpace(GoldTypeName))
+        if (SelectedGoldStock is null
+            || string.IsNullOrWhiteSpace(GoldTypeCode)
+            || string.IsNullOrWhiteSpace(GoldTypeName))
         {
-            ErrorMessage = "Vui lòng nhập mã và tên loại vàng.";
+            ErrorMessage = "Vui lòng chọn loại vàng từ kho NVL.";
+            return;
+        }
+
+        if (SelectedGoldStock.MaterialId <= 0)
+        {
+            ErrorMessage = "Loại vàng đang chọn không còn tồn. Vui lòng chọn lại từ kho NVL.";
             return;
         }
 
@@ -316,6 +381,41 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         }
 
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+    }
+
+    private void SelectGoldStockFromCurrentValues()
+    {
+        if (string.IsNullOrWhiteSpace(GoldTypeCode) && string.IsNullOrWhiteSpace(GoldTypeName))
+        {
+            SelectedGoldStock = null;
+            return;
+        }
+
+        var match = GoldStockOptions.FirstOrDefault(x =>
+            string.Equals(x.Code, GoldTypeCode, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(x.PurityCode)
+                && string.Equals(x.PurityCode, GoldTypeCode, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(x.Name, GoldTypeName, StringComparison.CurrentCultureIgnoreCase));
+
+        if (match is not null)
+        {
+            SelectedGoldStock = match;
+            return;
+        }
+
+        // Giữ giá trị cũ trên UI khi hết tồn / chưa khớp kho — bắt buộc chọn lại khi lưu.
+        var legacy = new ProductionMaterialStockOption(
+            0,
+            string.IsNullOrWhiteSpace(GoldTypeCode) ? "?" : GoldTypeCode.Trim(),
+            string.IsNullOrWhiteSpace(GoldTypeName) ? GoldTypeCode.Trim() : GoldTypeName.Trim(),
+            MaterialTypes.Gold,
+            string.Empty,
+            GoldTypeCode,
+            0m,
+            0m,
+            0);
+        GoldStockOptions.Insert(0, legacy);
+        SelectedGoldStock = legacy;
     }
 
     private void OnAttachmentCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

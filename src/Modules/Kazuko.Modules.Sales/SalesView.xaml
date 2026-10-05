@@ -4,41 +4,83 @@
              xmlns:local="clr-namespace:Kazuko.Modules.Sales"
              MinWidth="980" MinHeight="560"
              PreviewKeyDown="UserControl_PreviewKeyDown">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/SalesResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <UserControl.InputBindings>
         <KeyBinding Key="F9" Command="{Binding PayCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="12">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TabControl Grid.Row="0"
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="/Kazuko.Modules.Sales;component/Assets/icons/BAN_HANG.png"
+                       Width="48" Height="48" Stretch="Uniform" Margin="0,0,12,0" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="BÁN HÀNG"
+                               Foreground="{DynamicResource PrimaryBrush}"
+                               FontSize="{DynamicResource FontSize.Heading}"
+                               FontWeight="Bold" />
+                    <TextBlock Text="Phiếu mua–bán, thu vàng cũ và thanh toán tại quầy"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Body}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Mới"
+                        Style="{StaticResource SalesOutlineButtonStyle}"
+                        Command="{Binding NewCommand}" />
+                <Button Content="Trước"
+                        Style="{StaticResource SalesGhostButtonStyle}"
+                        Command="{Binding PreviousCommand}" />
+                <Button Content="Sau"
+                        Style="{StaticResource SalesGhostButtonStyle}"
+                        Command="{Binding NextCommand}"
+                        Margin="0" />
+            </StackPanel>
+        </Grid>
+
+        <TabControl Grid.Row="1"
                     SelectedIndex="{Binding MainTabIndex}"
-                    Margin="0,0,0,8">
+                    Style="{StaticResource SalesTabControlStyle}"
+                    ItemContainerStyle="{StaticResource SalesTabItemStyle}">
             <TabItem Header="Mua - Bán">
-                <local:BuySellTabView DataContext="{Binding BuySell}" />
+                <local:BuySellTabView DataContext="{Binding BuySell}" Margin="0,12,0,0" />
             </TabItem>
             <TabItem Header="Mua vàng cũ">
-                <local:BuyOldGoldTabView DataContext="{Binding BuyOldGold}" />
+                <local:BuyOldGoldTabView DataContext="{Binding BuyOldGold}" Margin="0,12,0,0" />
             </TabItem>
         </TabControl>
 
-        <DockPanel Grid.Row="1" LastChildFill="False" Margin="0,4,0,0">
-            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                <Button Content="Mới" Style="{DynamicResource NavButtonStyle}"
-                        Command="{Binding NewCommand}" MinHeight="40" MinWidth="88" Margin="0,0,8,0" />
-                <Button Content="Trước" Style="{DynamicResource NavButtonStyle}"
-                        Command="{Binding PreviousCommand}" MinHeight="40" MinWidth="88" Margin="0,0,8,0" />
-                <Button Content="Sau" Style="{DynamicResource NavButtonStyle}"
-                        Command="{Binding NextCommand}" MinHeight="40" MinWidth="88" />
-            </StackPanel>
-            <Button DockPanel.Dock="Right"
-                    Content="Thanh toán (F9)"
-                    Style="{DynamicResource PrimaryButtonStyle}"
-                    Command="{Binding PayCommand}"
-                    MinHeight="44" MinWidth="160" Padding="16,0" />
-        </DockPanel>
+        <Border Grid.Row="2" Style="{StaticResource SalesCardStyle}" Padding="12,10" Margin="0,12,0,0">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left"
+                           Text="F9 — thanh toán nhanh · Enter — nhập dòng hàng"
+                           Style="{StaticResource SalesHintStyle}" />
+                <Button DockPanel.Dock="Right"
+                        Content="Thanh toán (F9)"
+                        Style="{StaticResource SalesPrimaryButtonStyle}"
+                        Command="{Binding PayCommand}"
+                        MinWidth="168"
+                        Margin="0" />
+            </DockPanel>
+        </Border>
     </Grid>
 </UserControl>

@@ -314,7 +314,7 @@ Trong một transaction:
 - Kết quả fail chuyển unit sang `REWORK_REQUIRED`, bắt buộc lý do; không có product id.
 - Chỉ unit `REWORK_REQUIRED` mới được ghi trả làm lại/nhận lại rồi QC lại.
 - Kết quả pass bắt buộc trọng lượng, tuổi vàng, phân bổ cấu thành và ảnh theo validation đã thống nhất; chuyển `PASSED`.
-- Nếu sửa một QC đã pass trước khi hoàn tất, phải tạo attempt điều chỉnh có audit, không update âm thầm.
+- Nếu sửa một QC đã pass trước khi hoàn tất: UI bật chế độ **Điều chỉnh QC**, bắt buộc lý do, tạo attempt mới + audit `PRODUCTION_QC_ADJUSTED` / pass|fail; thay cấu thành hiện hành của unit (xóa rồi ghi lại), không update âm thầm attempt cũ. Chỉ khi lệnh còn `IN_PROGRESS`.
 
 ### 5.5. `CompleteAsync`
 
