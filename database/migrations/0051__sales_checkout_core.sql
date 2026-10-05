@@ -4,8 +4,9 @@ KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
 ================================================================================
 Migration Version: 51
 Migration Name:    SALES_CHECKOUT_CORE
-Description:       Add immutable checkout headers, old-gold snapshots, offsets,
-                   sales-line price snapshots, payment linkage and CARD support.
+Description:       Add explicit retail price sources, immutable checkout headers,
+                   old-gold snapshots, offsets, sales-line price snapshots,
+                   payment linkage and CARD support.
 Target Database:   Firebird 5.0 (Dialect 3, UTF8)
 
 Rollback notes (forward-only ledger):
@@ -39,12 +40,20 @@ BEGIN
         'SALES_ORDERS', 'SALES_ORDER_ITEMS', 'ORDER_PAYMENTS',
         'STOCK_DOCUMENTS', 'STOCK_DOCUMENT_LINES', 'FINANCIAL_SETTLEMENTS',
         'FINANCIAL_SETTLEMENT_ALLOCATIONS', 'RECEIVABLE_DEBTS',
-        'CASH_VOUCHERS', 'PERMISSIONS', 'ROLE_PERMISSIONS')
+        'CASH_VOUCHERS', 'PERMISSIONS', 'ROLE_PERMISSIONS',
+        'FINISHED_PRODUCTS', 'GOLD_PRICES')
     INTO :v_cnt;
-    IF (:v_cnt <> 11) THEN
+    IF (:v_cnt <> 13) THEN
         EXCEPTION EX_MIGRATION_CHECK 'Thieu bang tien quyet cho sales checkout.';
 END^
 SET TERM ; ^
+
+/* ---- Explicit, persisted retail price source for each finished product ---- */
+ALTER TABLE FINISHED_PRODUCTS ADD RETAIL_GOLD_PRICE_ID BIGINT;
+ALTER TABLE FINISHED_PRODUCTS ADD CONSTRAINT FK_FP_RETAIL_GOLD_PRICE
+    FOREIGN KEY (RETAIL_GOLD_PRICE_ID) REFERENCES GOLD_PRICES (ID);
+CREATE INDEX IX_FP_RETAIL_GOLD_PRICE
+    ON FINISHED_PRODUCTS (RETAIL_GOLD_PRICE_ID);
 
 /* ---- Immutable checkout header / idempotency boundary ---- */
 CREATE TABLE SALES_CHECKOUTS (
@@ -291,6 +300,27 @@ ALTER TABLE ORDER_PAYMENTS ADD CONSTRAINT CK_ORDER_PAYMENT_METHOD
     CHECK (PAYMENT_METHOD IN ('CASH', 'BANK', 'BANK_TRANSFER', 'CARD', 'OTHER'));
 
 -- Step 6: Seed
+/*
+Backfill only an exact, unique, active company-scoped price-code relation.
+Legacy purity labels that are ambiguous, partial, or unmapped stay NULL and are
+therefore intentionally ineligible for sale until explicitly configured.
+*/
+UPDATE FINISHED_PRODUCTS F
+SET F.RETAIL_GOLD_PRICE_ID = (
+    SELECT MIN(GP.ID)
+    FROM GOLD_PRICES GP
+    WHERE GP.COMPANY_ID = F.COMPANY_ID
+      AND GP.IS_ACTIVE = TRUE
+      AND UPPER(TRIM(GP.CODE)) = UPPER(TRIM(COALESCE(F.GOLD_PURITY, ''))))
+WHERE F.RETAIL_GOLD_PRICE_ID IS NULL
+  AND TRIM(COALESCE(F.GOLD_PURITY, '')) <> ''
+  AND 1 = (
+      SELECT COUNT(*)
+      FROM GOLD_PRICES GP
+      WHERE GP.COMPANY_ID = F.COMPANY_ID
+        AND GP.IS_ACTIVE = TRUE
+        AND UPPER(TRIM(GP.CODE)) = UPPER(TRIM(COALESCE(F.GOLD_PURITY, ''))));
+
 /* ---- Canonical branch/year document sequences ---- */
 INSERT INTO DOCUMENT_SEQUENCES
     (DOCUMENT_TYPE, BRANCH_ID, YEAR_NO, LAST_NUMBER, UPDATED_AT)
@@ -361,6 +391,13 @@ SET TERM ^ ;
 EXECUTE BLOCK AS
 DECLARE VARIABLE v_cnt INTEGER;
 BEGIN
+    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
+    WHERE RDB$RELATION_NAME = 'FINISHED_PRODUCTS'
+      AND RDB$FIELD_NAME = 'RETAIL_GOLD_PRICE_ID'
+    INTO :v_cnt;
+    IF (:v_cnt <> 1) THEN
+        EXCEPTION EX_MIGRATION_CHECK 'Khong tao RETAIL_GOLD_PRICE_ID.';
+
     SELECT COUNT(*) FROM RDB$RELATIONS
     WHERE RDB$RELATION_NAME IN (
         'SALES_CHECKOUTS', 'SALES_OLD_GOLD_LINES', 'SALES_CHECKOUT_OFFSETS')

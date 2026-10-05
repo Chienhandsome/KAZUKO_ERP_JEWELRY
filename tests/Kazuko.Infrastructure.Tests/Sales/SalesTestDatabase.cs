@@ -13,8 +13,12 @@ internal sealed class SalesTestDatabase : IDisposable
     private readonly string _temporaryDirectory;
 
     public SalesTestDatabase()
+        : this(null)
     {
-        var source = ResolveVerifiedDatabasePath();
+    }
+
+    internal SalesTestDatabase(Action<string>? afterProfileApplied)
+    {
         _originalProfile = FirebirdDatabase.Profile;
         _temporaryDirectory = Path.Combine(
             ResolveWorktreeRoot(),
@@ -23,19 +27,30 @@ internal sealed class SalesTestDatabase : IDisposable
             "2026-10-05-sales-checkout",
             "task3-test-dbs",
             Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_temporaryDirectory);
 
-        var databasePath = Path.Combine(_temporaryDirectory, "data.fdb");
-        File.Copy(source, databasePath, overwrite: false);
-        FirebirdDatabase.ApplyProfileForCurrentProcess(new ConnectionProfile(
-            _originalProfile.Host,
-            _originalProfile.Port,
-            databasePath,
-            _originalProfile.UserName,
-            string.IsNullOrWhiteSpace(_originalProfile.Password) ? "masterkey" : _originalProfile.Password,
-            UseEmbedded: false));
+        try
+        {
+            var source = ResolveVerifiedDatabasePath();
+            Directory.CreateDirectory(_temporaryDirectory);
 
-        SeedAsync().GetAwaiter().GetResult();
+            var databasePath = Path.Combine(_temporaryDirectory, "data.fdb");
+            File.Copy(source, databasePath, overwrite: false);
+            FirebirdDatabase.ApplyProfileForCurrentProcess(new ConnectionProfile(
+                _originalProfile.Host,
+                _originalProfile.Port,
+                databasePath,
+                _originalProfile.UserName,
+                string.IsNullOrWhiteSpace(_originalProfile.Password) ? "masterkey" : _originalProfile.Password,
+                UseEmbedded: false));
+
+            afterProfileApplied?.Invoke(databasePath);
+            SeedAsync().GetAwaiter().GetResult();
+        }
+        catch
+        {
+            Cleanup();
+            throw;
+        }
     }
 
     public long CompanyId { get; private set; }
@@ -46,6 +61,7 @@ internal sealed class SalesTestDatabase : IDisposable
     public long SalesFloorLocationId { get; private set; }
     public long OldGoldLocationId { get; private set; }
     public long OldGoldMaterialId { get; private set; }
+    public long RetailGoldPriceId { get; private set; }
     public long NamedCustomerId { get; private set; }
     public long SalespersonId { get; private set; }
     public long LimitedUserId { get; private set; }
@@ -53,11 +69,18 @@ internal sealed class SalesTestDatabase : IDisposable
     public long MiddleCheckoutId { get; private set; }
     public long OtherBranchCheckoutId { get; private set; }
     public long OtherCompanyCheckoutId { get; private set; }
+    public long OldGoldOnlyCheckoutId { get; private set; }
+    public IReadOnlyList<long> ExpectedCustomerIds { get; private set; } = [];
+    public IReadOnlyList<long> ExpectedSalespersonIds { get; private set; } = [];
+    public IReadOnlyList<long> ExpectedOldGoldMaterialIds { get; private set; } = [];
+    public IReadOnlyList<long> ExpectedOldGoldLocationIds { get; private set; } = [];
 
     public AuthenticatedSession BranchSession(long userId, string claimedRoleCode = "SALE") =>
         new(userId, "task3-user", "Task 3 User", claimedRoleCode, BranchId, "T3_BRA", "Task 3 Branch A");
 
-    public void Dispose()
+    public void Dispose() => Cleanup();
+
+    private void Cleanup()
     {
         FirebirdDatabase.ApplyProfileForCurrentProcess(_originalProfile);
         FbConnection.ClearAllPools();
@@ -126,6 +149,14 @@ internal sealed class SalesTestDatabase : IDisposable
                 limitedRoleId, "t3-other-company", "Task 3 Other Company User", true);
             _ = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
                 limitedRoleId, "t3-inactive", "Task 3 Inactive User", false);
+            var boundedSalespeople = new List<long>();
+            for (var index = 0; index < 105; index++)
+            {
+                var sortKey = 104 - index;
+                boundedSalespeople.Insert(0, await InsertUserAsync(connection, transaction, CompanyId, BranchId,
+                    limitedRoleId, $"t3-bounded-{index:000}", $"000 Task 3 Salesperson {sortKey:000}", true));
+            }
+            ExpectedSalespersonIds = boundedSalespeople.Take(100).ToArray();
 
             await ExecuteAsync(connection, transaction, """
                 INSERT INTO ROLE_PERMISSIONS (ROLE_ID, PERMISSION_ID, IS_ALLOWED)
@@ -147,11 +178,14 @@ internal sealed class SalesTestDatabase : IDisposable
                 groupId, "T3_INACTIVE", "Task 3 Inactive Customer", "0903000002", false);
             _ = await InsertCustomerAsync(connection, transaction, OtherCompanyId, OtherCompanyBranchId,
                 otherGroupId, "T3_OTHER_CO", "Task 3 Other Company Customer", "0903000003", true);
+            var boundedCustomers = new List<long>();
             for (var index = 0; index < 55; index++)
             {
-                _ = await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
-                    groupId, $"T3_LIMIT_{index:000}", $"Task 3 Limited {index:000}", $"0913{index:000000}", true);
+                var sortKey = 54 - index;
+                boundedCustomers.Insert(0, await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
+                    groupId, $"T3_LIMIT_{index:000}", $"Task 3 Limited {sortKey:000}", $"0913{index:000000}", true));
             }
+            ExpectedCustomerIds = boundedCustomers.Take(50).ToArray();
 
             SalesFloorLocationId = await InsertLocationAsync(connection, transaction, BranchId,
                 "T3_SALES_A", "Task 3 Sales Floor A", "SALES_FLOOR", true);
@@ -165,6 +199,17 @@ internal sealed class SalesTestDatabase : IDisposable
                 "T3_SALES_B", "Task 3 Sales Floor B", "SALES_FLOOR", true);
             var otherCompanySalesFloor = await InsertLocationAsync(connection, transaction, OtherCompanyBranchId,
                 "T3_SALES_C", "Task 3 Sales Floor C", "SALES_FLOOR", true);
+            var boundedLocations = new List<long>();
+            for (var index = 0; index < 105; index++)
+            {
+                var sortKey = 104 - index;
+                boundedLocations.Insert(0, await InsertLocationAsync(connection, transaction, BranchId,
+                    $"T3_BOUND_LOC_{index:000}", $"000 Task 3 Old Gold Location {sortKey:000}",
+                    "RAW_MATERIAL", true));
+            }
+            ExpectedOldGoldLocationIds = new[] { OldGoldLocationId }
+                .Concat(boundedLocations.Take(99))
+                .ToArray();
 
             OldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
                 "T3_GOLD_750", "Task 3 Gold 750", "T3_750", true);
@@ -172,23 +217,49 @@ internal sealed class SalesTestDatabase : IDisposable
                 "T3_GOLD_INACTIVE", "Task 3 Inactive Gold", "T3_INACTIVE", false);
             _ = await InsertMaterialAsync(connection, transaction, OtherCompanyId,
                 "T3_GOLD_750", "Task 3 Other Gold 750", "T3_750", true);
-            await InsertGoldPriceAsync(connection, transaction, CompanyId, "T3_750", "Task 3 Price 750", 0.75m, 77m, 111m, true);
-            await InsertGoldPriceAsync(connection, transaction, OtherCompanyId, "T3_750", "Task 3 Other Price 750", 0.75m, 88m, 222m, true);
+            RetailGoldPriceId = await InsertGoldPriceAsync(connection, transaction, CompanyId,
+                "T3_750", "Task 3 Price 750", 0.75m, 77m, 111m, true);
+            var otherCompanyGoldPriceId = await InsertGoldPriceAsync(connection, transaction, OtherCompanyId,
+                "T3_750", "Task 3 Other Price 750", 0.75m, 88m, 222m, true);
+            var inactiveGoldPriceId = await InsertGoldPriceAsync(connection, transaction, CompanyId,
+                "T3_INACTIVE_PRICE", "Task 3 Inactive Price", 0.75m, 66m, 99m, false);
+            var boundedMaterials = new List<long>();
+            for (var index = 0; index < 105; index++)
+            {
+                var sortKey = 104 - index;
+                boundedMaterials.Insert(0, await InsertMaterialAsync(connection, transaction, CompanyId,
+                    $"T3_BOUND_GOLD_{index:000}", $"000 Task 3 Gold Material {sortKey:000}",
+                    "T3_750", true));
+            }
+            ExpectedOldGoldMaterialIds = boundedMaterials.Take(100).ToArray();
 
             var displayedProductId = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
-                SalesFloorLocationId, "T3_PRODUCT_DISPLAYED", "Task 3 Displayed", "DISPLAYED", 9);
+                SalesFloorLocationId, "T3_PRODUCT_DISPLAYED", "Task 3 Displayed", "DISPLAYED", 9,
+                RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
-                SalesFloorLocationId, "T3_PRODUCT_INSTOCK", "Task 3 In Stock", "IN_STOCK", 10);
+                SalesFloorLocationId, "T3_PRODUCT_INSTOCK", "Task 3 In Stock", "IN_STOCK", 10,
+                RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
-                SalesFloorLocationId, "T3_PRODUCT_18K", "Task 3 18K", "DISPLAYED", 15, "18K");
+                SalesFloorLocationId, "T3_PRODUCT_18K", "Task 3 18K", "DISPLAYED", 15,
+                retailGoldPriceId: null, purity: "18K");
             _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
-                SalesFloorLocationId, "T3_PRODUCT_SOLD", "Task 3 Sold", "SOLD", 11);
+                SalesFloorLocationId, "T3_PRODUCT_SOLD", "Task 3 Sold", "SOLD", 11,
+                RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
-                nonSalesLocationId, "T3_PRODUCT_RAW", "Task 3 Raw", "IN_STOCK", 12);
+                nonSalesLocationId, "T3_PRODUCT_RAW", "Task 3 Raw", "IN_STOCK", 12,
+                RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, OtherBranchId,
-                otherBranchSalesFloor, "T3_PRODUCT_BRANCH_B", "Task 3 Branch B Product", "DISPLAYED", 13);
+                otherBranchSalesFloor, "T3_PRODUCT_BRANCH_B", "Task 3 Branch B Product", "DISPLAYED", 13,
+                RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, OtherCompanyId, OtherCompanyBranchId,
-                otherCompanySalesFloor, "T3_PRODUCT_COMPANY_B", "Task 3 Company B Product", "DISPLAYED", 14);
+                otherCompanySalesFloor, "T3_PRODUCT_COMPANY_B", "Task 3 Company B Product", "DISPLAYED", 14,
+                otherCompanyGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_WRONG_PRICE_CO", "Task 3 Wrong Price Company", "DISPLAYED", 16,
+                otherCompanyGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_INACTIVE_PRICE", "Task 3 Inactive Price", "DISPLAYED", 17,
+                inactiveGoldPriceId);
 
             var salesOrderId = await InsertIdAsync(connection, transaction, """
                 INSERT INTO SALES_ORDERS
@@ -225,6 +296,9 @@ internal sealed class SalesTestDatabase : IDisposable
             _ = await InsertCheckoutAsync(connection, transaction, CompanyId, BranchId,
                 "T3-CHK-003", new DateTime(2026, 10, 3), NamedCustomerId, SalespersonId,
                 SalesFloorLocationId, LimitedUserId, null);
+            OldGoldOnlyCheckoutId = await InsertOldGoldCheckoutAsync(connection, transaction,
+                CompanyId, BranchId, "T3-CHK-OLD-001", new DateTime(2026, 10, 3),
+                NamedCustomerId, SalespersonId, OldGoldLocationId, LimitedUserId);
             OtherBranchCheckoutId = await InsertCheckoutAsync(connection, transaction, CompanyId, OtherBranchId,
                 "T3-CHK-B01", new DateTime(2026, 10, 4), NamedCustomerId, SalespersonId,
                 otherBranchSalesFloor, LimitedUserId, null);
@@ -342,7 +416,7 @@ internal sealed class SalesTestDatabase : IDisposable
             """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
             ("@PURITY", purity), ("@ACTIVE", active));
 
-    private static Task InsertGoldPriceAsync(
+    private static Task<long> InsertGoldPriceAsync(
         FbConnection connection,
         FbTransaction transaction,
         long companyId,
@@ -352,11 +426,12 @@ internal sealed class SalesTestDatabase : IDisposable
         decimal buy,
         decimal sell,
         bool active) =>
-        ExecuteAsync(connection, transaction, """
+        InsertIdAsync(connection, transaction, """
             INSERT INTO GOLD_PRICES
                 (COMPANY_ID, CODE, NAME, PURITY_RATE, BUY_PRICE_PER_CHI, SELL_PRICE_PER_CHI,
                  BUY_PRICE_PER_GRAM, SELL_PRICE_PER_GRAM, CURRENCY_CODE, DISPLAY_ORDER, IS_ACTIVE)
             VALUES (@CID, @CODE, @NAME, @PURITY, @BUY, @SELL, 0, 0, 'VND', 900, @ACTIVE)
+            RETURNING ID
             """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
             ("@PURITY", purity), ("@BUY", buy), ("@SELL", sell), ("@ACTIVE", active));
 
@@ -370,22 +445,23 @@ internal sealed class SalesTestDatabase : IDisposable
         string name,
         string status,
         long rowVersion,
+        long? retailGoldPriceId,
         string purity = "T3_750") =>
         InsertIdAsync(connection, transaction, """
             INSERT INTO FINISHED_PRODUCTS
                 (COMPANY_ID, BRANCH_ID, CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME,
                  GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT, STONE_WEIGHT, LABOR_COST,
                  MATERIAL_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST, LOCATION_ID,
-                 STATUS_CODE, ROW_VERSION)
+                 STATUS_CODE, ROW_VERSION, RETAIL_GOLD_PRICE_ID)
             VALUES
                 (@CID, @BID, @CODE, @BARCODE, @QR, @NAME,
                  @PURITY, 3.25, 2.50, 0.75, 25,
-                 277.50, 8, 310.50, @LOCATION, @STATUS, @ROW_VERSION)
+                 277.50, 8, 310.50, @LOCATION, @STATUS, @ROW_VERSION, @RETAIL_PRICE)
             RETURNING ID
             """, ("@CID", companyId), ("@BID", branchId), ("@CODE", code),
             ("@BARCODE", $"BAR-{code}"), ("@QR", $"QR-{code}"), ("@NAME", name),
             ("@PURITY", purity), ("@LOCATION", locationId), ("@STATUS", status),
-            ("@ROW_VERSION", rowVersion));
+            ("@ROW_VERSION", rowVersion), ("@RETAIL_PRICE", retailGoldPriceId));
 
     private static Task<long> InsertCheckoutAsync(
         FbConnection connection,
@@ -415,6 +491,35 @@ internal sealed class SalesTestDatabase : IDisposable
             ("@SALESPERSON", salespersonId), ("@LOCATION", sourceLocationId),
             ("@ORDER_ID", salesOrderId), ("@REQUEST_ID", Guid.NewGuid().ToString()),
             ("@HASH", new string('A', 64)), ("@CREATED_BY", createdBy));
+
+    private static Task<long> InsertOldGoldCheckoutAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        string code,
+        DateTime documentDate,
+        long customerId,
+        long salespersonId,
+        long oldGoldDestinationLocationId,
+        long createdBy) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO SALES_CHECKOUTS
+                (COMPANY_ID, BRANCH_ID, CODE, CHECKOUT_TYPE, DOCUMENT_DATE, CUSTOMER_ID,
+                 SALESPERSON_ID, SOURCE_LOCATION_ID, OLD_GOLD_DESTINATION_LOCATION_ID,
+                 SALE_GROSS_VND, OLD_GOLD_TOTAL_VND, DISCOUNT_AMOUNT_VND, NET_AMOUNT_VND,
+                 CLIENT_REQUEST_ID, REQUEST_HASH, STATUS_CODE, NOTES, CREATED_BY)
+            VALUES
+                (@CID, @BID, @CODE, 'OLD_GOLD_PURCHASE', @DOCUMENT_DATE, @CUSTOMER,
+                 @SALESPERSON, NULL, @OLD_GOLD_LOCATION,
+                 0, 350, 0, -350, @REQUEST_ID, @HASH, 'POSTED',
+                 'Task 3 old-gold-only checkout', @CREATED_BY)
+            RETURNING ID
+            """, ("@CID", companyId), ("@BID", branchId), ("@CODE", code),
+            ("@DOCUMENT_DATE", documentDate), ("@CUSTOMER", customerId),
+            ("@SALESPERSON", salespersonId), ("@OLD_GOLD_LOCATION", oldGoldDestinationLocationId),
+            ("@REQUEST_ID", Guid.NewGuid().ToString()), ("@HASH", new string('B', 64)),
+            ("@CREATED_BY", createdBy));
 
     private static async Task<long> ScalarAsync(
         FbConnection connection,
@@ -461,13 +566,19 @@ internal sealed class SalesTestDatabase : IDisposable
              directory is not null;
              directory = directory.Parent)
         {
-            var candidate = Path.Combine(directory.FullName, "data", "backups", "sales_checkout_verify.fdb");
-            if (File.Exists(candidate))
-                return candidate;
+            var revisedCandidate = Path.Combine(
+                directory.FullName,
+                ".superpowers",
+                "sdd",
+                "2026-10-05-sales-checkout",
+                "task3-fixtures",
+                "sales_checkout_revised_v51_final.fdb");
+            if (File.Exists(revisedCandidate))
+                return revisedCandidate;
         }
 
         throw new FileNotFoundException(
-            "Task 3 integration tests require the schema-v51 verified database copy at data/backups/sales_checkout_verify.fdb.");
+            "Task 3 integration tests require the revised schema-v51 verified database copy.");
     }
 
     private static string ResolveWorktreeRoot()

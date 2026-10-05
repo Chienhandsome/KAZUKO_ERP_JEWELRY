@@ -360,11 +360,12 @@ COMMIT;
 - **Tệp nguồn:** `database/migrations/0051__sales_checkout_core.sql`.
 - **Verification:** `database/verification/verify_sales_checkout_core.sql` (fail-fast bằng `EX_VERIFY_FAILED`).
 - **Artifact SHA-256 đã xác minh trên bản copy:**
-  `7A2067052AD3E5F071AC9B8205B48016CE6E263FDE24A1F5CD225A2C5A24B5E4`.
+  `3E1B463E7CAC7D1D57F009DA0B641AFADEC00F492ADAB322738CB8709BCF4797`.
 - **Tính nguyên tử:** artifact không tự kết thúc transaction; `Invoke-KazukoMigration.ps1` quản lý snapshot, ranh giới DDL/DML, ledger và khôi phục khi lỗi.
 
 ### 19.1. Schema checkout và snapshot
 
+- `FINISHED_PRODUCTS.RETAIL_GOLD_PRICE_ID` là nguồn bảng giá bán lẻ persisted, nullable cho dữ liệu legacy/chưa cấu hình, có FK tới `GOLD_PRICES` và index tra cứu. Backfill chỉ nối khi `GOLD_PURITY` khớp chính xác duy nhất với một `GOLD_PRICES.CODE` active trong cùng công ty; trường hợp mơ hồ/không khớp giữ `NULL` và không đủ điều kiện bán.
 - `SALES_CHECKOUTS` lưu công ty/chi nhánh, mã/ngày/loại checkout, khách hàng, nhân viên bán hàng, kho, bốn tổng tiền (`SALE_GROSS_VND`, `OLD_GOLD_TOTAL_VND`, `DISCOUNT_AMOUNT_VND`, `NET_AMOUNT_VND`), các chứng từ con, audit và trạng thái `POSTED`.
 - Mã checkout unique theo `(BRANCH_ID, CODE)`, cùng scope với sequence chi nhánh/năm; các chi nhánh có thể dùng cùng tiền tố và số thứ tự mà không va chạm nhau.
 - `NET_AMOUNT_VND` là số có dấu và được ràng buộc bằng `SALE_GROSS_VND - DISCOUNT_AMOUNT_VND - OLD_GOLD_TOTAL_VND`; chỉ ba thành phần đầu vào phải không âm.

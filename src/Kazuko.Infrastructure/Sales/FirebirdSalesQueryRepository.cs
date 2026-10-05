@@ -122,7 +122,7 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
         await using var command = new FbCommand("""
             SELECT FIRST 1
                    F.ID, F.CODE, F.PRODUCT_NAME,
-                   M.ID, M.NAME, L.ID, COALESCE(F.GOLD_PURITY, ''), F.ROW_VERSION,
+                   GP.ID, GP.NAME, L.ID, COALESCE(F.GOLD_PURITY, ''), F.ROW_VERSION,
                    F.TOTAL_WEIGHT, F.STONE_WEIGHT, F.GOLD_WEIGHT,
                    GP.SELL_PRICE_PER_CHI, F.LABOR_COST, F.NON_GOLD_MATERIAL_COST
             FROM FINISHED_PRODUCTS F
@@ -130,32 +130,9 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
                             AND L.BRANCH_ID = @BRANCH_ID
                             AND L.INVENTORY_SCOPE = 'SALES_FLOOR'
                             AND L.IS_ACTIVE = TRUE
-            JOIN MATERIALS M ON M.ID = (
-                SELECT FIRST 1 MX.ID
-                FROM MATERIALS MX
-                WHERE MX.COMPANY_ID = F.COMPANY_ID
-                  AND MX.MATERIAL_TYPE = 'GOLD'
-                  AND MX.IS_ACTIVE = TRUE
-                  AND (UPPER(TRIM(COALESCE(MX.PURITY_CODE, ''))) = UPPER(TRIM(COALESCE(F.GOLD_PURITY, '')))
-                       OR UPPER(TRIM(COALESCE(MX.PURITY_CODE, ''))) CONTAINING UPPER(TRIM(COALESCE(F.GOLD_PURITY, '')))
-                       OR UPPER(TRIM(COALESCE(F.GOLD_PURITY, ''))) CONTAINING UPPER(TRIM(COALESCE(MX.PURITY_CODE, ''))))
-                ORDER BY
-                    CASE WHEN UPPER(TRIM(COALESCE(MX.PURITY_CODE, ''))) = UPPER(TRIM(COALESCE(F.GOLD_PURITY, '')))
-                         THEN 0 ELSE 1 END,
-                    CHAR_LENGTH(TRIM(COALESCE(MX.PURITY_CODE, ''))) DESC,
-                    MX.ID)
-            JOIN GOLD_PRICES GP ON GP.ID = (
-                SELECT FIRST 1 GX.ID
-                FROM GOLD_PRICES GX
-                WHERE GX.COMPANY_ID = F.COMPANY_ID
-                  AND GX.IS_ACTIVE = TRUE
-                  AND (UPPER(TRIM(GX.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
-                       OR UPPER(TRIM(COALESCE(M.PURITY_CODE, ''))) CONTAINING UPPER(TRIM(GX.CODE)))
-                ORDER BY
-                    CASE WHEN UPPER(TRIM(GX.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
-                         THEN 0 ELSE 1 END,
-                    CHAR_LENGTH(TRIM(GX.CODE)) DESC,
-                    GX.ID)
+            JOIN GOLD_PRICES GP ON GP.ID = F.RETAIL_GOLD_PRICE_ID
+                               AND GP.COMPANY_ID = F.COMPANY_ID
+                               AND GP.IS_ACTIVE = TRUE
             WHERE F.COMPANY_ID = @COMPANY_ID
               AND F.BRANCH_ID = @BRANCH_ID
               AND F.STATUS_CODE IN ('IN_STOCK', 'DISPLAYED')
@@ -339,7 +316,7 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
                 reader.GetString(8),
                 reader.GetInt64(9),
                 reader.GetString(10),
-                reader.IsDBNull(11) ? 0 : reader.GetInt64(11),
+                reader.IsDBNull(11) ? null : reader.GetInt64(11),
                 reader.IsDBNull(12) ? null : reader.GetInt64(12),
                 reader.GetDecimal(13),
                 reader.GetDecimal(14),
@@ -608,7 +585,7 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
         string SalespersonName,
         long CreatedBy,
         string CreatedByDisplayName,
-        long SourceLocationId,
+        long? SourceLocationId,
         long? OldGoldDestinationLocationId,
         decimal SaleGrossVnd,
         decimal OldGoldTotalVnd,

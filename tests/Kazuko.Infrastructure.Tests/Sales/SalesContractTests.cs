@@ -22,6 +22,8 @@ public sealed class SalesContractTests
     {
         var product = new SalesProductOption(1, "SP001", "Ring", 2, "Gold", 3,
             "750", 4, 3.2m, .2m, 3m, 100, 20, 10);
+        Assert.Equal(2L, product.RetailGoldPriceId);
+        Assert.Equal("Gold", product.RetailGoldPriceName);
         Assert.Equal("750", product.GoldPurity);
         Assert.Equal(4L, product.RowVersion);
         Assert.Equal(3.2m, product.TotalWeightChi);
@@ -42,6 +44,16 @@ public sealed class SalesContractTests
         Assert.Equal("Cashier at posting", receipt.Checkout.CreatedByDisplayName);
         Assert.Equal("Salesperson", receipt.Checkout.SalespersonName);
         Assert.Equal(4L, receipt.Checkout.CreatedBy);
+    }
+
+    [Fact]
+    public void Old_gold_only_history_can_preserve_missing_source_location()
+    {
+        var detail = new SalesCheckoutDetail(1, "MVC26/00001", SalesCheckoutTypes.OldGoldPurchase,
+            new DateTime(2026, 10, 5), 2, "Customer", null, 3, "Salesperson", 4, "Cashier",
+            null, 5, [], [], [], new(0, 0, 0, 100, 0, -100, 0, 100, 0), null);
+
+        Assert.Null(detail.SourceLocationId);
     }
 
     [Fact]

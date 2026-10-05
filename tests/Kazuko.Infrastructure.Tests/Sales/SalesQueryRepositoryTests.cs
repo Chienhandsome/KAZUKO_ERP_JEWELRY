@@ -1,3 +1,4 @@
+using Kazuko.Core.Sales;
 using Kazuko.Infrastructure.Sales;
 using Xunit;
 
@@ -21,8 +22,8 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal("T3_PRODUCT_DISPLAYED", result.ProductCode);
         Assert.Equal("Task 3 Displayed", result.ProductName);
-        Assert.Equal(_database.OldGoldMaterialId, result.MaterialId);
-        Assert.Equal("Task 3 Gold 750", result.MaterialName);
+        Assert.Equal(_database.RetailGoldPriceId, result.RetailGoldPriceId);
+        Assert.Equal("Task 3 Price 750", result.RetailGoldPriceName);
         Assert.Equal(_database.SalesFloorLocationId, result.SourceLocationId);
         Assert.Equal("T3_750", result.GoldPurity);
         Assert.Equal(9, result.RowVersion);
@@ -35,16 +36,13 @@ public sealed class SalesQueryRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task FindAvailableProductAsync_ResolvesCommonKaratLabelThroughMaterialPurity()
+    public async Task FindAvailableProductAsync_DoesNotInferPriceSourceFromPurityText()
     {
         var result = await _repository.FindAvailableProductAsync(
             "T3_PRODUCT_18K",
             _database.BranchSession(_database.LimitedUserId));
 
-        Assert.NotNull(result);
-        Assert.Equal("18K", result.GoldPurity);
-        Assert.Equal("Vàng 18K / 750", result.MaterialName);
-        Assert.Equal(10_500_000m, result.SourceGoldPricePerChi);
+        Assert.Null(result);
     }
 
     [Theory]
@@ -53,6 +51,8 @@ public sealed class SalesQueryRepositoryTests : IDisposable
     [InlineData("T3_PRODUCT_RAW", false)]
     [InlineData("T3_PRODUCT_BRANCH_B", false)]
     [InlineData("T3_PRODUCT_COMPANY_B", false)]
+    [InlineData("T3_PRODUCT_WRONG_PRICE_CO", false)]
+    [InlineData("T3_PRODUCT_INACTIVE_PRICE", false)]
     public async Task FindAvailableProductAsync_EnforcesStatusLocationBranchAndCompany(
         string code,
         bool expected)
@@ -80,8 +80,7 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         Assert.Empty(inactive);
         Assert.Empty(otherCompany);
         Assert.Equal(50, bounded.Count);
-        Assert.Equal(bounded.OrderBy(item => item.Name).ThenBy(item => item.Code).Select(item => item.Id),
-            bounded.Select(item => item.Id));
+        Assert.Equal(_database.ExpectedCustomerIds, bounded.Select(item => item.Id));
     }
 
     [Fact]
@@ -100,13 +99,11 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         var result = await _repository.GetSalespeopleAsync(
             _database.BranchSession(_database.LimitedUserId));
 
-        Assert.Contains(result, salesperson => salesperson.Id == _database.SalespersonId);
+        Assert.Equal(100, result.Count);
+        Assert.Equal(_database.ExpectedSalespersonIds, result.Select(item => item.Id));
         Assert.DoesNotContain(result, salesperson => salesperson.Username == "t3-other-branch");
         Assert.DoesNotContain(result, salesperson => salesperson.Username == "t3-other-company");
         Assert.DoesNotContain(result, salesperson => salesperson.Username == "t3-inactive");
-        Assert.True(result.Count <= 100);
-        Assert.Equal(result.OrderBy(item => item.DisplayName).ThenBy(item => item.Username).Select(item => item.Id),
-            result.Select(item => item.Id));
     }
 
     [Fact]
@@ -115,13 +112,15 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         var result = await _repository.GetOldGoldMaterialsAsync(
             _database.BranchSession(_database.LimitedUserId));
 
-        var material = Assert.Single(result, item => item.Code == "T3_GOLD_750");
-        Assert.Equal("Task 3 Gold 750", material.Name);
-        Assert.Equal(75m, material.ValuePercent);
-        Assert.Equal(77m, material.SourceBuyPricePerChi);
+        Assert.Equal(100, result.Count);
+        Assert.Equal(_database.ExpectedOldGoldMaterialIds, result.Select(item => item.Id));
+        Assert.All(result, material =>
+        {
+            Assert.Equal(75m, material.ValuePercent);
+            Assert.Equal(77m, material.SourceBuyPricePerChi);
+        });
         Assert.DoesNotContain(result, item => item.Code == "T3_GOLD_INACTIVE");
         Assert.DoesNotContain(result, item => item.Name == "Task 3 Other Gold 750");
-        Assert.True(result.Count <= 100);
     }
 
     [Fact]
@@ -130,10 +129,10 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         var result = await _repository.GetOldGoldLocationsAsync(
             _database.BranchSession(_database.LimitedUserId));
 
-        var location = Assert.Single(result, item => item.Id == _database.OldGoldLocationId);
-        Assert.True(location.IsDefault);
+        Assert.Equal(100, result.Count);
+        Assert.Equal(_database.ExpectedOldGoldLocationIds, result.Select(item => item.Id));
+        Assert.True(result[0].IsDefault);
         Assert.DoesNotContain(result, item => item.Code is "T3_INACTIVE_LOC" or "T3_SALES_B" or "T3_SALES_C");
-        Assert.True(result.Count <= 100);
     }
 
     [Fact]
@@ -161,6 +160,20 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         Assert.Equal(350m, detail.Totals.NetAmountVnd);
         Assert.Null(otherBranch);
         Assert.Null(otherCompany);
+    }
+
+    [Fact]
+    public async Task GetCheckoutAsync_PreservesNullSourceLocationForOldGoldOnlyHistory()
+    {
+        var detail = await _repository.GetCheckoutAsync(
+            _database.OldGoldOnlyCheckoutId,
+            _database.BranchSession(_database.LimitedUserId));
+
+        Assert.NotNull(detail);
+        Assert.Equal(SalesCheckoutTypes.OldGoldPurchase, detail.CheckoutType);
+        Assert.Null(detail.SourceLocationId);
+        Assert.Equal(_database.OldGoldLocationId, detail.OldGoldDestinationLocationId);
+        Assert.Equal(-350m, detail.Totals.NetAmountVnd);
     }
 
     [Fact]
