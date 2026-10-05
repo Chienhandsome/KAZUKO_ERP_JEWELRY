@@ -352,3 +352,68 @@ COMMIT;
   ```
 - **Rollback production:** restore `.fbk` trước migration 50.
 
+---
+
+## 19. Migration Version 51: `0051__sales_checkout_core.sql`
+
+- **Phiên bản:** `51` — lõi checkout bất biến cho `SALE`, `TRADE_IN` và `OLD_GOLD_PURCHASE`.
+- **Tệp nguồn:** `database/migrations/0051__sales_checkout_core.sql`.
+- **Verification:** `database/verification/verify_sales_checkout_core.sql` (fail-fast bằng `EX_VERIFY_FAILED`).
+- **Artifact SHA-256 đã xác minh trên bản copy:**
+  `2390791BAEE7795E980AD35DBE34857F2C3C82A7BBD6E79D48E00C9BD5EA3E96`.
+- **Tính nguyên tử:** artifact không tự kết thúc transaction; `Invoke-KazukoMigration.ps1` quản lý snapshot, ranh giới DDL/DML, ledger và khôi phục khi lỗi.
+
+### 19.1. Schema checkout và snapshot
+
+- `SALES_CHECKOUTS` lưu công ty/chi nhánh, mã/ngày/loại checkout, khách hàng, nhân viên bán hàng, kho, bốn tổng tiền (`SALE_GROSS_VND`, `OLD_GOLD_TOTAL_VND`, `DISCOUNT_AMOUNT_VND`, `NET_AMOUNT_VND`), các chứng từ con, audit và trạng thái `POSTED`.
+- `NET_AMOUNT_VND` là số có dấu và được ràng buộc bằng `SALE_GROSS_VND - DISCOUNT_AMOUNT_VND - OLD_GOLD_TOTAL_VND`; chỉ ba thành phần đầu vào phải không âm.
+- Idempotency dùng `CLIENT_REQUEST_ID CHAR(36)` và `REQUEST_HASH CHAR(64)`; unique `(BRANCH_ID, CLIENT_REQUEST_ID)` ngăn ghi hai checkout cho cùng yêu cầu trong một chi nhánh.
+- `SALES_OLD_GOLD_LINES` lưu toàn bộ input/derived snapshot: số món, trọng lượng tổng/đá/tạp chất/vàng/quy đổi, phần trăm giá trị, giá mua nguồn/áp dụng, thành tiền, override/lý do, material và một `STOCK_DOCUMENT_LINE_ID` duy nhất để truy xuất từng lô.
+- `SALES_CHECKOUT_OFFSETS` lưu đúng một khoản bù trừ dương cho mỗi checkout, liên kết trực tiếp `SALES_ORDERS` và phiếu nhập vàng cũ; khoản này không phải `CASH_VOUCHERS`.
+- `SALES_ORDER_ITEMS` thêm `FINISHED_PRODUCT_ID`, source/applied snapshots cho giá vàng/tiền công/tiền đá, `IS_PRICE_OVERRIDE` và `PRICE_OVERRIDE_REASON`.
+- `ORDER_PAYMENTS` thêm liên kết tới settlement, allocation và voucher; unique allocation ngăn một dòng tiền thực bị phản ánh hai lần.
+
+### 19.2. Constraint, index, CARD và purpose
+
+- Ba bảng mới có PK/FK/unique/check đầy đủ; index phục vụ lịch sử theo chi nhánh/ngày, khách hàng, nhân viên, chứng từ con, material và stock line.
+- `CK_STOCK_PURPOSE` giữ các purpose hiện có và bổ sung `RETAIL_SALE`.
+- `CARD` được bổ sung vào allow-list và dùng tài khoản ngân hàng trong `CASH_VOUCHERS`, `STOCK_DOCUMENT_PAYMENTS`, `FINANCIAL_SETTLEMENT_ALLOCATIONS` và `PAYABLE_DEBT_PAYMENT_ALLOCATIONS`.
+- `ORDER_PAYMENTS.CK_ORDER_PAYMENT_METHOD` chấp nhận `BANK_TRANSFER` và tiếp tục giữ các giá trị legacy `BANK`/`OTHER`, đồng thời giữ `CARD`.
+- Quy tắc nghiệp vụ vẫn từ chối `CARD` cho khoản chi ở Core/Application Service; constraint dùng chung chỉ bảo đảm CARD là phương thức gắn tài khoản ngân hàng.
+
+### 19.3. Sequence và permission seed
+
+- Seed idempotent `DOCUMENT_SEQUENCES` theo từng chi nhánh/năm cho:
+  - `SALES_CHECKOUT` — tiền tố nghiệp vụ `MB` cho sale/trade-in.
+  - `SALES_OLD_GOLD_PURCHASE` — tiền tố nghiệp vụ `MVC` cho mua vàng cũ độc lập.
+- Seed sáu permission: `sales.checkout.post`, `sales.price.override`, `sales.debt.approve`, `sales.salesperson.change`, `sales.history.read`, `sales.receipt.print`.
+- `ADMIN`/`MANAGER` nhận sáu quyền mặc định; `SALE` nhận post/history/print. Seed chỉ thêm mapping còn thiếu và không ghi đè một mapping đã tồn tại.
+
+### 19.4. Chạy chỉ trên bản copy
+
+Không dùng các lệnh dưới đây với `data\data.fdb`. Trước khi tạo migration 51 phải xác nhận bản copy đã đi qua version 50.
+
+```powershell
+$copyDatabase = "localhost:D:\Working\KAZUKO_ERP_JEWELRY\data\backups\sales_checkout_verify.fdb"
+$isql = "D:\Working\KAZUKO_ERP_JEWELRY\firebird\Firebird-5.0.4.1812-0-windows-x64\isql.exe"
+$gbak = "D:\Working\KAZUKO_ERP_JEWELRY\firebird\Firebird-5.0.4.1812-0-windows-x64\gbak.exe"
+
+"SET LIST ON; SELECT MAX(VERSION_NO) AS MAX_VERSION FROM SCHEMA_MIGRATIONS;" |
+    & $isql -q -ch UTF8 $copyDatabase
+
+powershell -File "database\tools\Invoke-KazukoMigration.ps1" `
+    -MigrationPath "database\migrations\0051__sales_checkout_core.sql" `
+    -Database $copyDatabase -IsqlPath $isql -GbakPath $gbak
+
+& $isql -b -ch UTF8 `
+    -i "database\verification\verify_sales_checkout_core.sql" `
+    $copyDatabase
+```
+
+### 19.5. Backup và rollback
+
+- Trước production phải đóng ứng dụng embedded, tạo `.fbk` bằng `gbak`, restore thử thành công, rồi mới chạy runner.
+- Nếu runner báo lỗi, snapshot tự động được restore và version 51 không được ghi vào `SCHEMA_MIGRATIONS`.
+- Production đã có checkout: restore snapshot trước migration 51 hoặc phát hành forward-fix; không DROP snapshot/chứng từ đã post.
+- Development chưa có checkout: có thể gỡ index/FK/check và các cột thêm trên `ORDER_PAYMENTS`/`SALES_ORDER_ITEMS`, khôi phục các payment/purpose constraint version 50, rồi DROP theo thứ tự `SALES_CHECKOUT_OFFSETS` → `SALES_OLD_GOLD_LINES` → `SALES_CHECKOUTS` và xóa ledger 51. Ưu tiên restore `.fbk` để tránh bỏ sót seed/constraint.
+
