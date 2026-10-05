@@ -6,6 +6,19 @@ namespace Kazuko.Infrastructure.Tests.Finance;
 public sealed class FinancialVoucherValidatorTests
 {
     [Fact]
+    public void Requires_bank_account_for_card()
+    {
+        Assert.Contains(PaymentAllocationValidator.Validate([new(PaymentMethods.Card, 100, null, null, null)], 100), x => x.Contains("ngân hàng"));
+        Assert.Empty(PaymentAllocationValidator.Validate([new(PaymentMethods.Card, 100, null, 2, "ref")], 100));
+    }
+
+    [Fact]
+    public void Card_rejects_cash_fund()
+    {
+        Assert.Contains(PaymentAllocationValidator.Validate([new(PaymentMethods.Card, 100, 1, 2, null)], 100), x => x.Contains("quỹ"));
+    }
+
+    [Fact]
     public void PaymentAllocation_CashRequiresFund_RejectsBank()
     {
         var errors = PaymentAllocationValidator.Validate(
