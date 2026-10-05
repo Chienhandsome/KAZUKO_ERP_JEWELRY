@@ -10,4 +10,5 @@ artifacts/
 /data/*.fdb
 /data/*.FDB
 /.ai
+/.worktrees/
 /.ai
