@@ -98,6 +98,7 @@ public partial class App : Application
         ISalesCheckoutApplicationService salesCheckout = new FirebirdSalesCheckoutApplicationService();
         ISalesQueryRepository salesQueries = new FirebirdSalesQueryRepository();
         ISalesAuthorizationService salesAuthorization = new FirebirdSalesAuthorizationService();
+        ISalesPrintDataService salesPrintData = new FirebirdSalesPrintDataService(salesQueries);
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -139,6 +140,7 @@ public partial class App : Application
         _services.AddSingleton(salesCheckout);
         _services.AddSingleton(salesQueries);
         _services.AddSingleton(salesAuthorization);
+        _services.AddSingleton(salesPrintData);
     }
 
     private void RegisterModules()

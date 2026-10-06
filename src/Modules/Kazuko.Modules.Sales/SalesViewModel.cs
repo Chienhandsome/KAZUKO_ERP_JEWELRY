@@ -59,6 +59,7 @@ public sealed class SalesViewModel : ObservableObject
         PreviousCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: false), () => !IsPosting && _permissions.CanReadHistory);
         NextCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: true), () => !IsPosting && _permissions.CanReadHistory);
         PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && _permissions.CanPost);
+        PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && _permissions.CanPrintReceipt && LastResult is { CheckoutId: > 0 });
         LookupCustomerCommand = new AsyncRelayCommand(ReloadCustomersAsync, () => !IsPosting);
 
         _ = InitializeAsync();
@@ -128,7 +129,11 @@ public sealed class SalesViewModel : ObservableObject
     public SalesCheckoutResult? LastResult
     {
         get => _lastResult;
-        private set => SetProperty(ref _lastResult, value);
+        private set
+        {
+            if (SetProperty(ref _lastResult, value))
+                ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
+        }
     }
 
     public Guid ClientRequestId => _clientRequestId;
@@ -137,6 +142,7 @@ public sealed class SalesViewModel : ObservableObject
     public ICommand PreviousCommand { get; }
     public ICommand NextCommand { get; }
     public ICommand PayCommand { get; }
+    public ICommand PrintCommand { get; }
     public ICommand LookupCustomerCommand { get; }
 
     public async Task InitializeAsync()
@@ -149,6 +155,10 @@ public sealed class SalesViewModel : ObservableObject
             _permissions = await _authorization.GetPermissionsAsync(session);
             OnPropertyChanged(nameof(Permissions));
             OnPropertyChanged(nameof(CanChangeSalesperson));
+            ((AsyncRelayCommand)PreviousCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)NextCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
 
             var customers = await _queries.SearchCustomersAsync(string.Empty, session);
             var staff = await _queries.GetSalespeopleAsync(session);
@@ -291,7 +301,15 @@ public sealed class SalesViewModel : ObservableObject
             else
                 BuyOldGold.DocumentCode = result.DocumentCode;
 
-            await _receiptPresenter.ShowAsync(result.CheckoutId);
+            try
+            {
+                await _receiptPresenter.ShowAsync(result.CheckoutId);
+            }
+            catch (Exception printEx)
+            {
+                ErrorMessage = "Phiếu đã ghi sổ nhưng không xem/in được: " + FriendlyError(printEx);
+            }
+
             RenewRequestId();
             _preserveRequestIdOnEdit = false;
             if (IsBuySellTab)
@@ -307,6 +325,31 @@ public sealed class SalesViewModel : ObservableObject
         finally
         {
             IsPosting = false;
+        }
+    }
+
+    private async Task PrintAsync()
+    {
+        try
+        {
+            if (LastResult is null || LastResult.CheckoutId <= 0)
+            {
+                ErrorMessage = "Chưa có chứng từ để in.";
+                return;
+            }
+
+            if (!_permissions.CanPrintReceipt)
+            {
+                ErrorMessage = "Không có quyền in phiếu bán hàng.";
+                return;
+            }
+
+            ErrorMessage = string.Empty;
+            await _receiptPresenter.ShowAsync(LastResult.CheckoutId);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = FriendlyError(ex);
         }
     }
 

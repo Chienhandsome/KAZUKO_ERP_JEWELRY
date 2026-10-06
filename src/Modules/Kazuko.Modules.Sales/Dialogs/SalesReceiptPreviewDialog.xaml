@@ -1,0 +1,31 @@
+<Window x:Class="Kazuko.Modules.Sales.Dialogs.SalesReceiptPreviewDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Xem phiếu bán hàng (A4)"
+        Width="900" Height="720" MinWidth="720" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppBackgroundBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="16">
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="{Binding DocumentCode, StringFormat=Chứng từ: {0}}" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Đóng" Command="{Binding CloseCommand}" IsCancel="True"
+                        Style="{DynamicResource NavButtonStyle}" MinHeight="40" MinWidth="96" Margin="0,0,8,0" />
+                <Button Content="In" Command="{Binding PrintCommand}" IsDefault="True"
+                        Style="{DynamicResource PrimaryButtonStyle}" MinHeight="40" MinWidth="120" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                Background="{DynamicResource SurfaceBrush}">
+            <FlowDocumentScrollViewer x:Name="PreviewViewer"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      IsToolBarVisible="False" />
+        </Border>
+    </DockPanel>
+</Window>

@@ -52,7 +52,10 @@
                         Command="{Binding PreviousCommand}" />
                 <Button Content="Sau"
                         Style="{StaticResource SalesGhostButtonStyle}"
-                        Command="{Binding NextCommand}"
+                        Command="{Binding NextCommand}" />
+                <Button Content="In A4"
+                        Style="{StaticResource SalesOutlineButtonStyle}"
+                        Command="{Binding PrintCommand}"
                         Margin="0" />
             </StackPanel>
         </Grid>

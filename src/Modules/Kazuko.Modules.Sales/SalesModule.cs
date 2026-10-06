@@ -17,7 +17,10 @@ public sealed class SalesModule : IKazukoModule
     public void RegisterServices(IServiceRegistry services)
     {
         services.AddSingleton<ISalesPaymentDialogService>(new WpfSalesPaymentDialogService());
-        services.AddSingleton<ISalesReceiptPresenter>(new NullSalesReceiptPresenter());
+        var printData = GetRequiredService<ISalesPrintDataService>(services);
+        var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        services.AddSingleton<ISalesReceiptPresenter>(
+            new WpfSalesReceiptPresenter(printData, session, new SalesReceiptPrintService()));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

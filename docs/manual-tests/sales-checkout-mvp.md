@@ -117,8 +117,9 @@ Check each row; mark Pass/Fail in your notes (no screenshots required in repo).
 | 6 | Fail preserve | Wrong payment total or unavailable product; post fails | Inputs preserved; can correct and retry |
 | 7 | Double submit | Rapid double click Hoàn tất | One post only (command busy / single flight) |
 | 8 | Theme/font | Light/Dark; font 100% and 125%; resize window | Layout usable; no hard-coded crash |
+| 9 | A4 preview | Sau post hoặc nút **In A4** | Dialog preview; In mở PrintDialog; Đóng không đổi checkout |
 
-Out of MVP (skip): A4 print, e-invoice, draft/hold, hủy/đảo, PIECE/WEIGHT, tiền thối.
+Out of MVP (skip): e-invoice, draft/hold, hủy/đảo, PIECE/WEIGHT, tiền thối.
 
 ## 5. Automated gate (optional before manual)
 
