@@ -101,9 +101,9 @@ public sealed class SalesQueryRepositoryTests : IDisposable
 
         Assert.Equal(100, result.Count);
         Assert.Equal(_database.ExpectedSalespersonIds, result.Select(item => item.Id));
-        Assert.DoesNotContain(result, salesperson => salesperson.Username == "t3-other-branch");
-        Assert.DoesNotContain(result, salesperson => salesperson.Username == "t3-other-company");
-        Assert.DoesNotContain(result, salesperson => salesperson.Username == "t3-inactive");
+        Assert.DoesNotContain(result, salesperson => salesperson.Id == _database.OtherBranchUserId);
+        Assert.DoesNotContain(result, salesperson => salesperson.Id == _database.OtherCompanyUserId);
+        Assert.DoesNotContain(result, salesperson => salesperson.Id == _database.InactiveUserId);
     }
 
     [Fact]
@@ -120,10 +120,12 @@ public sealed class SalesQueryRepositoryTests : IDisposable
             Assert.Equal(75m, material.ValuePercent);
             Assert.Equal(77m, material.SourceBuyPricePerChi);
         });
-        Assert.DoesNotContain(result, item => item.Code == "T3_GOLD_INACTIVE");
-        Assert.DoesNotContain(result, item => item.Name == "Task 3 Ambiguous Gold");
-        Assert.DoesNotContain(result, item => item.Code == "T3_GOLD_UNMAPPED");
-        Assert.DoesNotContain(result, item => item.Name == "Task 3 Other Gold 750");
+        Assert.DoesNotContain(result, item => item.Id == _database.InactiveOldGoldMaterialId);
+        Assert.DoesNotContain(result, item => item.Id == _database.OtherCompanyOldGoldMaterialId);
+        Assert.DoesNotContain(result, item => item.Id == _database.AmbiguousOldGoldMaterialId);
+        Assert.DoesNotContain(result, item => item.Id == _database.UnmappedOldGoldMaterialId);
+        Assert.DoesNotContain(result, item => item.Id == _database.InactivePriceOldGoldMaterialId);
+        Assert.DoesNotContain(result, item => item.Id == _database.OtherCompanyPriceOldGoldMaterialId);
     }
 
     [Fact]
@@ -135,7 +137,12 @@ public sealed class SalesQueryRepositoryTests : IDisposable
         Assert.Equal(100, result.Count);
         Assert.Equal(_database.ExpectedOldGoldLocationIds, result.Select(item => item.Id));
         Assert.True(result[0].IsDefault);
-        Assert.DoesNotContain(result, item => item.Code is "T3_INACTIVE_LOC" or "T3_SALES_B" or "T3_SALES_C");
+        Assert.DoesNotContain(result, item => item.Id == _database.InactiveOldGoldLocationId);
+        Assert.DoesNotContain(result, item => item.Id == _database.SalesFloorLocationId);
+        Assert.DoesNotContain(result, item => item.Id == _database.OtherBranchSalesFloorId);
+        Assert.DoesNotContain(result, item => item.Id == _database.OtherCompanySalesFloorId);
+        Assert.DoesNotContain(result, item => item.Id == _database.OtherBranchOldGoldLocationId);
+        Assert.DoesNotContain(result, item => item.Id == _database.OtherCompanyOldGoldLocationId);
     }
 
     [Fact]

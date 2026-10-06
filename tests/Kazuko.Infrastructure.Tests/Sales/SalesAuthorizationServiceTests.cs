@@ -45,10 +45,10 @@ public sealed class SalesAuthorizationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetPermissionsAsync_UnknownOrOutOfCompanyUserGetsNoPermissions()
+    public async Task GetPermissionsAsync_ActiveOtherCompanyAdminClaimGetsNoPermissionsInCurrentCompanyBranch()
     {
         var permissions = await _service.GetPermissionsAsync(
-            _database.BranchSession(long.MaxValue, claimedRoleCode: "ADMIN"));
+            _database.BranchSession(_database.OtherCompanyUserId, claimedRoleCode: "ADMIN"));
 
         Assert.Equal(
             new[] { false, false, false, false, false, false },

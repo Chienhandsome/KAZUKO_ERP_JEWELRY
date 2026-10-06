@@ -67,6 +67,20 @@ internal sealed class SalesTestDatabase : IDisposable
     public long SalespersonId { get; private set; }
     public long LimitedUserId { get; private set; }
     public long AdminUserId { get; private set; }
+    public long OtherBranchUserId { get; private set; }
+    public long OtherCompanyUserId { get; private set; }
+    public long InactiveUserId { get; private set; }
+    public long InactiveOldGoldLocationId { get; private set; }
+    public long OtherBranchSalesFloorId { get; private set; }
+    public long OtherCompanySalesFloorId { get; private set; }
+    public long OtherBranchOldGoldLocationId { get; private set; }
+    public long OtherCompanyOldGoldLocationId { get; private set; }
+    public long InactiveOldGoldMaterialId { get; private set; }
+    public long OtherCompanyOldGoldMaterialId { get; private set; }
+    public long AmbiguousOldGoldMaterialId { get; private set; }
+    public long UnmappedOldGoldMaterialId { get; private set; }
+    public long InactivePriceOldGoldMaterialId { get; private set; }
+    public long OtherCompanyPriceOldGoldMaterialId { get; private set; }
     public long MiddleCheckoutId { get; private set; }
     public long OtherBranchCheckoutId { get; private set; }
     public long OtherCompanyCheckoutId { get; private set; }
@@ -144,12 +158,12 @@ internal sealed class SalesTestDatabase : IDisposable
                 limitedRoleId, "t3-limited", "Task 3 Limited User", true);
             AdminUserId = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
                 adminRoleId, "t3-admin", "Task 3 Admin User", true);
-            _ = await InsertUserAsync(connection, transaction, CompanyId, OtherBranchId,
-                limitedRoleId, "t3-other-branch", "Task 3 Other Branch User", true);
-            _ = await InsertUserAsync(connection, transaction, OtherCompanyId, OtherCompanyBranchId,
-                limitedRoleId, "t3-other-company", "Task 3 Other Company User", true);
-            _ = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
-                limitedRoleId, "t3-inactive", "Task 3 Inactive User", false);
+            OtherBranchUserId = await InsertUserAsync(connection, transaction, CompanyId, OtherBranchId,
+                limitedRoleId, "t3-other-branch", "000 Task 3 Salesperson - Other Branch", true);
+            OtherCompanyUserId = await InsertUserAsync(connection, transaction, OtherCompanyId, BranchId,
+                limitedRoleId, "t3-other-company", "000 Task 3 Salesperson - Other Company", true);
+            InactiveUserId = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
+                limitedRoleId, "t3-inactive", "000 Task 3 Salesperson - Inactive", false);
             var boundedSalespeople = new List<long>();
             for (var index = 0; index < 105; index++)
             {
@@ -189,17 +203,21 @@ internal sealed class SalesTestDatabase : IDisposable
             ExpectedCustomerIds = boundedCustomers.Take(50).ToArray();
 
             SalesFloorLocationId = await InsertLocationAsync(connection, transaction, BranchId,
-                "T3_SALES_A", "Task 3 Sales Floor A", "SALES_FLOOR", true);
+                "T3_SALES_A", "000 Task 3 Old Gold Location - Sales Floor", "SALES_FLOOR", true);
             OldGoldLocationId = await InsertLocationAsync(connection, transaction, BranchId,
                 "T3_OLD_GOLD_DEFAULT", "Task 3 Old Gold", "RAW_MATERIAL", true);
             var nonSalesLocationId = await InsertLocationAsync(connection, transaction, BranchId,
                 "T3_RAW_A", "Task 3 Raw A", "RAW_MATERIAL", true);
-            _ = await InsertLocationAsync(connection, transaction, BranchId,
-                "T3_INACTIVE_LOC", "Task 3 Inactive Location", "RAW_MATERIAL", false);
-            var otherBranchSalesFloor = await InsertLocationAsync(connection, transaction, OtherBranchId,
-                "T3_SALES_B", "Task 3 Sales Floor B", "SALES_FLOOR", true);
-            var otherCompanySalesFloor = await InsertLocationAsync(connection, transaction, OtherCompanyBranchId,
-                "T3_SALES_C", "Task 3 Sales Floor C", "SALES_FLOOR", true);
+            InactiveOldGoldLocationId = await InsertLocationAsync(connection, transaction, BranchId,
+                "T3_INACTIVE_LOC", "000 Task 3 Old Gold Location - Inactive", "RAW_MATERIAL", false);
+            OtherBranchSalesFloorId = await InsertLocationAsync(connection, transaction, OtherBranchId,
+                "T3_SALES_B", "000 Task 3 Old Gold Location - Other Branch", "SALES_FLOOR", true);
+            OtherCompanySalesFloorId = await InsertLocationAsync(connection, transaction, OtherCompanyBranchId,
+                "T3_SALES_C", "000 Task 3 Old Gold Location - Other Company", "SALES_FLOOR", true);
+            OtherBranchOldGoldLocationId = await InsertLocationAsync(connection, transaction, OtherBranchId,
+                "T3_RAW_B", "000 Task 3 Old Gold Location - Other Branch Raw", "RAW_MATERIAL", true);
+            OtherCompanyOldGoldLocationId = await InsertLocationAsync(connection, transaction, OtherCompanyBranchId,
+                "T3_RAW_C", "000 Task 3 Old Gold Location - Other Company Raw", "RAW_MATERIAL", true);
             var boundedLocations = new List<long>();
             for (var index = 0; index < 105; index++)
             {
@@ -223,14 +241,21 @@ internal sealed class SalesTestDatabase : IDisposable
                 "T3_INACTIVE_PRICE", "Task 3 Inactive Price", 0.75m, 66m, 99m, false);
             OldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
                 "T3_GOLD_750", "Task 3 Gold 750", "T3_750", true, OldGoldPriceId);
-            _ = await InsertMaterialAsync(connection, transaction, CompanyId,
-                "T3_GOLD_INACTIVE", "Task 3 Inactive Gold", "T3_INACTIVE", false, OldGoldPriceId);
-            _ = await InsertMaterialAsync(connection, transaction, OtherCompanyId,
-                "T3_GOLD_750", "Task 3 Other Gold 750", "T3_750", true, otherCompanyGoldPriceId);
-            _ = await InsertMaterialAsync(connection, transaction, CompanyId,
-                "GOLD_T3_TASK_ALT", "Task 3 Ambiguous Gold", "T3_750", true);
-            _ = await InsertMaterialAsync(connection, transaction, CompanyId,
-                "T3_GOLD_UNMAPPED", "Task 3 Unmapped Gold", "NO_PRICE", true);
+            InactiveOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_INACTIVE", "000 Task 3 Gold Material - Inactive", "T3_INACTIVE", false, OldGoldPriceId);
+            OtherCompanyOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, OtherCompanyId,
+                "T3_GOLD_750", "000 Task 3 Gold Material - Other Company", "T3_750", true,
+                otherCompanyGoldPriceId);
+            AmbiguousOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "GOLD_T3_TASK_ALT", "000 Task 3 Gold Material - Ambiguous", "T3_750", true);
+            UnmappedOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_UNMAPPED", "000 Task 3 Gold Material - Unmapped", "NO_PRICE", true);
+            InactivePriceOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_INACTIVE_PRICE", "000 Task 3 Gold Material - Inactive Price", "T3_INACTIVE_PRICE",
+                true, inactiveGoldPriceId);
+            OtherCompanyPriceOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_OTHER_PRICE", "000 Task 3 Gold Material - Other Company Price", "T3_750", true,
+                otherCompanyGoldPriceId);
             var boundedMaterials = new List<long>();
             for (var index = 0; index < 105; index++)
             {
@@ -257,10 +282,10 @@ internal sealed class SalesTestDatabase : IDisposable
                 nonSalesLocationId, "T3_PRODUCT_RAW", "Task 3 Raw", "IN_STOCK", 12,
                 RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, OtherBranchId,
-                otherBranchSalesFloor, "T3_PRODUCT_BRANCH_B", "Task 3 Branch B Product", "DISPLAYED", 13,
+                OtherBranchSalesFloorId, "T3_PRODUCT_BRANCH_B", "Task 3 Branch B Product", "DISPLAYED", 13,
                 RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, OtherCompanyId, OtherCompanyBranchId,
-                otherCompanySalesFloor, "T3_PRODUCT_COMPANY_B", "Task 3 Company B Product", "DISPLAYED", 14,
+                OtherCompanySalesFloorId, "T3_PRODUCT_COMPANY_B", "Task 3 Company B Product", "DISPLAYED", 14,
                 otherCompanyGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
                 SalesFloorLocationId, "T3_PRODUCT_WRONG_PRICE_CO", "Task 3 Wrong Price Company", "DISPLAYED", 16,
@@ -309,16 +334,14 @@ internal sealed class SalesTestDatabase : IDisposable
                 NamedCustomerId, SalespersonId, OldGoldLocationId, LimitedUserId);
             OtherBranchCheckoutId = await InsertCheckoutAsync(connection, transaction, CompanyId, OtherBranchId,
                 "T3-CHK-B01", new DateTime(2026, 10, 4), NamedCustomerId, SalespersonId,
-                otherBranchSalesFloor, LimitedUserId, null);
+                OtherBranchSalesFloorId, LimitedUserId, null);
 
             var otherCustomerId = await ScalarAsync(connection, transaction,
                 "SELECT ID FROM CUSTOMERS WHERE COMPANY_ID = @CID AND CODE = 'T3_OTHER_CO'",
                 ("@CID", OtherCompanyId));
-            var otherUserId = await ScalarAsync(connection, transaction,
-                "SELECT ID FROM USERS WHERE USERNAME = 't3-other-company'");
             OtherCompanyCheckoutId = await InsertCheckoutAsync(connection, transaction, OtherCompanyId,
                 OtherCompanyBranchId, "T3-CHK-C01", new DateTime(2026, 10, 5), otherCustomerId,
-                otherUserId, otherCompanySalesFloor, otherUserId, null);
+                OtherCompanyUserId, OtherCompanySalesFloorId, OtherCompanyUserId, null);
 
             await transaction.CommitAsync();
         }
