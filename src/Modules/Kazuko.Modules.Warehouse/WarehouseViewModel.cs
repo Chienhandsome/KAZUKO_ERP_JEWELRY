@@ -32,6 +32,7 @@ public sealed class WarehouseViewModel : ObservableObject
     private readonly ICustomerRepository _customers;
     private readonly ISupplierEditorService _supplierEditor;
     private readonly ICustomerEditorService _customerEditor;
+    private readonly IGoldTypeEditorService _goldTypeEditor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
     private readonly IGoldTypeCatalogService _goldTypes;
@@ -122,6 +123,7 @@ public sealed class WarehouseViewModel : ObservableObject
         ICustomerRepository customers,
         ISupplierEditorService supplierEditor,
         ICustomerEditorService customerEditor,
+        IGoldTypeEditorService goldTypeEditor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
         IGoldTypeCatalogService goldTypes)
@@ -139,6 +141,7 @@ public sealed class WarehouseViewModel : ObservableObject
         _customers = customers;
         _supplierEditor = supplierEditor;
         _customerEditor = customerEditor;
+        _goldTypeEditor = goldTypeEditor;
         _funds = funds;
         _banks = banks;
         _goldTypes = goldTypes;
@@ -1379,6 +1382,7 @@ public sealed class WarehouseViewModel : ObservableObject
             _customers,
             _supplierEditor,
             _customerEditor,
+            _goldTypeEditor,
             _funds,
             _banks,
             session);
@@ -1389,7 +1393,7 @@ public sealed class WarehouseViewModel : ObservableObject
         if (dialog.ShowDialog() == true)
         {
             OpenDocumentTab("RECEIPT", WarehouseTabs.Receipt);
-            _ = SearchDocumentsAsync();
+            _ = RefreshAllAsync();
         }
     }
 

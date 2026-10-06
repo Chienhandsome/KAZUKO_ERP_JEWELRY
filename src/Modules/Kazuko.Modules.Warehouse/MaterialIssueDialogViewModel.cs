@@ -101,7 +101,7 @@ public sealed class MaterialIssueDialogViewModel : ObservableObject
     {
         foreach (var location in await _warehouse.GetLocationsAsync(_session))
         {
-            if (location.InventoryScope is InventoryScopes.RawMaterial or InventoryScopes.General)
+            if (location.InventoryScope is InventoryScopes.RawMaterial)
                 Locations.Add(location);
         }
         SelectedLocation = Locations.FirstOrDefault();

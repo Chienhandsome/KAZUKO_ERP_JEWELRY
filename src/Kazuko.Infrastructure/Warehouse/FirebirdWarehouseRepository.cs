@@ -54,8 +54,18 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = new FbCommand("""
-            SELECT M.ID, M.CODE, M.NAME, M.MATERIAL_TYPE, COALESCE(M.PURITY_CODE, ''), M.UNIT_CODE, M.IS_ACTIVE
+            SELECT M.ID, M.CODE, M.NAME, M.MATERIAL_TYPE, COALESCE(M.PURITY_CODE, ''), M.UNIT_CODE, M.IS_ACTIVE,
+                   COALESCE(G.BUY_PRICE_PER_CHI, 0),
+                   M.STONE_KIND, M.STONE_SHAPE, M.CARAT_PER_PIECE, M.SIZE_MM
             FROM MATERIALS M
+            LEFT JOIN GOLD_PRICES G ON G.ID = COALESCE(
+                M.OLD_GOLD_PRICE_ID,
+                (SELECT FIRST 1 P.ID FROM GOLD_PRICES P
+                  WHERE P.GOLD_TYPE_ID = M.GOLD_TYPE_ID AND P.IS_ACTIVE = TRUE),
+                (SELECT FIRST 1 P2.ID FROM GOLD_PRICES P2
+                  WHERE P2.COMPANY_ID = M.COMPANY_ID
+                    AND UPPER(TRIM(P2.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
+                    AND P2.IS_ACTIVE = TRUE))
             WHERE M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND M.IS_ACTIVE = TRUE
               AND (@HAS_TYPE = 0 OR M.MATERIAL_TYPE = @TYPE)
@@ -82,7 +92,12 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
                 reader.GetString(3),
                 reader.GetString(4),
                 reader.GetString(5),
-                reader.GetBoolean(6)));
+                reader.GetBoolean(6),
+                reader.GetDecimal(7),
+                reader.IsDBNull(8) ? null : reader.GetString(8),
+                reader.IsDBNull(9) ? null : reader.GetString(9),
+                reader.IsDBNull(10) ? null : reader.GetDecimal(10),
+                reader.IsDBNull(11) ? null : reader.GetDecimal(11)));
         }
 
         return result;

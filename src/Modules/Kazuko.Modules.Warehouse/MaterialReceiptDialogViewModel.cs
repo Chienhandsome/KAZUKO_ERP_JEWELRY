@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
@@ -6,6 +7,7 @@ using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
@@ -19,6 +21,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private readonly ICustomerRepository _customers;
     private readonly ISupplierEditorService _supplierEditor;
     private readonly ICustomerEditorService _customerEditor;
+    private readonly IGoldTypeEditorService _goldTypeEditor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
     private readonly AuthenticatedSession _session;
@@ -30,7 +33,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private decimal _lineQuantity = 1;
     private decimal _lineUnitPrice;
     private decimal _lineExchangeRate = 1;
-    private decimal _paidAmount;
     private string _notes = string.Empty;
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
@@ -42,6 +44,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         ICustomerRepository customers,
         ISupplierEditorService supplierEditor,
         ICustomerEditorService customerEditor,
+        IGoldTypeEditorService goldTypeEditor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
         AuthenticatedSession session)
@@ -52,6 +55,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _customers = customers;
         _supplierEditor = supplierEditor;
         _customerEditor = customerEditor;
+        _goldTypeEditor = goldTypeEditor;
         _funds = funds;
         _banks = banks;
         _session = session;
@@ -65,6 +69,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         RemovePaymentCommand = new RelayCommand(RemoveSelectedPayment, () => SelectedPayment is not null);
         CreateSupplierCommand = new RelayCommand(CreateSupplier);
         CreateCustomerCommand = new RelayCommand(CreateCustomer);
+        CreateGoldTypeCommand = new AsyncRelayCommand(CreateGoldTypeAsync);
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         CancelCommand = new RelayCommand(() => DialogResult = false);
         _ = LoadLookupsAsync();
@@ -137,7 +142,15 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _selectedMaterial, value))
+            {
                 OnPropertyChanged(nameof(UnitPriceLabel));
+                if (value is not null
+                    && string.Equals(value.MaterialType, MaterialTypes.Gold, StringComparison.OrdinalIgnoreCase)
+                    && value.ReferenceBuyPricePerChi > 0)
+                {
+                    LineUnitPrice = value.ReferenceBuyPricePerChi;
+                }
+            }
         }
     }
 
@@ -168,17 +181,8 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public ReceiptLineRow? SelectedLine { get; set; }
     public PaymentRow? SelectedPayment { get; set; }
 
-    public decimal PaidAmount
-    {
-        get => _paidAmount;
-        set
-        {
-            if (SetProperty(ref _paidAmount, value))
-            {
-                OnPropertyChanged(nameof(DebtAmount));
-            }
-        }
-    }
+    /// <summary>Tổng số tiền các dòng phương thức thanh toán (không nhập tay).</summary>
+    public decimal PaidAmount => Payments.Sum(x => x.AmountVnd);
 
     public string Notes
     {
@@ -207,14 +211,21 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public ICommand RemovePaymentCommand { get; }
     public ICommand CreateSupplierCommand { get; }
     public ICommand CreateCustomerCommand { get; }
+    public ICommand CreateGoldTypeCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
 
     private async Task LoadLookupsAsync()
     {
         foreach (var location in await _warehouse.GetLocationsAsync(_session))
-            Locations.Add(location);
-        SelectedLocation = Locations.FirstOrDefault();
+        {
+            if (location.InventoryScope is InventoryScopes.RawMaterial)
+                Locations.Add(location);
+        }
+
+        SelectedLocation = Locations.FirstOrDefault(x =>
+                string.Equals(x.InventoryScope, InventoryScopes.RawMaterial, StringComparison.OrdinalIgnoreCase))
+            ?? Locations.FirstOrDefault();
 
         foreach (var supplier in await _suppliers.SearchAsync(new SupplierSearchFilter(string.Empty, 0, string.Empty, true)))
             Suppliers.Add(supplier);
@@ -261,18 +272,36 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
 
     private void AddPayment()
     {
-        Payments.Add(new PaymentRow
+        var row = new PaymentRow
         {
             PaymentMethod = PaymentMethods.Cash,
             AmountVnd = 0,
             CashFundId = Funds.FirstOrDefault(x => x.IsDefault)?.Id ?? Funds.FirstOrDefault()?.Id
-        });
+        };
+        row.PropertyChanged += OnPaymentRowPropertyChanged;
+        Payments.Add(row);
+        NotifyPaidChanged();
     }
 
     private void RemoveSelectedPayment()
     {
-        if (SelectedPayment is not null)
-            Payments.Remove(SelectedPayment);
+        if (SelectedPayment is null)
+            return;
+        SelectedPayment.PropertyChanged -= OnPaymentRowPropertyChanged;
+        Payments.Remove(SelectedPayment);
+        NotifyPaidChanged();
+    }
+
+    private void OnPaymentRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PaymentRow.AmountVnd))
+            NotifyPaidChanged();
+    }
+
+    private void NotifyPaidChanged()
+    {
+        OnPropertyChanged(nameof(PaidAmount));
+        OnPropertyChanged(nameof(DebtAmount));
     }
 
     private void CreateSupplier()
@@ -291,6 +320,24 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _ = ReloadCustomersAsync(created.Id);
     }
 
+    private async Task CreateGoldTypeAsync()
+    {
+        try
+        {
+            ErrorMessage = string.Empty;
+            var created = await _goldTypeEditor.ShowCreateAsync(_session);
+            if (created is null)
+                return;
+            await ReloadMaterialsAsync(created.Code);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Không thể thêm loại vàng."
+                : ex.Message;
+        }
+    }
+
     private async Task ReloadSuppliersAsync(long selectId)
     {
         Suppliers.Clear();
@@ -307,6 +354,18 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             Customers.Add(customer);
         SelectedCustomer = Customers.FirstOrDefault(x => x.Id == selectId);
         SourceType = StockSourceTypes.OldGoldCustomer;
+    }
+
+    private async Task ReloadMaterialsAsync(string goldTypeCode)
+    {
+        var code = goldTypeCode.Trim().ToUpperInvariant();
+        var materialCode = "GOLD_" + code;
+        Materials.Clear();
+        foreach (var material in await _warehouse.SearchMaterialsAsync(string.Empty, string.Empty, _session))
+            Materials.Add(material);
+        SelectedMaterial = Materials.FirstOrDefault(x =>
+            string.Equals(x.Code, materialCode, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(x.PurityCode, code, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task SaveAsync()

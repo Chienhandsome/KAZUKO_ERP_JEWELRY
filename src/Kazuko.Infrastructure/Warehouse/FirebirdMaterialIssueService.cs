@@ -157,7 +157,7 @@ public sealed class FirebirdMaterialIssueService : IMaterialIssueService
             SELECT COUNT(*)
             FROM LOCATIONS
             WHERE ID = @ID AND BRANCH_ID = @BID AND IS_ACTIVE = TRUE
-              AND INVENTORY_SCOPE IN ('RAW_MATERIAL', 'GENERAL')
+              AND INVENTORY_SCOPE = 'RAW_MATERIAL'
             """, connection, transaction);
         command.Parameters.Add("@ID", FbDbType.BigInt).Value = locationId;
         command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;

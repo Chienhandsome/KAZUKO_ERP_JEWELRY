@@ -162,10 +162,10 @@ public partial class App : Application
             new SalesModule(),
             new CustomersModule(),
             new SuppliersModule(),
+            new PriceBoardModule(),
             new WarehouseModule(),
             new DebtModule(),
             new HumanResourcesModule(),
-            new PriceBoardModule(),
             new ReportsModule()
         ];
         foreach (var module in modules)

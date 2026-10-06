@@ -4,11 +4,9 @@ namespace Kazuko.Core.Warehouse;
 
 public static class InventoryScopes
 {
-    public const string General = "GENERAL";
     public const string RawMaterial = "RAW_MATERIAL";
     public const string FinishedGoods = "FINISHED_GOODS";
     public const string SalesFloor = "SALES_FLOOR";
-    public const string Service = "SERVICE";
 }
 
 public sealed record WarehouseLocationOption(
@@ -17,7 +15,7 @@ public sealed record WarehouseLocationOption(
     string Code,
     string Name,
     string LocationType,
-    string InventoryScope = InventoryScopes.General)
+    string InventoryScope = InventoryScopes.RawMaterial)
 {
     public string DisplayName => $"{Code} - {Name}";
     public override string ToString() => DisplayName;
@@ -30,7 +28,12 @@ public sealed record MaterialOption(
     string MaterialType,
     string PurityCode,
     string UnitCode,
-    bool IsActive)
+    bool IsActive,
+    decimal ReferenceBuyPricePerChi = 0,
+    string? StoneKind = null,
+    string? StoneShape = null,
+    decimal? CaratPerPiece = null,
+    decimal? SizeMm = null)
 {
     public string DisplayName => $"{Code} - {Name}";
     public override string ToString() => DisplayName;

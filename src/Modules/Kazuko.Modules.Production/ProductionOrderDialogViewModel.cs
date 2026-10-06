@@ -835,10 +835,9 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private void ApplyDefaultLocations()
     {
         var raw = Locations.FirstOrDefault(x =>
-            string.Equals(x.InventoryScope, "RAW_MATERIAL", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(x.InventoryScope, "GENERAL", StringComparison.OrdinalIgnoreCase));
+            string.Equals(x.InventoryScope, InventoryScopes.RawMaterial, StringComparison.OrdinalIgnoreCase));
         var finished = Locations.FirstOrDefault(x =>
-            string.Equals(x.InventoryScope, "FINISHED_GOODS", StringComparison.OrdinalIgnoreCase));
+            string.Equals(x.InventoryScope, InventoryScopes.FinishedGoods, StringComparison.OrdinalIgnoreCase));
         if (raw is not null)
             SourceLocationId = raw.Id;
         if (finished is not null)

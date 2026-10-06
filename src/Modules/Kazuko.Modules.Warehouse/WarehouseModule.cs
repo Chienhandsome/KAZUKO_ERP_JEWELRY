@@ -40,6 +40,7 @@ public sealed class WarehouseModule : IKazukoModule
         var customers = GetRequiredService<ICustomerRepository>(services);
         var supplierEditor = GetRequiredService<ISupplierEditorService>(services);
         var customerEditor = GetRequiredService<ICustomerEditorService>(services);
+        var goldTypeEditor = GetRequiredService<IGoldTypeEditorService>(services);
         var funds = GetRequiredService<ICashFundRepository>(services);
         var banks = GetRequiredService<IBankAccountRepository>(services);
         var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
@@ -66,6 +67,7 @@ public sealed class WarehouseModule : IKazukoModule
                     customers,
                     supplierEditor,
                     customerEditor,
+                    goldTypeEditor,
                     funds,
                     banks,
                     goldTypes)

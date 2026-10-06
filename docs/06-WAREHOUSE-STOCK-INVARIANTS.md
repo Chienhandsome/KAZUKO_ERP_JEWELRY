@@ -17,7 +17,13 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 - Mỗi dòng `FINISHED_PRODUCTS` là đúng **một món**; `CODE`, `BARCODE_VALUE` và `QR_VALUE` duy nhất trong công ty (khi tạo thành phẩm từ sản xuất/chế tác, mặc định gán cả ba bằng mã serial).
 - Không lưu tồn thành phẩm bằng một bản ghi có số lượng lớn hơn 1. Tổng số món dùng `COUNT(*)`.
 - Vị trí vật lý nằm ở `LOCATION_ID`; vai trò kho nằm ở `LOCATIONS.INVENTORY_SCOPE`.
-- Kho thành phẩm dùng scope `FINISHED_GOODS`; Kho bán hàng dùng scope `SALES_FLOOR`.
+- Hệ thống chỉ có **ba** loại kho (`INVENTORY_SCOPE`):
+  | Scope | Tên | Dùng cho |
+  |-------|-----|----------|
+  | `RAW_MATERIAL` | Kho nguyên vật liệu | Nhập/xuất NVL |
+  | `FINISHED_GOODS` | Kho thành phẩm | Thành phẩm sau sản xuất/chế tác |
+  | `SALES_FLOOR` | Kho bán hàng | Trưng bày / bán lẻ |
+- Không dùng scope `GENERAL` hay `SERVICE`. Mỗi chi nhánh active có đúng **một** location active cho mỗi scope (một kho NVL, một kho thành phẩm, một kho bán hàng).
 - Một món chỉ có một `LOCATION_ID` hiện hành. Chuyển kho là cập nhật vị trí, không sao chép bản ghi.
 - `FINISHED_PRODUCT_DOCUMENT_LINES` lưu từng serial trên chứng từ; một serial không được lặp trong cùng chứng từ.
 - `ROW_VERSION` bắt buộc tăng mỗi lần chuyển/xuất để phát hiện hai session cùng thao tác một món.
@@ -27,7 +33,9 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 - Vàng / kim loại quý (`MATERIAL_TYPE = GOLD`): đơn vị tồn chuẩn **`CHI`**.
   - 1 lượng (`LUONG`) = 10 chỉ.
   - 1 chỉ = 3,75 gram.
-- Đá / ngọc: `VIEN` hoặc `CARAT` (đã xác minh).
+- Đá / ngọc (`MATERIAL_TYPE = STONE`): đơn vị tồn chuẩn **`VIEN`**.
+  - Thuộc tính danh mục (không phải đơn vị tồn): `STONE_KIND` (KC/CZ/RUBY/…), `STONE_SHAPE`, `CARAT_PER_PIECE` (nullable), `SIZE_MM` (nullable).
+  - Tổng carat báo cáo ≈ số viên × `CARAT_PER_PIECE` khi có.
 - Phụ kiện: `CAI` (hoặc gram nếu danh mục đã chuẩn hóa).
 - Không trộn đơn vị trên cùng một dòng tồn/chứng từ nếu chưa quy đổi về đơn vị chuẩn.
 - Migration đơn vị ghi audit trước/sau; dữ liệu không xác định được đơn vị vào `UNIT_CONVERSION_EXCEPTIONS` — **không đoán**.

@@ -50,6 +50,9 @@ public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
             FinishedGoodsIssueValidator.EnsureNotManualFinishedGoodsReceipt(
                 StockDocumentTypes.Receipt, purpose, null, isMaterialOnlyReceipt: true);
 
+            await EnsureDestinationLocationAsync(
+                connection, fbTx, draft.DestinationLocationId, session.BranchId, cancellationToken);
+
             var code = await StockPostingSupport.NextDocumentCodeAsync(
                 connection, fbTx, "STOCK_RECEIPT", session.BranchId, "PNK", cancellationToken);
 
@@ -239,5 +242,24 @@ public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private static async Task EnsureDestinationLocationAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long locationId,
+        long branchId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new FbCommand("""
+            SELECT COUNT(*)
+            FROM LOCATIONS
+            WHERE ID = @ID AND BRANCH_ID = @BID AND IS_ACTIVE = TRUE
+              AND INVENTORY_SCOPE = 'RAW_MATERIAL'
+            """, connection, transaction);
+        command.Parameters.Add("@ID", FbDbType.BigInt).Value = locationId;
+        command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+        if (Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) != 1)
+            throw new InvalidOperationException("Kho nhận NVL không hợp lệ. Chỉ được nhập vào kho nguyên vật liệu.");
     }
 }

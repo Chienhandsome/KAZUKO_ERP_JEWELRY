@@ -87,6 +87,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
 
         var code = request.Code.Trim().ToUpperInvariant();
         var name = request.Name.Trim();
+        var purity = GoldTypePurity.Resolve(request);
         var buyGram = Math.Round(request.BuyPricePerChi / GoldUnitConverter.GramsPerChi, 2);
         var sellGram = Math.Round(request.SellPricePerChi / GoldUnitConverter.GramsPerChi, 2);
 
@@ -117,7 +118,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
                 insertType.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
                 insertType.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 insertType.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
-                insertType.Parameters.Add("@PURITY", FbDbType.Decimal).Value = request.PurityRate;
+                insertType.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
                 insertType.Parameters.Add("@ORD", FbDbType.Integer).Value = displayOrder;
                 insertType.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;
@@ -139,7 +140,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
                 insertRetail.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
                 insertRetail.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 insertRetail.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
-                insertRetail.Parameters.Add("@PURITY", FbDbType.Decimal).Value = request.PurityRate;
+                insertRetail.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
                 insertRetail.Parameters.Add("@BUY", FbDbType.Decimal).Value = request.BuyPricePerChi;
                 insertRetail.Parameters.Add("@SELL", FbDbType.Decimal).Value = request.SellPricePerChi;
                 insertRetail.Parameters.Add("@BUY_G", FbDbType.Decimal).Value = buyGram;
@@ -164,7 +165,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
                 insertWh.Parameters.Add("@GID", FbDbType.BigInt).Value = retailId;
                 insertWh.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 insertWh.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
-                insertWh.Parameters.Add("@PURITY", FbDbType.Decimal).Value = request.PurityRate;
+                insertWh.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
                 insertWh.Parameters.Add("@ISSUE", FbDbType.Decimal).Value = request.IssuePricePerChi;
                 insertWh.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;
@@ -215,6 +216,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
 
         var code = request.Code.Trim().ToUpperInvariant();
         var name = request.Name.Trim();
+        var purity = GoldTypePurity.Resolve(request);
         var buyGram = Math.Round(request.BuyPricePerChi / GoldUnitConverter.GramsPerChi, 2);
         var sellGram = Math.Round(request.SellPricePerChi / GoldUnitConverter.GramsPerChi, 2);
 
@@ -241,7 +243,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
             {
                 updateType.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 updateType.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
-                updateType.Parameters.Add("@PURITY", FbDbType.Decimal).Value = request.PurityRate;
+                updateType.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
                 updateType.Parameters.Add("@ORD", FbDbType.Integer).Value =
                     request.DisplayOrder is int ord ? ord : DBNull.Value;
                 updateType.Parameters.Add("@BY", FbDbType.BigInt).Value =
@@ -268,7 +270,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
             {
                 updateRetail.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 updateRetail.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
-                updateRetail.Parameters.Add("@PURITY", FbDbType.Decimal).Value = request.PurityRate;
+                updateRetail.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
                 updateRetail.Parameters.Add("@BUY", FbDbType.Decimal).Value = request.BuyPricePerChi;
                 updateRetail.Parameters.Add("@SELL", FbDbType.Decimal).Value = request.SellPricePerChi;
                 updateRetail.Parameters.Add("@BUY_G", FbDbType.Decimal).Value = buyGram;
@@ -294,7 +296,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
             {
                 updateWh.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 updateWh.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
-                updateWh.Parameters.Add("@PURITY", FbDbType.Decimal).Value = request.PurityRate;
+                updateWh.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
                 updateWh.Parameters.Add("@ISSUE", FbDbType.Decimal).Value = request.IssuePricePerChi;
                 updateWh.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;

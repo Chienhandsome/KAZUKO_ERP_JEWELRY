@@ -41,6 +41,33 @@ public sealed record GoldTypeUpsertRequest(
     decimal IssuePricePerChi,
     int? DisplayOrder = null);
 
+/// <summary>Suy ra tỷ lệ tuổi từ mã loại vàng (750 → 0.750, 9999 → 0.9999).</summary>
+public static class GoldTypePurity
+{
+    public static decimal InferFromCode(string? code)
+    {
+        var digits = new string((code ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (digits.Length == 0 || !decimal.TryParse(digits, out var value) || value <= 0)
+            return 1m;
+
+        return digits.Length switch
+        {
+            >= 4 => Math.Round(value / 10_000m, 4, MidpointRounding.AwayFromZero),
+            3 => Math.Round(value / 1_000m, 4, MidpointRounding.AwayFromZero),
+            2 => Math.Round(value / 100m, 4, MidpointRounding.AwayFromZero),
+            _ => Math.Round(value / 10m, 4, MidpointRounding.AwayFromZero)
+        };
+    }
+
+    public static decimal Resolve(GoldTypeUpsertRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return request.PurityRate > 0
+            ? request.PurityRate
+            : InferFromCode(request.Code);
+    }
+}
+
 public static class GoldTypeCatalogValidator
 {
     public static IReadOnlyList<string> Validate(GoldTypeUpsertRequest request)
@@ -51,8 +78,9 @@ public static class GoldTypeCatalogValidator
             errors.Add("Mã loại vàng bắt buộc.");
         if (string.IsNullOrWhiteSpace(request.Name))
             errors.Add("Tên loại vàng bắt buộc.");
-        if (request.PurityRate < 0 || request.PurityRate > 1)
-            errors.Add("Hàm lượng (tỷ lệ) phải trong khoảng 0–1 (ví dụ 0.75).");
+        var purity = GoldTypePurity.Resolve(request);
+        if (purity <= 0 || purity > 1)
+            errors.Add("Không suy ra được tuổi vàng hợp lệ từ mã (ví dụ 750, 9999).");
         if (request.BuyPricePerChi <= 0)
             errors.Add("Giá mua bán lẻ / chỉ phải lớn hơn 0.");
         if (request.SellPricePerChi <= 0)
@@ -86,6 +114,14 @@ public interface IGoldTypeCatalogService
 
     Task DeactivateAsync(
         long id,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>UI tạo loại vàng (dialog). Implement ở module PriceBoard.</summary>
+public interface IGoldTypeEditorService
+{
+    Task<GoldTypeOption?> ShowCreateAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 }

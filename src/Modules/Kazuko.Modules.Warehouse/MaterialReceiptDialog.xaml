@@ -258,7 +258,7 @@
               </StackPanel>
 
               <StackPanel Grid.Column="2">
-                <TextBlock Text="Kho nhận *" Style="{StaticResource FieldLabelStyle}" />
+                <TextBlock Text="Kho NVL nhận *" Style="{StaticResource FieldLabelStyle}" />
                 <ComboBox ItemsSource="{Binding Locations}"
                           SelectedItem="{Binding SelectedLocation}"
                           DisplayMemberPath="DisplayName"
@@ -309,11 +309,24 @@
                 <TextBlock Grid.Column="4" Text="{Binding UnitPriceLabel}" Style="{StaticResource FieldLabelStyle}" />
                 <TextBlock Grid.Column="6" Text="Tỷ giá" Style="{StaticResource FieldLabelStyle}" />
 
-                <ComboBox Grid.Row="1" Grid.Column="0"
-                          ItemsSource="{Binding Materials}"
-                          SelectedItem="{Binding SelectedMaterial}"
-                          DisplayMemberPath="DisplayName"
-                          Style="{StaticResource DialogComboStyle}" />
+                <Grid Grid.Row="1" Grid.Column="0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ComboBox ItemsSource="{Binding Materials}"
+                            SelectedItem="{Binding SelectedMaterial}"
+                            DisplayMemberPath="DisplayName"
+                            Style="{StaticResource DialogComboStyle}" />
+                  <Button Grid.Column="2"
+                          Content="Thêm loại vàng"
+                          Command="{Binding CreateGoldTypeCommand}"
+                          Style="{DynamicResource NavButtonStyle}"
+                          MinHeight="40"
+                          MinWidth="120"
+                          ToolTip="Thêm loại vàng mới vào danh mục (giá lẻ + giá kho + NVL)" />
+                </Grid>
                 <TextBox Grid.Row="1" Grid.Column="2"
                          Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource DialogFieldStyle}" />
@@ -372,7 +385,7 @@
                          VerticalAlignment="Center" />
             </DockPanel>
 
-            <TextBlock Text="Tổng các dòng phương thức phải khớp số đã thanh toán. Tiền mặt chọn quỹ; chuyển khoản chọn tài khoản NH."
+            <TextBlock Text="Nhập số tiền theo từng phương thức; ô Đã thanh toán tự cộng tổng các dòng. Tiền mặt chọn quỹ; chuyển khoản chọn tài khoản NH."
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        FontSize="{DynamicResource FontSize.Caption}"
                        TextWrapping="Wrap"
@@ -463,10 +476,8 @@
 
                 <StackPanel Grid.Column="2">
                   <TextBlock Text="Đã thanh toán" Style="{StaticResource FieldLabelStyle}" />
-                  <TextBox Text="{Binding PaidAmount, UpdateSourceTrigger=PropertyChanged}"
-                           Style="{StaticResource DialogFieldStyle}"
-                           MaxWidth="200"
-                           HorizontalAlignment="Left" />
+                  <TextBlock Text="{Binding PaidAmount, StringFormat={}{0:N0} đ}"
+                             Style="{StaticResource SummaryValueStyle}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="4">

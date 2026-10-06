@@ -9,7 +9,6 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
 {
     private string _code = string.Empty;
     private string _name = string.Empty;
-    private string _purityText = "75";
     private string _buyText = "0";
     private string _sellText = "0";
     private string _issueText = "0";
@@ -39,12 +38,6 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
     {
         get => _name;
         set => SetProperty(ref _name, value);
-    }
-
-    public string PurityText
-    {
-        get => _purityText;
-        set => SetProperty(ref _purityText, value);
     }
 
     public string BuyText
@@ -89,10 +82,10 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
             return;
         }
 
-        if (!decimal.TryParse(PurityText.Replace(",", "."), NumberStyles.Number, CultureInfo.InvariantCulture, out var purityPct)
-            || purityPct < 0 || purityPct > 100)
+        var purity = GoldTypePurity.InferFromCode(Code);
+        if (purity <= 0 || purity > 1)
         {
-            Error = "Hàm lượng (%) không hợp lệ.";
+            Error = "Không suy ra được tuổi vàng từ mã (ví dụ 750, 9999).";
             return;
         }
 
@@ -109,7 +102,7 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
             return;
         }
 
-        RequestClose?.Invoke(new AddGoldTypeResult(Code.Trim(), Name.Trim(), purityPct / 100m, buy, sell, issue));
+        RequestClose?.Invoke(new AddGoldTypeResult(Code.Trim(), Name.Trim(), purity, buy, sell, issue));
     }
 }
 
