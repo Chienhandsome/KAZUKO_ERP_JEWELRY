@@ -3,6 +3,7 @@ using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
@@ -41,6 +42,7 @@ public sealed class WarehouseModule : IKazukoModule
         var customerEditor = GetRequiredService<ICustomerEditorService>(services);
         var funds = GetRequiredService<ICashFundRepository>(services);
         var banks = GetRequiredService<IBankAccountRepository>(services);
+        var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
 
         navigation.Register(new NavigationItem(
             "WAREHOUSE",
@@ -65,7 +67,8 @@ public sealed class WarehouseModule : IKazukoModule
                     supplierEditor,
                     customerEditor,
                     funds,
-                    banks)
+                    banks,
+                    goldTypes)
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",

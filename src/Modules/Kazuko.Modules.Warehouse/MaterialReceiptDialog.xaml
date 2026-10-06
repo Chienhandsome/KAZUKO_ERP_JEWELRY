@@ -1,140 +1,498 @@
 <Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Nhập kho NVL"
-        Width="920" Height="720"
+        Width="980" Height="780"
+        MinWidth="860" MinHeight="640"
         WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}">
-  <DockPanel Margin="16">
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+  <Window.Resources>
+    <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
+    <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+    <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
+    <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+
+    <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
+    <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="DialogFieldStyle" TargetType="TextBox">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="Margin" Value="0,0,0,0" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8"
+                    SnapsToDevicePixels="True">
+              <ScrollViewer x:Name="PART_ContentHost"
+                            Margin="{TemplateBinding Padding}"
+                            VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.7" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="DialogComboStyle" TargetType="ComboBox">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="DialogDataGridStyle" TargetType="DataGrid">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="SelectionMode" Value="Single" />
+      <Setter Property="SelectionUnit" Value="FullRow" />
+      <Setter Property="CanUserAddRows" Value="False" />
+      <Setter Property="CanUserDeleteRows" Value="False" />
+      <Setter Property="CanUserResizeRows" Value="False" />
+      <Setter Property="AutoGenerateColumns" Value="False" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="RowHeight" Value="40" />
+      <Setter Property="ColumnHeaderHeight" Value="36" />
+    </Style>
+
+    <Style x:Key="PaymentCellStyle" TargetType="DataGridCell">
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="DataGridCell">
+            <Border Padding="{TemplateBinding Padding}"
+                    Background="{TemplateBinding Background}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Stretch" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="PaymentGridStyle" TargetType="DataGrid" BasedOn="{StaticResource DialogDataGridStyle}">
+      <Setter Property="IsReadOnly" Value="False" />
+      <Setter Property="RowHeight" Value="52" />
+      <Setter Property="MinHeight" Value="120" />
+      <Setter Property="CellStyle" Value="{StaticResource PaymentCellStyle}" />
+    </Style>
+
+    <Style x:Key="PaymentGridComboStyle" TargetType="ComboBox" BasedOn="{StaticResource DialogComboStyle}">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="Margin" Value="2,0" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="PaymentGridTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource DialogFieldStyle}">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="Margin" Value="2,0" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="SummaryValueStyle" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+  </Window.Resources>
+
+  <DockPanel Margin="20">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
       <Button Content="Hủy" Style="{DynamicResource NavButtonStyle}" Command="{Binding CancelCommand}"
-              MinHeight="40" Margin="0,0,8,0" IsCancel="True" />
-      <Button Content="Ghi sổ" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding SaveCommand}"
-              MinHeight="40" IsDefault="True" />
+              MinHeight="40" MinWidth="96" Margin="0,0,8,0" IsCancel="True" />
+      <Button Content="Ghi sổ nhập kho" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding SaveCommand}"
+              MinHeight="40" MinWidth="148" IsDefault="True" />
     </StackPanel>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel>
-        <TextBlock Text="Nhập nguyên vật liệu"
-                   FontSize="{DynamicResource FontSize.Heading}"
-                   Foreground="{DynamicResource TextPrimaryBrush}" />
-        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
-
-        <TextBlock Text="Nguồn nhập" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
-        <StackPanel Orientation="Horizontal">
-          <RadioButton Content="Nhà cung cấp"
-                       GroupName="ReceiptSource"
-                       IsChecked="{Binding IsSupplierSource}"
-                       Margin="0,0,16,0" />
-          <RadioButton Content="Thu mua vàng cũ"
-                       GroupName="ReceiptSource"
-                       IsChecked="{Binding IsOldGoldSource}" />
-        </StackPanel>
-
-        <Grid Margin="0,8,0,0">
+        <!-- Header -->
+        <Grid Margin="0,0,0,12">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="12" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <ComboBox x:Name="PartnerCombo"
-                    Height="40"
-                    DisplayMemberPath="Name" />
-          <Button Grid.Column="2" Content="Tạo mới" Style="{DynamicResource PrimaryButtonStyle}"
-                  MinHeight="40" x:Name="CreatePartnerButton" />
+          <StackPanel>
+            <TextBlock Text="Nhập kho nguyên vật liệu"
+                       FontSize="{DynamicResource FontSize.Heading}"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PrimaryBrush}" />
+            <TextBlock Text="Mua từ NCC hoặc thu mua vàng cũ. Khi ghi sổ sẽ tăng tồn NVL, tạo phiếu chi (nếu đã trả) và công nợ (nếu còn nợ)."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,0" />
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,8,0,0"
+                       Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+          </StackPanel>
+
+          <Border Grid.Column="2"
+                  Style="{DynamicResource CardBorderStyle}"
+                  Padding="16,10"
+                  MinWidth="200"
+                  VerticalAlignment="Top">
+            <StackPanel>
+              <TextBlock Text="Tổng phiếu"
+                         Style="{StaticResource FieldLabelStyle}"
+                         HorizontalAlignment="Center"
+                         Margin="0" />
+              <TextBlock Text="{Binding TotalAmount, StringFormat={}{0:N0} đ}"
+                         FontSize="{DynamicResource FontSize.Display}"
+                         FontWeight="Bold"
+                         Foreground="{DynamicResource PrimaryBrush}"
+                         HorizontalAlignment="Center"
+                         Margin="0,2,0,0" />
+            </StackPanel>
+          </Border>
         </Grid>
 
-        <TextBlock Text="Kho nhận" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
-        <ComboBox ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}"
-                  DisplayMemberPath="DisplayName" Height="40" />
-
-        <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,12,0,0">
+        <!-- Nguồn & kho -->
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
           <StackPanel>
-            <TextBlock Text="Dòng NVL" FontSize="{DynamicResource FontSize.Subtitle}"
-                       Foreground="{DynamicResource TextPrimaryBrush}" />
-            <Grid Margin="0,8,0,0">
+            <TextBlock Text="Thông tin phiếu" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,12" />
+
+            <TextBlock Text="Nguồn nhập" Style="{StaticResource FieldLabelStyle}" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+              <RadioButton Content="Nhà cung cấp"
+                           GroupName="ReceiptSource"
+                           IsChecked="{Binding IsSupplierSource}"
+                           Margin="0,0,20,0"
+                           MinHeight="32"
+                           VerticalContentAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+              <RadioButton Content="Thu mua vàng cũ"
+                           GroupName="ReceiptSource"
+                           IsChecked="{Binding IsOldGoldSource}"
+                           MinHeight="32"
+                           VerticalContentAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+            </StackPanel>
+
+            <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding SelectedMaterial}"
-                        DisplayMemberPath="DisplayName" Height="40" />
-              <TextBox Grid.Column="2" Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged}" Height="40" />
-              <StackPanel Grid.Column="4">
-                <TextBlock Text="{Binding UnitPriceLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBox Text="{Binding LineUnitPrice, UpdateSourceTrigger=PropertyChanged}" Height="40" />
+
+              <StackPanel>
+                <TextBlock Text="Nhà cung cấp *"
+                           Style="{StaticResource FieldLabelStyle}"
+                           Visibility="{Binding IsSupplierSource, Converter={StaticResource BoolToVis}}" />
+                <TextBlock Text="Khách hàng bán vàng cũ *"
+                           Style="{StaticResource FieldLabelStyle}"
+                           Visibility="{Binding IsOldGoldSource, Converter={StaticResource BoolToVis}}" />
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ComboBox x:Name="PartnerCombo"
+                            Style="{StaticResource DialogComboStyle}"
+                            DisplayMemberPath="Name" />
+                  <Button Grid.Column="2"
+                          Content="Tạo mới"
+                          Style="{DynamicResource NavButtonStyle}"
+                          MinHeight="40"
+                          MinWidth="96"
+                          x:Name="CreatePartnerButton"
+                          ToolTip="Tạo nhanh đối tác khi chưa có trong danh mục" />
+                </Grid>
               </StackPanel>
-              <TextBox Grid.Column="6" Text="{Binding LineExchangeRate, UpdateSourceTrigger=PropertyChanged}" Height="40"
-                       ToolTip="Tỷ giá" />
-              <Button Grid.Column="8" Content="Thêm dòng" Command="{Binding AddLineCommand}"
-                      Style="{DynamicResource PrimaryButtonStyle}" MinHeight="40" />
+
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Kho nhận *" Style="{StaticResource FieldLabelStyle}" />
+                <ComboBox ItemsSource="{Binding Locations}"
+                          SelectedItem="{Binding SelectedLocation}"
+                          DisplayMemberPath="DisplayName"
+                          Style="{StaticResource DialogComboStyle}" />
+              </StackPanel>
             </Grid>
-            <DataGrid ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
-                      AutoGenerateColumns="False" IsReadOnly="True" Height="160" Margin="0,8,0,0">
+          </StackPanel>
+        </Border>
+
+        <!-- Dòng NVL -->
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,12">
+              <Button DockPanel.Dock="Right"
+                      Content="Xóa dòng"
+                      Command="{Binding RemoveLineCommand}"
+                      Style="{DynamicResource NavButtonStyle}"
+                      MinHeight="36"
+                      MinWidth="96" />
+              <TextBlock Text="Dòng nguyên vật liệu"
+                         Style="{StaticResource SectionHeaderStyle}"
+                         VerticalAlignment="Center" />
+            </DockPanel>
+
+            <Border Background="{DynamicResource SurfaceAltBrush}"
+                    CornerRadius="8"
+                    Padding="12"
+                    Margin="0,0,0,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="2.2*" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="0.9*" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="0.8*" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Column="0" Text="Nguyên vật liệu *" Style="{StaticResource FieldLabelStyle}" />
+                <TextBlock Grid.Column="2" Text="Số lượng *" Style="{StaticResource FieldLabelStyle}" />
+                <TextBlock Grid.Column="4" Text="{Binding UnitPriceLabel}" Style="{StaticResource FieldLabelStyle}" />
+                <TextBlock Grid.Column="6" Text="Tỷ giá" Style="{StaticResource FieldLabelStyle}" />
+
+                <ComboBox Grid.Row="1" Grid.Column="0"
+                          ItemsSource="{Binding Materials}"
+                          SelectedItem="{Binding SelectedMaterial}"
+                          DisplayMemberPath="DisplayName"
+                          Style="{StaticResource DialogComboStyle}" />
+                <TextBox Grid.Row="1" Grid.Column="2"
+                         Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource DialogFieldStyle}" />
+                <TextBox Grid.Row="1" Grid.Column="4"
+                         Text="{Binding LineUnitPrice, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource DialogFieldStyle}" />
+                <TextBox Grid.Row="1" Grid.Column="6"
+                         Text="{Binding LineExchangeRate, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource DialogFieldStyle}"
+                         ToolTip="Tỷ giá quy đổi về VNĐ (mặc định 1)" />
+                <Button Grid.Row="1" Grid.Column="8"
+                        Content="Thêm dòng"
+                        Command="{Binding AddLineCommand}"
+                        Style="{DynamicResource PrimaryButtonStyle}"
+                        MinHeight="40"
+                        MinWidth="108"
+                        VerticalAlignment="Stretch" />
+              </Grid>
+            </Border>
+
+            <DataGrid ItemsSource="{Binding Lines}"
+                      SelectedItem="{Binding SelectedLine}"
+                      Style="{StaticResource DialogDataGridStyle}"
+                      IsReadOnly="True"
+                      Height="180">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Mã" Binding="{Binding Code, Mode=OneWay}" Width="90" />
-                <DataGridTextColumn Header="Tên" Binding="{Binding Name, Mode=OneWay}" Width="*" />
-                <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="60" />
-                <DataGridTextColumn Header="SL" Binding="{Binding Quantity, Mode=OneWay}" Width="80" />
-                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPrice, Mode=OneWay, StringFormat=N0}" Width="100" />
-                <DataGridTextColumn Header="Thành tiền" Binding="{Binding AmountVnd, Mode=OneWay, StringFormat=N0}" Width="110" />
+                <DataGridTextColumn Header="Tên NVL" Binding="{Binding Name, Mode=OneWay}" Width="*" />
+                <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
+                <DataGridTextColumn Header="Số lượng" Binding="{Binding Quantity, Mode=OneWay, StringFormat=N4}" Width="100" />
+                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPrice, Mode=OneWay, StringFormat=N0}" Width="110" />
+                <DataGridTextColumn Header="Tỷ giá" Binding="{Binding ExchangeRate, Mode=OneWay, StringFormat=N4}" Width="80" />
+                <DataGridTextColumn Header="Thành tiền" Binding="{Binding AmountVnd, Mode=OneWay, StringFormat=N0}" Width="120" />
               </DataGrid.Columns>
             </DataGrid>
-            <Button Content="Xóa dòng" Command="{Binding RemoveLineCommand}" HorizontalAlignment="Left"
-                    Style="{DynamicResource NavButtonStyle}" MinHeight="40" Margin="0,8,0,0" />
           </StackPanel>
         </Border>
 
-        <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,12,0,0">
+        <!-- Thanh toán -->
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
           <StackPanel>
-            <TextBlock Text="Thanh toán" FontSize="{DynamicResource FontSize.Subtitle}"
-                       Foreground="{DynamicResource TextPrimaryBrush}" />
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-              <Button Content="Thêm phương thức" Command="{Binding AddPaymentCommand}"
-                      Style="{DynamicResource PrimaryButtonStyle}" MinHeight="40" Margin="0,0,8,0" />
-              <Button Content="Xóa dòng TT" Command="{Binding RemovePaymentCommand}"
-                      Style="{DynamicResource NavButtonStyle}" MinHeight="40" />
-            </StackPanel>
-            <DataGrid ItemsSource="{Binding Payments}" SelectedItem="{Binding SelectedPayment}"
-                      AutoGenerateColumns="False" Height="120" Margin="0,8,0,0"
-                      CanUserAddRows="False">
+            <DockPanel Margin="0,0,0,12">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Thêm phương thức"
+                        Command="{Binding AddPaymentCommand}"
+                        Style="{DynamicResource PrimaryButtonStyle}"
+                        MinHeight="36"
+                        Margin="0,0,8,0" />
+                <Button Content="Xóa dòng TT"
+                        Command="{Binding RemovePaymentCommand}"
+                        Style="{DynamicResource NavButtonStyle}"
+                        MinHeight="36" />
+              </StackPanel>
+              <TextBlock Text="Thanh toán"
+                         Style="{StaticResource SectionHeaderStyle}"
+                         VerticalAlignment="Center" />
+            </DockPanel>
+
+            <TextBlock Text="Tổng các dòng phương thức phải khớp số đã thanh toán. Tiền mặt chọn quỹ; chuyển khoản chọn tài khoản NH."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,10" />
+
+            <DataGrid ItemsSource="{Binding Payments}"
+                      SelectedItem="{Binding SelectedPayment}"
+                      Style="{StaticResource PaymentGridStyle}"
+                      Height="140">
               <DataGrid.Columns>
-                <DataGridTextColumn Header="PT" Binding="{Binding PaymentMethod}" Width="120" />
-                <DataGridTextColumn Header="Số tiền" Binding="{Binding AmountVnd}" Width="120" />
-                <DataGridTextColumn Header="Quỹ" Binding="{Binding CashFundId}" Width="80" />
-                <DataGridTextColumn Header="NH" Binding="{Binding BankAccountId}" Width="80" />
-                <DataGridTextColumn Header="Tham chiếu" Binding="{Binding ReferenceNumber}" Width="*" />
+                <DataGridTemplateColumn Header="Phương thức" Width="150">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <ComboBox ItemsSource="{Binding DataContext.MethodOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                SelectedValue="{Binding PaymentMethod, UpdateSourceTrigger=PropertyChanged}"
+                                SelectedValuePath="Code"
+                                DisplayMemberPath="Label"
+                                Style="{StaticResource PaymentGridComboStyle}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Số tiền" Width="130">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBox Text="{Binding AmountVnd, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                               Style="{StaticResource PaymentGridTextBoxStyle}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Quỹ tiền mặt" Width="180">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <ComboBox ItemsSource="{Binding DataContext.Funds, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                SelectedValue="{Binding CashFundId, UpdateSourceTrigger=PropertyChanged}"
+                                SelectedValuePath="Id"
+                                DisplayMemberPath="DisplayName"
+                                Style="{StaticResource PaymentGridComboStyle}"
+                                IsEnabled="{Binding RequiresCashFund}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Tài khoản NH" Width="200">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <ComboBox ItemsSource="{Binding DataContext.Banks, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                SelectedValue="{Binding BankAccountId, UpdateSourceTrigger=PropertyChanged}"
+                                SelectedValuePath="Id"
+                                DisplayMemberPath="DisplayName"
+                                Style="{StaticResource PaymentGridComboStyle}"
+                                IsEnabled="{Binding RequiresBankAccount}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Tham chiếu" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBox Text="{Binding ReferenceNumber, UpdateSourceTrigger=PropertyChanged}"
+                               Style="{StaticResource PaymentGridTextBoxStyle}"
+                               ToolTip="Số chứng từ / mã giao dịch (tuỳ chọn)" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
               </DataGrid.Columns>
             </DataGrid>
-            <Grid Margin="0,8,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding TotalAmount, StringFormat=Tổng: {0:N0} đ}"
-                         Foreground="{DynamicResource TextPrimaryBrush}" />
-              <StackPanel Grid.Column="1">
-                <TextBlock Text="Đã thanh toán" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBox Text="{Binding PaidAmount, UpdateSourceTrigger=PropertyChanged}" Height="40" />
-              </StackPanel>
-              <TextBlock Grid.Column="2" Text="{Binding DebtAmount, StringFormat=Còn nợ: {0:N0} đ}"
-                         VerticalAlignment="Bottom"
-                         Foreground="{DynamicResource TextPrimaryBrush}" />
-            </Grid>
+
+            <Border Background="{DynamicResource SurfaceAltBrush}"
+                    CornerRadius="8"
+                    Padding="14,12"
+                    Margin="0,12,0,0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                  <TextBlock Text="Tổng tiền" Style="{StaticResource FieldLabelStyle}" />
+                  <TextBlock Text="{Binding TotalAmount, StringFormat={}{0:N0} đ}"
+                             Style="{StaticResource SummaryValueStyle}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="Đã thanh toán" Style="{StaticResource FieldLabelStyle}" />
+                  <TextBox Text="{Binding PaidAmount, UpdateSourceTrigger=PropertyChanged}"
+                           Style="{StaticResource DialogFieldStyle}"
+                           MaxWidth="200"
+                           HorizontalAlignment="Left" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                  <TextBlock Text="Còn nợ" Style="{StaticResource FieldLabelStyle}" />
+                  <TextBlock Text="{Binding DebtAmount, StringFormat={}{0:N0} đ}"
+                             Style="{StaticResource SummaryValueStyle}"
+                             Foreground="{DynamicResource DangerBrush}" />
+                </StackPanel>
+              </Grid>
+            </Border>
           </StackPanel>
         </Border>
 
-        <TextBlock Text="Ghi chú" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
-        <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Height="60"
-                 AcceptsReturn="True" TextWrapping="Wrap" />
+        <!-- Ghi chú -->
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="16">
+          <StackPanel>
+            <TextBlock Text="Ghi chú" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,8" />
+            <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource DialogFieldStyle}"
+                     MinHeight="72"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalContentAlignment="Top"
+                     Padding="12,10" />
+          </StackPanel>
+        </Border>
       </StackPanel>
     </ScrollViewer>
   </DockPanel>

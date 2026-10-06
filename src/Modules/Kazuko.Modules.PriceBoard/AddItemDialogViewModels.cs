@@ -12,6 +12,7 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
     private string _purityText = "75";
     private string _buyText = "0";
     private string _sellText = "0";
+    private string _issueText = "0";
     private string _error = string.Empty;
 
     public AddGoldTypeDialogViewModel(string unitCode)
@@ -24,8 +25,9 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
     public event Action<AddGoldTypeResult?>? RequestClose;
 
     public string UnitName { get; }
-    public string BuyLabel => $"Giá mua ({UnitName})";
-    public string SellLabel => $"Giá bán ({UnitName})";
+    public string BuyLabel => $"Giá mua lẻ ({UnitName}) *";
+    public string SellLabel => $"Giá bán lẻ ({UnitName}) *";
+    public string IssueLabel => $"Giá kho / chỉ ({UnitName}) *";
 
     public string Code
     {
@@ -55,6 +57,12 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
     {
         get => _sellText;
         set => SetProperty(ref _sellText, value);
+    }
+
+    public string IssueText
+    {
+        get => _issueText;
+        set => SetProperty(ref _issueText, value);
     }
 
     public string Error
@@ -88,14 +96,20 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
             return;
         }
 
-        if (!decimal.TryParse(BuyText.Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var buy) || buy < 0
-            || !decimal.TryParse(SellText.Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var sell) || sell < 0)
+        if (!decimal.TryParse(BuyText.Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var buy) || buy <= 0
+            || !decimal.TryParse(SellText.Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var sell) || sell <= 0)
         {
-            Error = "Giá mua/bán không hợp lệ.";
+            Error = "Giá mua/bán lẻ phải lớn hơn 0.";
             return;
         }
 
-        RequestClose?.Invoke(new AddGoldTypeResult(Code.Trim(), Name.Trim(), purityPct / 100m, buy, sell));
+        if (!decimal.TryParse(IssueText.Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var issue) || issue <= 0)
+        {
+            Error = "Giá kho / chỉ phải lớn hơn 0.";
+            return;
+        }
+
+        RequestClose?.Invoke(new AddGoldTypeResult(Code.Trim(), Name.Trim(), purityPct / 100m, buy, sell, issue));
     }
 }
 

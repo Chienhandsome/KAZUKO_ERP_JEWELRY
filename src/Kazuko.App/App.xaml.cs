@@ -76,6 +76,7 @@ public partial class App : Application
         IWarehouseGoldPriceRepository warehouseGoldPrices = new FirebirdWarehouseGoldPriceRepository();
         IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();
         IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
+        IGoldTypeCatalogService goldTypeCatalog = new FirebirdGoldTypeCatalogService();
         IMaterialReceiptService materialReceipts = new FirebirdMaterialReceiptService();
         IMaterialIssueService materialIssues = new FirebirdMaterialIssueService();
         IOutsourcedCraftService outsourcedCraft = new FirebirdOutsourcedCraftService();
@@ -122,6 +123,7 @@ public partial class App : Application
         _services.AddSingleton(warehouseGoldPrices);
         _services.AddSingleton(humanResources);
         _services.AddSingleton(priceBoard);
+        _services.AddSingleton(goldTypeCatalog);
         _services.AddSingleton(materialReceipts);
         _services.AddSingleton(materialIssues);
         _services.AddSingleton(outsourcedCraft);

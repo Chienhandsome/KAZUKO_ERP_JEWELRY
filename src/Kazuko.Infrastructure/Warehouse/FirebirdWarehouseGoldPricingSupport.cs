@@ -12,13 +12,30 @@ internal sealed record WarehouseGoldPriceSnapshot(
 
 internal static class FirebirdWarehouseGoldPricingSupport
 {
-    public static async Task<WarehouseGoldPriceSnapshot> ResolveAsync(
+    public static Task<WarehouseGoldPriceSnapshot> ResolveAsync(
         FbConnection connection,
         FbTransaction transaction,
         long companyId,
         string? purityOrCode,
+        CancellationToken cancellationToken) =>
+        ResolveAsync(connection, transaction, companyId, goldTypeId: null, purityOrCode, cancellationToken);
+
+    public static async Task<WarehouseGoldPriceSnapshot> ResolveAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long? goldTypeId,
+        string? purityOrCode,
         CancellationToken cancellationToken)
     {
+        if (goldTypeId is > 0)
+        {
+            var byId = await TryResolveByGoldTypeIdAsync(
+                connection, transaction, companyId, goldTypeId.Value, cancellationToken);
+            if (byId is not null)
+                return EnsurePositive(byId);
+        }
+
         var requestedToken = PurityToken(purityOrCode);
         var requestedText = Normalize(purityOrCode);
         var candidates = new List<(WarehouseGoldPriceSnapshot Price, string Token, string Text)>();
@@ -48,9 +65,37 @@ internal static class FirebirdWarehouseGoldPricingSupport
         if (match.Price is null)
             throw new InvalidOperationException(
                 $"Chưa cấu hình giá vàng kho cho loại vàng '{purityOrCode ?? "(trống)"}'.");
-        if (match.Price.IssuePricePerChi <= 0)
-            throw new InvalidOperationException($"Giá vàng kho '{match.Price.Code}' phải lớn hơn 0.");
-        return match.Price;
+        return EnsurePositive(match.Price);
+    }
+
+    private static async Task<WarehouseGoldPriceSnapshot?> TryResolveByGoldTypeIdAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long goldTypeId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new FbCommand("""
+            SELECT W.ID, W.GOLD_TYPE_CODE, W.GOLD_TYPE_NAME, W.ISSUE_PRICE_PER_CHI
+            FROM WAREHOUSE_GOLD_PRICES W
+            WHERE W.COMPANY_ID = @CID
+              AND W.GOLD_TYPE_ID = @TID
+              AND W.IS_ACTIVE = TRUE
+            """, connection, transaction);
+        command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+        command.Parameters.Add("@TID", FbDbType.BigInt).Value = goldTypeId;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return null;
+        return new WarehouseGoldPriceSnapshot(
+            reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetDecimal(3));
+    }
+
+    private static WarehouseGoldPriceSnapshot EnsurePositive(WarehouseGoldPriceSnapshot price)
+    {
+        if (price.IssuePricePerChi <= 0)
+            throw new InvalidOperationException($"Giá vàng kho '{price.Code}' phải lớn hơn 0.");
+        return price;
     }
 
     private static string PurityToken(string? value, decimal? purityRate = null)

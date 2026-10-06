@@ -243,7 +243,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 if (string.Equals(material.MaterialType, MaterialTypes.Gold, StringComparison.OrdinalIgnoreCase))
                 {
                     warehouseGoldPrice = await FirebirdWarehouseGoldPricingSupport.ResolveAsync(
-                        connection, fbTx, companyId,
+                        connection, fbTx, companyId, material.GoldTypeId,
                         string.IsNullOrWhiteSpace(material.PurityCode) ? material.Code : material.PurityCode,
                         cancellationToken);
                     unitCost = warehouseGoldPrice.IssuePricePerChi;

@@ -591,10 +591,13 @@
                                         <TextBox Text="{Binding QcWeightUnit, UpdateSourceTrigger=PropertyChanged}" Width="80"
                                                  Style="{StaticResource ProductionDialogFieldStyle}" Margin="0,0,8,0"
                                                  IsEnabled="{Binding CanEditSelectedQc}" />
-                                        <TextBox Text="{Binding QcPurityCode, UpdateSourceTrigger=PropertyChanged}" Width="120"
-                                                 Style="{StaticResource ProductionDialogFieldStyle}" Margin="0"
-                                                 ToolTip="Tuổi vàng"
-                                                 IsEnabled="{Binding CanEditSelectedQc}" />
+                                        <ComboBox ItemsSource="{Binding GoldTypeOptions}"
+                                                  SelectedItem="{Binding SelectedQcGoldType}"
+                                                  DisplayMemberPath="DisplayName"
+                                                  Width="160"
+                                                  Style="{StaticResource ProductionDialogComboStyle}"
+                                                  ToolTip="Tuổi / loại vàng"
+                                                  IsEnabled="{Binding CanEditSelectedQc}" />
                                     </StackPanel>
                                     <TextBlock Text="Lý do lỗi / ghi chú làm lại" Style="{StaticResource ProductionFieldLabelStyle}" />
                                     <TextBox Text="{Binding QcDefectNotes, UpdateSourceTrigger=PropertyChanged}"

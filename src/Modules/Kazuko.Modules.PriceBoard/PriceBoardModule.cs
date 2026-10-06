@@ -15,8 +15,10 @@ public sealed class PriceBoardModule : IKazukoModule
     public void RegisterServices(IServiceRegistry services)
     {
         var repository = GetRequiredService<IPriceBoardRepository>(services);
+        var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
-        services.AddSingleton<IPriceBoardDialogService>(new PriceBoardDialogService(repository, session));
+        services.AddSingleton<IPriceBoardDialogService>(
+            new PriceBoardDialogService(repository, goldTypes, session));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

@@ -123,14 +123,17 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 - Sau commit, query Kho thành phẩm không còn món đó; query Kho bán hàng mới hiển thị món đó.
 - Query Kho bán hàng chỉ lấy `DISPLAYED` tại `SALES_FLOOR`; `SOLD` tuyệt đối không xuất hiện trong danh sách active.
 
-### 8.2. Bảng giá vàng kho và giá trị xuất kho
+### 8.2. Danh mục loại vàng (`GOLD_TYPES`) và bảng giá
 
-- `WAREHOUSE_GOLD_PRICES` là bảng giá nội bộ theo loại/tuổi vàng, dùng chung toàn công ty và độc lập với bảng giá bán lẻ.
-- Giá mua/bán trong `GOLD_PRICES` chỉ hiển thị tham chiếu; thay đổi giá kho không làm đổi giá bán lẻ và ngược lại.
-- Xuất NVL vàng dùng `ISSUE_PRICE_PER_CHI`; đá/phụ kiện vẫn dùng giá vốn tồn kho hiện hành.
+- `GOLD_TYPES` là nguồn sự thật duy nhất cho loại/tuổi vàng (mã `750`, `999`…). Toàn hệ thống chọn loại vàng từ catalog này (ComboBox), không nhập tay mã lệch.
+- Mỗi `GOLD_TYPES` active có đúng một dòng `GOLD_PRICES`, một dòng `WAREHOUSE_GOLD_PRICES` và một NVL `MATERIALS` (`MATERIAL_TYPE = GOLD`) gắn `GOLD_TYPE_ID`.
+- Khi CRUD loại vàng: bắt buộc nhập giá bán lẻ (mua/bán) và giá kho (`ISSUE_PRICE_PER_CHI`) — tất cả > 0 — trong cùng transaction tạo/cập nhật bốn bản ghi trên.
+- `WAREHOUSE_GOLD_PRICES` vẫn là bảng giá nội bộ xuất kho; `GOLD_PRICES` là bảng giá bán lẻ. Đổi một bên không tự đổi bên kia, nhưng cả hai phải luôn tồn tại cho mọi loại vàng active.
+- Xuất NVL vàng dùng `ISSUE_PRICE_PER_CHI` resolve theo `GOLD_TYPE_ID` (fallback CODE); đá/phụ kiện dùng giá vốn tồn kho hiện hành.
 - Giá trị xuất thành phẩm = `GOLD_WEIGHT × ISSUE_PRICE_PER_CHI + LABOR_COST + NON_GOLD_MATERIAL_COST`.
 - Khi POST phải chốt ID bảng giá, giá/chỉ, trọng lượng vàng, tiền công và chi phí phi vàng trên dòng chứng từ. Thay đổi bảng giá sau này không được làm đổi chứng từ cũ.
-- Loại vàng kho chưa có dòng tương ứng hoặc có giá bằng 0 phải chặn ghi sổ với thông báo cấu hình bảng giá.
+- Loại vàng thiếu dòng giá hoặc giá ≤ 0 phải chặn ghi sổ với thông báo cấu hình bảng giá.
+- “Vàng cũ” là **nguồn phiếu** (thu mua từ khách), không phải tên loại vàng trong danh mục.
 
 ## 9. Transaction và đồng thời
 
@@ -153,3 +156,4 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 | `debt.payable.read` / `debt.payable.pay` | Xem / thanh toán công nợ phải trả |
 | `finance.fund.read` / `finance.bank.read` | Chọn quỹ / TKNH |
 | `warehouse.worker.manage` | Danh mục thợ ngoài |
+| `priceboard.goldtype.write` | CRUD danh mục loại vàng thống nhất (`GOLD_TYPES`) |

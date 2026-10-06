@@ -1,6 +1,7 @@
 using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 
@@ -34,10 +35,11 @@ public sealed class ProductionModule : IKazukoModule
             () =>
             {
                 var externalWorkerEditor = GetRequiredService<IExternalWorkerEditorService>(services);
+                var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
                 return new ProductionView
                 {
                     DataContext = new ProductionViewModel(
-                        queries, application, attachments, printData, session, externalWorkerEditor)
+                        queries, application, attachments, printData, session, externalWorkerEditor, goldTypes)
                 };
             },
             AssetRoot + "SX.png",

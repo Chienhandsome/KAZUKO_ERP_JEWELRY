@@ -7,17 +7,22 @@ namespace Kazuko.Modules.PriceBoard;
 public sealed class PriceBoardDialogService : IPriceBoardDialogService
 {
     private readonly IPriceBoardRepository _repository;
+    private readonly IGoldTypeCatalogService _goldTypes;
     private readonly ICurrentSessionAccessor _sessionAccessor;
 
-    public PriceBoardDialogService(IPriceBoardRepository repository, ICurrentSessionAccessor sessionAccessor)
+    public PriceBoardDialogService(
+        IPriceBoardRepository repository,
+        IGoldTypeCatalogService goldTypes,
+        ICurrentSessionAccessor sessionAccessor)
     {
         _repository = repository;
+        _goldTypes = goldTypes;
         _sessionAccessor = sessionAccessor;
     }
 
     public void ShowPriceBoard()
     {
-        var viewModel = new PriceBoardDialogViewModel(_repository, _sessionAccessor, this);
+        var viewModel = new PriceBoardDialogViewModel(_repository, _goldTypes, _sessionAccessor, this);
         var dialog = new PriceBoardDialog
         {
             Owner = ResolveOwner(),
@@ -118,5 +123,11 @@ public sealed class PriceBoardDialogService : IPriceBoardDialogService
     }
 }
 
-public sealed record AddGoldTypeResult(string Code, string Name, decimal PurityRate, decimal BuyPrice, decimal SellPrice);
+public sealed record AddGoldTypeResult(
+    string Code,
+    string Name,
+    decimal PurityRate,
+    decimal BuyPrice,
+    decimal SellPrice,
+    decimal IssuePrice);
 public sealed record AddCurrencyResult(string Code, string Name, decimal BuyRate, decimal SellRate);

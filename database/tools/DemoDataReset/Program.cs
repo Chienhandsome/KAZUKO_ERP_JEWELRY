@@ -292,10 +292,10 @@ static async Task SeedAsync(
         """, ("@CID", companyId));
 
     // Old-gold materials
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_585", "Vàng cũ 585", "585", p585);
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_750", "Vàng cũ 750", "750", p750);
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_999", "Vàng cũ 999", "999", p999);
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_9999", "Vàng cũ 9999", "9999", p9999);
+    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_585", "Vàng 585", "585", p585);
+    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_750", "Vàng 750", "750", p750);
+    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_999", "Vàng 999", "999", p999);
+    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_9999", "Vàng 9999", "9999", p9999);
 
     // Finished products (sellable)
     var catalog = new (string Code, string Name, string Purity, long PriceId, decimal Total, decimal Gold, decimal Stone, decimal Labor, decimal StoneAmt)[]

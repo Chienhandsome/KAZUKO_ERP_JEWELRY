@@ -1,6 +1,7 @@
 using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Reports;
 
 namespace Kazuko.Modules.Reports;
@@ -21,6 +22,7 @@ public sealed class ReportsModule : IKazukoModule
         var reportService = GetRequiredService<IJewelryOnHandReportService>(services);
         var summaryService = GetRequiredService<IJewelryOnHandSummaryReportService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
 
         navigation.Register(new NavigationItem(
             "REPORT",
@@ -31,8 +33,8 @@ public sealed class ReportsModule : IKazukoModule
             () => new ReportsView
             {
                 DataContext = new ReportsViewModel(
-                    new JewelryOnHandReportViewModel(reportService, session),
-                    new JewelryOnHandSummaryReportViewModel(summaryService, session))
+                    new JewelryOnHandReportViewModel(reportService, session, goldTypes),
+                    new JewelryOnHandSummaryReportViewModel(summaryService, session, goldTypes))
             },
             AssetRoot + "BC.png",
             "Thống kê, báo cáo\ntổng hợp",

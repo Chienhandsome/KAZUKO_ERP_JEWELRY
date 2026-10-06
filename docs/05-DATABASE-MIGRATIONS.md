@@ -420,3 +420,21 @@ powershell -File "database\tools\Invoke-KazukoMigration.ps1" `
 - Production đã có checkout: restore snapshot trước migration 51 hoặc phát hành forward-fix; không DROP snapshot/chứng từ đã post.
 - Development chưa có checkout: có thể gỡ index/FK/check và các cột thêm trên `ORDER_PAYMENTS`/`SALES_ORDER_ITEMS`, khôi phục các payment/purpose constraint version 50, rồi DROP theo thứ tự `SALES_CHECKOUT_OFFSETS` → `SALES_OLD_GOLD_LINES` → `SALES_CHECKOUTS` và xóa ledger 51. Ưu tiên restore `.fbk` để tránh bỏ sót seed/constraint.
 
+---
+
+## 20. Migration Version 52: `0052__gold_types_master.sql`
+
+- **Phiên bản:** `52` — danh mục loại vàng thống nhất `GOLD_TYPES`.
+- **Tệp nguồn:** `database/migrations/0052__gold_types_master.sql`.
+- **Verification:** `database/verification/verify_gold_types_master.sql`.
+- **Artifact SHA-256 (đã chạy trên bản copy verify):**
+  `7FA98F0FB0A09C634C375E89E2C0B378A4C18E27FD462A837427311DDF8DA698`.
+- **Nội dung chính:**
+  - Tạo `GOLD_TYPES` (CODE unique theo công ty, PURITY_RATE, IS_ACTIVE).
+  - Thêm `GOLD_TYPE_ID` (FK) vào `GOLD_PRICES`, `WAREHOUSE_GOLD_PRICES`, `MATERIALS`, `FINISHED_PRODUCTS`.
+  - Backfill từ mã giá bán lẻ / giá kho / NVL vàng; tạo đủ cặp giá và NVL `GOLD_<code>` còn thiếu.
+  - Đổi tên demo NVL “Vàng cũ …” → “Vàng `<code>`”.
+  - Seed permission `priceboard.goldtype.write` cho `ADMIN`/`MANAGER`.
+- **Quy tắc ứng dụng:** tạo loại vàng mới bắt buộc nhập giá bán lẻ (mua/bán) và giá kho (`ISSUE_PRICE_PER_CHI`) > 0 trong cùng transaction.
+- **Chạy trên bản copy đã có version 51** qua `Invoke-KazukoMigration.ps1`, rồi chạy verify.
+

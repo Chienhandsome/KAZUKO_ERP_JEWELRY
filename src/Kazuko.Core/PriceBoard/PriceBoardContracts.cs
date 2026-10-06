@@ -6,6 +6,7 @@ public static class PriceBoardPermissions
 {
     public const string Read = "price-board.read";
     public const string Update = "price-board.update";
+    public const string GoldTypeWrite = GoldTypeCatalogPermissions.Write;
 }
 
 public sealed record GoldUnitDefinition(

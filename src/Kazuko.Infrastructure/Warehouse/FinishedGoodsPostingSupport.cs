@@ -47,7 +47,7 @@ public static class FinishedGoodsPostingSupport
             await using var command = new FbCommand("""
                 SELECT CODE, STATUS_CODE, SALES_ORDER_ID, LOCATION_ID,
                        COALESCE(GOLD_PURITY, ''), GOLD_WEIGHT, TOTAL_WEIGHT, LABOR_COST,
-                       NON_GOLD_MATERIAL_COST, ROW_VERSION
+                       NON_GOLD_MATERIAL_COST, ROW_VERSION, GOLD_TYPE_ID
                 FROM FINISHED_PRODUCTS
                 WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
                 WITH LOCK
@@ -64,7 +64,8 @@ public static class FinishedGoodsPostingSupport
                 reader.IsDBNull(2) ? null : reader.GetInt64(2),
                 reader.IsDBNull(3) ? null : reader.GetInt64(3), reader.GetString(4),
                 reader.GetDecimal(5) > 0 ? reader.GetDecimal(5) : reader.GetDecimal(6),
-                reader.GetDecimal(7), reader.GetDecimal(8), reader.GetInt64(9));
+                reader.GetDecimal(7), reader.GetDecimal(8), reader.GetInt64(9),
+                reader.IsDBNull(10) ? null : reader.GetInt64(10));
 
             var allowed = retailOnly
                 ? product.StatusCode is "IN_STOCK" or "DISPLAYED"
@@ -113,7 +114,7 @@ public static class FinishedGoodsPostingSupport
         {
             lineNumber++;
             var warehousePrice = await FirebirdWarehouseGoldPricingSupport.ResolveAsync(
-                connection, transaction, companyId, product.GoldPurity, cancellationToken);
+                connection, transaction, companyId, product.GoldTypeId, product.GoldPurity, cancellationToken);
             var issueValue = WarehouseIssuePricing.CalculateFinishedProductIssueValue(
                 product.GoldWeightChi, warehousePrice.IssuePricePerChi, product.LaborCost, product.NonGoldCost);
 
@@ -193,5 +194,6 @@ public static class FinishedGoodsPostingSupport
 
     private sealed record IssueProduct(
         long Id, string Code, string StatusCode, long? SalesOrderId, long? LocationId,
-        string GoldPurity, decimal GoldWeightChi, decimal LaborCost, decimal NonGoldCost, long RowVersion);
+        string GoldPurity, decimal GoldWeightChi, decimal LaborCost, decimal NonGoldCost, long RowVersion,
+        long? GoldTypeId);
 }

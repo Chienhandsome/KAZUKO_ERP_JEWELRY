@@ -56,6 +56,9 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _banks = banks;
         _session = session;
 
+        MethodOptions.Add(new ReceiptPaymentMethodOption(PaymentMethods.Cash, "Tiền mặt"));
+        MethodOptions.Add(new ReceiptPaymentMethodOption(PaymentMethods.BankTransfer, "Chuyển khoản"));
+
         AddLineCommand = new RelayCommand(AddLine);
         RemoveLineCommand = new RelayCommand(RemoveSelectedLine, () => SelectedLine is not null);
         AddPaymentCommand = new RelayCommand(AddPayment);
@@ -73,6 +76,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public ObservableCollection<MaterialOption> Materials { get; } = new();
     public ObservableCollection<CashFundOption> Funds { get; } = new();
     public ObservableCollection<BankAccountOption> Banks { get; } = new();
+    public ObservableCollection<ReceiptPaymentMethodOption> MethodOptions { get; } = new();
     public ObservableCollection<ReceiptLineRow> Lines { get; } = new();
     public ObservableCollection<PaymentRow> Payments { get; } = new();
 
@@ -376,6 +380,8 @@ public sealed class ReceiptLineRow
     public decimal AmountVnd => Math.Round(Quantity * UnitPrice * ExchangeRate, 2, MidpointRounding.AwayFromZero);
 }
 
+public sealed record ReceiptPaymentMethodOption(string Code, string Label);
+
 public sealed class PaymentRow : ObservableObject
 {
     private string _paymentMethod = PaymentMethods.Cash;
@@ -387,7 +393,19 @@ public sealed class PaymentRow : ObservableObject
     public string PaymentMethod
     {
         get => _paymentMethod;
-        set => SetProperty(ref _paymentMethod, value);
+        set
+        {
+            if (!SetProperty(ref _paymentMethod, value))
+                return;
+
+            OnPropertyChanged(nameof(RequiresCashFund));
+            OnPropertyChanged(nameof(RequiresBankAccount));
+
+            if (RequiresCashFund)
+                BankAccountId = null;
+            else if (RequiresBankAccount)
+                CashFundId = null;
+        }
     }
 
     public decimal AmountVnd
@@ -413,4 +431,10 @@ public sealed class PaymentRow : ObservableObject
         get => _referenceNumber;
         set => SetProperty(ref _referenceNumber, value);
     }
+
+    public bool RequiresCashFund =>
+        string.Equals(PaymentMethod, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase);
+
+    public bool RequiresBankAccount =>
+        string.Equals(PaymentMethod, PaymentMethods.BankTransfer, StringComparison.OrdinalIgnoreCase);
 }

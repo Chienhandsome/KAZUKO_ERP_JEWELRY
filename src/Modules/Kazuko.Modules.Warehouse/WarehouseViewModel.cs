@@ -6,6 +6,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
@@ -33,6 +34,7 @@ public sealed class WarehouseViewModel : ObservableObject
     private readonly ICustomerEditorService _customerEditor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
+    private readonly IGoldTypeCatalogService _goldTypes;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
     private bool _suppressTabSideEffects;
@@ -121,7 +123,8 @@ public sealed class WarehouseViewModel : ObservableObject
         ISupplierEditorService supplierEditor,
         ICustomerEditorService customerEditor,
         ICashFundRepository funds,
-        IBankAccountRepository banks)
+        IBankAccountRepository banks,
+        IGoldTypeCatalogService goldTypes)
     {
         _repository = repository;
         _warehouseGoldPrices = warehouseGoldPrices;
@@ -138,6 +141,7 @@ public sealed class WarehouseViewModel : ObservableObject
         _customerEditor = customerEditor;
         _funds = funds;
         _banks = banks;
+        _goldTypes = goldTypes;
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
         MovementLocations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -150,10 +154,7 @@ public sealed class WarehouseViewModel : ObservableObject
         MaterialTypeOptions.Add("ACCESSORY");
 
         GoldTypeFilterOptions.Add("Tất cả loại vàng");
-        GoldTypeFilterOptions.Add("24K");
-        GoldTypeFilterOptions.Add("18K");
-        GoldTypeFilterOptions.Add("14K");
-        GoldTypeFilterOptions.Add("10K");
+        _ = LoadGoldTypeFilterOptionsAsync();
 
         StatusFilterOptions.Add("Tất cả trạng thái");
         StatusFilterOptions.Add("OK");
@@ -1609,6 +1610,23 @@ public sealed class WarehouseViewModel : ObservableObject
         DetailPostedBy = string.Empty;
         DetailPostedAt = string.Empty;
         DocumentLines.Clear();
+    }
+
+    private async Task LoadGoldTypeFilterOptionsAsync()
+    {
+        try
+        {
+            var types = await _goldTypes.ListAsync(activeOnly: true);
+            foreach (var type in types)
+            {
+                if (!GoldTypeFilterOptions.Contains(type.Code))
+                    GoldTypeFilterOptions.Add(type.Code);
+            }
+        }
+        catch
+        {
+            // Catalog chưa migrate: giữ tùy chọn mặc định.
+        }
     }
 
     private static string NormalizeGoldType(string? value)

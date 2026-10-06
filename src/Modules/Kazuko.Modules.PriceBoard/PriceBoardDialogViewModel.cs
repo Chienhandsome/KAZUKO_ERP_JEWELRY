@@ -93,6 +93,7 @@ public sealed class CurrencyRateRowViewModel : ObservableObject
 public sealed class PriceBoardDialogViewModel : ObservableObject
 {
     private readonly IPriceBoardRepository _repository;
+    private readonly IGoldTypeCatalogService _goldTypes;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly PriceBoardDialogService _dialogs;
     private readonly string _unitCode = GoldUnitConverter.DefaultUnitCode;
@@ -103,10 +104,12 @@ public sealed class PriceBoardDialogViewModel : ObservableObject
 
     public PriceBoardDialogViewModel(
         IPriceBoardRepository repository,
+        IGoldTypeCatalogService goldTypes,
         ICurrentSessionAccessor sessionAccessor,
         PriceBoardDialogService dialogs)
     {
         _repository = repository;
+        _goldTypes = goldTypes;
         _sessionAccessor = sessionAccessor;
         _dialogs = dialogs;
 
@@ -273,13 +276,26 @@ public sealed class PriceBoardDialogViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            await _repository.AddCustomGoldTypeAsync(
-                result.Code, result.Name, result.PurityRate, result.BuyPrice, result.SellPrice, _unitCode, session);
+            var buyChi = GoldUnitConverter.ConvertToChi(result.BuyPrice, _unitCode);
+            var sellChi = GoldUnitConverter.ConvertToChi(result.SellPrice, _unitCode);
+            var issueChi = GoldUnitConverter.ConvertToChi(result.IssuePrice, _unitCode);
+            await _goldTypes.CreateAsync(
+                new GoldTypeUpsertRequest(
+                    result.Code,
+                    result.Name,
+                    result.PurityRate,
+                    buyChi,
+                    sellChi,
+                    issueChi),
+                session);
             await LoadAsync();
+            StatusMessage = $"Đã thêm loại vàng {result.Code} (giá lẻ + giá kho + NVL).";
         }
-        catch
+        catch (Exception ex)
         {
-            StatusMessage = "Không thể thêm loại vàng.";
+            StatusMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Không thể thêm loại vàng."
+                : ex.Message;
             IsBusy = false;
         }
     }
@@ -293,8 +309,8 @@ public sealed class PriceBoardDialogViewModel : ObservableObject
             return;
 
         var confirm = MessageBox.Show(
-            $"Bạn có chắc chắn muốn xóa loại vàng '{SelectedGold.Name}' (Mã: {SelectedGold.Code}) khỏi bảng giá không?\n\n(Dữ liệu các đơn hàng cũ vẫn được giữ nguyên)",
-            "XÁC NHẬN XÓA LOẠI VÀNG",
+            $"Bạn có chắc chắn muốn ngưng dùng loại vàng '{SelectedGold.Name}' (Mã: {SelectedGold.Code})?\n\nSẽ ẩn khỏi bảng giá lẻ, giá kho và danh mục NVL. Chứng từ cũ giữ nguyên.",
+            "XÁC NHẬN NGƯNG DÙNG LOẠI VÀNG",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (confirm != MessageBoxResult.Yes)
@@ -303,12 +319,20 @@ public sealed class PriceBoardDialogViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            await _repository.DeleteGoldPriceAsync(SelectedGold.Id, session);
+            var types = await _goldTypes.ListAsync(activeOnly: true);
+            var type = types.FirstOrDefault(t =>
+                string.Equals(t.Code, SelectedGold.Code, StringComparison.OrdinalIgnoreCase));
+            if (type is null)
+                throw new InvalidOperationException("Không tìm thấy loại vàng trong danh mục GOLD_TYPES.");
+
+            await _goldTypes.DeactivateAsync(type.Id, session);
             await LoadAsync();
         }
-        catch
+        catch (Exception ex)
         {
-            StatusMessage = "Không thể xóa loại vàng.";
+            StatusMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Không thể ngưng dùng loại vàng."
+                : ex.Message;
             IsBusy = false;
         }
     }

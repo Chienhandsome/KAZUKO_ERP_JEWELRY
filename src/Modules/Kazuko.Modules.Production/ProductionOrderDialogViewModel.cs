@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 using Kazuko.Modules.Production.Dialogs;
@@ -59,6 +60,9 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private string _completionPreview = string.Empty;
     private bool _isQcAdjustmentMode;
 
+    private readonly IGoldTypeCatalogService _goldTypes;
+    private GoldTypeOption? _selectedQcGoldType;
+
     public ProductionOrderDialogViewModel(
         long? orderId,
         IProductionQueryRepository queries,
@@ -67,6 +71,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         IProductionPrintDataService printData,
         ICurrentSessionAccessor sessionAccessor,
         IExternalWorkerEditorService externalWorkerEditor,
+        IGoldTypeCatalogService goldTypes,
         long branchId)
     {
         _orderId = orderId;
@@ -76,6 +81,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         _printData = printData;
         _sessionAccessor = sessionAccessor;
         _externalWorkerEditor = externalWorkerEditor;
+        _goldTypes = goldTypes;
         _branchId = branchId;
 
         SaveDraftCommand = new AsyncRelayCommand(SaveDraftAsync, () => IsDraft && !IsBusy);
@@ -155,6 +161,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ObservableCollection<ProductionQcUnitEditorViewModel> QcUnits { get; } = [];
     public ObservableCollection<ProductionQcComponentEditorViewModel> QcComponents { get; } = [];
     public ObservableCollection<ProductionQcImageEditorViewModel> QcImages { get; } = [];
+    public ObservableCollection<GoldTypeOption> GoldTypeOptions { get; } = [];
 
     public string WindowTitle => _id is > 0 ? $"Lệnh sản xuất {Code}" : "Tạo lệnh sản xuất";
 
@@ -677,7 +684,27 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _qcPurityCode, value))
+            {
+                SyncSelectedQcGoldTypeFromCode();
                 OnPropertyChanged(nameof(QcChecklistText));
+            }
+        }
+    }
+
+    public GoldTypeOption? SelectedQcGoldType
+    {
+        get => _selectedQcGoldType;
+        set
+        {
+            if (!SetProperty(ref _selectedQcGoldType, value))
+                return;
+            if (value is not null
+                && !string.Equals(_qcPurityCode, value.Code, StringComparison.OrdinalIgnoreCase))
+            {
+                _qcPurityCode = value.Code;
+                OnPropertyChanged(nameof(QcPurityCode));
+                OnPropertyChanged(nameof(QcChecklistText));
+            }
         }
     }
 
@@ -745,6 +772,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         try
         {
             IsBusy = true;
+            await LoadGoldTypesAsync();
             await LoadLocationsAsync();
             await LoadSalesOrdersAsync();
             await LoadEmployeesAsync();
@@ -764,6 +792,43 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private async Task LoadGoldTypesAsync()
+    {
+        GoldTypeOptions.Clear();
+        try
+        {
+            foreach (var type in await _goldTypes.ListAsync(activeOnly: true))
+                GoldTypeOptions.Add(type);
+        }
+        catch
+        {
+            // Catalog chưa sẵn sàng — QC vẫn có thể để trống.
+        }
+
+        SyncSelectedQcGoldTypeFromCode();
+    }
+
+    private void SyncSelectedQcGoldTypeFromCode()
+    {
+        if (string.IsNullOrWhiteSpace(_qcPurityCode))
+        {
+            if (_selectedQcGoldType is not null)
+            {
+                _selectedQcGoldType = null;
+                OnPropertyChanged(nameof(SelectedQcGoldType));
+            }
+            return;
+        }
+
+        var match = GoldTypeOptions.FirstOrDefault(x =>
+            string.Equals(x.Code, _qcPurityCode, StringComparison.OrdinalIgnoreCase));
+        if (!Equals(_selectedQcGoldType, match))
+        {
+            _selectedQcGoldType = match;
+            OnPropertyChanged(nameof(SelectedQcGoldType));
         }
     }
 
@@ -1330,6 +1395,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             QcGoldWeight = null;
             QcWeightUnit = "CHI";
             QcPurityCode = string.Empty;
+            SelectedQcGoldType = null;
             QcDefectNotes = string.Empty;
             OnPropertyChanged(nameof(CanEditSelectedQc));
             OnPropertyChanged(nameof(QcChecklistText));

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using FastReport;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Reports;
 using Kazuko.Modules.Reports.Shared;
 
@@ -12,6 +13,7 @@ public sealed class JewelryOnHandReportViewModel : ReportWorkspaceViewModel
     private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
 
     private readonly IJewelryOnHandReportService _reportService;
+    private readonly IGoldTypeCatalogService _goldTypes;
     private readonly JewelryOnHandPrintService _printService = new();
 
     private string _searchText = string.Empty;
@@ -21,16 +23,15 @@ public sealed class JewelryOnHandReportViewModel : ReportWorkspaceViewModel
 
     public JewelryOnHandReportViewModel(
         IJewelryOnHandReportService reportService,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        IGoldTypeCatalogService goldTypes)
         : base(sessionAccessor, "jewelry-on-hand", JewelryOnHandReportColumns.SettingsKey)
     {
         _reportService = reportService;
+        _goldTypes = goldTypes;
 
         GoldTypeOptions.Add("Tất cả loại vàng");
-        GoldTypeOptions.Add("24K");
-        GoldTypeOptions.Add("18K");
-        GoldTypeOptions.Add("14K");
-        GoldTypeOptions.Add("10K");
+        _ = LoadGoldTypeOptionsAsync();
 
         StatusOptions.Add("Tất cả trạng thái");
         StatusOptions.Add("Trong kho");
@@ -138,6 +139,22 @@ public sealed class JewelryOnHandReportViewModel : ReportWorkspaceViewModel
 
     protected override string BuildLoadedStatus() =>
         $"Đã tải {Rows.Count.ToString("N0", Vi)} dòng.";
+
+    private async Task LoadGoldTypeOptionsAsync()
+    {
+        try
+        {
+            foreach (var type in await _goldTypes.ListAsync(activeOnly: true))
+            {
+                if (!GoldTypeOptions.Contains(type.Code))
+                    GoldTypeOptions.Add(type.Code);
+            }
+        }
+        catch
+        {
+            // Catalog chưa migrate.
+        }
+    }
 
     private static string NormalizeGoldType(string value) =>
         string.IsNullOrWhiteSpace(value) || value.StartsWith("Tất cả", StringComparison.Ordinal)

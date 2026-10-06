@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 
@@ -19,6 +20,7 @@ public sealed class ProductionViewModel : ObservableObject
     private readonly IProductionPrintDataService _printData;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IExternalWorkerEditorService _externalWorkerEditor;
+    private readonly IGoldTypeCatalogService _goldTypes;
     private CancellationTokenSource? _loadCts;
 
     private string _searchText = string.Empty;
@@ -44,7 +46,8 @@ public sealed class ProductionViewModel : ObservableObject
         IProductionAttachmentStore attachments,
         IProductionPrintDataService printData,
         ICurrentSessionAccessor sessionAccessor,
-        IExternalWorkerEditorService externalWorkerEditor)
+        IExternalWorkerEditorService externalWorkerEditor,
+        IGoldTypeCatalogService goldTypes)
     {
         _queries = queries;
         _application = application;
@@ -52,6 +55,7 @@ public sealed class ProductionViewModel : ObservableObject
         _printData = printData;
         _sessionAccessor = sessionAccessor;
         _externalWorkerEditor = externalWorkerEditor;
+        _goldTypes = goldTypes;
 
         var today = DateTime.Today;
         _fromDate = new DateTime(today.Year, today.Month, 1);
@@ -308,6 +312,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _printData,
                     _sessionAccessor,
                     _externalWorkerEditor,
+                    _goldTypes,
                     branchId)
             };
             dialog.ShowDialog();
@@ -338,6 +343,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _printData,
                     _sessionAccessor,
                     _externalWorkerEditor,
+                    _goldTypes,
                     branchId)
             };
             dialog.ShowDialog();
