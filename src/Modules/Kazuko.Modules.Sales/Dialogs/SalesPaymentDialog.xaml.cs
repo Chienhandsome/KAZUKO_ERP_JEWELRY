@@ -1,0 +1,35 @@
+using System.ComponentModel;
+using System.Windows;
+using System.Windows.Input;
+
+namespace Kazuko.Modules.Sales.Dialogs;
+
+public partial class SalesPaymentDialog : Window
+{
+    public SalesPaymentDialog(SalesPaymentDialogViewModel viewModel)
+    {
+        InitializeComponent();
+        DataContext = viewModel;
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SalesPaymentDialogViewModel.DialogResult)
+            && DataContext is SalesPaymentDialogViewModel vm
+            && vm.DialogResult is not null)
+        {
+            DialogResult = vm.DialogResult;
+            Close();
+        }
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && DataContext is SalesPaymentDialogViewModel vm)
+        {
+            vm.CancelCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+}
