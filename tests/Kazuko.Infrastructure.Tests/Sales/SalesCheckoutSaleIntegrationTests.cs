@@ -207,18 +207,19 @@ public sealed class SalesCheckoutSaleIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task Rejects_old_gold_lines_until_trade_in_is_implemented()
+    public async Task Rejects_trade_in_when_receipt_does_not_match_net()
     {
         var (draft, product) = await SaleDraftAsync("T3_PRODUCT_DISPLAYED");
         draft = draft with
         {
             OldGoldDestinationLocationId = _database.OldGoldLocationId,
             OldGoldLines = [new(_database.OldGoldMaterialId, 1, 1, 0, 0, 100, 77, null, null)]
+            // Sale 311 - old gold 77 = net 234, but allocation still 311 from SaleDraftAsync.
         };
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.PostAsync(draft, AdminSession()));
 
-        Assert.Contains("vàng cũ", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("thanh toán", error.Message, StringComparison.OrdinalIgnoreCase);
         await AssertUnpostedAsync(draft.ClientRequestId, product.FinishedProductId);
     }
 

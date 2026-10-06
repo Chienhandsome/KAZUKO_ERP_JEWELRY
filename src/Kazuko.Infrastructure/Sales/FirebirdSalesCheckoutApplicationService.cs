@@ -19,10 +19,8 @@ public sealed class FirebirdSalesCheckoutApplicationService : ISalesCheckoutAppl
         StockPostingSupport.EnsureBranch(session);
         if (draft.SaleLines is null || draft.OldGoldLines is null || draft.Allocations is null)
             throw new InvalidOperationException("Dữ liệu checkout không đầy đủ.");
-        if (draft.OldGoldLines.Count > 0)
-            throw new InvalidOperationException("Checkout có dòng vàng cũ được triển khai ở luồng thu đổi tiếp theo.");
-        if (draft.SaleLines.Count == 0)
-            throw new InvalidOperationException("Checkout bán hàng phải có ít nhất một thành phẩm.");
+        if (draft.SaleLines.Count == 0 && draft.OldGoldLines.Count == 0)
+            throw new InvalidOperationException("Checkout phải có ít nhất một dòng bán hoặc vàng cũ.");
 
         var requestHash = SalesCheckoutPostingSupport.ComputeRequestHash(draft);
         await using var connection = FirebirdDatabase.CreateConnection();
@@ -42,35 +40,76 @@ public sealed class FirebirdSalesCheckoutApplicationService : ISalesCheckoutAppl
 
             var identity = await ReloadIdentityAndPermissionsAsync(
                 connection, transaction, session, cancellationToken);
-            var totals = await SalesCheckoutPostingSupport.GetTrustedTotalsAsync(
-                connection, transaction, identity.CompanyId, draft, session, cancellationToken);
-            var sale = await SalesCheckoutPostingSupport.PostSaleAsync(
-                connection, transaction, identity.CompanyId, draft, totals,
+            var prepared = await SalesCheckoutPostingSupport.PrepareCheckoutAsync(
+                connection, transaction, identity.CompanyId, draft,
                 identity.Permissions, session, cancellationToken);
+            var sale = await SalesCheckoutPostingSupport.InsertCheckoutAsync(
+                connection, transaction, identity.CompanyId, draft, prepared, session, cancellationToken);
 
-            var issueId = await FinishedGoodsPostingSupport.PostRetailIssueAsync(
-                connection, transaction, identity.CompanyId, session, sale.SalesOrderId,
-                draft.SourceLocationId, draft.SaleLines.Select(x => x.FinishedProductId).ToArray(),
-                cancellationToken);
-            var settlement = await SalesCheckoutPostingSupport.PostReceiptAsync(
-                connection, transaction, identity.CompanyId, sale.CheckoutId, sale,
-                draft.Allocations, session, cancellationToken);
-            var debtId = await SalesCheckoutPostingSupport.CreateReceivableAsync(
-                connection, transaction, identity.CompanyId, sale.CheckoutId, sale,
-                draft.ReceivableAmountVnd, session, cancellationToken);
+            long? issueId = null;
+            if (prepared.SaleLines.Count > 0)
+            {
+                var orderId = await SalesCheckoutPostingSupport.PostSaleOrderAsync(
+                    connection, transaction, identity.CompanyId, sale.CheckoutId, draft,
+                    prepared, session, cancellationToken);
+                sale = sale with { SalesOrderId = orderId };
+                issueId = await FinishedGoodsPostingSupport.PostRetailIssueAsync(
+                    connection, transaction, identity.CompanyId, session, orderId,
+                    draft.SourceLocationId, draft.SaleLines.Select(x => x.FinishedProductId).ToArray(),
+                    cancellationToken);
+            }
+
+            OldGoldPostResult? oldGold = null;
+            if (prepared.OldGoldLines.Count > 0)
+            {
+                oldGold = await SalesCheckoutPostingSupport.PostOldGoldReceiptAsync(
+                    connection, transaction, identity.CompanyId, sale.CheckoutId, draft,
+                    prepared, session, cancellationToken);
+            }
+
+            if (sale.SalesOrderId is not null && oldGold is not null && prepared.Totals.OffsetAmountVnd > 0)
+            {
+                await SalesCheckoutPostingSupport.PostOffsetAsync(
+                    connection, transaction, sale.CheckoutId, sale.SalesOrderId.Value,
+                    oldGold.StockDocumentId, prepared.Totals.OffsetAmountVnd, cancellationToken);
+            }
+
+            FinancialSettlementResultProxy? settlement = null;
+            long? debtId = null;
+            if (prepared.Totals.NetAmountVnd > 0)
+            {
+                var posted = await SalesCheckoutPostingSupport.PostReceiptAsync(
+                    connection, transaction, identity.CompanyId, sale.CheckoutId, sale,
+                    draft.Allocations, session, cancellationToken);
+                settlement = posted is null ? null : new FinancialSettlementResultProxy(posted.SettlementId);
+                debtId = await SalesCheckoutPostingSupport.CreateReceivableAsync(
+                    connection, transaction, identity.CompanyId, sale.CheckoutId, sale,
+                    draft.ReceivableAmountVnd, session, cancellationToken);
+            }
+            else if (prepared.Totals.NetAmountVnd < 0)
+            {
+                if (oldGold is null)
+                    throw new InvalidOperationException("Thiếu phiếu nhập vàng cũ cho khoản chi.");
+                await SalesCheckoutPostingSupport.PostPayoutAsync(
+                    connection, transaction, identity.CompanyId, sale.CheckoutId, oldGold,
+                    draft.Allocations, session, cancellationToken);
+            }
 
             await SalesCheckoutPostingSupport.WriteAuditAsync(
                 connection, transaction, "SALES_CHECKOUT_POSTED", session, sale.CheckoutId,
-                $"{{\"salesOrderId\":{sale.SalesOrderId},\"issueDocumentId\":{issueId}," +
+                $"{{\"salesOrderId\":{JsonNumber(sale.SalesOrderId)},\"issueDocumentId\":{JsonNumber(issueId)}," +
+                $"\"oldGoldStockDocumentId\":{JsonNumber(oldGold?.StockDocumentId)}," +
                 $"\"settlementId\":{JsonNumber(settlement?.SettlementId)},\"receivableDebtId\":{JsonNumber(debtId)}," +
                 $"\"saleGrossVnd\":{sale.Totals.SaleGrossVnd.ToString(CultureInfo.InvariantCulture)}," +
+                $"\"oldGoldTotalVnd\":{sale.Totals.OldGoldTotalVnd.ToString(CultureInfo.InvariantCulture)}," +
                 $"\"netAmountVnd\":{sale.Totals.NetAmountVnd.ToString(CultureInfo.InvariantCulture)}}}",
                 cancellationToken);
 
-            if (sale.Lines.Any(x => x.Amounts.IsPriceOverride))
+            if (prepared.SaleLines.Any(x => x.Amounts.IsPriceOverride) ||
+                prepared.OldGoldLines.Any(x => x.IsPriceOverride))
                 await SalesCheckoutPostingSupport.WriteAuditAsync(
                     connection, transaction, "SALES_PRICE_OVERRIDE", session, sale.CheckoutId,
-                    BuildOverrideAudit(sale.Lines), cancellationToken);
+                    BuildOverrideAudit(prepared), cancellationToken);
             if (draft.ReceivableAmountVnd > 0)
                 await SalesCheckoutPostingSupport.WriteAuditAsync(
                     connection, transaction, "SALES_DEBT_APPROVED", session, sale.CheckoutId,
@@ -84,8 +123,8 @@ public sealed class FirebirdSalesCheckoutApplicationService : ISalesCheckoutAppl
 
             await transaction.CommitAsync(cancellationToken);
             return new SalesCheckoutResult(
-                sale.CheckoutId, sale.CheckoutCode, SalesCheckoutTypes.Sale, sale.Totals,
-                sale.SalesOrderId, null, AlreadyPosted: false);
+                sale.CheckoutId, sale.CheckoutCode, prepared.CheckoutType, sale.Totals,
+                sale.SalesOrderId, oldGold?.StockDocumentId, AlreadyPosted: false);
         }
         catch (FbException exception) when (IsUniqueViolation(exception))
         {
@@ -208,18 +247,19 @@ public sealed class FirebirdSalesCheckoutApplicationService : ISalesCheckoutAppl
         }
     }
 
-    private static string BuildOverrideAudit(IReadOnlyList<PreparedSaleLine> lines)
+    private static string BuildOverrideAudit(PreparedCheckout prepared)
     {
-        var changed = lines.Where(x => x.Amounts.IsPriceOverride).Select(x =>
+        var saleParts = prepared.SaleLines.Where(x => x.Amounts.IsPriceOverride).Select(x =>
             $"{{\"finishedProductId\":{x.Draft.FinishedProductId}," +
             $"\"sourceGold\":{x.Pricing.SourceGoldPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
             $"\"appliedGold\":{x.Draft.AppliedGoldPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
-            $"\"sourceLabor\":{x.Pricing.SourceLaborAmountVnd.ToString(CultureInfo.InvariantCulture)}," +
-            $"\"appliedLabor\":{x.Draft.AppliedLaborAmountVnd.ToString(CultureInfo.InvariantCulture)}," +
-            $"\"sourceStone\":{x.Pricing.SourceStoneAmountVnd.ToString(CultureInfo.InvariantCulture)}," +
-            $"\"appliedStone\":{x.Draft.AppliedStoneAmountVnd.ToString(CultureInfo.InvariantCulture)}," +
             $"\"reason\":\"{EscapeJson(x.Draft.OverrideReason!)}\"}}");
-        return $"[${string.Join(',', changed)}]".Replace("[$", "[", StringComparison.Ordinal);
+        var oldGoldParts = prepared.OldGoldLines.Where(x => x.IsPriceOverride).Select(x =>
+            $"{{\"materialId\":{x.Draft.MaterialId}," +
+            $"\"sourceBuy\":{x.SourceBuyPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
+            $"\"appliedBuy\":{x.Draft.AppliedBuyPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
+            $"\"reason\":\"{EscapeJson(x.Draft.OverrideReason!)}\"}}");
+        return "[" + string.Join(',', saleParts.Concat(oldGoldParts)) + "]";
     }
 
     private static bool Allowed(FbDataReader reader, int ordinal) =>
@@ -237,4 +277,5 @@ public sealed class FirebirdSalesCheckoutApplicationService : ISalesCheckoutAppl
              .Replace("\"", "\\\"", StringComparison.Ordinal);
 
     private sealed record IdentityContext(long CompanyId, SalesPermissionSnapshot Permissions);
+    private sealed record FinancialSettlementResultProxy(long SettlementId);
 }
