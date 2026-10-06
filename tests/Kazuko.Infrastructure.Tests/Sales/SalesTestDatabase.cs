@@ -64,6 +64,7 @@ internal sealed class SalesTestDatabase : IDisposable
     public long OldGoldPriceId { get; private set; }
     public long RetailGoldPriceId { get; private set; }
     public long NamedCustomerId { get; private set; }
+    public long CashFundId { get; private set; }
     public long SalespersonId { get; private set; }
     public long LimitedUserId { get; private set; }
     public long AdminUserId { get; private set; }
@@ -143,6 +144,12 @@ internal sealed class SalesTestDatabase : IDisposable
                 VALUES (@CID, 'T3_BRC', 'Task 3 Branch C', TRUE)
                 RETURNING ID
                 """, ("@CID", OtherCompanyId));
+
+            CashFundId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO CASH_FUNDS (COMPANY_ID, BRANCH_ID, CODE, NAME, IS_ACTIVE, IS_DEFAULT)
+                VALUES (@CID, @BID, 'T3_CASH', 'Task 3 Cash Fund', TRUE, TRUE)
+                RETURNING ID
+                """, ("@CID", CompanyId), ("@BID", BranchId));
 
             var limitedRoleId = await InsertIdAsync(connection, transaction, """
                 INSERT INTO ROLES (CODE, NAME, IS_SYSTEM, IS_ACTIVE)
