@@ -27,7 +27,7 @@ public sealed class SalesModule : IKazukoModule
             "BÁN HÀNG",
             string.Empty,
             40,
-            null,
+            SalesPermissions.CheckoutPost,
             () => new SalesView
             {
                 DataContext = CreateViewModel(services)

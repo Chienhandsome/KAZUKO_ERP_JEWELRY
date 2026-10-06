@@ -8,6 +8,7 @@ using Kazuko.Core.HumanResources;
 using Kazuko.Core.Modules;
 using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
+using Kazuko.Core.Sales;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Updates;
 using Kazuko.Core.Warehouse;
@@ -17,6 +18,7 @@ using Kazuko.Infrastructure.Finance;
 using Kazuko.Infrastructure.HumanResources;
 using Kazuko.Infrastructure.PriceBoard;
 using Kazuko.Infrastructure.Production;
+using Kazuko.Infrastructure.Sales;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Suppliers;
 using Kazuko.Infrastructure.Updates;
@@ -93,6 +95,9 @@ public partial class App : Application
         IProductionApplicationService productionApplication =
             new FirebirdProductionApplicationService(productionAttachments);
         IProductionPrintDataService productionPrintData = new FirebirdProductionPrintDataService();
+        ISalesCheckoutApplicationService salesCheckout = new FirebirdSalesCheckoutApplicationService();
+        ISalesQueryRepository salesQueries = new FirebirdSalesQueryRepository();
+        ISalesAuthorizationService salesAuthorization = new FirebirdSalesAuthorizationService();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -131,6 +136,9 @@ public partial class App : Application
         _services.AddSingleton(productionApplication);
         _services.AddSingleton(productionAttachments);
         _services.AddSingleton(productionPrintData);
+        _services.AddSingleton(salesCheckout);
+        _services.AddSingleton(salesQueries);
+        _services.AddSingleton(salesAuthorization);
     }
 
     private void RegisterModules()
