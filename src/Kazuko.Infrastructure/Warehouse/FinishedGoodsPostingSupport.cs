@@ -39,7 +39,7 @@ public static class FinishedGoodsPostingSupport
             throw new InvalidOperationException("Phiếu xuất phải có ít nhất một thành phẩm.");
 
         await EnsureSourceLocationAsync(connection, transaction, companyId, session.BranchId,
-            sourceLocationId, retailOnly, cancellationToken);
+            sourceLocationId, cancellationToken);
 
         var products = new List<IssueProduct>(finishedProductIds.Count);
         foreach (var productId in finishedProductIds)
@@ -173,14 +173,16 @@ public static class FinishedGoodsPostingSupport
 
     private static async Task EnsureSourceLocationAsync(
         FbConnection connection, FbTransaction transaction, long companyId, long branchId,
-        long locationId, bool retailOnly, CancellationToken cancellationToken)
+        long locationId, CancellationToken cancellationToken)
     {
-        await using var command = new FbCommand($"""
+        // Retail checkout and warehouse FG issue both allow FINISHED_GOODS | SALES_FLOOR
+        // (aligned with SalesCheckoutPostingSupport.EnsureSalesLocationAsync).
+        await using var command = new FbCommand("""
             SELECT COUNT(*)
             FROM LOCATIONS L
             JOIN BRANCHES B ON B.ID = L.BRANCH_ID AND B.COMPANY_ID = @CID
             WHERE L.ID = @ID AND L.BRANCH_ID = @BID AND L.IS_ACTIVE = TRUE
-              AND L.INVENTORY_SCOPE {(retailOnly ? "= 'SALES_FLOOR'" : "IN ('FINISHED_GOODS', 'SALES_FLOOR')")}
+              AND L.INVENTORY_SCOPE IN ('FINISHED_GOODS', 'SALES_FLOOR')
             """, connection, transaction);
         command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
         command.Parameters.Add("@ID", FbDbType.BigInt).Value = locationId;

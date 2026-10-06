@@ -25,24 +25,43 @@ public abstract class ReportWorkspaceViewModel : ObservableObject
     private string? _previewPdfPath;
     private string? _previousPreviewPdfPath;
 
-    protected ReportWorkspaceViewModel(ICurrentSessionAccessor sessionAccessor, string pdfFilePrefix)
+    protected ReportWorkspaceViewModel(
+        ICurrentSessionAccessor sessionAccessor,
+        string pdfFilePrefix,
+        string? columnSettingsKey = null)
     {
         SessionAccessor = sessionAccessor;
         PdfFilePrefix = pdfFilePrefix;
+        ColumnSettingsKey = columnSettingsKey;
 
         ClearFiltersCommand = new RelayCommand(ClearFilters);
         RefreshCommand = new AsyncRelayCommand(ReloadAsync, () => !IsLoading);
         PreviewCommand = new RelayCommand(Preview, CanExportPdf);
         PrintCommand = new RelayCommand(Print, CanExportPdf);
+        ConfigureColumnsCommand = new RelayCommand(ConfigureColumns, () => SupportsColumnLayout);
+
+        if (SupportsColumnLayout)
+            ActiveColumns = ReportColumnLayout.Resolve(AvailableColumns, ColumnSettingsKey!);
     }
 
     protected ICurrentSessionAccessor SessionAccessor { get; }
     protected string PdfFilePrefix { get; }
+    protected string? ColumnSettingsKey { get; }
 
     public ICommand ClearFiltersCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand PreviewCommand { get; }
     public ICommand PrintCommand { get; }
+    public ICommand ConfigureColumnsCommand { get; }
+
+    /// <summary>Cột đang dùng để dựng PDF (đã ẩn/hiện + sắp xếp).</summary>
+    public IReadOnlyList<ReportColumnDefinition> ActiveColumns { get; private set; } = [];
+
+    public bool SupportsColumnLayout =>
+        !string.IsNullOrWhiteSpace(ColumnSettingsKey) && AvailableColumns.Count > 0;
+
+    /// <summary>Danh sách cột có thể cấu hình. Override ở báo cáo cụ thể.</summary>
+    protected virtual IReadOnlyList<ReportColumnDefinition> AvailableColumns => [];
 
     public string StatusMessage
     {
@@ -243,6 +262,33 @@ public abstract class ReportWorkspaceViewModel : ObservableObject
     {
         RunWithoutFilterReload(ResetFiltersCore);
         _ = ReloadAsync();
+    }
+
+    private void ConfigureColumns()
+    {
+        if (!SupportsColumnLayout)
+            return;
+
+        var dialog = new ReportColumnVisibilityDialog(AvailableColumns, ActiveColumns, ColumnSettingsKey!);
+        dialog.Owner = Application.Current?.MainWindow;
+        if (dialog.ShowDialog() != true || dialog.ResultColumns is null)
+            return;
+
+        ActiveColumns = dialog.ResultColumns;
+        OnPropertyChanged(nameof(ActiveColumns));
+        RefreshPreviewAfterColumnChange();
+    }
+
+    private void RefreshPreviewAfterColumnChange()
+    {
+        var session = SessionAccessor.Current;
+        if (session is null || !HasPrintableData)
+            return;
+
+        StatusMessage = "Đang dựng lại bản in theo cột…";
+        RebuildPreviewPdf(session);
+        if (string.IsNullOrEmpty(ErrorMessage))
+            StatusMessage = BuildLoadedStatus();
     }
 
     private bool CanExportPdf() =>

@@ -807,13 +807,13 @@ public static class SalesCheckoutPostingSupport
             SELECT COUNT(*) FROM LOCATIONS L
             JOIN BRANCHES B ON B.ID = L.BRANCH_ID AND B.COMPANY_ID = @CID
             WHERE L.ID = @ID AND L.BRANCH_ID = @BID AND L.IS_ACTIVE = TRUE
-              AND L.INVENTORY_SCOPE = 'SALES_FLOOR'
+              AND L.INVENTORY_SCOPE IN ('SALES_FLOOR', 'FINISHED_GOODS')
             """, connection, transaction);
         command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
         command.Parameters.Add("@ID", FbDbType.BigInt).Value = locationId;
         command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
         if (Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) != 1)
-            throw new InvalidOperationException("Kho bán hàng không hợp lệ hoặc không còn hoạt động.");
+            throw new InvalidOperationException("Kho xuất bán không hợp lệ hoặc không còn hoạt động.");
     }
 
     private static async Task EnsureOldGoldLocationAsync(
@@ -843,9 +843,16 @@ public static class SalesCheckoutPostingSupport
                    F.LABOR_COST, F.NON_GOLD_MATERIAL_COST
             FROM FINISHED_PRODUCTS F
             JOIN LOCATIONS L ON L.ID = F.LOCATION_ID AND L.BRANCH_ID = @BID
-                            AND L.INVENTORY_SCOPE = 'SALES_FLOOR' AND L.IS_ACTIVE = TRUE
-            JOIN GOLD_PRICES GP ON GP.ID = F.RETAIL_GOLD_PRICE_ID
-                               AND GP.COMPANY_ID = F.COMPANY_ID AND GP.IS_ACTIVE = TRUE
+                            AND L.INVENTORY_SCOPE IN ('SALES_FLOOR', 'FINISHED_GOODS')
+                            AND L.IS_ACTIVE = TRUE
+            JOIN GOLD_PRICES GP ON GP.COMPANY_ID = F.COMPANY_ID AND GP.IS_ACTIVE = TRUE
+                               AND GP.ID = COALESCE(
+                                    F.RETAIL_GOLD_PRICE_ID,
+                                    (SELECT MIN(P.ID)
+                                     FROM GOLD_PRICES P
+                                     WHERE P.COMPANY_ID = F.COMPANY_ID
+                                       AND P.IS_ACTIVE = TRUE
+                                       AND UPPER(TRIM(P.CODE)) = UPPER(TRIM(COALESCE(F.GOLD_PURITY, '')))))
             WHERE F.ID = @ID AND F.COMPANY_ID = @CID AND F.BRANCH_ID = @BID
               AND F.LOCATION_ID = @LOCATION
               AND F.STATUS_CODE IN ('IN_STOCK', 'DISPLAYED')

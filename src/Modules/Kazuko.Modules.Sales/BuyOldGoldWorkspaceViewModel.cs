@@ -37,8 +37,10 @@ public sealed class BuyOldGoldWorkspaceViewModel : ObservableObject
         AddBuyLineCommand = new RelayCommand(AddBuyLine, () => !IsReadOnly && SelectedOldGoldMaterial is not null);
         RemoveBuyLineCommand = new RelayCommand(RemoveBuyLine, () => !IsReadOnly && SelectedBuyLine is not null);
         PrintStockLabelCommand = new RelayCommand(() => { });
-        LookupCustomerCommand = new RelayCommand(() => { });
+        LookupCustomerCommand = new RelayCommand(() => LookupCustomerAction?.Invoke());
     }
+
+    public Action? LookupCustomerAction { get; set; }
 
     public ObservableCollection<SalesCustomerOption> CustomerOptions { get; } = [];
     public ObservableCollection<SalespersonOption> StaffOptions { get; } = [];

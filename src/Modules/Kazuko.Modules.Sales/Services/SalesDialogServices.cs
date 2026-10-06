@@ -23,6 +23,16 @@ public interface ISalesPaymentDialogService
     SalesPaymentDialogResult? Show(SalesPaymentDialogRequest request);
 }
 
+public interface ISalesCustomerLookupDialogService
+{
+    SalesCustomerOption? Show(Func<string, Task<IReadOnlyList<SalesCustomerOption>>> searchAsync, SalesCustomerOption? current);
+}
+
+public interface ISalesPriceOverrideDialogService
+{
+    bool TryEdit(SellLineRowViewModel line);
+}
+
 public interface ISalesReceiptPresenter
 {
     Task ShowAsync(long checkoutId, CancellationToken cancellationToken = default);

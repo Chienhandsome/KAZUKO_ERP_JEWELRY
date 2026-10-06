@@ -99,6 +99,8 @@ public partial class App : Application
             new FirebirdProductionApplicationService(productionAttachments);
         IProductionPrintDataService productionPrintData = new FirebirdProductionPrintDataService();
         IJewelryOnHandReportService jewelryOnHandReport = new FirebirdJewelryOnHandReportService();
+        IJewelryOnHandSummaryReportService jewelryOnHandSummaryReport =
+            new FirebirdJewelryOnHandSummaryReportService();
         ISalesCheckoutApplicationService salesCheckout = new FirebirdSalesCheckoutApplicationService();
         ISalesQueryRepository salesQueries = new FirebirdSalesQueryRepository();
         ISalesAuthorizationService salesAuthorization = new FirebirdSalesAuthorizationService();
@@ -142,6 +144,7 @@ public partial class App : Application
         _services.AddSingleton(productionAttachments);
         _services.AddSingleton(productionPrintData);
         _services.AddSingleton(jewelryOnHandReport);
+        _services.AddSingleton(jewelryOnHandSummaryReport);
         _services.AddSingleton(salesCheckout);
         _services.AddSingleton(salesQueries);
         _services.AddSingleton(salesAuthorization);

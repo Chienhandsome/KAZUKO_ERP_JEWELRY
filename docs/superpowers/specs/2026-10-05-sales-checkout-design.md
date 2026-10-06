@@ -10,7 +10,7 @@
 
 Hoàn thiện mock UI Bán hàng thành một vertical slice có thể ghi sổ an toàn cho ba luồng:
 
-1. bán thành phẩm có sẵn tại kho bán hàng;
+1. bán thành phẩm còn tồn tại kho thành phẩm hoặc kho bán hàng;
 2. bán thành phẩm kèm thu đổi vàng cũ;
 3. chỉ mua vàng cũ từ khách.
 
@@ -20,7 +20,7 @@ Một lần hoàn tất phải ghi đồng bộ chứng từ bán, biến độn
 
 ### Trong phạm vi
 
-- Tra cứu hoặc quét mã thành phẩm đang có thể bán tại kho bán hàng của chi nhánh.
+- Tra cứu hoặc quét mã thành phẩm đang có thể bán tại kho thành phẩm / kho bán hàng của chi nhánh.
 - Tính giá bán từ snapshot bảng giá, tiền công, tiền đá và giảm giá.
 - Thu đổi hoặc mua vàng cũ, tự tính trọng lượng quy đổi và giá trị mua.
 - Thanh toán hỗn hợp bằng tiền mặt, chuyển khoản và thẻ.

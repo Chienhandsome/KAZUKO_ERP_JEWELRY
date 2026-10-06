@@ -23,6 +23,7 @@ public partial class ReportWorkspaceView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        IsVisibleChanged += OnIsVisibleChanged;
         Unloaded += OnUnloaded;
     }
 
@@ -60,12 +61,43 @@ public partial class ReportWorkspaceView : UserControl
             element.DataContext = DataContext;
     }
 
-    private void OnUnloaded(object sender, RoutedEventArgs e) => DetachWorkspace();
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        DetachWorkspace();
+        HideWebViewHost();
+    }
+
+    private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (IsVisible)
+            _ = NavigatePdfAsync(_workspace?.PreviewPdfPath);
+        else
+            HideWebViewHost();
+    }
+
+    private void HideWebViewHost()
+    {
+        if (PdfViewer is null)
+            return;
+
+        PdfViewer.Visibility = Visibility.Collapsed;
+        try
+        {
+            if (PdfViewer.CoreWebView2 is not null)
+                PdfViewer.CoreWebView2.NavigateToString("<html><body></body></html>");
+        }
+        catch
+        {
+            // Runtime có thể chưa sẵn sàng khi đang unload.
+        }
+    }
 
     private void AttachWorkspace(ReportWorkspaceViewModel workspace)
     {
         _workspace = workspace;
         _workspace.PropertyChanged += Workspace_OnPropertyChanged;
+        if (PdfViewer is not null)
+            PdfViewer.Visibility = Visibility.Visible;
         _ = NavigatePdfAsync(_workspace.PreviewPdfPath);
     }
 

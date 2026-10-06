@@ -15,22 +15,25 @@
         <KeyBinding Key="F9" Command="{Binding PayCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="16">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="12,10,12,8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Grid Grid.Row="0" Margin="0,0,0,14">
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <Image Source="/Kazuko.Modules.Sales;component/Assets/icons/BAN_HANG.png"
-                       Width="48" Height="48" Stretch="Uniform" Margin="0,0,12,0" />
+                       Width="44" Height="44" Stretch="Uniform" Margin="0,0,12,0" />
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="BÁN HÀNG"
                                Foreground="{DynamicResource PrimaryBrush}"
@@ -40,7 +43,7 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="{DynamicResource FontSize.Body}"
                                TextWrapping="Wrap"
-                               Margin="0,4,0,0" />
+                               Margin="0,2,0,0" />
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -58,6 +61,15 @@
                         Command="{Binding PrintCommand}"
                         Margin="0" />
             </StackPanel>
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                       Text="{Binding ErrorMessage}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       TextWrapping="Wrap" Margin="0,4,0,0" />
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                       Text="{Binding SuccessMessage}"
+                       Foreground="{DynamicResource PrimaryBrush}"
+                       TextWrapping="Wrap" Margin="0,4,0,0"
+                       VerticalAlignment="Bottom" />
         </Grid>
 
         <TabControl Grid.Row="1"
@@ -65,30 +77,11 @@
                     Style="{StaticResource SalesTabControlStyle}"
                     ItemContainerStyle="{StaticResource SalesTabItemStyle}">
             <TabItem Header="Mua - Bán">
-                <local:BuySellTabView DataContext="{Binding BuySell}" Margin="0,12,0,0" />
+                <local:BuySellTabView DataContext="{Binding BuySell}" Margin="0,6,0,0" />
             </TabItem>
             <TabItem Header="Mua vàng cũ">
-                <local:BuyOldGoldTabView DataContext="{Binding BuyOldGold}" Margin="0,12,0,0" />
+                <local:BuyOldGoldTabView DataContext="{Binding BuyOldGold}" Margin="0,6,0,0" />
             </TabItem>
         </TabControl>
-
-        <Border Grid.Row="2" Style="{StaticResource SalesCardStyle}" Padding="12,10" Margin="0,12,0,0">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left">
-                    <TextBlock Text="F9 — thanh toán nhanh · Enter — nhập dòng hàng"
-                               Style="{StaticResource SalesHintStyle}" />
-                    <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
-                               TextWrapping="Wrap" Margin="0,4,0,0" />
-                    <TextBlock Text="{Binding SuccessMessage}" Foreground="{DynamicResource PrimaryBrush}"
-                               TextWrapping="Wrap" Margin="0,2,0,0" />
-                </StackPanel>
-                <Button DockPanel.Dock="Right"
-                        Content="Thanh toán (F9)"
-                        Style="{StaticResource SalesPrimaryButtonStyle}"
-                        Command="{Binding PayCommand}"
-                        MinWidth="168"
-                        Margin="0" />
-            </DockPanel>
-        </Border>
     </Grid>
 </UserControl>

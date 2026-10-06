@@ -6,11 +6,44 @@ using Kazuko.Modules.Reports.Shared;
 
 namespace Kazuko.Modules.Reports;
 
-/// <summary>Mẫu FastReport riêng cho báo cáo nữ trang tồn kho.</summary>
+/// <summary>Định nghĩa cột + dựng FastReport động theo layout cột người dùng.</summary>
+public static class JewelryOnHandReportColumns
+{
+    public const string SettingsKey = "reports.warehouse.jewelry_on_hand.columns";
+
+    public static IReadOnlyList<ReportColumnDefinition> All { get; } =
+    [
+        new("Index", "STT", 0.05f),
+        new("Code", "Mã SP", 0.15f),
+        new("ProductName", "Tên sản phẩm", 0.28f),
+        new("GoldPurity", "Loại vàng", 0.08f),
+        new("GoldWeight", "TL vàng", 0.09f),
+        new("StockValue", "Giá trị", 0.12f),
+        new("LocationName", "Vị trí", 0.13f),
+        new("StatusDisplay", "Trạng thái", 0.10f),
+        new("TotalWeight", "TL tổng", 0.09f, DefaultVisible: false),
+        new("ScopeDisplay", "Kho", 0.12f, DefaultVisible: false)
+    ];
+
+    public static (string Expression, HorzAlign Align) Bind(string key) => key switch
+    {
+        "Index" => ("[JewelryRows.Index]", HorzAlign.Center),
+        "Code" => ("[JewelryRows.Code]", HorzAlign.Left),
+        "ProductName" => ("[JewelryRows.ProductName]", HorzAlign.Left),
+        "GoldPurity" => ("[JewelryRows.GoldPurity]", HorzAlign.Center),
+        "GoldWeight" => ("[JewelryRows.GoldWeightText]", HorzAlign.Right),
+        "StockValue" => ("[JewelryRows.StockValueText]", HorzAlign.Right),
+        "LocationName" => ("[JewelryRows.LocationName]", HorzAlign.Left),
+        "StatusDisplay" => ("[JewelryRows.StatusDisplay]", HorzAlign.Center),
+        "TotalWeight" => ("[JewelryRows.TotalWeightText]", HorzAlign.Right),
+        "ScopeDisplay" => ("[JewelryRows.ScopeDisplay]", HorzAlign.Left),
+        _ => ("", HorzAlign.Left)
+    };
+}
+
 public sealed class JewelryOnHandPrintService
 {
     private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
-    private const string TemplateFileName = "jewelry_on_hand_v3.frx";
 
     public Report CreatePreparedReport(
         IReadOnlyList<JewelryOnHandRowViewModel> rows,
@@ -18,7 +51,8 @@ public sealed class JewelryOnHandPrintService
         string scopeFilter,
         string goldTypeFilter,
         string statusFilter,
-        string searchText)
+        string searchText,
+        IReadOnlyList<ReportColumnDefinition> activeColumns)
     {
         var printRows = rows.Select(r => new JewelryOnHandPrintRow
         {
@@ -36,18 +70,26 @@ public sealed class JewelryOnHandPrintService
             StockValue = r.Item.StockValue
         }).ToList();
 
-        var templatePath = FastReportTemplateHelper.GetTemplatePath(TemplateFileName);
-        FastReportTemplateHelper.EnsureTemplate(templatePath, BuildDefaultTemplate);
+        var columns = activeColumns.Count > 0 ? activeColumns : JewelryOnHandReportColumns.All
+            .Where(c => c.DefaultVisible)
+            .ToArray();
 
-        var report = new Report();
-        report.Load(templatePath);
+        var report = BuildReport(columns);
         report.RegisterData(printRows, "JewelryRows");
         FastReportTemplateHelper.BindDataSource(report, "JewelryRows");
 
         report.SetParameterValue("BranchName", $"{session.BranchName} ({session.BranchCode})");
         report.SetParameterValue("PrintedAt", DateTime.Now.ToString("dd/MM/yyyy HH:mm", Vi));
         report.SetParameterValue("PrintedBy", session.DisplayName);
-        report.SetParameterValue("FilterText", BuildFilterText(scopeFilter, goldTypeFilter, statusFilter, searchText));
+        report.SetParameterValue(
+            "FilterText",
+            FastReportTemplateHelper.JoinFilterParts(
+            [
+                string.IsNullOrWhiteSpace(searchText) ? null : $"Từ khóa: {searchText.Trim()}",
+                FastReportTemplateHelper.FilterPart("Loại vàng", goldTypeFilter),
+                FastReportTemplateHelper.FilterPart("Kho", scopeFilter),
+                FastReportTemplateHelper.FilterPart("Trạng thái", statusFilter)
+            ]));
         report.SetParameterValue("ItemCount", printRows.Count.ToString("N0", Vi));
         report.SetParameterValue("TotalGoldWeight", printRows.Sum(x => x.GoldWeight).ToString("N3", Vi));
         report.SetParameterValue("TotalStockValue", printRows.Sum(x => x.StockValue).ToString("N0", Vi));
@@ -56,29 +98,9 @@ public sealed class JewelryOnHandPrintService
         return report;
     }
 
-    private static string BuildFilterText(
-        string scopeFilter,
-        string goldTypeFilter,
-        string statusFilter,
-        string searchText) =>
-        FastReportTemplateHelper.JoinFilterParts(
-        [
-            string.IsNullOrWhiteSpace(searchText) ? null : $"Từ khóa: {searchText.Trim()}",
-            FastReportTemplateHelper.FilterPart("Loại vàng", goldTypeFilter),
-            FastReportTemplateHelper.FilterPart("Kho", scopeFilter),
-            FastReportTemplateHelper.FilterPart("Trạng thái", statusFilter)
-        ]);
-
-    private static void BuildDefaultTemplate(Report report)
+    private static Report BuildReport(IReadOnlyList<ReportColumnDefinition> columns)
     {
-        report.Pages.Clear();
-        report.Parameters.Clear();
-
-        report.RegisterData(new List<JewelryOnHandPrintRow>(), "JewelryRows");
-        var ds = report.GetDataSource("JewelryRows");
-        if (ds is not null)
-            ds.Enabled = true;
-
+        var report = new Report();
         FastReportTemplateHelper.AddStringParameter(report, "BranchName", "Chi nhánh");
         FastReportTemplateHelper.AddStringParameter(report, "PrintedAt", "Ngày in");
         FastReportTemplateHelper.AddStringParameter(report, "PrintedBy", "Người in");
@@ -100,11 +122,9 @@ public sealed class JewelryOnHandPrintService
         report.Pages.Add(page);
 
         var contentWidth = FastReportTemplateHelper.Mm(190);
-        var titleHeight = FastReportTemplateHelper.Mm(28);
         var rowHeight = FastReportTemplateHelper.Mm(7);
 
-        var titleBand = new ReportTitleBand { Name = "ReportTitle1", Height = titleHeight };
-        page.Bands.Add(titleBand);
+        var titleBand = new ReportTitleBand { Name = "ReportTitle1", Height = FastReportTemplateHelper.Mm(28) };
         titleBand.Objects.Add(FastReportTemplateHelper.CreateText(
             0, FastReportTemplateHelper.Mm(0), contentWidth, FastReportTemplateHelper.Mm(8),
             "BÁO CÁO NỮ TRANG TỒN KHO", 14, FontStyle.Bold, HorzAlign.Center));
@@ -119,16 +139,16 @@ public sealed class JewelryOnHandPrintService
             "Bộ lọc: [FilterText]", 9, FontStyle.Regular, HorzAlign.Left));
 
         var pageHeader = new PageHeaderBand { Name = "PageHeader1", Height = rowHeight };
-        page.Bands.Add(pageHeader);
-        AddHeaderCells(pageHeader, contentWidth, rowHeight);
-
         var dataBand = new DataBand { Name = "Data1", Height = rowHeight };
-        page.Bands.Add(dataBand);
-        AddDataCells(dataBand, contentWidth, rowHeight);
-        FastReportTemplateHelper.BindDataSource(report, "JewelryRows");
+
+        var tableColumns = columns.Select(c =>
+        {
+            var (expr, align) = JewelryOnHandReportColumns.Bind(c.Key);
+            return (c.Header, expr, align, c.WidthWeight);
+        }).ToArray();
+        FastReportTemplateHelper.AddTableColumns(pageHeader, dataBand, contentWidth, rowHeight, tableColumns);
 
         var footerBand = new ReportSummaryBand { Name = "ReportSummary1", Height = FastReportTemplateHelper.Mm(20) };
-        page.Bands.Add(footerBand);
         footerBand.Objects.Add(FastReportTemplateHelper.CreateText(
             0, FastReportTemplateHelper.Mm(2), contentWidth, FastReportTemplateHelper.Mm(6),
             "Tổng số món: [ItemCount]  ·  Tổng TL vàng: [TotalGoldWeight]  ·  Tổng giá trị: [TotalStockValue] VND",
@@ -137,55 +157,9 @@ public sealed class JewelryOnHandPrintService
             0, FastReportTemplateHelper.Mm(12), contentWidth, FastReportTemplateHelper.Mm(6),
             "Người lập: .....................          Thủ kho: .....................          Quản lý: .....................",
             9, FontStyle.Regular, HorzAlign.Left));
-    }
 
-    private static void AddHeaderCells(BandBase band, float contentWidth, float rowHeight)
-    {
-        float[] ratios = [0.05f, 0.15f, 0.28f, 0.08f, 0.09f, 0.12f, 0.13f, 0.10f];
-        string[] titles = ["STT", "Mã SP", "Tên sản phẩm", "Loại vàng", "TL vàng", "Giá trị", "Vị trí", "Trạng thái"];
-        float x = 0;
-        for (var i = 0; i < titles.Length; i++)
-        {
-            var w = contentWidth * ratios[i];
-            var cell = FastReportTemplateHelper.CreateText(x, 0, w, rowHeight, titles[i], 8, FontStyle.Bold, HorzAlign.Center);
-            cell.Border.Lines = BorderLines.All;
-            cell.Fill = new SolidFill(Color.WhiteSmoke);
-            cell.CanGrow = false;
-            band.Objects.Add(cell);
-            x += w;
-        }
-    }
+        FastReportTemplateHelper.AssignPageBands(page, titleBand, pageHeader, dataBand, footerBand);
 
-    private static void AddDataCells(DataBand band, float contentWidth, float rowHeight)
-    {
-        float[] ratios = [0.05f, 0.15f, 0.28f, 0.08f, 0.09f, 0.12f, 0.13f, 0.10f];
-        string[] exprs =
-        [
-            "[JewelryRows.Index]",
-            "[JewelryRows.Code]",
-            "[JewelryRows.ProductName]",
-            "[JewelryRows.GoldPurity]",
-            "[JewelryRows.GoldWeightText]",
-            "[JewelryRows.StockValueText]",
-            "[JewelryRows.LocationName]",
-            "[JewelryRows.StatusDisplay]"
-        ];
-        HorzAlign[] aligns =
-        [
-            HorzAlign.Center, HorzAlign.Left, HorzAlign.Left, HorzAlign.Center,
-            HorzAlign.Right, HorzAlign.Right, HorzAlign.Left, HorzAlign.Center
-        ];
-
-        float x = 0;
-        for (var i = 0; i < exprs.Length; i++)
-        {
-            var w = contentWidth * ratios[i];
-            var cell = FastReportTemplateHelper.CreateText(x, 0, w, rowHeight, exprs[i], 8, FontStyle.Regular, aligns[i]);
-            cell.Border.Lines = BorderLines.All;
-            cell.CanGrow = false;
-            cell.WordWrap = true;
-            band.Objects.Add(cell);
-            x += w;
-        }
+        return report;
     }
 }

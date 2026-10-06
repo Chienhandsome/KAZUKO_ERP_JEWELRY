@@ -59,6 +59,7 @@ internal sealed class SalesTestDatabase : IDisposable
     public long OtherBranchId { get; private set; }
     public long OtherCompanyBranchId { get; private set; }
     public long SalesFloorLocationId { get; private set; }
+    public long FinishedGoodsLocationId { get; private set; }
     public long OldGoldLocationId { get; private set; }
     public long OldGoldMaterialId { get; private set; }
     public long OldGoldPriceId { get; private set; }
@@ -215,6 +216,8 @@ internal sealed class SalesTestDatabase : IDisposable
                 "T3_OLD_GOLD_DEFAULT", "Task 3 Old Gold", "RAW_MATERIAL", true);
             var nonSalesLocationId = await InsertLocationAsync(connection, transaction, BranchId,
                 "T3_RAW_A", "Task 3 Raw A", "RAW_MATERIAL", true);
+            FinishedGoodsLocationId = await InsertLocationAsync(connection, transaction, BranchId,
+                "T3_FG_A", "Task 3 Finished Goods", "FINISHED_GOODS", true);
             InactiveOldGoldLocationId = await InsertLocationAsync(connection, transaction, BranchId,
                 "T3_INACTIVE_LOC", "000 Task 3 Old Gold Location - Inactive", "RAW_MATERIAL", false);
             OtherBranchSalesFloorId = await InsertLocationAsync(connection, transaction, OtherBranchId,
@@ -278,6 +281,9 @@ internal sealed class SalesTestDatabase : IDisposable
                 RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
                 SalesFloorLocationId, "T3_PRODUCT_INSTOCK", "Task 3 In Stock", "IN_STOCK", 10,
+                RetailGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                FinishedGoodsLocationId, "TP-CN-2026-000003", "Task 3 TP Finished Goods", "IN_STOCK", 21,
                 RetailGoldPriceId);
             _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
                 SalesFloorLocationId, "T3_PRODUCT_18K", "Task 3 18K", "DISPLAYED", 15,

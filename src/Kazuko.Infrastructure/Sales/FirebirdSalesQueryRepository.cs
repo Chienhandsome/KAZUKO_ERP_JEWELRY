@@ -10,6 +10,28 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
 {
     private const int CustomerLimit = 50;
     private const int LookupLimit = 100;
+    private const int ProductSearchLimit = 20;
+
+    /// <summary>
+    /// Thành phẩm bán được: tại kho bán hàng hoặc kho thành phẩm, còn tồn/trưng bày,
+    /// và có giá bán lẻ (RETAIL_GOLD_PRICE_ID hoặc khớp GOLD_PRICES.CODE = GOLD_PURITY).
+    /// </summary>
+    private const string SellableProductFrom = """
+        FROM FINISHED_PRODUCTS F
+        JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+                        AND L.BRANCH_ID = @BRANCH_ID
+                        AND L.INVENTORY_SCOPE IN ('SALES_FLOOR', 'FINISHED_GOODS')
+                        AND L.IS_ACTIVE = TRUE
+        JOIN GOLD_PRICES GP ON GP.COMPANY_ID = F.COMPANY_ID
+                           AND GP.IS_ACTIVE = TRUE
+                           AND GP.ID = COALESCE(
+                                F.RETAIL_GOLD_PRICE_ID,
+                                (SELECT MIN(P.ID)
+                                 FROM GOLD_PRICES P
+                                 WHERE P.COMPANY_ID = F.COMPANY_ID
+                                   AND P.IS_ACTIVE = TRUE
+                                   AND UPPER(TRIM(P.CODE)) = UPPER(TRIM(COALESCE(F.GOLD_PURITY, '')))))
+        """;
 
     public async Task<IReadOnlyList<SalesCustomerOption>> SearchCustomersAsync(
         string searchText,
@@ -119,26 +141,19 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
         if (companyId is null)
             return null;
 
-        await using var command = new FbCommand("""
+        await using var command = new FbCommand($"""
             SELECT FIRST 1
                    F.ID, F.CODE, F.PRODUCT_NAME,
                    GP.ID, GP.NAME, L.ID, COALESCE(F.GOLD_PURITY, ''), F.ROW_VERSION,
                    F.TOTAL_WEIGHT, F.STONE_WEIGHT, F.GOLD_WEIGHT,
                    GP.SELL_PRICE_PER_CHI, F.LABOR_COST, F.NON_GOLD_MATERIAL_COST
-            FROM FINISHED_PRODUCTS F
-            JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
-                            AND L.BRANCH_ID = @BRANCH_ID
-                            AND L.INVENTORY_SCOPE = 'SALES_FLOOR'
-                            AND L.IS_ACTIVE = TRUE
-            JOIN GOLD_PRICES GP ON GP.ID = F.RETAIL_GOLD_PRICE_ID
-                               AND GP.COMPANY_ID = F.COMPANY_ID
-                               AND GP.IS_ACTIVE = TRUE
+            {SellableProductFrom}
             WHERE F.COMPANY_ID = @COMPANY_ID
               AND F.BRANCH_ID = @BRANCH_ID
               AND F.STATUS_CODE IN ('IN_STOCK', 'DISPLAYED')
               AND (UPPER(TRIM(F.CODE)) = @CODE
-                   OR UPPER(TRIM(F.BARCODE_VALUE)) = @CODE
-                   OR UPPER(TRIM(F.QR_VALUE)) = @CODE)
+                   OR UPPER(TRIM(COALESCE(F.BARCODE_VALUE, ''))) = @CODE
+                   OR UPPER(TRIM(COALESCE(F.QR_VALUE, ''))) = @CODE)
             ORDER BY F.ID
             """, connection);
         command.Parameters.Add("@COMPANY_ID", FbDbType.BigInt).Value = companyId.Value;
@@ -149,7 +164,84 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
         if (!await reader.ReadAsync(cancellationToken))
             return null;
 
-        return new SalesProductOption(
+        return ReadProductOption(reader);
+    }
+
+    public async Task<IReadOnlyList<SalesProductOption>> SearchAvailableProductsAsync(
+        string searchText,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var search = (searchText ?? string.Empty).Trim();
+        var result = new List<SalesProductOption>();
+        if (search.Length == 0)
+            return result;
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var companyId = await ResolveCompanyIdAsync(connection, session.BranchId, cancellationToken);
+        if (companyId is null)
+            return result;
+
+        await using var command = new FbCommand($"""
+            SELECT FIRST {ProductSearchLimit}
+                   F.ID, F.CODE, F.PRODUCT_NAME,
+                   GP.ID, GP.NAME, L.ID, COALESCE(F.GOLD_PURITY, ''), F.ROW_VERSION,
+                   F.TOTAL_WEIGHT, F.STONE_WEIGHT, F.GOLD_WEIGHT,
+                   GP.SELL_PRICE_PER_CHI, F.LABOR_COST, F.NON_GOLD_MATERIAL_COST
+            {SellableProductFrom}
+            WHERE F.COMPANY_ID = @COMPANY_ID
+              AND F.BRANCH_ID = @BRANCH_ID
+              AND F.STATUS_CODE IN ('IN_STOCK', 'DISPLAYED')
+              AND (F.CODE CONTAINING @SEARCH
+                   OR F.PRODUCT_NAME CONTAINING @SEARCH)
+            ORDER BY F.CODE, F.ID
+            """, connection);
+        command.Parameters.Add("@COMPANY_ID", FbDbType.BigInt).Value = companyId.Value;
+        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 500).Value = search;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            result.Add(ReadProductOption(reader));
+
+        return result;
+    }
+
+    public async Task<int> CountMatchingFinishedProductsAsync(
+        string searchText,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var search = (searchText ?? string.Empty).Trim();
+        if (search.Length == 0)
+            return 0;
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var companyId = await ResolveCompanyIdAsync(connection, session.BranchId, cancellationToken);
+        if (companyId is null)
+            return 0;
+
+        await using var command = new FbCommand("""
+            SELECT COUNT(*)
+            FROM FINISHED_PRODUCTS F
+            WHERE F.COMPANY_ID = @COMPANY_ID
+              AND F.BRANCH_ID = @BRANCH_ID
+              AND F.STATUS_CODE IN ('IN_STOCK', 'DISPLAYED')
+              AND (F.CODE CONTAINING @SEARCH
+                   OR F.PRODUCT_NAME CONTAINING @SEARCH)
+            """, connection);
+        command.Parameters.Add("@COMPANY_ID", FbDbType.BigInt).Value = companyId.Value;
+        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 500).Value = search;
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+    }
+
+    private static SalesProductOption ReadProductOption(System.Data.Common.DbDataReader reader) =>
+        new(
             reader.GetInt64(0),
             reader.GetString(1),
             reader.GetString(2),
@@ -164,7 +256,6 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
             reader.GetDecimal(11),
             reader.GetDecimal(12),
             reader.GetDecimal(13));
-    }
 
     public async Task<IReadOnlyList<OldGoldMaterialOption>> GetOldGoldMaterialsAsync(
         AuthenticatedSession session,

@@ -17,6 +17,8 @@ public sealed class SalesModule : IKazukoModule
     public void RegisterServices(IServiceRegistry services)
     {
         services.AddSingleton<ISalesPaymentDialogService>(new WpfSalesPaymentDialogService());
+        services.AddSingleton<ISalesCustomerLookupDialogService>(new WpfSalesCustomerLookupDialogService());
+        services.AddSingleton<ISalesPriceOverrideDialogService>(new WpfSalesPriceOverrideDialogService());
         var printData = GetRequiredService<ISalesPrintDataService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
         services.AddSingleton<ISalesReceiptPresenter>(
@@ -51,6 +53,8 @@ public sealed class SalesModule : IKazukoModule
             GetRequiredService<IBankAccountRepository>(services),
             GetRequiredService<ICurrentSessionAccessor>(services),
             GetRequiredService<ISalesPaymentDialogService>(services),
+            GetRequiredService<ISalesCustomerLookupDialogService>(services),
+            GetRequiredService<ISalesPriceOverrideDialogService>(services),
             GetRequiredService<ISalesReceiptPresenter>(services));
 
     private static T GetRequiredService<T>(IServiceProvider services) where T : class =>

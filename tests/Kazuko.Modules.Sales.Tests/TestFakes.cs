@@ -26,6 +26,32 @@ internal sealed class FakePaymentDialog : ISalesPaymentDialogService
     }
 }
 
+internal sealed class FakeCustomerLookupDialog : ISalesCustomerLookupDialogService
+{
+    public SalesCustomerOption? NextResult { get; set; }
+    public int ShowCount { get; private set; }
+
+    public SalesCustomerOption? Show(
+        Func<string, Task<IReadOnlyList<SalesCustomerOption>>> searchAsync,
+        SalesCustomerOption? current)
+    {
+        ShowCount++;
+        return NextResult ?? current;
+    }
+}
+
+internal sealed class FakePriceOverrideDialog : ISalesPriceOverrideDialogService
+{
+    public bool NextResult { get; set; }
+    public int ShowCount { get; private set; }
+
+    public bool TryEdit(SellLineRowViewModel line)
+    {
+        ShowCount++;
+        return NextResult;
+    }
+}
+
 internal sealed class FakeReceiptPresenter : ISalesReceiptPresenter
 {
     public int ShowCount { get; private set; }
@@ -98,6 +124,14 @@ internal sealed class FakeQueryRepository : ISalesQueryRepository
         100, "SP001", "Nhẫn", 50, "Giá 750", 20, "750", 1,
         3.25m, 0.75m, 2.5m, 111m, 25m, 8m);
 
+    public List<SalesProductOption> Products { get; } = [];
+
+    public FakeQueryRepository()
+    {
+        if (Product is not null)
+            Products.Add(Product);
+    }
+
     public Task<IReadOnlyList<SalesCustomerOption>> SearchCustomersAsync(
         string searchText, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<SalesCustomerOption>>(Customers);
@@ -107,12 +141,44 @@ internal sealed class FakeQueryRepository : ISalesQueryRepository
         Task.FromResult<IReadOnlyList<SalespersonOption>>(Staff);
 
     public Task<SalesProductOption?> FindAvailableProductAsync(
-        string productCode, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
-        Task.FromResult(
-            Product is not null &&
-            string.Equals(Product.ProductCode, productCode, StringComparison.OrdinalIgnoreCase)
-                ? Product
-                : null);
+        string productCode, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        var match = Products.FirstOrDefault(x =>
+            string.Equals(x.ProductCode, productCode, StringComparison.OrdinalIgnoreCase));
+        if (match is null
+            && Product is not null
+            && string.Equals(Product.ProductCode, productCode, StringComparison.OrdinalIgnoreCase))
+        {
+            match = Product;
+        }
+
+        return Task.FromResult(match);
+    }
+
+    public Task<IReadOnlyList<SalesProductOption>> SearchAvailableProductsAsync(
+        string searchText, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        var search = (searchText ?? string.Empty).Trim();
+        if (search.Length == 0)
+            return Task.FromResult<IReadOnlyList<SalesProductOption>>([]);
+
+        var source = Products.Count > 0
+            ? Products.AsEnumerable()
+            : Product is null ? Enumerable.Empty<SalesProductOption>() : [Product];
+
+        IReadOnlyList<SalesProductOption> matches = source
+            .Where(x =>
+                x.ProductCode.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || x.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase))
+            .Take(20)
+            .ToArray();
+        return Task.FromResult(matches);
+    }
+
+    public Task<int> CountMatchingFinishedProductsAsync(
+        string searchText, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+        SearchAvailableProductsAsync(searchText, session, cancellationToken)
+            .ContinueWith(t => t.Result.Count, cancellationToken);
 
     public Task<IReadOnlyList<OldGoldMaterialOption>> GetOldGoldMaterialsAsync(
         AuthenticatedSession session, CancellationToken cancellationToken = default) =>
@@ -165,7 +231,7 @@ internal static class SalesTestFactory
         var receipts = new FakeReceiptPresenter();
         var vm = new SalesViewModel(
             queries, checkout, auth, new FakeCashFunds(), new FakeBanks(),
-            session, payments, receipts);
+            session, payments, new FakeCustomerLookupDialog(), new FakePriceOverrideDialog(), receipts);
         return (vm, checkout, payments, receipts, queries);
     }
 }

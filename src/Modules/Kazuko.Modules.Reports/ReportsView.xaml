@@ -249,73 +249,152 @@
                     </StackPanel>
                 </Border>
 
-                <shared:ReportWorkspaceView
-                    Visibility="{Binding ShowJewelryOnHand, Mode=OneWay, Converter={StaticResource BoolToVis}}"
-                    DataContext="{Binding JewelryOnHand}"
-                    EmptyMessage="Không có dữ liệu nữ trang tồn kho.">
-                    <shared:ReportWorkspaceView.FilterContent>
-                        <StackPanel>
-                            <TextBlock Text="Báo cáo nữ trang tồn kho"
-                                       FontSize="{DynamicResource FontSize.Subtitle}"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryBrush}"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="Thành phẩm đang tồn tại kho thành phẩm và kho bán hàng (theo chi nhánh đăng nhập)"
-                                       FontSize="{DynamicResource FontSize.Caption}"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,6,0,14" />
+                <!-- Một ContentControl: đổi báo cáo = gỡ WebView2 khỏi visual tree (tránh HWND đè pane). -->
+                <ContentControl Content="{Binding ActiveWorkspace, Mode=OneWay}"
+                                Visibility="{Binding ShowWorkspace, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                    <ContentControl.Resources>
+                        <DataTemplate DataType="{x:Type local:JewelryOnHandReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu nữ trang tồn kho.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Báo cáo nữ trang tồn kho"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Thành phẩm đang tồn tại kho thành phẩm và kho bán hàng (theo chi nhánh đăng nhập)"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
 
-                            <TextBlock Text="Bộ lọc"
-                                       FontSize="{DynamicResource FontSize.Caption}"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                       Margin="0,0,0,8" />
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
 
-                            <TextBox Style="{StaticResource ReportFilterFieldStyle}"
-                                     Margin="0,0,0,8"
-                                     HorizontalAlignment="Stretch"
-                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Mã hoặc tên sản phẩm" />
-                            <ComboBox Style="{StaticResource ReportFilterComboStyle}"
-                                      Margin="0,0,0,8"
-                                      HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding GoldTypeOptions}"
-                                      SelectedItem="{Binding SelectedGoldType}" />
-                            <ComboBox Style="{StaticResource ReportFilterComboStyle}"
-                                      Margin="0,0,0,8"
-                                      HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding ScopeOptions}"
-                                      SelectedItem="{Binding SelectedScope}" />
-                            <ComboBox Style="{StaticResource ReportFilterComboStyle}"
-                                      Margin="0,0,0,14"
-                                      HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding StatusOptions}"
-                                      SelectedItem="{Binding SelectedStatus}" />
+                                        <TextBox Style="{StaticResource ReportFilterFieldStyle}"
+                                                 Margin="0,0,0,8"
+                                                 HorizontalAlignment="Stretch"
+                                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Mã hoặc tên sản phẩm" />
+                                        <ComboBox Style="{StaticResource ReportFilterComboStyle}"
+                                                  Margin="0,0,0,8"
+                                                  HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding GoldTypeOptions}"
+                                                  SelectedItem="{Binding SelectedGoldType}" />
+                                        <ComboBox Style="{StaticResource ReportFilterComboStyle}"
+                                                  Margin="0,0,0,8"
+                                                  HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding ScopeOptions}"
+                                                  SelectedItem="{Binding SelectedScope}" />
+                                        <ComboBox Style="{StaticResource ReportFilterComboStyle}"
+                                                  Margin="0,0,0,14"
+                                                  HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding StatusOptions}"
+                                                  SelectedItem="{Binding SelectedStatus}" />
 
-                            <Button Content="Xóa lọc"
-                                    Style="{StaticResource ReportOutlineButtonStyle}"
-                                    Command="{Binding ClearFiltersCommand}"
-                                    HorizontalAlignment="Stretch"
-                                    Margin="0,0,0,8" />
-                            <Button Content="Làm mới"
-                                    Style="{StaticResource ReportOutlineButtonStyle}"
-                                    Command="{Binding RefreshCommand}"
-                                    HorizontalAlignment="Stretch"
-                                    Margin="0,0,0,8" />
-                            <Button Content="Mở PDF"
-                                    Style="{StaticResource ReportOutlineButtonStyle}"
-                                    Command="{Binding PreviewCommand}"
-                                    HorizontalAlignment="Stretch"
-                                    Margin="0,0,0,8"
-                                    ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                            <Button Content="In"
-                                    Style="{StaticResource ReportPrimaryButtonStyle}"
-                                    Command="{Binding PrintCommand}"
-                                    HorizontalAlignment="Stretch" />
-                        </StackPanel>
-                    </shared:ReportWorkspaceView.FilterContent>
-                </shared:ReportWorkspaceView>
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:JewelryOnHandSummaryReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu tổng hợp nữ trang tồn kho.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Tổng hợp nữ trang tồn kho"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Gom nhóm theo kho và loại vàng: số món, trọng lượng, giá trị tồn"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <ComboBox Style="{StaticResource ReportFilterComboStyle}"
+                                                  Margin="0,0,0,8"
+                                                  HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding GoldTypeOptions}"
+                                                  SelectedItem="{Binding SelectedGoldType}" />
+                                        <ComboBox Style="{StaticResource ReportFilterComboStyle}"
+                                                  Margin="0,0,0,8"
+                                                  HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding ScopeOptions}"
+                                                  SelectedItem="{Binding SelectedScope}" />
+                                        <ComboBox Style="{StaticResource ReportFilterComboStyle}"
+                                                  Margin="0,0,0,14"
+                                                  HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding StatusOptions}"
+                                                  SelectedItem="{Binding SelectedStatus}" />
+
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+                    </ContentControl.Resources>
+                </ContentControl>
             </Grid>
         </Grid>
     </Grid>

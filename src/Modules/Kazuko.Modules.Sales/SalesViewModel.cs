@@ -16,6 +16,8 @@ public sealed class SalesViewModel : ObservableObject
     private readonly IBankAccountRepository _bankAccounts;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly ISalesPaymentDialogService _paymentDialog;
+    private readonly ISalesCustomerLookupDialogService _customerLookup;
+    private readonly ISalesPriceOverrideDialogService _priceOverrideDialog;
     private readonly ISalesReceiptPresenter _receiptPresenter;
 
     private int _mainTabIndex;
@@ -40,6 +42,8 @@ public sealed class SalesViewModel : ObservableObject
         IBankAccountRepository bankAccounts,
         ICurrentSessionAccessor sessionAccessor,
         ISalesPaymentDialogService paymentDialog,
+        ISalesCustomerLookupDialogService customerLookup,
+        ISalesPriceOverrideDialogService priceOverrideDialog,
         ISalesReceiptPresenter receiptPresenter)
     {
         _queries = queries;
@@ -49,18 +53,25 @@ public sealed class SalesViewModel : ObservableObject
         _bankAccounts = bankAccounts;
         _sessionAccessor = sessionAccessor;
         _paymentDialog = paymentDialog;
+        _customerLookup = customerLookup;
+        _priceOverrideDialog = priceOverrideDialog;
         _receiptPresenter = receiptPresenter;
 
         BuySell = new BuySellWorkspaceViewModel(OnWorkspaceChanged);
         BuyOldGold = new BuyOldGoldWorkspaceViewModel(OnWorkspaceChanged);
         BuySell.FindProductAsync = code => FindProductAsync(code);
+        BuySell.SearchProductsAsync = SearchProductsAsync;
+        BuySell.CountMatchingProductsAsync = CountMatchingProductsAsync;
+        BuySell.LookupCustomerAction = () => LookupCustomerForBuySell();
+        BuyOldGold.LookupCustomerAction = () => LookupCustomerForBuyOldGold();
+        BuySell.EditSellPriceAction = EditSellPrice;
 
         NewCommand = new AsyncRelayCommand(NewAsync, () => !IsPosting);
         PreviousCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: false), () => !IsPosting && _permissions.CanReadHistory);
         NextCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: true), () => !IsPosting && _permissions.CanReadHistory);
         PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && _permissions.CanPost);
         PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && _permissions.CanPrintReceipt && LastResult is { CheckoutId: > 0 });
-        LookupCustomerCommand = new AsyncRelayCommand(ReloadCustomersAsync, () => !IsPosting);
+        LookupCustomerCommand = new AsyncRelayCommand(LookupCustomerForActiveTabAsync, () => !IsPosting);
 
         _ = InitializeAsync();
     }
@@ -189,6 +200,7 @@ public sealed class SalesViewModel : ObservableObject
             BuyOldGold.SelectedOldGoldMaterial = materials.FirstOrDefault();
             BuySell.CanChangeSalesperson = _permissions.CanChangeSalesperson;
             BuyOldGold.CanChangeSalesperson = _permissions.CanChangeSalesperson;
+            BuySell.CanOverridePrice = _permissions.CanOverridePrice;
 
             // Infer sales-floor from first product lookup seed is unavailable; leave 0 until first product scan.
             _salesFloorLocationId = 0;
@@ -201,7 +213,7 @@ public sealed class SalesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ErrorMessage = FriendlyError(ex);
+            ErrorMessage = FriendlyError(ex, isLoad: true);
         }
         finally
         {
@@ -236,6 +248,83 @@ public sealed class SalesViewModel : ObservableObject
         BuyOldGold.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedOld) ?? customers.FirstOrDefault();
     }
 
+    private Task LookupCustomerForActiveTabAsync()
+    {
+        if (IsBuySellTab)
+            LookupCustomerForBuySell();
+        else
+            LookupCustomerForBuyOldGold();
+        return Task.CompletedTask;
+    }
+
+    private void LookupCustomerForBuySell()
+    {
+        var picked = ShowCustomerLookup(BuySell.SelectedCustomer);
+        if (picked is null)
+            return;
+        EnsureCustomerOption(BuySell.CustomerOptions, picked);
+        BuySell.SelectedCustomer = picked;
+    }
+
+    private void LookupCustomerForBuyOldGold()
+    {
+        var picked = ShowCustomerLookup(BuyOldGold.SelectedCustomer);
+        if (picked is null)
+            return;
+        EnsureCustomerOption(BuyOldGold.CustomerOptions, picked);
+        BuyOldGold.SelectedCustomer = picked;
+    }
+
+    private SalesCustomerOption? ShowCustomerLookup(SalesCustomerOption? current)
+    {
+        try
+        {
+            var session = RequireSession();
+            return _customerLookup.Show(
+                search => _queries.SearchCustomersAsync(search, session),
+                current);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = FriendlyError(ex);
+            return null;
+        }
+    }
+
+    private static void EnsureCustomerOption(
+        System.Collections.ObjectModel.ObservableCollection<SalesCustomerOption> options,
+        SalesCustomerOption customer)
+    {
+        if (options.Any(x => x.Id == customer.Id))
+            return;
+        options.Insert(0, customer);
+    }
+
+    private void EditSellPrice()
+    {
+        if (!_permissions.CanOverridePrice)
+        {
+            ErrorMessage = "Không có quyền điều chỉnh giá bán.";
+            return;
+        }
+
+        if (BuySell.SelectedSellLine is null)
+        {
+            ErrorMessage = "Chọn một dòng vàng mới để sửa giá.";
+            return;
+        }
+
+        if (BuySell.IsReadOnly)
+            return;
+
+        ErrorMessage = string.Empty;
+        if (_priceOverrideDialog.TryEdit(BuySell.SelectedSellLine))
+        {
+            BuySell.RaiseTotalsChanged();
+            OnWorkspaceChanged();
+        }
+    }
+
     private async Task<SalesProductOption?> FindProductAsync(string code)
     {
         var session = RequireSession();
@@ -243,6 +332,23 @@ public sealed class SalesViewModel : ObservableObject
         if (product is not null && _salesFloorLocationId <= 0)
             _salesFloorLocationId = product.SourceLocationId;
         return product;
+    }
+
+    private async Task<IReadOnlyList<SalesProductOption>> SearchProductsAsync(
+        string searchText,
+        CancellationToken cancellationToken)
+    {
+        var session = RequireSession();
+        var matches = await _queries.SearchAvailableProductsAsync(searchText, session, cancellationToken);
+        if (_salesFloorLocationId <= 0 && matches.Count > 0)
+            _salesFloorLocationId = matches[0].SourceLocationId;
+        return matches;
+    }
+
+    private Task<int> CountMatchingProductsAsync(string searchText, CancellationToken cancellationToken)
+    {
+        var session = RequireSession();
+        return _queries.CountMatchingFinishedProductsAsync(searchText, session, cancellationToken);
     }
 
     private async Task PayAsync()
@@ -430,12 +536,44 @@ public sealed class SalesViewModel : ObservableObject
             target.Add(item);
     }
 
-    private static string FriendlyError(Exception ex)
+    private static string FriendlyError(Exception ex, bool isLoad = false)
     {
-        var message = ex.Message;
-        if (message.Contains("SQL", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("Firebird", StringComparison.OrdinalIgnoreCase))
-            return "Không thể hoàn tất giao dịch. Vui lòng kiểm tra dữ liệu và thử lại.";
-        return message;
+        var message = CollectExceptionText(ex);
+        var isDataAccess =
+            message.Contains("SQL", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Firebird", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("I/O error", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Column unknown", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Table unknown", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Procedure unknown", StringComparison.OrdinalIgnoreCase)
+            || ex.GetType().Name.Contains("FbException", StringComparison.OrdinalIgnoreCase)
+            || ex.InnerException?.GetType().Name.Contains("FbException", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (isDataAccess)
+        {
+            return isLoad
+                ? "Không tải được dữ liệu bán hàng. Database chính có thể chưa áp dụng migration 51 (sales checkout)."
+                : "Không thể hoàn tất giao dịch. Vui lòng kiểm tra dữ liệu và thử lại.";
+        }
+
+        if (isLoad)
+            return "Không tải được màn hình bán hàng. " + (string.IsNullOrWhiteSpace(ex.Message) ? "Vui lòng thử lại." : ex.Message);
+
+        return string.IsNullOrWhiteSpace(ex.Message)
+            ? "Đã xảy ra lỗi. Vui lòng thử lại."
+            : ex.Message;
+    }
+
+    private static string CollectExceptionText(Exception ex)
+    {
+        var parts = new List<string>();
+        for (Exception? cur = ex; cur != null; cur = cur.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(cur.Message))
+                parts.Add(cur.Message);
+            parts.Add(cur.GetType().FullName ?? cur.GetType().Name);
+        }
+
+        return string.Join(" | ", parts);
     }
 }

@@ -7,47 +7,76 @@ using Kazuko.Modules.Sales.Services;
 
 namespace Kazuko.Modules.Sales.Dialogs;
 
+public sealed record PaymentMethodOption(string Code, string Label)
+{
+    public override string ToString() => Label;
+}
+
 public sealed class SalesPaymentAllocationRow : ObservableObject
 {
+    private readonly Action? _onChanged;
     private string _paymentMethod = PaymentMethods.Cash;
     private decimal _amountVnd;
     private CashFundOption? _cashFund;
     private BankAccountOption? _bankAccount;
     private string _referenceNumber = string.Empty;
 
+    public SalesPaymentAllocationRow(Action? onChanged = null) => _onChanged = onChanged;
+
     public string PaymentMethod
     {
         get => _paymentMethod;
         set
         {
-            if (SetProperty(ref _paymentMethod, value))
-            {
-                OnPropertyChanged(nameof(RequiresCashFund));
-                OnPropertyChanged(nameof(RequiresBankAccount));
-                if (RequiresCashFund)
-                    BankAccount = null;
-                if (RequiresBankAccount)
-                    CashFund = null;
-            }
+            if (!SetProperty(ref _paymentMethod, value))
+                return;
+            OnPropertyChanged(nameof(RequiresCashFund));
+            OnPropertyChanged(nameof(RequiresBankAccount));
+            OnPropertyChanged(nameof(PaymentMethodLabel));
+            if (RequiresCashFund)
+                BankAccount = null;
+            if (RequiresBankAccount)
+                CashFund = null;
+            _onChanged?.Invoke();
         }
     }
+
+    public string PaymentMethodLabel => PaymentMethod switch
+    {
+        PaymentMethods.Cash => "Tiền mặt",
+        PaymentMethods.BankTransfer => "Chuyển khoản",
+        PaymentMethods.Card => "Thẻ",
+        _ => PaymentMethod
+    };
 
     public decimal AmountVnd
     {
         get => _amountVnd;
-        set => SetProperty(ref _amountVnd, value);
+        set
+        {
+            if (SetProperty(ref _amountVnd, value))
+                _onChanged?.Invoke();
+        }
     }
 
     public CashFundOption? CashFund
     {
         get => _cashFund;
-        set => SetProperty(ref _cashFund, value);
+        set
+        {
+            if (SetProperty(ref _cashFund, value))
+                _onChanged?.Invoke();
+        }
     }
 
     public BankAccountOption? BankAccount
     {
         get => _bankAccount;
-        set => SetProperty(ref _bankAccount, value);
+        set
+        {
+            if (SetProperty(ref _bankAccount, value))
+                _onChanged?.Invoke();
+        }
     }
 
     public string ReferenceNumber
@@ -95,21 +124,17 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
         _isPayout = isPayout;
         _canApproveDebt = canApproveDebt;
         _allowReceivable = allowReceivable && !isPayout && canApproveDebt;
-        DocumentHint = documentHint;
+        DocumentHint = string.IsNullOrWhiteSpace(documentHint) ? "Thanh toán tại quầy" : documentHint;
         foreach (var fund in cashFunds) CashFunds.Add(fund);
         foreach (var bank in bankAccounts) BankAccounts.Add(bank);
 
-        if (isPayout)
-        {
-            AvailableMethods.Add(PaymentMethods.Cash);
-            AvailableMethods.Add(PaymentMethods.BankTransfer);
-        }
-        else
-        {
-            AvailableMethods.Add(PaymentMethods.Cash);
-            AvailableMethods.Add(PaymentMethods.BankTransfer);
-            AvailableMethods.Add(PaymentMethods.Card);
-        }
+        MethodOptions.Add(new PaymentMethodOption(PaymentMethods.Cash, "Tiền mặt"));
+        MethodOptions.Add(new PaymentMethodOption(PaymentMethods.BankTransfer, "Chuyển khoản"));
+        if (!isPayout)
+            MethodOptions.Add(new PaymentMethodOption(PaymentMethods.Card, "Thẻ"));
+
+        DefaultCashFund = CashFunds.FirstOrDefault(x => x.IsDefault) ?? CashFunds.FirstOrDefault();
+        DefaultBankAccount = PreferPrimaryBankAccount(BankAccounts) ?? BankAccounts.FirstOrDefault();
 
         AddAllocationCommand = new RelayCommand(AddAllocation);
         RemoveAllocationCommand = new RelayCommand(RemoveAllocation, () => SelectedAllocation is not null);
@@ -126,11 +151,15 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
     public decimal AbsoluteAmount => Math.Abs(_netAmountVnd);
     public string AbsoluteAmountText => AbsoluteAmount.ToString("N0", Vi);
     public string ModeLabel => _isPayout ? "Chi cho khách" : "Thu từ khách";
+    public string ReferenceHint =>
+        "Mã giao dịch / số tham chiếu (tuỳ chọn): số CK ngân hàng, mã UTR, hoặc mã chuẩn chi thẻ — để đối soát sổ quỹ.";
 
-    public ObservableCollection<string> AvailableMethods { get; } = [];
+    public ObservableCollection<PaymentMethodOption> MethodOptions { get; } = [];
     public ObservableCollection<CashFundOption> CashFunds { get; } = [];
     public ObservableCollection<BankAccountOption> BankAccounts { get; } = [];
     public ObservableCollection<SalesPaymentAllocationRow> Allocations { get; } = [];
+    public CashFundOption? DefaultCashFund { get; }
+    public BankAccountOption? DefaultBankAccount { get; }
 
     public SalesPaymentAllocationRow? SelectedAllocation
     {
@@ -158,6 +187,8 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
     public decimal AllocatedTotal => Allocations.Sum(x => x.AmountVnd);
     public decimal AllocatedPlusReceivable => AllocatedTotal + ReceivableAmountVnd;
     public string AllocatedTotalText => AllocatedTotal.ToString("N0", Vi);
+    public string RemainingText =>
+        Math.Max(0, AbsoluteAmount - (_isPayout ? AllocatedTotal : AllocatedPlusReceivable)).ToString("N0", Vi);
 
     public string ErrorMessage
     {
@@ -183,6 +214,7 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(AllocatedTotal));
         OnPropertyChanged(nameof(AllocatedPlusReceivable));
         OnPropertyChanged(nameof(AllocatedTotalText));
+        OnPropertyChanged(nameof(RemainingText));
         ((RelayCommand)ConfirmCommand).NotifyCanExecuteChanged();
     }
 
@@ -191,15 +223,32 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
         var remaining = _isPayout
             ? AbsoluteAmount - AllocatedTotal
             : AbsoluteAmount - AllocatedPlusReceivable;
-        var row = new SalesPaymentAllocationRow
+        var row = new SalesPaymentAllocationRow(NotifyAllocationChanged)
         {
-            PaymentMethod = AvailableMethods[0],
+            PaymentMethod = MethodOptions[0].Code,
             AmountVnd = remaining > 0 ? remaining : 0,
-            CashFund = CashFunds.FirstOrDefault()
+            CashFund = DefaultCashFund,
+            BankAccount = null
         };
+        // Default cash uses quỹ; bank/card rows get primary account when method changes.
+        ApplyMethodDefaults(row);
         Allocations.Add(row);
         SelectedAllocation = row;
         NotifyAllocationChanged();
+    }
+
+    private void ApplyMethodDefaults(SalesPaymentAllocationRow row)
+    {
+        if (row.RequiresCashFund)
+        {
+            row.CashFund ??= DefaultCashFund;
+            row.BankAccount = null;
+        }
+        else if (row.RequiresBankAccount)
+        {
+            row.BankAccount ??= DefaultBankAccount;
+            row.CashFund = null;
+        }
     }
 
     private void RemoveAllocation()
@@ -214,6 +263,9 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
 
     private void Confirm()
     {
+        foreach (var row in Allocations)
+            ApplyMethodDefaults(row);
+
         var error = Validate();
         if (!string.IsNullOrEmpty(error))
         {
@@ -252,5 +304,21 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
             Allocations.Select(x => x.ToDraft()).ToArray(),
             AllocatedTotal);
         return paymentErrors.Count > 0 ? string.Join(" ", paymentErrors) : string.Empty;
+    }
+
+    internal static BankAccountOption? PreferPrimaryBankAccount(IEnumerable<BankAccountOption> banks)
+    {
+        var list = banks.ToList();
+        return list.FirstOrDefault(IsPrimaryBankAccount) ?? list.FirstOrDefault();
+    }
+
+    private static bool IsPrimaryBankAccount(BankAccountOption bank)
+    {
+        var haystack = $"{bank.Code} {bank.BankName} {bank.AccountNumber}";
+        return haystack.Contains("Tài khoản chính", StringComparison.OrdinalIgnoreCase)
+               || haystack.Contains("tai khoan chinh", StringComparison.OrdinalIgnoreCase)
+               || haystack.Contains("CHINH", StringComparison.OrdinalIgnoreCase)
+               || haystack.Contains("PRIMARY", StringComparison.OrdinalIgnoreCase)
+               || haystack.Contains("MAIN", StringComparison.OrdinalIgnoreCase);
     }
 }

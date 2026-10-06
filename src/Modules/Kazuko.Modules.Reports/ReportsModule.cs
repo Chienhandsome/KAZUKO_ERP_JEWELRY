@@ -19,6 +19,7 @@ public sealed class ReportsModule : IKazukoModule
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
     {
         var reportService = GetRequiredService<IJewelryOnHandReportService>(services);
+        var summaryService = GetRequiredService<IJewelryOnHandSummaryReportService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
 
         navigation.Register(new NavigationItem(
@@ -30,7 +31,8 @@ public sealed class ReportsModule : IKazukoModule
             () => new ReportsView
             {
                 DataContext = new ReportsViewModel(
-                    new JewelryOnHandReportViewModel(reportService, session))
+                    new JewelryOnHandReportViewModel(reportService, session),
+                    new JewelryOnHandSummaryReportViewModel(summaryService, session))
             },
             AssetRoot + "BC.png",
             "Thống kê, báo cáo\ntổng hợp",

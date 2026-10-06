@@ -22,7 +22,7 @@ public sealed class JewelryOnHandReportViewModel : ReportWorkspaceViewModel
     public JewelryOnHandReportViewModel(
         IJewelryOnHandReportService reportService,
         ICurrentSessionAccessor sessionAccessor)
-        : base(sessionAccessor, "jewelry-on-hand")
+        : base(sessionAccessor, "jewelry-on-hand", JewelryOnHandReportColumns.SettingsKey)
     {
         _reportService = reportService;
 
@@ -41,6 +41,8 @@ public sealed class JewelryOnHandReportViewModel : ReportWorkspaceViewModel
         ScopeOptions.Add("Kho thành phẩm");
         ScopeOptions.Add("Kho bán hàng");
     }
+
+    protected override IReadOnlyList<ReportColumnDefinition> AvailableColumns => JewelryOnHandReportColumns.All;
 
     public ObservableCollection<JewelryOnHandRowViewModel> Rows { get; } = new();
     public ObservableCollection<string> GoldTypeOptions { get; } = new();
@@ -129,7 +131,8 @@ public sealed class JewelryOnHandReportViewModel : ReportWorkspaceViewModel
             SelectedScope,
             SelectedGoldType,
             SelectedStatus,
-            SearchText);
+            SearchText,
+            ActiveColumns);
 
     protected override void OnLoadFailed() => Rows.Clear();
 

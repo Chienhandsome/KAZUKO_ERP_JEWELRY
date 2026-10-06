@@ -65,6 +65,24 @@ public sealed class SalesQueryRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SearchAvailableProductsAsync_MatchesCodeOrName_AndKeepsSellableRules()
+    {
+        var session = _database.BranchSession(_database.LimitedUserId);
+
+        var byCode = await _repository.SearchAvailableProductsAsync("T3_PRODUCT_DISP", session);
+        var byName = await _repository.SearchAvailableProductsAsync("Displayed", session);
+        var byTp = await _repository.SearchAvailableProductsAsync("tp", session);
+        var sold = await _repository.SearchAvailableProductsAsync("T3_PRODUCT_SOLD", session);
+        var empty = await _repository.SearchAvailableProductsAsync("   ", session);
+
+        Assert.Contains(byCode, x => x.ProductCode == "T3_PRODUCT_DISPLAYED");
+        Assert.Contains(byName, x => x.ProductCode == "T3_PRODUCT_DISPLAYED");
+        Assert.Contains(byTp, x => x.ProductCode == "TP-CN-2026-000003");
+        Assert.DoesNotContain(sold, x => x.ProductCode == "T3_PRODUCT_SOLD");
+        Assert.Empty(empty);
+    }
+
+    [Fact]
     public async Task SearchCustomersAsync_ReturnsActiveCompanyCustomersAndIsBounded()
     {
         var session = _database.BranchSession(_database.LimitedUserId);

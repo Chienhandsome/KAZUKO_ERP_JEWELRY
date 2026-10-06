@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Sales.BuySellTabView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Kazuko.Modules.Sales"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -17,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header phiếu -->
-        <Border Grid.Row="0" Style="{StaticResource SalesCardStyle}" Padding="14,12" Margin="0,0,0,12">
+        <Border Grid.Row="0" Style="{StaticResource SalesCardStyle}" Padding="12,10" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -67,153 +68,154 @@
                 <ColumnDefinition Width="280" MinWidth="240" />
             </Grid.ColumnDefinitions>
 
+            <!-- Hai bảng chia đều chiều cao còn lại -->
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1.2*" MinHeight="180" />
-                    <RowDefinition Height="12" />
-                    <RowDefinition Height="*" MinHeight="160" />
+                    <RowDefinition Height="1.25*" MinHeight="240" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="*" MinHeight="240" />
                 </Grid.RowDefinitions>
 
-                <!-- Vàng mới / HĐĐT -->
-                <Border Grid.Row="0" Style="{StaticResource SalesCardStyle}" Padding="12">
-                    <TabControl SelectedIndex="{Binding ContentTabIndex}"
-                                Style="{StaticResource SalesTabControlStyle}"
-                                ItemContainerStyle="{StaticResource SalesInnerTabItemStyle}">
-                        <TabItem Header="Vàng mới bán ra">
-                            <DockPanel Margin="0,10,0,0">
-                                <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="200" />
-                                        <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Mã hàng" Style="{StaticResource SalesFieldLabelStyle}"
-                                               VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <TextBox Grid.Column="1"
-                                             Text="{Binding ProductCodeInput, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource SalesRoundedTextBoxStyle}" />
-                                    <Button Grid.Column="3" Content="Nhập (Enter)"
-                                            Style="{StaticResource SalesPrimaryButtonStyle}"
-                                            Command="{Binding AddSellLineCommand}"
-                                            MinHeight="36" Padding="12,4" />
-                                    <Button Grid.Column="5" Content="Xóa"
-                                            Style="{StaticResource SalesGhostButtonStyle}"
-                                            Command="{Binding RemoveSellLineCommand}"
-                                            MinHeight="36" MinWidth="72" Margin="0" />
-                                    <Button Grid.Column="7" Content="Xóa hết"
-                                            Style="{StaticResource SalesDangerButtonStyle}"
-                                            Command="{Binding ClearSellLinesCommand}"
-                                            MinHeight="36" MinWidth="88" Margin="0" />
-                                </Grid>
-                                <DataGrid Style="{StaticResource SalesDataGridStyle}"
-                                          ItemsSource="{Binding SellLines}"
-                                          SelectedItem="{Binding SelectedSellLine}"
-                                          BorderThickness="0"
-                                          grid:DataGridColumnLayout.SettingsKey="sales.buysell.sell-lines">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
-                                                            Binding="{Binding Index, Mode=OneWay}" Width="44" />
-                                        <DataGridTextColumn Header="Mã hàng" grid:DataGridColumnLayout.Key="ProductCode"
-                                                            Binding="{Binding ProductCode, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName"
-                                                            Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="100" />
-                                        <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType"
-                                                            Binding="{Binding GoldType, Mode=OneWay}" Width="80" />
-                                        <DataGridTextColumn Header="TL Vàng (Chỉ)" grid:DataGridColumnLayout.Key="GoldWeight"
-                                                            Binding="{Binding GoldWeightText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="TL Đá" grid:DataGridColumnLayout.Key="StoneWeight"
-                                                            Binding="{Binding StoneWeightText, Mode=OneWay}" Width="70" />
-                                        <DataGridTextColumn Header="Công bán" grid:DataGridColumnLayout.Key="LaborFee"
-                                                            Binding="{Binding LaborFeeText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Cắt Ni" grid:DataGridColumnLayout.Key="SizeCut"
-                                                            Binding="{Binding SizeCutText, Mode=OneWay}" Width="70" />
-                                        <DataGridTextColumn Header="Vàng thực tế" grid:DataGridColumnLayout.Key="ActualGold"
-                                                            Binding="{Binding ActualGoldText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Giá bán" grid:DataGridColumnLayout.Key="SellPrice"
-                                                            Binding="{Binding SellPriceText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Tiền đá" grid:DataGridColumnLayout.Key="StoneAmount"
-                                                            Binding="{Binding StoneAmountText, Mode=OneWay}" Width="90" />
-                                        <DataGridTextColumn Header="Thành tiền" grid:DataGridColumnLayout.Key="LineTotal"
-                                                            Binding="{Binding LineTotalText, Mode=OneWay}" Width="100" />
-                                        <DataGridTextColumn Header="Kho" grid:DataGridColumnLayout.Key="Warehouse"
-                                                            Binding="{Binding Warehouse, Mode=OneWay}" Width="110" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </DockPanel>
-                        </TabItem>
-                        <TabItem Header="Hóa đơn điện tử" Visibility="Collapsed">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,10,0,0">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="16" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-
-                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
-                                        <TextBlock Text="Mã số thuế" Style="{StaticResource SalesFieldLabelStyle}" />
-                                        <TextBox Text="{Binding EinvoiceTaxCode, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource SalesRoundedTextBoxStyle}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
-                                        <TextBlock Text="Tên người mua / đơn vị" Style="{StaticResource SalesFieldLabelStyle}" />
-                                        <TextBox Text="{Binding EinvoiceBuyerName, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource SalesRoundedTextBoxStyle}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,10">
-                                        <TextBlock Text="Địa chỉ" Style="{StaticResource SalesFieldLabelStyle}" />
-                                        <TextBox Text="{Binding EinvoiceAddress, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource SalesRoundedTextBoxStyle}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
-                                        <TextBlock Text="Email nhận HĐ" Style="{StaticResource SalesFieldLabelStyle}" />
-                                        <TextBox Text="{Binding EinvoiceEmail, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource SalesRoundedTextBoxStyle}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,10">
-                                        <TextBlock Text="Số điện thoại" Style="{StaticResource SalesFieldLabelStyle}" />
-                                        <TextBox Text="{Binding EinvoicePhone, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource SalesRoundedTextBoxStyle}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,10">
-                                        <TextBlock Text="Hình thức hóa đơn" Style="{StaticResource SalesFieldLabelStyle}" />
-                                        <ComboBox ItemsSource="{Binding InvoiceFormOptions}"
-                                                  SelectedItem="{Binding EinvoiceInvoiceForm}"
-                                                  Style="{StaticResource SalesComboStyle}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
-                                        <TextBlock Text="Ghi chú HĐĐT" Style="{StaticResource SalesFieldLabelStyle}" />
-                                        <TextBox Text="{Binding EinvoiceNotes, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource SalesRoundedTextBoxStyle}"
-                                                 MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True"
-                                                 VerticalContentAlignment="Top" Padding="12,8" />
-                                    </StackPanel>
-                                </Grid>
-                            </ScrollViewer>
-                        </TabItem>
-                    </TabControl>
+                <!-- Vàng mới bán ra -->
+                <Border Grid.Row="0" Style="{StaticResource SalesCardStyle}" Padding="10">
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Top" Text="Vàng mới bán ra"
+                                   Style="{StaticResource SalesSectionHeaderStyle}"
+                                   Margin="0,0,0,8" />
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" MinWidth="260" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Mã hàng" Style="{StaticResource SalesFieldLabelStyle}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <Grid x:Name="ProductSearchHost" Grid.Column="1">
+                                <TextBox x:Name="ProductCodeBox"
+                                         Text="{Binding ProductCodeInput, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SalesRoundedTextBoxStyle}"
+                                         PreviewKeyDown="ProductCodeBox_PreviewKeyDown" />
+                                <Popup IsOpen="{Binding IsProductSuggestionOpen, Mode=TwoWay}"
+                                       PlacementTarget="{Binding ElementName=ProductCodeBox}"
+                                       Placement="Bottom"
+                                       StaysOpen="True"
+                                       AllowsTransparency="True"
+                                       PopupAnimation="Fade">
+                                    <Border Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            MinWidth="{Binding ActualWidth, ElementName=ProductCodeBox}"
+                                            MaxHeight="260"
+                                            Padding="0,4">
+                                        <ListBox x:Name="ProductSuggestionList"
+                                                 ItemsSource="{Binding ProductSuggestions}"
+                                                 SelectedItem="{Binding SelectedProductSuggestion, Mode=TwoWay}"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                 PreviewKeyDown="ProductSuggestionList_PreviewKeyDown"
+                                                 PreviewMouseLeftButtonUp="ProductSuggestionList_PreviewMouseLeftButtonUp">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type local:ProductSuggestionItem}">
+                                                    <Grid MinWidth="320" Margin="4,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="100" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="72" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding ProductCode}" FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding ProductName}"
+                                                                   Margin="8,0" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding WeightText, StringFormat=TL {0}}"
+                                                                   VerticalAlignment="Center"
+                                                                   HorizontalAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                            <Button Grid.Column="3" Content="Nhập (Enter)"
+                                    Style="{StaticResource SalesPrimaryButtonStyle}"
+                                    Command="{Binding AddSellLineCommand}"
+                                    MinHeight="36" Padding="12,4" />
+                            <Button Grid.Column="5" Content="Xóa"
+                                    Style="{StaticResource SalesGhostButtonStyle}"
+                                    Command="{Binding RemoveSellLineCommand}"
+                                    MinHeight="36" MinWidth="72" Margin="0" />
+                            <Button Grid.Column="7" Content="Sửa giá"
+                                    Style="{StaticResource SalesOutlineButtonStyle}"
+                                    Command="{Binding EditSellPriceCommand}"
+                                    MinHeight="36" MinWidth="88" Margin="0"
+                                    ToolTip="Điều chỉnh giá vàng / công / đá (cần quyền)" />
+                            <Button Grid.Column="9" Content="Xóa hết"
+                                    Style="{StaticResource SalesDangerButtonStyle}"
+                                    Command="{Binding ClearSellLinesCommand}"
+                                    MinHeight="36" MinWidth="88" Margin="0" />
+                        </Grid>
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="{Binding StatusMessage}"
+                                   Foreground="{DynamicResource DangerBrush}"
+                                   FontSize="{DynamicResource FontSize.Caption}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,6" />
+                        <DataGrid Style="{StaticResource SalesDataGridStyle}"
+                                  ItemsSource="{Binding SellLines}"
+                                  SelectedItem="{Binding SelectedSellLine}"
+                                  BorderThickness="0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  grid:DataGridColumnLayout.SettingsKey="sales.buysell.sell-lines">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
+                                                    Binding="{Binding Index, Mode=OneWay}" Width="44" />
+                                <DataGridTextColumn Header="Mã hàng" grid:DataGridColumnLayout.Key="ProductCode"
+                                                    Binding="{Binding ProductCode, Mode=OneWay}" Width="90" />
+                                <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName"
+                                                    Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType"
+                                                    Binding="{Binding GoldType, Mode=OneWay}" Width="80" />
+                                <DataGridTextColumn Header="TL Vàng (Chỉ)" grid:DataGridColumnLayout.Key="GoldWeight"
+                                                    Binding="{Binding GoldWeightText, Mode=OneWay}" Width="90" />
+                                <DataGridTextColumn Header="TL Đá" grid:DataGridColumnLayout.Key="StoneWeight"
+                                                    Binding="{Binding StoneWeightText, Mode=OneWay}" Width="70" />
+                                <DataGridTextColumn Header="Công bán" grid:DataGridColumnLayout.Key="LaborFee"
+                                                    Binding="{Binding LaborFeeText, Mode=OneWay}" Width="90" />
+                                <DataGridTextColumn Header="Giá bán" grid:DataGridColumnLayout.Key="SellPrice"
+                                                    Binding="{Binding SellPriceText, Mode=OneWay}" Width="90" />
+                                <DataGridTextColumn Header="Tiền đá" grid:DataGridColumnLayout.Key="StoneAmount"
+                                                    Binding="{Binding StoneAmountText, Mode=OneWay}" Width="90" />
+                                <DataGridTextColumn Header="Thành tiền" grid:DataGridColumnLayout.Key="LineTotal"
+                                                    Binding="{Binding LineTotalText, Mode=OneWay}" Width="100" />
+                                <DataGridTextColumn Header="Kho" grid:DataGridColumnLayout.Key="Warehouse"
+                                                    Binding="{Binding Warehouse, Mode=OneWay}" Width="110" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
                 </Border>
 
                 <!-- Vàng cũ thu mua -->
-                <Border Grid.Row="2" Style="{StaticResource SalesCardStyle}" Padding="14">
-                    <DockPanel>
+                <Border Grid.Row="2" Style="{StaticResource SalesCardStyle}" Padding="10">
+                    <DockPanel LastChildFill="True">
                         <TextBlock DockPanel.Dock="Top" Text="Vàng cũ thu mua về"
-                                   Style="{StaticResource SalesSectionHeaderStyle}" />
-                        <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Disabled"
-                                      HorizontalScrollBarVisibility="Auto" Margin="0,0,0,10">
-                            <Grid MinWidth="920">
+                                   Style="{StaticResource SalesSectionHeaderStyle}"
+                                   Margin="0,0,0,8" />
+                        <ScrollViewer DockPanel.Dock="Top"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      Margin="0,0,0,8">
+                            <Grid MinWidth="900">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="130" />
                                     <ColumnDefinition Width="78" />
@@ -240,7 +242,7 @@
                                 <TextBlock Grid.Row="0" Grid.Column="5" Text="Giá trị %" Style="{StaticResource SalesFieldLabelStyle}" />
                                 <TextBlock Grid.Row="0" Grid.Column="6" Text="TL quy đổi" Style="{StaticResource SalesFieldLabelStyle}" />
                                 <TextBlock Grid.Row="0" Grid.Column="7" Text="Giá mua" Style="{StaticResource SalesFieldLabelStyle}" />
-                                <TextBlock Grid.Row="0" Grid.Column="8" Text="Mã hàng" Style="{StaticResource SalesFieldLabelStyle}" />
+                                <TextBlock Grid.Row="0" Grid.Column="8" Text="Lý do giá" Style="{StaticResource SalesFieldLabelStyle}" />
                                 <TextBlock Grid.Row="0" Grid.Column="9" Text="Số lượng" Style="{StaticResource SalesFieldLabelStyle}" />
 
                                 <ComboBox Grid.Row="1" Grid.Column="0" ItemsSource="{Binding OldGoldTypeOptions}"
@@ -280,6 +282,7 @@
                                   ItemsSource="{Binding BuyLines}"
                                   SelectedItem="{Binding SelectedBuyLine}"
                                   BorderThickness="0"
+                                  VerticalScrollBarVisibility="Auto"
                                   grid:DataGridColumnLayout.SettingsKey="sales.buysell.buy-lines">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
@@ -300,29 +303,26 @@
                                                     Binding="{Binding BuyPriceText, Mode=OneWay}" Width="90" />
                                 <DataGridTextColumn Header="Thành tiền" grid:DataGridColumnLayout.Key="LineTotal"
                                                     Binding="{Binding LineTotalText, Mode=OneWay}" Width="100" />
-                                <DataGridTemplateColumn Header="In tem nhập kho" grid:DataGridColumnLayout.Key="PrintLabel" Width="120">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="In tem"
-                                                    Style="{StaticResource SalesGridActionButtonStyle}"
-                                                    Command="{Binding DataContext.PrintStockLabelCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding}" />
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
                 </Border>
             </Grid>
 
-            <!-- Sidebar tổng -->
-            <Border Grid.Column="2" Style="{StaticResource SalesCardStyle}" Padding="16">
+            <!-- Tổng cộng + thanh toán -->
+            <Border Grid.Column="2" Style="{StaticResource SalesCardStyle}" Padding="14"
+                    VerticalAlignment="Stretch">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Tổng cộng"
                                Style="{StaticResource SalesSectionHeaderStyle}"
-                               HorizontalAlignment="Center" Margin="0,0,0,14" />
-                    <Border DockPanel.Dock="Bottom" Style="{StaticResource SalesAmountHeroStyle}">
+                               HorizontalAlignment="Center" Margin="0,0,0,12" />
+                    <Button DockPanel.Dock="Bottom"
+                            Content="Thanh toán (F9)"
+                            Style="{StaticResource SalesPrimaryButtonStyle}"
+                            Command="{Binding DataContext.PayCommand, RelativeSource={RelativeSource AncestorType=local:SalesView}}"
+                            MinHeight="44"
+                            Margin="0,10,0,0" />
+                    <Border DockPanel.Dock="Bottom" Style="{StaticResource SalesAmountHeroStyle}" Margin="0,10,0,0">
                         <StackPanel>
                             <TextBlock Text="Phải thu"
                                        Foreground="{DynamicResource TextSecondaryBrush}"

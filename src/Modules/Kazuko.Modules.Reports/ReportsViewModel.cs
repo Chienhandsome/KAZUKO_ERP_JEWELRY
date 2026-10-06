@@ -1,29 +1,35 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Kazuko.Core.Mvvm;
+using Kazuko.Modules.Reports.Shared;
 
 namespace Kazuko.Modules.Reports;
 
 public sealed class ReportsViewModel : ObservableObject
 {
     public const string JewelryOnHandKey = "reports.warehouse.jewelry_on_hand";
+    public const string JewelryOnHandSummaryKey = "reports.warehouse.jewelry_on_hand_summary";
 
     private ReportTreeNode? _selectedNode;
     private string _placeholderTitle = "Báo cáo";
     private string _placeholderMessage = "Chọn một báo cáo trong danh sách bên trái.";
     private bool _showPlaceholder = true;
-    private bool _showJewelryOnHand;
+    private ReportWorkspaceViewModel? _activeWorkspace;
     private bool _isCatalogVisible = true;
 
-    public ReportsViewModel(JewelryOnHandReportViewModel jewelryOnHand)
+    public ReportsViewModel(
+        JewelryOnHandReportViewModel jewelryOnHand,
+        JewelryOnHandSummaryReportViewModel jewelryOnHandSummary)
     {
         JewelryOnHand = jewelryOnHand;
+        JewelryOnHandSummary = jewelryOnHandSummary;
         Menu = ReportCatalog.CreateMenu();
         ToggleCatalogCommand = new RelayCommand(ToggleCatalog);
     }
 
     public ObservableCollection<ReportTreeNode> Menu { get; }
     public JewelryOnHandReportViewModel JewelryOnHand { get; }
+    public JewelryOnHandSummaryReportViewModel JewelryOnHandSummary { get; }
     public ICommand ToggleCatalogCommand { get; }
 
     public ReportTreeNode? SelectedNode
@@ -70,11 +76,19 @@ public sealed class ReportsViewModel : ObservableObject
         private set => SetProperty(ref _showPlaceholder, value);
     }
 
-    public bool ShowJewelryOnHand
+    /// <summary>Workspace báo cáo đang mở; null = placeholder. Đổi instance để WebView2 không đè HWND.</summary>
+    public ReportWorkspaceViewModel? ActiveWorkspace
     {
-        get => _showJewelryOnHand;
-        private set => SetProperty(ref _showJewelryOnHand, value);
+        get => _activeWorkspace;
+        private set
+        {
+            if (!SetProperty(ref _activeWorkspace, value))
+                return;
+            OnPropertyChanged(nameof(ShowWorkspace));
+        }
     }
+
+    public bool ShowWorkspace => ActiveWorkspace is not null;
 
     private void ToggleCatalog() => IsCatalogVisible = !IsCatalogVisible;
 
@@ -82,9 +96,9 @@ public sealed class ReportsViewModel : ObservableObject
     {
         if (SelectedNode is null)
         {
+            ActiveWorkspace = null;
             PlaceholderTitle = "Báo cáo";
             PlaceholderMessage = "Chọn một báo cáo trong danh sách bên trái.";
-            ShowJewelryOnHand = false;
             ShowPlaceholder = true;
             return;
         }
@@ -93,12 +107,21 @@ public sealed class ReportsViewModel : ObservableObject
             && string.Equals(SelectedNode.ReportKey, JewelryOnHandKey, StringComparison.Ordinal))
         {
             ShowPlaceholder = false;
-            ShowJewelryOnHand = true;
+            ActiveWorkspace = JewelryOnHand;
             _ = JewelryOnHand.EnsureLoadedAsync();
             return;
         }
 
-        ShowJewelryOnHand = false;
+        if (SelectedNode.IsReport
+            && string.Equals(SelectedNode.ReportKey, JewelryOnHandSummaryKey, StringComparison.Ordinal))
+        {
+            ShowPlaceholder = false;
+            ActiveWorkspace = JewelryOnHandSummary;
+            _ = JewelryOnHandSummary.EnsureLoadedAsync();
+            return;
+        }
+
+        ActiveWorkspace = null;
         ShowPlaceholder = true;
         PlaceholderTitle = SelectedNode.Title;
         PlaceholderMessage = SelectedNode.IsReport

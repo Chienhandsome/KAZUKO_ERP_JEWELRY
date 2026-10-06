@@ -21,15 +21,22 @@ Mỗi báo cáo mới chỉ viết phần riêng; phần khung dùng chung trong
 | `ReportWorkspaceView` | Layout: pane PDF trái + panel lọc phải (WebView2) |
 | `FastReportPdfExporter` | Export PDF tạm, mở ngoài, in shell |
 | `FastReportTemplateHelper` | Đường dẫn `.frx`, `Mm()`, text, bind DataBand, filter text |
+| `ReportColumnLayout` / dialog | Ẩn-hiện + thứ tự cột, lưu `%LocalAppData%\KazukoERP` |
 | `ReportSharedResources.xaml` | Style TextBox / ComboBox / nút bo góc |
 
 Checklist báo cáo mới:
 
 1. Contract + Infra query service (Core / Infrastructure).
-2. `*PrintService` (mẫu `.frx` + map DTO) dùng `FastReportTemplateHelper`.
-3. `*ReportViewModel : ReportWorkspaceViewModel` — filter props + `LoadDataAsync` + `CreatePreparedReport`.
+2. `*PrintService` dựng bảng theo `ActiveColumns` (dynamic FastReport bands).
+3. `*ReportViewModel : ReportWorkspaceViewModel` — filter + columns + `LoadDataAsync` + `CreatePreparedReport`.
 4. Đăng ký key trong `ReportCatalog` / `ReportsViewModel`.
-5. Trong `ReportsView`, gắn `ReportWorkspaceView` + `FilterContent` riêng.
+5. DataTemplate trong `ReportsView` + nút **Cột báo cáo**.
+
+## Cột báo cáo
+
+- Nút **Cột báo cáo** mở dialog giống DataGrid: tick ẩn/hiện, ▲▼ đổi thứ tự.
+- Layout lưu theo máy (`reports.*.columns.json`), không ghi Firebird.
+- Áp dụng xong dựng lại PDF preview theo cột đã chọn.
 
 ## Không dùng
 
@@ -51,3 +58,4 @@ Nếu thiếu `.frx` lúc chạy, app tự tạo mẫu mặc định và ghi ra 
 | Key | Mẫu |
 |-----|-----|
 | `reports.warehouse.jewelry_on_hand` | `jewelry_on_hand_v3.frx` |
+| `reports.warehouse.jewelry_on_hand_summary` | `jewelry_on_hand_summary_v1.frx` |

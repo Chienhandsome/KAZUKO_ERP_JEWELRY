@@ -526,6 +526,9 @@ public sealed class DebtViewModel : ObservableObject
         if (IsCustomerTab)
             await CollectCustomerAsync();
         else
+        {
+
+        }
             await PaySupplierAsync();
     }
 
