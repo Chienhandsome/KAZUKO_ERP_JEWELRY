@@ -50,12 +50,6 @@
                 <Button Content="Mới"
                         Style="{StaticResource SalesOutlineButtonStyle}"
                         Command="{Binding NewCommand}" />
-                <Button Content="Trước"
-                        Style="{StaticResource SalesGhostButtonStyle}"
-                        Command="{Binding PreviousCommand}" />
-                <Button Content="Sau"
-                        Style="{StaticResource SalesGhostButtonStyle}"
-                        Command="{Binding NextCommand}" />
                 <Button Content="In A4"
                         Style="{StaticResource SalesOutlineButtonStyle}"
                         Command="{Binding PrintCommand}"
@@ -81,6 +75,9 @@
             </TabItem>
             <TabItem Header="Mua vàng cũ">
                 <local:BuyOldGoldTabView DataContext="{Binding BuyOldGold}" Margin="0,6,0,0" />
+            </TabItem>
+            <TabItem Header="Hóa đơn">
+                <local:InvoiceHistoryTabView DataContext="{Binding History}" Margin="0,6,0,0" />
             </TabItem>
         </TabControl>
     </Grid>

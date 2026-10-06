@@ -17,6 +17,10 @@ public interface ISalesQueryRepository
     Task<IReadOnlyList<OldGoldMaterialOption>> GetOldGoldMaterialsAsync(AuthenticatedSession session, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<SalesLocationOption>> GetOldGoldLocationsAsync(AuthenticatedSession session, CancellationToken cancellationToken = default);
     Task<SalesCheckoutDetail?> GetCheckoutAsync(long checkoutId, AuthenticatedSession session, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SalesCheckoutListItem>> SearchPostedCheckoutsAsync(
+        SalesCheckoutSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
     Task<long?> GetAdjacentCheckoutIdAsync(long checkoutId, bool next, AuthenticatedSession session, CancellationToken cancellationToken = default);
 }
 

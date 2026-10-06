@@ -139,7 +139,6 @@ public sealed class BuyOldLineRowViewModel : ObservableObject
         decimal itemQuantity,
         decimal totalWeight,
         decimal stoneWeight,
-        decimal impurityWeight,
         decimal valuePercent,
         decimal sourceBuyPricePerChi,
         decimal appliedBuyPricePerChi,
@@ -152,7 +151,7 @@ public sealed class BuyOldLineRowViewModel : ObservableObject
         ItemQuantity = itemQuantity;
         TotalWeight = totalWeight;
         StoneWeight = stoneWeight;
-        ImpurityWeight = impurityWeight;
+        ImpurityWeight = 0m;
         ValuePercent = valuePercent;
         SourceBuyPricePerChi = sourceBuyPricePerChi;
         AppliedBuyPricePerChi = appliedBuyPricePerChi;

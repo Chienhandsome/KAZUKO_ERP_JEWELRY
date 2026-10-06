@@ -455,6 +455,71 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
             header.Notes);
     }
 
+    public async Task<IReadOnlyList<SalesCheckoutListItem>> SearchPostedCheckoutsAsync(
+        SalesCheckoutSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(session);
+
+        var result = new List<SalesCheckoutListItem>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var companyId = await ResolveCompanyIdAsync(connection, session.BranchId, cancellationToken);
+        if (companyId is null)
+            return result;
+
+        var limit = filter.Limit <= 0 ? 100 : Math.Min(filter.Limit, 500);
+        var search = (filter.SearchText ?? string.Empty).Trim();
+        var pattern = search.Length > 0 ? "%" + search.ToUpperInvariant() + "%" : null;
+
+        await using var command = new FbCommand($"""
+            SELECT FIRST {limit}
+                   SC.ID, SC.CODE, SC.CHECKOUT_TYPE, SC.DOCUMENT_DATE,
+                   C.NAME, C.PHONE, SP.DISPLAY_NAME, SC.NET_AMOUNT_VND
+            FROM SALES_CHECKOUTS SC
+            JOIN CUSTOMERS C ON C.ID = SC.CUSTOMER_ID AND C.COMPANY_ID = SC.COMPANY_ID
+            JOIN USERS SP ON SP.ID = SC.SALESPERSON_ID
+            WHERE SC.COMPANY_ID = @COMPANY_ID
+              AND SC.BRANCH_ID = @BRANCH_ID
+              AND SC.STATUS_CODE = 'POSTED'
+              AND (@FROM_DATE IS NULL OR SC.DOCUMENT_DATE >= @FROM_DATE)
+              AND (@TO_DATE_EXCLUSIVE IS NULL OR SC.DOCUMENT_DATE < @TO_DATE_EXCLUSIVE)
+              AND (
+                    @PATTERN IS NULL
+                 OR UPPER(SC.CODE) LIKE @PATTERN
+                 OR UPPER(C.NAME) LIKE @PATTERN
+                 OR UPPER(COALESCE(C.PHONE, '')) LIKE @PATTERN
+              )
+            ORDER BY SC.DOCUMENT_DATE DESC, SC.ID DESC
+            """, connection);
+        command.Parameters.Add("@COMPANY_ID", FbDbType.BigInt).Value = companyId.Value;
+        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+        command.Parameters.Add("@FROM_DATE", FbDbType.Date).Value =
+            filter.FromDate is null ? DBNull.Value : filter.FromDate.Value.Date;
+        command.Parameters.Add("@TO_DATE_EXCLUSIVE", FbDbType.Date).Value =
+            filter.ToDate is null ? DBNull.Value : filter.ToDate.Value.Date.AddDays(1);
+        command.Parameters.Add("@PATTERN", FbDbType.VarChar, 200).Value =
+            (object?)pattern ?? DBNull.Value;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Add(new SalesCheckoutListItem(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetDateTime(3),
+                reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.GetString(6),
+                reader.GetDecimal(7)));
+        }
+
+        return result;
+    }
+
     public async Task<long?> GetAdjacentCheckoutIdAsync(
         long checkoutId,
         bool next,

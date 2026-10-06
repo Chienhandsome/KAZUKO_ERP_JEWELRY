@@ -69,15 +69,15 @@ Tab hóa đơn điện tử hiện có trong mock UI được ẩn cho tới khi
 Đơn vị trọng lượng là **chỉ**. Công thức chuẩn cho mỗi dòng:
 
 ```text
-Trọng lượng vàng = Tổng trọng lượng - Trọng lượng đá - Hao hụt/tạp chất
+Trọng lượng vàng = Tổng trọng lượng - Trọng lượng đá
 Trọng lượng quy đổi = Trọng lượng vàng x Phần trăm giá trị / 100
 Thành tiền = Trọng lượng quy đổi x Giá mua mỗi chỉ
 ```
 
-- Trọng lượng làm tròn tối đa 4 chữ số thập phân.
+- Trọng lượng làm tròn tối đa 4 chữ số thập phân; UI cho phép nhập thập phân (dấu `.` hoặc `,`).
 - Tiền làm tròn tới đồng theo `MidpointRounding.AwayFromZero`.
-- Tổng trọng lượng, trọng lượng đá và hao hụt phải không âm.
-- Tổng của trọng lượng đá và hao hụt không được vượt tổng trọng lượng.
+- Tổng trọng lượng và trọng lượng đá phải không âm.
+- Trọng lượng đá không được vượt tổng trọng lượng.
 - Phần trăm giá trị nằm trong khoảng 0–100.
 - Trọng lượng vàng, trọng lượng quy đổi và thành tiền là trường chỉ đọc trên UI và luôn được tính lại ở service.
 - Giá mua lấy snapshot từ Bảng giá. Chỉ người có quyền mới được sửa và phải nhập lý do.
@@ -187,7 +187,7 @@ Mỗi dòng lưu:
 
 - checkout, số dòng, material/loại vàng và dòng phiếu kho;
 - số lượng món;
-- tổng trọng lượng, trọng lượng đá, hao hụt/tạp chất, trọng lượng vàng;
+- tổng trọng lượng, trọng lượng đá, trọng lượng vàng;
 - phần trăm giá trị và trọng lượng quy đổi;
 - giá mua nguồn, giá mua áp dụng, thành tiền;
 - cờ/lý do điều chỉnh giá và ghi chú.
@@ -213,7 +213,8 @@ Database có check constraint cho giá trị không âm, phần trăm 0–100, q
 - Trong lúc ghi sổ, disable lệnh gây lặp và hiển thị trạng thái xử lý. `CLIENT_REQUEST_ID` vẫn là hàng rào cuối ở database/service.
 - Thành công: reset workspace nhập liệu và mở preview A4.
 - Thất bại: không reset; focus tới lỗi có thể sửa khi xác định được.
-- Trước/Sau tải các checkout đã `POSTED` theo thứ tự ngày/id, ở chế độ chỉ đọc và có lệnh in lại.
+- Tab **Hóa đơn**: danh sách checkout đã `POSTED` (lọc ngày + tìm mã/tên KH), click một dòng mở panel chi tiết chỉ đọc bên cạnh; in lại bằng **In A4**.
+- Không dùng điều hướng Trước/Sau.
 - Không hỗ trợ sửa hoặc xóa chứng từ đã ghi sổ trong phạm vi này.
 
 ## 7. In A4
@@ -221,7 +222,7 @@ Database có check constraint cho giá trị không âm, phần trăm 0–100, q
 - Tạo document in từ DTO bất biến tải lại theo checkout id; không chụp bitmap của cửa sổ.
 - Preview thể hiện thông tin cửa hàng/chi nhánh, mã/ngày, khách hàng, nhân viên bán hàng, dòng thành phẩm, dòng vàng cũ, tổng gộp, phần bù trừ, dòng thanh toán, công nợ và chữ ký khi mẫu yêu cầu.
 - Sau khi ghi sổ, preview có **In** và **Đóng**.
-- Lịch sử cho phép in lại đúng dữ liệu snapshot đã ghi, không dùng giá hiện hành.
+- Tab Hóa đơn cho phép in lại đúng dữ liệu snapshot đã ghi, không dùng giá hiện hành.
 - Chỉ hỗ trợ A4 trong giai đoạn này. Renderer phải tách khỏi ViewModel để có thể thêm A5/K80/K58 sau mà không đổi contract checkout.
 
 ## 8. Quyền và audit

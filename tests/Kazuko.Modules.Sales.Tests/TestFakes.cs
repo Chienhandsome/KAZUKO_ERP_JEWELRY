@@ -1,4 +1,5 @@
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Sales;
 using Kazuko.Modules.Sales.Services;
@@ -24,6 +25,13 @@ internal sealed class FakePaymentDialog : ISalesPaymentDialogService
         LastRequest = request;
         return NextResult;
     }
+}
+
+internal sealed class FakeCustomerEditor : ICustomerEditorService
+{
+    public CustomerEditResult? NextResult { get; set; }
+    public CustomerEditResult? ShowCreate() => NextResult;
+    public CustomerEditResult? ShowEdit(long customerId) => NextResult;
 }
 
 internal sealed class FakeCustomerLookupDialog : ISalesCustomerLookupDialogService
@@ -192,6 +200,10 @@ internal sealed class FakeQueryRepository : ISalesQueryRepository
         long checkoutId, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
         Task.FromResult<SalesCheckoutDetail?>(null);
 
+    public Task<IReadOnlyList<SalesCheckoutListItem>> SearchPostedCheckoutsAsync(
+        SalesCheckoutSearchFilter filter, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<SalesCheckoutListItem>>([]);
+
     public Task<long?> GetAdjacentCheckoutIdAsync(
         long checkoutId, bool next, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
         Task.FromResult<long?>(null);
@@ -231,7 +243,7 @@ internal static class SalesTestFactory
         var receipts = new FakeReceiptPresenter();
         var vm = new SalesViewModel(
             queries, checkout, auth, new FakeCashFunds(), new FakeBanks(),
-            session, payments, new FakeCustomerLookupDialog(), new FakePriceOverrideDialog(), receipts);
+            session, payments, new FakeCustomerEditor(), new FakePriceOverrideDialog(), receipts);
         return (vm, checkout, payments, receipts, queries);
     }
 }

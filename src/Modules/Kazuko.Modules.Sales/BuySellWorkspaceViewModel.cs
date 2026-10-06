@@ -30,9 +30,13 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
     private BuyOldLineRowViewModel? _selectedBuyLine;
     private decimal _oldTotalWeight;
     private decimal _oldStoneWeight;
-    private decimal _oldImpurityDeduction;
     private decimal _oldValuePercent = 100m;
     private decimal _oldBuyPrice;
+    private string _oldTotalWeightText = string.Empty;
+    private string _oldStoneWeightText = string.Empty;
+    private string _oldValuePercentText = "100";
+    private string _oldBuyPriceText = string.Empty;
+    private string _oldQuantityText = "1";
     private string? _oldOverrideReason;
     private string _oldNotes = string.Empty;
     private decimal _oldQuantity = 1m;
@@ -52,14 +56,14 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
             () => !IsReadOnly && CanOverridePrice && SelectedSellLine is not null);
         AddBuyLineCommand = new RelayCommand(AddBuyLine, () => !IsReadOnly && SelectedOldGoldMaterial is not null);
         RemoveBuyLineCommand = new RelayCommand(RemoveBuyLine, () => !IsReadOnly && SelectedBuyLine is not null);
-        LookupCustomerCommand = new RelayCommand(() => LookupCustomerAction?.Invoke());
+        AddCustomerCommand = new RelayCommand(() => AddCustomerAction?.Invoke());
         PrintStockLabelCommand = new RelayCommand(() => { });
     }
 
     public Func<string, Task<SalesProductOption?>>? FindProductAsync { get; set; }
     public Func<string, CancellationToken, Task<IReadOnlyList<SalesProductOption>>>? SearchProductsAsync { get; set; }
     public Func<string, CancellationToken, Task<int>>? CountMatchingProductsAsync { get; set; }
-    public Action? LookupCustomerAction { get; set; }
+    public Action? AddCustomerAction { get; set; }
     public Action? EditSellPriceAction { get; set; }
 
     public ObservableCollection<SalesCustomerOption> CustomerOptions { get; } = [];
@@ -107,8 +111,8 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedOldGoldMaterial, value) && value is not null)
             {
-                OldValuePercent = value.ValuePercent;
-                OldBuyPrice = value.SourceBuyPricePerChi;
+                SetOldValuePercent(value.ValuePercent);
+                SetOldBuyPrice(value.SourceBuyPricePerChi);
                 RecalculateOldGoldPreview();
             }
         }
@@ -209,37 +213,67 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
         }
     }
 
-    public decimal OldTotalWeight
+    public string OldTotalWeightText
     {
-        get => _oldTotalWeight;
-        set { if (SetProperty(ref _oldTotalWeight, value)) RecalculateOldGoldPreview(); }
+        get => _oldTotalWeightText;
+        set
+        {
+            if (!SetProperty(ref _oldTotalWeightText, value))
+                return;
+            if (SalesDecimalText.TryParse(value, out var parsed))
+            {
+                _oldTotalWeight = Math.Max(0m, parsed);
+                RecalculateOldGoldPreview();
+            }
+        }
     }
 
-    public decimal OldStoneWeight
+    public string OldStoneWeightText
     {
-        get => _oldStoneWeight;
-        set { if (SetProperty(ref _oldStoneWeight, value)) RecalculateOldGoldPreview(); }
-    }
-
-    public decimal OldImpurityDeduction
-    {
-        get => _oldImpurityDeduction;
-        set { if (SetProperty(ref _oldImpurityDeduction, value)) RecalculateOldGoldPreview(); }
+        get => _oldStoneWeightText;
+        set
+        {
+            if (!SetProperty(ref _oldStoneWeightText, value))
+                return;
+            if (SalesDecimalText.TryParse(value, out var parsed))
+            {
+                _oldStoneWeight = Math.Max(0m, parsed);
+                RecalculateOldGoldPreview();
+            }
+        }
     }
 
     public decimal OldGoldWeight { get; private set; }
     public decimal OldConvertedWeight { get; private set; }
 
-    public decimal OldValuePercent
+    public string OldValuePercentText
     {
-        get => _oldValuePercent;
-        set { if (SetProperty(ref _oldValuePercent, value)) RecalculateOldGoldPreview(); }
+        get => _oldValuePercentText;
+        set
+        {
+            if (!SetProperty(ref _oldValuePercentText, value))
+                return;
+            if (SalesDecimalText.TryParse(value, out var parsed))
+            {
+                _oldValuePercent = Math.Clamp(parsed, 0m, 100m);
+                RecalculateOldGoldPreview();
+            }
+        }
     }
 
-    public decimal OldBuyPrice
+    public string OldBuyPriceText
     {
-        get => _oldBuyPrice;
-        set { if (SetProperty(ref _oldBuyPrice, value)) RecalculateOldGoldPreview(); }
+        get => _oldBuyPriceText;
+        set
+        {
+            if (!SetProperty(ref _oldBuyPriceText, value))
+                return;
+            if (SalesDecimalText.TryParse(value, out var parsed))
+            {
+                _oldBuyPrice = Math.Max(0m, parsed);
+                RecalculateOldGoldPreview();
+            }
+        }
     }
 
     public string? OldOverrideReason
@@ -254,10 +288,30 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
         set => SetProperty(ref _oldNotes, value);
     }
 
-    public decimal OldQuantity
+    public string OldQuantityText
     {
-        get => _oldQuantity;
-        set => SetProperty(ref _oldQuantity, Math.Max(0.001m, value));
+        get => _oldQuantityText;
+        set
+        {
+            if (!SetProperty(ref _oldQuantityText, value))
+                return;
+            if (SalesDecimalText.TryParse(value, out var parsed) && parsed > 0m)
+                _oldQuantity = parsed;
+        }
+    }
+
+    private void SetOldValuePercent(decimal value)
+    {
+        _oldValuePercent = value;
+        _oldValuePercentText = SalesDecimalText.Format(value, "0.##");
+        OnPropertyChanged(nameof(OldValuePercentText));
+    }
+
+    private void SetOldBuyPrice(decimal value)
+    {
+        _oldBuyPrice = value;
+        _oldBuyPriceText = SalesDecimalText.Format(value, "0.##");
+        OnPropertyChanged(nameof(OldBuyPriceText));
     }
 
     public decimal DiscountAmount
@@ -327,7 +381,7 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
     public ICommand AddBuyLineCommand { get; }
     public ICommand RemoveBuyLineCommand { get; }
     public ICommand PrintStockLabelCommand { get; }
-    public ICommand LookupCustomerCommand { get; }
+    public ICommand AddCustomerCommand { get; }
 
     public void ResetForNew(SalesCustomerOption? customer, SalespersonOption? staff)
     {
@@ -540,13 +594,12 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
                 BuyLines.Count + 1,
                 SelectedOldGoldMaterial.Id,
                 SelectedOldGoldMaterial.Name,
-                OldQuantity,
-                OldTotalWeight,
-                OldStoneWeight,
-                OldImpurityDeduction,
-                OldValuePercent,
+                _oldQuantity,
+                _oldTotalWeight,
+                _oldStoneWeight,
+                _oldValuePercent,
                 SelectedOldGoldMaterial.SourceBuyPricePerChi,
-                OldBuyPrice,
+                _oldBuyPrice,
                 OldOverrideReason,
                 string.IsNullOrWhiteSpace(OldNotes) ? null : OldNotes);
             BuyLines.Add(row);
@@ -573,8 +626,8 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
     private void RecalculateOldGoldPreview()
     {
         var draft = new OldGoldLineDraft(
-            SelectedOldGoldMaterial?.Id ?? 0, OldQuantity, OldTotalWeight, OldStoneWeight,
-            OldImpurityDeduction, OldValuePercent, OldBuyPrice, OldOverrideReason, null);
+            SelectedOldGoldMaterial?.Id ?? 0, _oldQuantity, _oldTotalWeight, _oldStoneWeight,
+            0m, _oldValuePercent, _oldBuyPrice, OldOverrideReason, null);
         try
         {
             var amounts = SalesCheckoutCalculator.CalculateOldGold(draft);

@@ -19,4 +19,18 @@ public sealed record OldGoldMaterialOption(long Id, string Code, string Name, lo
 public sealed record SalesLineSnapshot(long FinishedProductId, string ProductCode, string ProductName, decimal GoldWeightChi, decimal SourceGoldPricePerChi, decimal SourceLaborAmountVnd, decimal SourceStoneAmountVnd, SalesLineDraft AppliedPrices, SalesLineAmounts Amounts);
 public sealed record OldGoldLineSnapshot(long MaterialId, string MaterialName, decimal SourceBuyPricePerChi, OldGoldLineDraft Draft, OldGoldLineAmounts Amounts);
 public sealed record SalesCheckoutDetail(long CheckoutId, string DocumentCode, string CheckoutType, DateTime DocumentDate, long CustomerId, string CustomerName, string? CustomerPhone, long SalespersonId, string SalespersonName, long CreatedBy, string CreatedByDisplayName, long? SourceLocationId, long? OldGoldDestinationLocationId, IReadOnlyList<SalesLineSnapshot> SaleLines, IReadOnlyList<OldGoldLineSnapshot> OldGoldLines, IReadOnlyList<PaymentAllocationDraft> Allocations, SalesCheckoutTotals Totals, string? Notes);
+public sealed record SalesCheckoutListItem(
+    long CheckoutId,
+    string DocumentCode,
+    string CheckoutType,
+    DateTime DocumentDate,
+    string CustomerName,
+    string? CustomerPhone,
+    string SalespersonName,
+    decimal NetAmountVnd);
+public sealed record SalesCheckoutSearchFilter(
+    DateTime? FromDate,
+    DateTime? ToDate,
+    string? SearchText,
+    int Limit = 100);
 public sealed record SalesReceiptDto(string CompanyName, string BranchName, string? BranchAddress, string? BranchPhone, SalesCheckoutDetail Checkout);

@@ -98,14 +98,13 @@ public sealed class SalesViewModelTests
         var (vm, _, _, _, _) = SalesTestFactory.Create();
         await WaitForIdleAsync(vm);
         vm.BuySell.SelectedOldGoldMaterial = vm.BuySell.OldGoldTypeOptions[0];
-        vm.BuySell.OldTotalWeight = 2m;
-        vm.BuySell.OldStoneWeight = 0.2m;
-        vm.BuySell.OldImpurityDeduction = 0.1m;
-        vm.BuySell.OldValuePercent = 100m;
-        vm.BuySell.OldBuyPrice = 77m;
+        vm.BuySell.OldTotalWeightText = "2";
+        vm.BuySell.OldStoneWeightText = "0.2";
+        vm.BuySell.OldValuePercentText = "100";
+        vm.BuySell.OldBuyPriceText = "77";
 
-        Assert.Equal(1.7m, vm.BuySell.OldGoldWeight);
-        Assert.Equal(1.7m, vm.BuySell.OldConvertedWeight);
+        Assert.Equal(1.8m, vm.BuySell.OldGoldWeight);
+        Assert.Equal(1.8m, vm.BuySell.OldConvertedWeight);
     }
 
     private static async Task WaitForIdleAsync(SalesViewModel vm)

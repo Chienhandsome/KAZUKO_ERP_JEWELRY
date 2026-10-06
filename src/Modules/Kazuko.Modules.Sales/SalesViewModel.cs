@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Sales;
@@ -16,7 +17,7 @@ public sealed class SalesViewModel : ObservableObject
     private readonly IBankAccountRepository _bankAccounts;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly ISalesPaymentDialogService _paymentDialog;
-    private readonly ISalesCustomerLookupDialogService _customerLookup;
+    private readonly ICustomerEditorService _customerEditor;
     private readonly ISalesPriceOverrideDialogService _priceOverrideDialog;
     private readonly ISalesReceiptPresenter _receiptPresenter;
 
@@ -42,7 +43,7 @@ public sealed class SalesViewModel : ObservableObject
         IBankAccountRepository bankAccounts,
         ICurrentSessionAccessor sessionAccessor,
         ISalesPaymentDialogService paymentDialog,
-        ISalesCustomerLookupDialogService customerLookup,
+        ICustomerEditorService customerEditor,
         ISalesPriceOverrideDialogService priceOverrideDialog,
         ISalesReceiptPresenter receiptPresenter)
     {
@@ -53,43 +54,50 @@ public sealed class SalesViewModel : ObservableObject
         _bankAccounts = bankAccounts;
         _sessionAccessor = sessionAccessor;
         _paymentDialog = paymentDialog;
-        _customerLookup = customerLookup;
+        _customerEditor = customerEditor;
         _priceOverrideDialog = priceOverrideDialog;
         _receiptPresenter = receiptPresenter;
 
         BuySell = new BuySellWorkspaceViewModel(OnWorkspaceChanged);
         BuyOldGold = new BuyOldGoldWorkspaceViewModel(OnWorkspaceChanged);
+        History = new InvoiceHistoryWorkspaceViewModel(_queries, RequireSession, OnWorkspaceChanged);
         BuySell.FindProductAsync = code => FindProductAsync(code);
         BuySell.SearchProductsAsync = SearchProductsAsync;
         BuySell.CountMatchingProductsAsync = CountMatchingProductsAsync;
-        BuySell.LookupCustomerAction = () => LookupCustomerForBuySell();
-        BuyOldGold.LookupCustomerAction = () => LookupCustomerForBuyOldGold();
+        BuySell.AddCustomerAction = () => AddCustomerForBuySell();
+        BuyOldGold.AddCustomerAction = () => AddCustomerForBuyOldGold();
         BuySell.EditSellPriceAction = EditSellPrice;
+        History.PrintCheckoutAsync = id => PrintCheckoutAsync(id);
 
         NewCommand = new AsyncRelayCommand(NewAsync, () => !IsPosting);
-        PreviousCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: false), () => !IsPosting && _permissions.CanReadHistory);
-        NextCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: true), () => !IsPosting && _permissions.CanReadHistory);
-        PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && _permissions.CanPost);
-        PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && _permissions.CanPrintReceipt && LastResult is { CheckoutId: > 0 });
-        LookupCustomerCommand = new AsyncRelayCommand(LookupCustomerForActiveTabAsync, () => !IsPosting);
+        PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && !IsHistoryTab && _permissions.CanPost);
+        PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && CanPrintCurrent);
 
         _ = InitializeAsync();
     }
 
     public BuySellWorkspaceViewModel BuySell { get; }
     public BuyOldGoldWorkspaceViewModel BuyOldGold { get; }
+    public InvoiceHistoryWorkspaceViewModel History { get; }
 
     public int MainTabIndex
     {
         get => _mainTabIndex;
         set
         {
-            if (SetProperty(ref _mainTabIndex, value))
-                OnWorkspaceChanged();
+            if (!SetProperty(ref _mainTabIndex, value))
+                return;
+            OnWorkspaceChanged();
+            if (IsHistoryTab && _permissions.CanReadHistory)
+                _ = History.EnsureLoadedAsync();
         }
     }
 
     public bool IsBuySellTab => MainTabIndex == 0;
+    public bool IsHistoryTab => MainTabIndex == 2;
+    public bool CanPrintCurrent =>
+        _permissions.CanPrintReceipt
+        && (History.SelectedDetail?.CheckoutId > 0 || LastResult is { CheckoutId: > 0 });
     public bool IsLoading
     {
         get => _isLoading;
@@ -150,11 +158,8 @@ public sealed class SalesViewModel : ObservableObject
     public Guid ClientRequestId => _clientRequestId;
 
     public ICommand NewCommand { get; }
-    public ICommand PreviousCommand { get; }
-    public ICommand NextCommand { get; }
     public ICommand PayCommand { get; }
     public ICommand PrintCommand { get; }
-    public ICommand LookupCustomerCommand { get; }
 
     public async Task InitializeAsync()
     {
@@ -164,10 +169,11 @@ public sealed class SalesViewModel : ObservableObject
             ErrorMessage = string.Empty;
             var session = RequireSession();
             _permissions = await _authorization.GetPermissionsAsync(session);
+            History.CanReadHistory = _permissions.CanReadHistory;
+            History.CanPrint = _permissions.CanPrintReceipt;
             OnPropertyChanged(nameof(Permissions));
             OnPropertyChanged(nameof(CanChangeSalesperson));
-            ((AsyncRelayCommand)PreviousCommand).NotifyCanExecuteChanged();
-            ((AsyncRelayCommand)NextCommand).NotifyCanExecuteChanged();
+            OnPropertyChanged(nameof(CanPrintCurrent));
             ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
             ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
 
@@ -248,41 +254,43 @@ public sealed class SalesViewModel : ObservableObject
         BuyOldGold.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedOld) ?? customers.FirstOrDefault();
     }
 
-    private Task LookupCustomerForActiveTabAsync()
+    private void AddCustomerForBuySell()
     {
-        if (IsBuySellTab)
-            LookupCustomerForBuySell();
-        else
-            LookupCustomerForBuyOldGold();
-        return Task.CompletedTask;
-    }
-
-    private void LookupCustomerForBuySell()
-    {
-        var picked = ShowCustomerLookup(BuySell.SelectedCustomer);
-        if (picked is null)
+        var created = ShowCreateCustomer();
+        if (created is null)
             return;
-        EnsureCustomerOption(BuySell.CustomerOptions, picked);
-        BuySell.SelectedCustomer = picked;
+        EnsureCustomerOption(BuySell.CustomerOptions, created);
+        BuySell.SelectedCustomer = created;
     }
 
-    private void LookupCustomerForBuyOldGold()
+    private void AddCustomerForBuyOldGold()
     {
-        var picked = ShowCustomerLookup(BuyOldGold.SelectedCustomer);
-        if (picked is null)
+        var created = ShowCreateCustomer();
+        if (created is null)
             return;
-        EnsureCustomerOption(BuyOldGold.CustomerOptions, picked);
-        BuyOldGold.SelectedCustomer = picked;
+        EnsureCustomerOption(BuyOldGold.CustomerOptions, created);
+        BuyOldGold.SelectedCustomer = created;
     }
 
-    private SalesCustomerOption? ShowCustomerLookup(SalesCustomerOption? current)
+    private SalesCustomerOption? ShowCreateCustomer()
     {
         try
         {
-            var session = RequireSession();
-            return _customerLookup.Show(
-                search => _queries.SearchCustomersAsync(search, session),
-                current);
+            _ = RequireSession();
+            var result = _customerEditor.ShowCreate();
+            if (result is null)
+                return null;
+
+            var code = result.Code.Trim();
+            var isWalkIn = string.Equals(code, "KH-VL", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(code, "WALK_IN", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(code, "KHACH_LE", StringComparison.OrdinalIgnoreCase);
+            return new SalesCustomerOption(
+                result.Id,
+                code,
+                result.Name,
+                string.IsNullOrWhiteSpace(result.Phone) ? null : result.Phone.Trim(),
+                isWalkIn);
         }
         catch (Exception ex)
         {
@@ -422,6 +430,8 @@ public sealed class SalesViewModel : ObservableObject
                 BuySell.ResetForNew(BuySell.SelectedCustomer, BuySell.SelectedStaff);
             else
                 BuyOldGold.ResetForNew(BuyOldGold.SelectedCustomer, BuyOldGold.SelectedStaff);
+            if (_permissions.CanReadHistory)
+                _ = History.EnsureLoadedAsync();
         }
         catch (Exception ex)
         {
@@ -438,20 +448,16 @@ public sealed class SalesViewModel : ObservableObject
     {
         try
         {
-            if (LastResult is null || LastResult.CheckoutId <= 0)
+            var checkoutId = History.SelectedDetail?.CheckoutId
+                ?? LastResult?.CheckoutId
+                ?? 0;
+            if (checkoutId <= 0)
             {
                 ErrorMessage = "Chưa có chứng từ để in.";
                 return;
             }
 
-            if (!_permissions.CanPrintReceipt)
-            {
-                ErrorMessage = "Không có quyền in phiếu bán hàng.";
-                return;
-            }
-
-            ErrorMessage = string.Empty;
-            await _receiptPresenter.ShowAsync(LastResult.CheckoutId);
+            await PrintCheckoutAsync(checkoutId);
         }
         catch (Exception ex)
         {
@@ -459,58 +465,25 @@ public sealed class SalesViewModel : ObservableObject
         }
     }
 
-    private async Task NavigateHistoryAsync(bool next)
+    private async Task PrintCheckoutAsync(long checkoutId)
     {
-        try
+        if (!_permissions.CanPrintReceipt)
         {
-            var session = RequireSession();
-            var currentId = LastResult?.CheckoutId;
-            if (currentId is null or <= 0)
-            {
-                ErrorMessage = "Chưa có chứng từ để điều hướng.";
-                return;
-            }
-
-            var adjacent = await _queries.GetAdjacentCheckoutIdAsync(currentId.Value, next, session);
-            if (adjacent is null)
-            {
-                ErrorMessage = next ? "Không còn chứng từ sau." : "Không còn chứng từ trước.";
-                return;
-            }
-
-            var detail = await _queries.GetCheckoutAsync(adjacent.Value, session);
-            if (detail is null)
-            {
-                ErrorMessage = "Không tải được chứng từ.";
-                return;
-            }
-
-            LastResult = new SalesCheckoutResult(
-                detail.CheckoutId, detail.DocumentCode, detail.CheckoutType, detail.Totals,
-                null, null, AlreadyPosted: true);
-            SuccessMessage = $"Đang xem {detail.DocumentCode} (chỉ đọc).";
-            if (detail.CheckoutType == SalesCheckoutTypes.OldGoldPurchase)
-            {
-                MainTabIndex = 1;
-                BuyOldGold.DocumentCode = detail.DocumentCode;
-                BuyOldGold.IsReadOnly = true;
-            }
-            else
-            {
-                MainTabIndex = 0;
-                BuySell.DocumentCode = detail.DocumentCode;
-                BuySell.IsReadOnly = true;
-            }
+            ErrorMessage = "Không có quyền in phiếu bán hàng.";
+            return;
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = FriendlyError(ex);
-        }
+
+        ErrorMessage = string.Empty;
+        await _receiptPresenter.ShowAsync(checkoutId);
     }
 
     private void OnWorkspaceChanged()
     {
         OnPropertyChanged(nameof(IsBuySellTab));
+        OnPropertyChanged(nameof(IsHistoryTab));
+        OnPropertyChanged(nameof(CanPrintCurrent));
+        ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
         InvalidateRequestIdIfNeeded();
     }
 
