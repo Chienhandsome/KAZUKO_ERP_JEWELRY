@@ -1,24 +1,68 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Windows.Input;
+using Kazuko.Core.Authentication;
+using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Sales;
+using Kazuko.Modules.Sales.Services;
 
 namespace Kazuko.Modules.Sales;
 
 public sealed class SalesViewModel : ObservableObject
 {
+    private readonly ISalesQueryRepository _queries;
+    private readonly ISalesCheckoutApplicationService _checkout;
+    private readonly ISalesAuthorizationService _authorization;
+    private readonly ICashFundRepository _cashFunds;
+    private readonly IBankAccountRepository _bankAccounts;
+    private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly ISalesPaymentDialogService _paymentDialog;
+    private readonly ISalesReceiptPresenter _receiptPresenter;
+
     private int _mainTabIndex;
+    private bool _isLoading;
+    private bool _isPosting;
+    private string _errorMessage = string.Empty;
+    private string _successMessage = string.Empty;
+    private string? _notes;
+    private Guid _clientRequestId = Guid.NewGuid();
+    private bool _preserveRequestIdOnEdit;
+    private SalesPermissionSnapshot _permissions = new(false, false, false, false, false, false);
+    private long _salesFloorLocationId;
+    private SalesCheckoutResult? _lastResult;
+    private IReadOnlyList<CashFundOption> _funds = [];
+    private IReadOnlyList<BankAccountOption> _banks = [];
 
-    public SalesViewModel()
+    public SalesViewModel(
+        ISalesQueryRepository queries,
+        ISalesCheckoutApplicationService checkout,
+        ISalesAuthorizationService authorization,
+        ICashFundRepository cashFunds,
+        IBankAccountRepository bankAccounts,
+        ICurrentSessionAccessor sessionAccessor,
+        ISalesPaymentDialogService paymentDialog,
+        ISalesReceiptPresenter receiptPresenter)
     {
-        BuySell = new BuySellWorkspaceViewModel();
-        BuyOldGold = new BuyOldGoldWorkspaceViewModel();
+        _queries = queries;
+        _checkout = checkout;
+        _authorization = authorization;
+        _cashFunds = cashFunds;
+        _bankAccounts = bankAccounts;
+        _sessionAccessor = sessionAccessor;
+        _paymentDialog = paymentDialog;
+        _receiptPresenter = receiptPresenter;
 
-        NewCommand = new RelayCommand(() => { });
-        PreviousCommand = new RelayCommand(() => { });
-        NextCommand = new RelayCommand(() => { });
-        PayCommand = new RelayCommand(() => { });
-        LookupCustomerCommand = new RelayCommand(() => { });
+        BuySell = new BuySellWorkspaceViewModel(OnWorkspaceChanged);
+        BuyOldGold = new BuyOldGoldWorkspaceViewModel(OnWorkspaceChanged);
+        BuySell.FindProductAsync = code => FindProductAsync(code);
+
+        NewCommand = new AsyncRelayCommand(NewAsync, () => !IsPosting);
+        PreviousCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: false), () => !IsPosting && _permissions.CanReadHistory);
+        NextCommand = new AsyncRelayCommand(() => NavigateHistoryAsync(next: true), () => !IsPosting && _permissions.CanReadHistory);
+        PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && _permissions.CanPost);
+        PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && _permissions.CanPrintReceipt && LastResult is { CheckoutId: > 0 });
+        LookupCustomerCommand = new AsyncRelayCommand(ReloadCustomersAsync, () => !IsPosting);
+
+        _ = InitializeAsync();
     }
 
     public BuySellWorkspaceViewModel BuySell { get; }
@@ -27,538 +71,371 @@ public sealed class SalesViewModel : ObservableObject
     public int MainTabIndex
     {
         get => _mainTabIndex;
-        set => SetProperty(ref _mainTabIndex, value);
+        set
+        {
+            if (SetProperty(ref _mainTabIndex, value))
+                OnWorkspaceChanged();
+        }
     }
+
+    public bool IsBuySellTab => MainTabIndex == 0;
+    public bool IsLoading
+    {
+        get => _isLoading;
+        private set
+        {
+            if (SetProperty(ref _isLoading, value))
+                ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
+        }
+    }
+
+    public bool IsPosting
+    {
+        get => _isPosting;
+        private set
+        {
+            if (SetProperty(ref _isPosting, value))
+            {
+                ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)NewCommand).NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public string ErrorMessage
+    {
+        get => _errorMessage;
+        private set => SetProperty(ref _errorMessage, value);
+    }
+
+    public string SuccessMessage
+    {
+        get => _successMessage;
+        private set => SetProperty(ref _successMessage, value);
+    }
+
+    public string? Notes
+    {
+        get => _notes;
+        set
+        {
+            if (SetProperty(ref _notes, value))
+                InvalidateRequestIdIfNeeded();
+        }
+    }
+
+    public SalesPermissionSnapshot Permissions => _permissions;
+    public bool CanChangeSalesperson => _permissions.CanChangeSalesperson;
+    public SalesCheckoutResult? LastResult
+    {
+        get => _lastResult;
+        private set
+        {
+            if (SetProperty(ref _lastResult, value))
+                ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
+        }
+    }
+
+    public Guid ClientRequestId => _clientRequestId;
 
     public ICommand NewCommand { get; }
     public ICommand PreviousCommand { get; }
     public ICommand NextCommand { get; }
     public ICommand PayCommand { get; }
+    public ICommand PrintCommand { get; }
     public ICommand LookupCustomerCommand { get; }
-}
 
-public sealed class BuySellWorkspaceViewModel : ObservableObject
-{
-    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
-
-    private DateTime _documentDate = DateTime.Today;
-    private string _documentCode = "MB26/00001";
-    private string? _selectedCustomer;
-    private string? _selectedStaff;
-    private int _contentTabIndex;
-    private string _productCodeInput = string.Empty;
-    private decimal _discountAmount;
-    private SellLineRowViewModel? _selectedSellLine;
-    private BuyOldLineRowViewModel? _selectedBuyLine;
-
-    private string? _oldGoldType;
-    private decimal _oldTotalWeight;
-    private decimal _oldStoneWeight;
-    private decimal _oldImpurityDeduction;
-    private decimal _oldGoldWeight;
-    private decimal _oldValuePercent = 100m;
-    private decimal _oldConvertedWeight;
-    private decimal _oldBuyPrice;
-    private string _oldProductCode = string.Empty;
-    private decimal _oldQuantity = 1m;
-
-    private string _einvoiceTaxCode = string.Empty;
-    private string _einvoiceBuyerName = string.Empty;
-    private string _einvoiceAddress = string.Empty;
-    private string _einvoiceEmail = string.Empty;
-    private string _einvoicePhone = string.Empty;
-    private string _einvoiceInvoiceForm = "Hóa đơn GTGT";
-    private string _einvoiceNotes = string.Empty;
-
-    public BuySellWorkspaceViewModel()
+    public async Task InitializeAsync()
     {
-        CustomerOptions.Add("Khách lẻ");
-        CustomerOptions.Add("Nguyễn Văn A");
-        CustomerOptions.Add("Công ty TNHH Vàng Bạc XYZ");
-        _selectedCustomer = CustomerOptions[0];
-
-        StaffOptions.Add("NV01 — Trần Thị B");
-        StaffOptions.Add("NV02 — Lê Văn C");
-        _selectedStaff = StaffOptions[0];
-
-        OldGoldTypeOptions.Add("Vàng 9999");
-        OldGoldTypeOptions.Add("Vàng 24K");
-        OldGoldTypeOptions.Add("Vàng 18K");
-        OldGoldTypeOptions.Add("Vàng 14K");
-        _oldGoldType = OldGoldTypeOptions[0];
-
-        InvoiceFormOptions.Add("Hóa đơn GTGT");
-        InvoiceFormOptions.Add("Hóa đơn bán hàng");
-        InvoiceFormOptions.Add("Không xuất HĐ");
-
-        SellLines.Add(new SellLineRowViewModel(
-            1, "SP001", "Nhẫn kim cương", "9999", 1.2m, 0.05m, 350_000m, 0m, 1.15m,
-            7_500_000m, 200_000m, "Kho bán hàng"));
-        SellLines.Add(new SellLineRowViewModel(
-            2, "SP014", "Dây chuyền", "9999", 2.5m, 0m, 450_000m, 0m, 2.5m,
-            7_450_000m, 0m, "Kho bán hàng"));
-
-        BuyLines.Add(new BuyOldLineRowViewModel(
-            1, "Vàng 18K", 3.2m, 0.1m, 3.1m, 2.325m, 75m, 7_200_000m));
-
-        AddSellLineCommand = new RelayCommand(() => { });
-        RemoveSellLineCommand = new RelayCommand(() => { });
-        ClearSellLinesCommand = new RelayCommand(() => { });
-        AddBuyLineCommand = new RelayCommand(() => { });
-        RemoveBuyLineCommand = new RelayCommand(() => { });
-        PrintStockLabelCommand = new RelayCommand(() => { });
-        LookupCustomerCommand = new RelayCommand(() => { });
-    }
-
-    public ObservableCollection<string> CustomerOptions { get; } = [];
-    public ObservableCollection<string> StaffOptions { get; } = [];
-    public ObservableCollection<string> OldGoldTypeOptions { get; } = [];
-    public ObservableCollection<string> InvoiceFormOptions { get; } = [];
-    public ObservableCollection<SellLineRowViewModel> SellLines { get; } = [];
-    public ObservableCollection<BuyOldLineRowViewModel> BuyLines { get; } = [];
-
-    public DateTime DocumentDate
-    {
-        get => _documentDate;
-        set => SetProperty(ref _documentDate, value);
-    }
-
-    public string DocumentCode
-    {
-        get => _documentCode;
-        set => SetProperty(ref _documentCode, value);
-    }
-
-    public string? SelectedCustomer
-    {
-        get => _selectedCustomer;
-        set => SetProperty(ref _selectedCustomer, value);
-    }
-
-    public string? SelectedStaff
-    {
-        get => _selectedStaff;
-        set => SetProperty(ref _selectedStaff, value);
-    }
-
-    public int ContentTabIndex
-    {
-        get => _contentTabIndex;
-        set => SetProperty(ref _contentTabIndex, value);
-    }
-
-    public string ProductCodeInput
-    {
-        get => _productCodeInput;
-        set => SetProperty(ref _productCodeInput, value);
-    }
-
-    public SellLineRowViewModel? SelectedSellLine
-    {
-        get => _selectedSellLine;
-        set => SetProperty(ref _selectedSellLine, value);
-    }
-
-    public BuyOldLineRowViewModel? SelectedBuyLine
-    {
-        get => _selectedBuyLine;
-        set => SetProperty(ref _selectedBuyLine, value);
-    }
-
-    public string? OldGoldType
-    {
-        get => _oldGoldType;
-        set => SetProperty(ref _oldGoldType, value);
-    }
-
-    public decimal OldTotalWeight
-    {
-        get => _oldTotalWeight;
-        set => SetProperty(ref _oldTotalWeight, value);
-    }
-
-    public decimal OldStoneWeight
-    {
-        get => _oldStoneWeight;
-        set => SetProperty(ref _oldStoneWeight, value);
-    }
-
-    public decimal OldImpurityDeduction
-    {
-        get => _oldImpurityDeduction;
-        set => SetProperty(ref _oldImpurityDeduction, value);
-    }
-
-    public decimal OldGoldWeight
-    {
-        get => _oldGoldWeight;
-        set => SetProperty(ref _oldGoldWeight, value);
-    }
-
-    public decimal OldValuePercent
-    {
-        get => _oldValuePercent;
-        set => SetProperty(ref _oldValuePercent, value);
-    }
-
-    public decimal OldConvertedWeight
-    {
-        get => _oldConvertedWeight;
-        set => SetProperty(ref _oldConvertedWeight, value);
-    }
-
-    public decimal OldBuyPrice
-    {
-        get => _oldBuyPrice;
-        set => SetProperty(ref _oldBuyPrice, value);
-    }
-
-    public string OldProductCode
-    {
-        get => _oldProductCode;
-        set => SetProperty(ref _oldProductCode, value);
-    }
-
-    public decimal OldQuantity
-    {
-        get => _oldQuantity;
-        set => SetProperty(ref _oldQuantity, value);
-    }
-
-    public string EinvoiceTaxCode
-    {
-        get => _einvoiceTaxCode;
-        set => SetProperty(ref _einvoiceTaxCode, value);
-    }
-
-    public string EinvoiceBuyerName
-    {
-        get => _einvoiceBuyerName;
-        set => SetProperty(ref _einvoiceBuyerName, value);
-    }
-
-    public string EinvoiceAddress
-    {
-        get => _einvoiceAddress;
-        set => SetProperty(ref _einvoiceAddress, value);
-    }
-
-    public string EinvoiceEmail
-    {
-        get => _einvoiceEmail;
-        set => SetProperty(ref _einvoiceEmail, value);
-    }
-
-    public string EinvoicePhone
-    {
-        get => _einvoicePhone;
-        set => SetProperty(ref _einvoicePhone, value);
-    }
-
-    public string EinvoiceInvoiceForm
-    {
-        get => _einvoiceInvoiceForm;
-        set => SetProperty(ref _einvoiceInvoiceForm, value);
-    }
-
-    public string EinvoiceNotes
-    {
-        get => _einvoiceNotes;
-        set => SetProperty(ref _einvoiceNotes, value);
-    }
-
-    public decimal DiscountAmount
-    {
-        get => _discountAmount;
-        set
+        try
         {
-            if (SetProperty(ref _discountAmount, value))
-                RaiseTotalsChanged();
+            IsLoading = true;
+            ErrorMessage = string.Empty;
+            var session = RequireSession();
+            _permissions = await _authorization.GetPermissionsAsync(session);
+            OnPropertyChanged(nameof(Permissions));
+            OnPropertyChanged(nameof(CanChangeSalesperson));
+            ((AsyncRelayCommand)PreviousCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)NextCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
+
+            var customers = await _queries.SearchCustomersAsync(string.Empty, session);
+            var staff = await _queries.GetSalespeopleAsync(session);
+            var materials = await _queries.GetOldGoldMaterialsAsync(session);
+            var locations = await _queries.GetOldGoldLocationsAsync(session);
+            _funds = await _cashFunds.GetActiveFundsAsync(session);
+            _banks = await _bankAccounts.GetActiveAccountsAsync(session);
+
+            Replace(BuySell.CustomerOptions, customers);
+            Replace(BuySell.StaffOptions, staff);
+            Replace(BuySell.OldGoldTypeOptions, materials);
+            Replace(BuySell.OldGoldLocationOptions, locations);
+            Replace(BuyOldGold.CustomerOptions, customers);
+            Replace(BuyOldGold.StaffOptions, staff);
+            Replace(BuyOldGold.OldGoldTypeOptions, materials);
+            Replace(BuyOldGold.OldGoldLocationOptions, locations);
+
+            var self = staff.FirstOrDefault(x => x.Id == session.UserId) ?? staff.FirstOrDefault();
+            var walkIn = customers.FirstOrDefault(x => x.IsWalkIn);
+            var named = customers.FirstOrDefault(x => !x.IsWalkIn);
+            BuySell.SelectedCustomer = walkIn ?? customers.FirstOrDefault();
+            BuySell.SelectedStaff = self;
+            BuyOldGold.SelectedCustomer = named ?? customers.FirstOrDefault();
+            BuyOldGold.SelectedStaff = self;
+            BuySell.SelectedOldGoldLocation = locations.FirstOrDefault(x => x.IsDefault) ?? locations.FirstOrDefault();
+            BuyOldGold.SelectedOldGoldLocation = BuySell.SelectedOldGoldLocation;
+            BuySell.SelectedOldGoldMaterial = materials.FirstOrDefault();
+            BuyOldGold.SelectedOldGoldMaterial = materials.FirstOrDefault();
+            BuySell.CanChangeSalesperson = _permissions.CanChangeSalesperson;
+            BuyOldGold.CanChangeSalesperson = _permissions.CanChangeSalesperson;
+
+            // Infer sales-floor from first product lookup seed is unavailable; leave 0 until first product scan.
+            _salesFloorLocationId = 0;
+            BuySell.SellLines.Clear();
+            BuySell.BuyLines.Clear();
+            BuyOldGold.BuyLines.Clear();
+            BuySell.RaiseTotalsChanged();
+            BuyOldGold.RaiseTotalsChanged();
+            RenewRequestId();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = FriendlyError(ex);
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 
-    public decimal NewGoldTotal => SellLines.Sum(x => x.LineTotal);
-    public decimal OldGoldTotal => BuyLines.Sum(x => x.LineTotal);
-    public decimal Subtotal => NewGoldTotal - OldGoldTotal;
-    public decimal GrandTotal => Subtotal - DiscountAmount;
-    public decimal AmountDue => GrandTotal;
-
-    public string NewGoldTotalText => NewGoldTotal.ToString("N0", Vi);
-    public string OldGoldTotalText => OldGoldTotal.ToString("N0", Vi);
-    public string SubtotalText => Subtotal.ToString("N0", Vi);
-    public string GrandTotalText => GrandTotal.ToString("N0", Vi);
-    public string AmountDueText => AmountDue.ToString("N0", Vi);
-
-    public ICommand AddSellLineCommand { get; }
-    public ICommand RemoveSellLineCommand { get; }
-    public ICommand ClearSellLinesCommand { get; }
-    public ICommand AddBuyLineCommand { get; }
-    public ICommand RemoveBuyLineCommand { get; }
-    public ICommand PrintStockLabelCommand { get; }
-    public ICommand LookupCustomerCommand { get; }
-
-    private void RaiseTotalsChanged()
+    private async Task NewAsync()
     {
-        OnPropertyChanged(nameof(NewGoldTotal));
-        OnPropertyChanged(nameof(OldGoldTotal));
-        OnPropertyChanged(nameof(Subtotal));
-        OnPropertyChanged(nameof(GrandTotal));
-        OnPropertyChanged(nameof(AmountDue));
-        OnPropertyChanged(nameof(NewGoldTotalText));
-        OnPropertyChanged(nameof(OldGoldTotalText));
-        OnPropertyChanged(nameof(SubtotalText));
-        OnPropertyChanged(nameof(GrandTotalText));
-        OnPropertyChanged(nameof(AmountDueText));
-    }
-}
-
-public sealed class BuyOldGoldWorkspaceViewModel : ObservableObject
-{
-    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
-
-    private DateTime _documentDate = DateTime.Today;
-    private string _documentCode = "MVC26/00001";
-    private string? _selectedCustomer;
-    private string? _selectedStaff;
-    private string? _oldGoldType;
-    private decimal _oldTotalWeight;
-    private decimal _oldStoneWeight;
-    private decimal _oldImpurityDeduction;
-    private decimal _oldGoldWeight;
-    private decimal _oldValuePercent = 100m;
-    private decimal _oldConvertedWeight;
-    private decimal _oldBuyPrice;
-    private string _oldProductCode = string.Empty;
-    private decimal _oldQuantity = 1m;
-    private BuyOldLineRowViewModel? _selectedBuyLine;
-
-    public BuyOldGoldWorkspaceViewModel()
-    {
-        CustomerOptions.Add("Khách lẻ");
-        CustomerOptions.Add("Nguyễn Văn A");
-        _selectedCustomer = CustomerOptions[0];
-
-        StaffOptions.Add("NV01 — Trần Thị B");
-        StaffOptions.Add("NV02 — Lê Văn C");
-        _selectedStaff = StaffOptions[0];
-
-        OldGoldTypeOptions.Add("Vàng 9999");
-        OldGoldTypeOptions.Add("Vàng 24K");
-        OldGoldTypeOptions.Add("Vàng 18K");
-        OldGoldTypeOptions.Add("Vàng 14K");
-        _oldGoldType = OldGoldTypeOptions[0];
-
-        BuyLines.Add(new BuyOldLineRowViewModel(
-            1, "Vàng 9999", 5.0m, 0m, 5.0m, 5.0m, 100m, 7_800_000m));
-
-        AddBuyLineCommand = new RelayCommand(() => { });
-        RemoveBuyLineCommand = new RelayCommand(() => { });
-        PrintStockLabelCommand = new RelayCommand(() => { });
-        LookupCustomerCommand = new RelayCommand(() => { });
+        var session = RequireSession();
+        var self = BuySell.StaffOptions.FirstOrDefault(x => x.Id == session.UserId)
+            ?? BuySell.StaffOptions.FirstOrDefault();
+        BuySell.ResetForNew(BuySell.CustomerOptions.FirstOrDefault(x => x.IsWalkIn) ?? BuySell.SelectedCustomer, self);
+        BuyOldGold.ResetForNew(BuyOldGold.CustomerOptions.FirstOrDefault(x => !x.IsWalkIn) ?? BuyOldGold.SelectedCustomer, self);
+        LastResult = null;
+        SuccessMessage = string.Empty;
+        ErrorMessage = string.Empty;
+        Notes = null;
+        RenewRequestId();
+        await Task.CompletedTask;
     }
 
-    public ObservableCollection<string> CustomerOptions { get; } = [];
-    public ObservableCollection<string> StaffOptions { get; } = [];
-    public ObservableCollection<string> OldGoldTypeOptions { get; } = [];
-    public ObservableCollection<BuyOldLineRowViewModel> BuyLines { get; } = [];
-
-    public DateTime DocumentDate
+    private async Task ReloadCustomersAsync()
     {
-        get => _documentDate;
-        set => SetProperty(ref _documentDate, value);
+        var session = RequireSession();
+        var customers = await _queries.SearchCustomersAsync(string.Empty, session);
+        var selectedBuySell = BuySell.SelectedCustomer?.Id;
+        var selectedOld = BuyOldGold.SelectedCustomer?.Id;
+        Replace(BuySell.CustomerOptions, customers);
+        Replace(BuyOldGold.CustomerOptions, customers);
+        BuySell.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedBuySell) ?? customers.FirstOrDefault();
+        BuyOldGold.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedOld) ?? customers.FirstOrDefault();
     }
 
-    public string DocumentCode
+    private async Task<SalesProductOption?> FindProductAsync(string code)
     {
-        get => _documentCode;
-        set => SetProperty(ref _documentCode, value);
+        var session = RequireSession();
+        var product = await _queries.FindAvailableProductAsync(code, session);
+        if (product is not null && _salesFloorLocationId <= 0)
+            _salesFloorLocationId = product.SourceLocationId;
+        return product;
     }
 
-    public string? SelectedCustomer
+    private async Task PayAsync()
     {
-        get => _selectedCustomer;
-        set => SetProperty(ref _selectedCustomer, value);
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+        try
+        {
+            var session = RequireSession();
+            if (!_permissions.CanPost)
+                throw new InvalidOperationException("Không có quyền ghi sổ bán hàng.");
+
+            var totals = IsBuySellTab ? BuySell.ComputeTotals() : BuyOldGold.ComputeTotals();
+            if (IsBuySellTab && BuySell.SellLines.Count == 0 && BuySell.BuyLines.Count == 0)
+                throw new InvalidOperationException("Phải có ít nhất một dòng bán hoặc vàng cũ.");
+            if (!IsBuySellTab && BuyOldGold.BuyLines.Count == 0)
+                throw new InvalidOperationException("Phải có ít nhất một dòng vàng cũ.");
+            if (IsBuySellTab && BuySell.SellLines.Count > 0 && _salesFloorLocationId <= 0)
+                throw new InvalidOperationException("Chưa xác định được kho bán hàng từ thành phẩm.");
+
+            SalesPaymentDialogResult? payment = null;
+            if (totals.NetAmountVnd != 0)
+            {
+                var isPayout = totals.NetAmountVnd < 0;
+                var customer = IsBuySellTab ? BuySell.SelectedCustomer : BuyOldGold.SelectedCustomer;
+                payment = _paymentDialog.Show(new SalesPaymentDialogRequest(
+                    totals.NetAmountVnd,
+                    isPayout,
+                    _permissions.CanApproveDebt,
+                    AllowReceivable: customer is { IsWalkIn: false },
+                    _funds,
+                    _banks,
+                    IsBuySellTab ? BuySell.CheckoutTypeLabel : BuyOldGold.CheckoutTypeLabel));
+                if (payment is null)
+                    return;
+            }
+            else
+            {
+                payment = new SalesPaymentDialogResult([], 0);
+            }
+
+            var draft = IsBuySellTab
+                ? BuySell.BuildDraft(_clientRequestId, payment.Allocations, payment.ReceivableAmountVnd,
+                    _salesFloorLocationId, Notes)
+                : BuyOldGold.BuildDraft(_clientRequestId, payment.Allocations, Notes);
+
+            IsPosting = true;
+            _preserveRequestIdOnEdit = true;
+            var result = await _checkout.PostAsync(draft, session);
+            LastResult = result;
+            SuccessMessage = result.AlreadyPosted
+                ? $"Đã ghi sổ trước đó: {result.DocumentCode}"
+                : $"Ghi sổ thành công: {result.DocumentCode}";
+            if (IsBuySellTab)
+                BuySell.DocumentCode = result.DocumentCode;
+            else
+                BuyOldGold.DocumentCode = result.DocumentCode;
+
+            try
+            {
+                await _receiptPresenter.ShowAsync(result.CheckoutId);
+            }
+            catch (Exception printEx)
+            {
+                ErrorMessage = "Phiếu đã ghi sổ nhưng không xem/in được: " + FriendlyError(printEx);
+            }
+
+            RenewRequestId();
+            _preserveRequestIdOnEdit = false;
+            if (IsBuySellTab)
+                BuySell.ResetForNew(BuySell.SelectedCustomer, BuySell.SelectedStaff);
+            else
+                BuyOldGold.ResetForNew(BuyOldGold.SelectedCustomer, BuyOldGold.SelectedStaff);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = FriendlyError(ex);
+            _preserveRequestIdOnEdit = true;
+        }
+        finally
+        {
+            IsPosting = false;
+        }
     }
 
-    public string? SelectedStaff
+    private async Task PrintAsync()
     {
-        get => _selectedStaff;
-        set => SetProperty(ref _selectedStaff, value);
+        try
+        {
+            if (LastResult is null || LastResult.CheckoutId <= 0)
+            {
+                ErrorMessage = "Chưa có chứng từ để in.";
+                return;
+            }
+
+            if (!_permissions.CanPrintReceipt)
+            {
+                ErrorMessage = "Không có quyền in phiếu bán hàng.";
+                return;
+            }
+
+            ErrorMessage = string.Empty;
+            await _receiptPresenter.ShowAsync(LastResult.CheckoutId);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = FriendlyError(ex);
+        }
     }
 
-    public string? OldGoldType
+    private async Task NavigateHistoryAsync(bool next)
     {
-        get => _oldGoldType;
-        set => SetProperty(ref _oldGoldType, value);
+        try
+        {
+            var session = RequireSession();
+            var currentId = LastResult?.CheckoutId;
+            if (currentId is null or <= 0)
+            {
+                ErrorMessage = "Chưa có chứng từ để điều hướng.";
+                return;
+            }
+
+            var adjacent = await _queries.GetAdjacentCheckoutIdAsync(currentId.Value, next, session);
+            if (adjacent is null)
+            {
+                ErrorMessage = next ? "Không còn chứng từ sau." : "Không còn chứng từ trước.";
+                return;
+            }
+
+            var detail = await _queries.GetCheckoutAsync(adjacent.Value, session);
+            if (detail is null)
+            {
+                ErrorMessage = "Không tải được chứng từ.";
+                return;
+            }
+
+            LastResult = new SalesCheckoutResult(
+                detail.CheckoutId, detail.DocumentCode, detail.CheckoutType, detail.Totals,
+                null, null, AlreadyPosted: true);
+            SuccessMessage = $"Đang xem {detail.DocumentCode} (chỉ đọc).";
+            if (detail.CheckoutType == SalesCheckoutTypes.OldGoldPurchase)
+            {
+                MainTabIndex = 1;
+                BuyOldGold.DocumentCode = detail.DocumentCode;
+                BuyOldGold.IsReadOnly = true;
+            }
+            else
+            {
+                MainTabIndex = 0;
+                BuySell.DocumentCode = detail.DocumentCode;
+                BuySell.IsReadOnly = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = FriendlyError(ex);
+        }
     }
 
-    public decimal OldTotalWeight
+    private void OnWorkspaceChanged()
     {
-        get => _oldTotalWeight;
-        set => SetProperty(ref _oldTotalWeight, value);
+        OnPropertyChanged(nameof(IsBuySellTab));
+        InvalidateRequestIdIfNeeded();
     }
 
-    public decimal OldStoneWeight
+    private void InvalidateRequestIdIfNeeded()
     {
-        get => _oldStoneWeight;
-        set => SetProperty(ref _oldStoneWeight, value);
+        if (_preserveRequestIdOnEdit)
+        {
+            RenewRequestId();
+            _preserveRequestIdOnEdit = false;
+        }
     }
 
-    public decimal OldImpurityDeduction
+    private void RenewRequestId() => _clientRequestId = Guid.NewGuid();
+
+    private AuthenticatedSession RequireSession() =>
+        _sessionAccessor.Current
+        ?? throw new InvalidOperationException("Chưa đăng nhập.");
+
+    private static void Replace<T>(System.Collections.ObjectModel.ObservableCollection<T> target, IEnumerable<T> source)
     {
-        get => _oldImpurityDeduction;
-        set => SetProperty(ref _oldImpurityDeduction, value);
+        target.Clear();
+        foreach (var item in source)
+            target.Add(item);
     }
 
-    public decimal OldGoldWeight
+    private static string FriendlyError(Exception ex)
     {
-        get => _oldGoldWeight;
-        set => SetProperty(ref _oldGoldWeight, value);
+        var message = ex.Message;
+        if (message.Contains("SQL", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Firebird", StringComparison.OrdinalIgnoreCase))
+            return "Không thể hoàn tất giao dịch. Vui lòng kiểm tra dữ liệu và thử lại.";
+        return message;
     }
-
-    public decimal OldValuePercent
-    {
-        get => _oldValuePercent;
-        set => SetProperty(ref _oldValuePercent, value);
-    }
-
-    public decimal OldConvertedWeight
-    {
-        get => _oldConvertedWeight;
-        set => SetProperty(ref _oldConvertedWeight, value);
-    }
-
-    public decimal OldBuyPrice
-    {
-        get => _oldBuyPrice;
-        set => SetProperty(ref _oldBuyPrice, value);
-    }
-
-    public string OldProductCode
-    {
-        get => _oldProductCode;
-        set => SetProperty(ref _oldProductCode, value);
-    }
-
-    public decimal OldQuantity
-    {
-        get => _oldQuantity;
-        set => SetProperty(ref _oldQuantity, value);
-    }
-
-    public BuyOldLineRowViewModel? SelectedBuyLine
-    {
-        get => _selectedBuyLine;
-        set => SetProperty(ref _selectedBuyLine, value);
-    }
-
-    public decimal OldGoldTotal => BuyLines.Sum(x => x.LineTotal);
-    public string OldGoldTotalText => OldGoldTotal.ToString("N0", Vi);
-    public string AmountPayableText => OldGoldTotal.ToString("N0", Vi);
-
-    public ICommand AddBuyLineCommand { get; }
-    public ICommand RemoveBuyLineCommand { get; }
-    public ICommand PrintStockLabelCommand { get; }
-    public ICommand LookupCustomerCommand { get; }
-}
-
-public sealed class SellLineRowViewModel
-{
-    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
-
-    public SellLineRowViewModel(
-        int index,
-        string productCode,
-        string productName,
-        string goldType,
-        decimal goldWeight,
-        decimal stoneWeight,
-        decimal laborFee,
-        decimal sizeCut,
-        decimal actualGold,
-        decimal sellPricePerChi,
-        decimal stoneAmount,
-        string warehouse)
-    {
-        Index = index;
-        ProductCode = productCode;
-        ProductName = productName;
-        GoldType = goldType;
-        GoldWeight = goldWeight;
-        StoneWeight = stoneWeight;
-        LaborFee = laborFee;
-        SizeCut = sizeCut;
-        ActualGold = actualGold;
-        SellPricePerChi = sellPricePerChi;
-        StoneAmount = stoneAmount;
-        Warehouse = warehouse;
-        LineTotal = Math.Round(actualGold * sellPricePerChi + laborFee + stoneAmount, 0, MidpointRounding.AwayFromZero);
-    }
-
-    public int Index { get; }
-    public string ProductCode { get; }
-    public string ProductName { get; }
-    public string GoldType { get; }
-    public decimal GoldWeight { get; }
-    public decimal StoneWeight { get; }
-    public decimal LaborFee { get; }
-    public decimal SizeCut { get; }
-    public decimal ActualGold { get; }
-    public decimal SellPricePerChi { get; }
-    public decimal StoneAmount { get; }
-    public decimal LineTotal { get; }
-    public string Warehouse { get; }
-
-    public string GoldWeightText => GoldWeight.ToString("0.####", Vi);
-    public string StoneWeightText => StoneWeight.ToString("0.####", Vi);
-    public string LaborFeeText => LaborFee.ToString("N0", Vi);
-    public string SizeCutText => SizeCut.ToString("0.####", Vi);
-    public string ActualGoldText => ActualGold.ToString("0.####", Vi);
-    public string SellPriceText => SellPricePerChi.ToString("N0", Vi);
-    public string StoneAmountText => StoneAmount.ToString("N0", Vi);
-    public string LineTotalText => LineTotal.ToString("N0", Vi);
-}
-
-public sealed class BuyOldLineRowViewModel
-{
-    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
-
-    public BuyOldLineRowViewModel(
-        int index,
-        string oldGoldType,
-        decimal totalWeight,
-        decimal stoneWeight,
-        decimal goldWeight,
-        decimal convertedWeight,
-        decimal valuePercent,
-        decimal buyPricePerChi)
-    {
-        Index = index;
-        OldGoldType = oldGoldType;
-        TotalWeight = totalWeight;
-        StoneWeight = stoneWeight;
-        GoldWeight = goldWeight;
-        ConvertedWeight = convertedWeight;
-        ValuePercent = valuePercent;
-        BuyPricePerChi = buyPricePerChi;
-        LineTotal = Math.Round(convertedWeight * buyPricePerChi, 0, MidpointRounding.AwayFromZero);
-    }
-
-    public int Index { get; }
-    public string OldGoldType { get; }
-    public decimal TotalWeight { get; }
-    public decimal StoneWeight { get; }
-    public decimal GoldWeight { get; }
-    public decimal ConvertedWeight { get; }
-    public decimal ValuePercent { get; }
-    public decimal BuyPricePerChi { get; }
-    public decimal LineTotal { get; }
-
-    public string TotalWeightText => TotalWeight.ToString("0.####", Vi);
-    public string StoneWeightText => StoneWeight.ToString("0.####", Vi);
-    public string GoldWeightText => GoldWeight.ToString("0.####", Vi);
-    public string ConvertedWeightText => ConvertedWeight.ToString("0.####", Vi);
-    public string ValuePercentText => ValuePercent.ToString("0.##", Vi);
-    public string BuyPriceText => BuyPricePerChi.ToString("N0", Vi);
-    public string LineTotalText => LineTotal.ToString("N0", Vi);
 }

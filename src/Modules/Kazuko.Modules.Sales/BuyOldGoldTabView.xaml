@@ -41,6 +41,7 @@
                 <StackPanel Grid.Column="4">
                     <TextBlock Text="Khách hàng" Style="{StaticResource SalesFieldLabelStyle}" />
                     <ComboBox ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding SelectedCustomer}"
+                              DisplayMemberPath="Name"
                               Style="{StaticResource SalesComboStyle}" IsEditable="True" />
                 </StackPanel>
                 <Button Grid.Column="6" Content="…"
@@ -51,7 +52,9 @@
                 <StackPanel Grid.Column="8">
                     <TextBlock Text="Nhân viên" Style="{StaticResource SalesFieldLabelStyle}" />
                     <ComboBox ItemsSource="{Binding StaffOptions}" SelectedItem="{Binding SelectedStaff}"
-                              Style="{StaticResource SalesComboStyle}" />
+                              DisplayMemberPath="DisplayName"
+                              Style="{StaticResource SalesComboStyle}"
+                              IsEnabled="{Binding CanChangeSalesperson}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -100,7 +103,8 @@
                             <TextBlock Grid.Row="0" Grid.Column="9" Text="Số lượng" Style="{StaticResource SalesFieldLabelStyle}" />
 
                             <ComboBox Grid.Row="1" Grid.Column="0" ItemsSource="{Binding OldGoldTypeOptions}"
-                                      SelectedItem="{Binding OldGoldType}"
+                                      SelectedItem="{Binding SelectedOldGoldMaterial}"
+                                      DisplayMemberPath="Name"
                                       Style="{StaticResource SalesComboStyle}" Margin="0,0,6,0" />
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OldTotalWeight, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
@@ -108,16 +112,17 @@
                                      Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
                             <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding OldImpurityDeduction, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
-                            <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding OldGoldWeight, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
+                            <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding OldGoldWeightText, Mode=OneWay}"
+                                     Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" IsReadOnly="True" />
                             <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding OldValuePercent, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
-                            <TextBox Grid.Row="1" Grid.Column="6" Text="{Binding OldConvertedWeight, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
+                            <TextBox Grid.Row="1" Grid.Column="6" Text="{Binding OldConvertedWeightText, Mode=OneWay}"
+                                     Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" IsReadOnly="True" />
                             <TextBox Grid.Row="1" Grid.Column="7" Text="{Binding OldBuyPrice, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
-                            <TextBox Grid.Row="1" Grid.Column="8" Text="{Binding OldProductCode, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource SalesRoundedTextBoxStyle}" Margin="0,0,6,0" />
+                            <TextBox Grid.Row="1" Grid.Column="8" Text="{Binding OldOverrideReason, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SalesRoundedTextBoxStyle}" Margin="0,0,6,0"
+                                     ToolTip="Lý do điều chỉnh giá (nếu có)" />
                             <TextBox Grid.Row="1" Grid.Column="9" Text="{Binding OldQuantity, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0" />
                             <Button Grid.Row="1" Grid.Column="10" Content="Nhập"

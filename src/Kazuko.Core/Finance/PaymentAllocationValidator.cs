@@ -35,12 +35,12 @@ public static class PaymentAllocationValidator
                 if (item.BankAccountId is > 0)
                     errors.Add($"Dòng thanh toán {line}: tiền mặt không được gắn tài khoản ngân hàng.");
             }
-            else if (method == PaymentMethods.BankTransfer)
+            else if (method is PaymentMethods.BankTransfer or PaymentMethods.Card)
             {
                 if (item.BankAccountId is null or <= 0)
-                    errors.Add($"Dòng thanh toán {line}: chuyển khoản bắt buộc chọn tài khoản ngân hàng.");
+                    errors.Add($"Dòng thanh toán {line}: chuyển khoản/thẻ bắt buộc chọn tài khoản ngân hàng.");
                 if (item.CashFundId is > 0)
-                    errors.Add($"Dòng thanh toán {line}: chuyển khoản không được gắn quỹ tiền mặt.");
+                    errors.Add($"Dòng thanh toán {line}: chuyển khoản/thẻ không được gắn quỹ tiền mặt.");
             }
             else
             {

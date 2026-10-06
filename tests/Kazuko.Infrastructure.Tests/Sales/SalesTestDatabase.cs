@@ -1,0 +1,636 @@
+using FirebirdSql.Data.FirebirdClient;
+using Kazuko.Core.Authentication;
+using Kazuko.Infrastructure.Data;
+
+namespace Kazuko.Infrastructure.Tests.Sales;
+
+internal sealed class SalesTestDatabase : IDisposable
+{
+    private const string PasswordHash = "0000000000000000000000000000000000000000000000000000000000000000";
+    private const string PasswordSalt = "00000000000000000000000000000000";
+
+    private readonly ConnectionProfile _originalProfile;
+    private readonly string _temporaryDirectory;
+
+    public SalesTestDatabase()
+        : this(null)
+    {
+    }
+
+    internal SalesTestDatabase(Action<string>? afterProfileApplied)
+    {
+        _originalProfile = FirebirdDatabase.Profile;
+        _temporaryDirectory = Path.Combine(
+            ResolveWorktreeRoot(),
+            ".superpowers",
+            "sdd",
+            "2026-10-05-sales-checkout",
+            "task3-test-dbs",
+            Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var source = ResolveVerifiedDatabasePath();
+            Directory.CreateDirectory(_temporaryDirectory);
+
+            var databasePath = Path.Combine(_temporaryDirectory, "data.fdb");
+            File.Copy(source, databasePath, overwrite: false);
+            FirebirdDatabase.ApplyProfileForCurrentProcess(new ConnectionProfile(
+                _originalProfile.Host,
+                _originalProfile.Port,
+                databasePath,
+                _originalProfile.UserName,
+                string.IsNullOrWhiteSpace(_originalProfile.Password) ? "masterkey" : _originalProfile.Password,
+                UseEmbedded: false));
+
+            afterProfileApplied?.Invoke(databasePath);
+            SeedAsync().GetAwaiter().GetResult();
+        }
+        catch
+        {
+            Cleanup();
+            throw;
+        }
+    }
+
+    public long CompanyId { get; private set; }
+    public long OtherCompanyId { get; private set; }
+    public long BranchId { get; private set; }
+    public long OtherBranchId { get; private set; }
+    public long OtherCompanyBranchId { get; private set; }
+    public long SalesFloorLocationId { get; private set; }
+    public long OldGoldLocationId { get; private set; }
+    public long OldGoldMaterialId { get; private set; }
+    public long OldGoldPriceId { get; private set; }
+    public long RetailGoldPriceId { get; private set; }
+    public long NamedCustomerId { get; private set; }
+    public long CashFundId { get; private set; }
+    public long SalespersonId { get; private set; }
+    public long LimitedUserId { get; private set; }
+    public long AdminUserId { get; private set; }
+    public long OtherBranchUserId { get; private set; }
+    public long OtherCompanyUserId { get; private set; }
+    public long InactiveUserId { get; private set; }
+    public long InactiveOldGoldLocationId { get; private set; }
+    public long OtherBranchSalesFloorId { get; private set; }
+    public long OtherCompanySalesFloorId { get; private set; }
+    public long OtherBranchOldGoldLocationId { get; private set; }
+    public long OtherCompanyOldGoldLocationId { get; private set; }
+    public long InactiveOldGoldMaterialId { get; private set; }
+    public long OtherCompanyOldGoldMaterialId { get; private set; }
+    public long AmbiguousOldGoldMaterialId { get; private set; }
+    public long UnmappedOldGoldMaterialId { get; private set; }
+    public long InactivePriceOldGoldMaterialId { get; private set; }
+    public long OtherCompanyPriceOldGoldMaterialId { get; private set; }
+    public long MiddleCheckoutId { get; private set; }
+    public long OtherBranchCheckoutId { get; private set; }
+    public long OtherCompanyCheckoutId { get; private set; }
+    public long OldGoldOnlyCheckoutId { get; private set; }
+    public IReadOnlyList<long> ExpectedCustomerIds { get; private set; } = [];
+    public IReadOnlyList<long> ExpectedSalespersonIds { get; private set; } = [];
+    public IReadOnlyList<long> ExpectedOldGoldMaterialIds { get; private set; } = [];
+    public IReadOnlyList<long> ExpectedOldGoldLocationIds { get; private set; } = [];
+
+    public AuthenticatedSession BranchSession(long userId, string claimedRoleCode = "SALE") =>
+        new(userId, "task3-user", "Task 3 User", claimedRoleCode, BranchId, "T3_BRA", "Task 3 Branch A");
+
+    public void Dispose() => Cleanup();
+
+    private void Cleanup()
+    {
+        FirebirdDatabase.ApplyProfileForCurrentProcess(_originalProfile);
+        FbConnection.ClearAllPools();
+        try
+        {
+            if (Directory.Exists(_temporaryDirectory))
+                Directory.Delete(_temporaryDirectory, recursive: true);
+        }
+        catch
+        {
+            // Best-effort cleanup after all Firebird handles have been disposed.
+        }
+    }
+
+    private async Task SeedAsync()
+    {
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync();
+        await using var transaction = (FbTransaction)await connection.BeginTransactionAsync();
+
+        try
+        {
+            await AssertSchemaVersionAsync(connection, transaction);
+
+            CompanyId = await ScalarAsync(connection, transaction,
+                "SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'");
+            OtherCompanyId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO COMPANIES (CODE, NAME, IS_ACTIVE)
+                VALUES ('T3_CO2', 'Task 3 Company 2', TRUE)
+                RETURNING ID
+                """);
+
+            BranchId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO BRANCHES (COMPANY_ID, CODE, NAME, IS_ACTIVE)
+                VALUES (@CID, 'T3_BRA', 'Task 3 Branch A', TRUE)
+                RETURNING ID
+                """, ("@CID", CompanyId));
+            OtherBranchId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO BRANCHES (COMPANY_ID, CODE, NAME, IS_ACTIVE)
+                VALUES (@CID, 'T3_BRB', 'Task 3 Branch B', TRUE)
+                RETURNING ID
+                """, ("@CID", CompanyId));
+            OtherCompanyBranchId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO BRANCHES (COMPANY_ID, CODE, NAME, IS_ACTIVE)
+                VALUES (@CID, 'T3_BRC', 'Task 3 Branch C', TRUE)
+                RETURNING ID
+                """, ("@CID", OtherCompanyId));
+
+            CashFundId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO CASH_FUNDS (COMPANY_ID, BRANCH_ID, CODE, NAME, IS_ACTIVE, IS_DEFAULT)
+                VALUES (@CID, @BID, 'T3_CASH', 'Task 3 Cash Fund', TRUE, TRUE)
+                RETURNING ID
+                """, ("@CID", CompanyId), ("@BID", BranchId));
+
+            var limitedRoleId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO ROLES (CODE, NAME, IS_SYSTEM, IS_ACTIVE)
+                VALUES ('T3_LIMITED', 'Task 3 Limited', FALSE, TRUE)
+                RETURNING ID
+                """);
+            var adminRoleId = await ScalarAsync(connection, transaction,
+                "SELECT ID FROM ROLES WHERE CODE = 'ADMIN'");
+
+            SalespersonId = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
+                limitedRoleId, "t3-salesperson", "Task 3 Salesperson", true);
+            LimitedUserId = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
+                limitedRoleId, "t3-limited", "Task 3 Limited User", true);
+            AdminUserId = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
+                adminRoleId, "t3-admin", "Task 3 Admin User", true);
+            OtherBranchUserId = await InsertUserAsync(connection, transaction, CompanyId, OtherBranchId,
+                limitedRoleId, "t3-other-branch", "000 Task 3 Salesperson - Other Branch", true);
+            OtherCompanyUserId = await InsertUserAsync(connection, transaction, OtherCompanyId, BranchId,
+                limitedRoleId, "t3-other-company", "000 Task 3 Salesperson - Other Company", true);
+            InactiveUserId = await InsertUserAsync(connection, transaction, CompanyId, BranchId,
+                limitedRoleId, "t3-inactive", "000 Task 3 Salesperson - Inactive", false);
+            var boundedSalespeople = new List<long>();
+            for (var index = 0; index < 105; index++)
+            {
+                var sortKey = 104 - index;
+                boundedSalespeople.Insert(0, await InsertUserAsync(connection, transaction, CompanyId, BranchId,
+                    limitedRoleId, $"t3-bounded-{index:000}", $"000 Task 3 Salesperson {sortKey:000}", true));
+            }
+            ExpectedSalespersonIds = boundedSalespeople.Take(100).ToArray();
+
+            await ExecuteAsync(connection, transaction, """
+                INSERT INTO ROLE_PERMISSIONS (ROLE_ID, PERMISSION_ID, IS_ALLOWED)
+                SELECT @RID, P.ID,
+                       CASE WHEN P.CODE IN ('sales.checkout.post', 'sales.history.read')
+                            THEN TRUE ELSE FALSE END
+                FROM PERMISSIONS P
+                WHERE P.CODE IN (
+                    'sales.checkout.post', 'sales.price.override', 'sales.history.read')
+                """, ("@RID", limitedRoleId));
+
+            var groupId = await InsertCustomerGroupAsync(connection, transaction, CompanyId, "T3_GROUP_A");
+            var otherGroupId = await InsertCustomerGroupAsync(connection, transaction, OtherCompanyId, "T3_GROUP_B");
+            NamedCustomerId = await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
+                groupId, "T3_NAMED", "Task 3 Named Customer", "0903000001", true);
+            _ = await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
+                groupId, "WALK_IN", "Task 3 Walk-in Customer", "0903000004", true);
+            _ = await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
+                groupId, "T3_INACTIVE", "Task 3 Inactive Customer", "0903000002", false);
+            _ = await InsertCustomerAsync(connection, transaction, OtherCompanyId, OtherCompanyBranchId,
+                otherGroupId, "T3_OTHER_CO", "Task 3 Other Company Customer", "0903000003", true);
+            var boundedCustomers = new List<long>();
+            for (var index = 0; index < 55; index++)
+            {
+                var sortKey = 54 - index;
+                boundedCustomers.Insert(0, await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
+                    groupId, $"T3_LIMIT_{index:000}", $"Task 3 Limited {sortKey:000}", $"0913{index:000000}", true));
+            }
+            ExpectedCustomerIds = boundedCustomers.Take(50).ToArray();
+
+            SalesFloorLocationId = await InsertLocationAsync(connection, transaction, BranchId,
+                "T3_SALES_A", "000 Task 3 Old Gold Location - Sales Floor", "SALES_FLOOR", true);
+            OldGoldLocationId = await InsertLocationAsync(connection, transaction, BranchId,
+                "T3_OLD_GOLD_DEFAULT", "Task 3 Old Gold", "RAW_MATERIAL", true);
+            var nonSalesLocationId = await InsertLocationAsync(connection, transaction, BranchId,
+                "T3_RAW_A", "Task 3 Raw A", "RAW_MATERIAL", true);
+            InactiveOldGoldLocationId = await InsertLocationAsync(connection, transaction, BranchId,
+                "T3_INACTIVE_LOC", "000 Task 3 Old Gold Location - Inactive", "RAW_MATERIAL", false);
+            OtherBranchSalesFloorId = await InsertLocationAsync(connection, transaction, OtherBranchId,
+                "T3_SALES_B", "000 Task 3 Old Gold Location - Other Branch", "SALES_FLOOR", true);
+            OtherCompanySalesFloorId = await InsertLocationAsync(connection, transaction, OtherCompanyBranchId,
+                "T3_SALES_C", "000 Task 3 Old Gold Location - Other Company", "SALES_FLOOR", true);
+            OtherBranchOldGoldLocationId = await InsertLocationAsync(connection, transaction, OtherBranchId,
+                "T3_RAW_B", "000 Task 3 Old Gold Location - Other Branch Raw", "RAW_MATERIAL", true);
+            OtherCompanyOldGoldLocationId = await InsertLocationAsync(connection, transaction, OtherCompanyBranchId,
+                "T3_RAW_C", "000 Task 3 Old Gold Location - Other Company Raw", "RAW_MATERIAL", true);
+            var boundedLocations = new List<long>();
+            for (var index = 0; index < 105; index++)
+            {
+                var sortKey = 104 - index;
+                boundedLocations.Insert(0, await InsertLocationAsync(connection, transaction, BranchId,
+                    $"T3_BOUND_LOC_{index:000}", $"000 Task 3 Old Gold Location {sortKey:000}",
+                    "RAW_MATERIAL", true));
+            }
+            ExpectedOldGoldLocationIds = new[] { OldGoldLocationId }
+                .Concat(boundedLocations.Take(99))
+                .ToArray();
+
+            RetailGoldPriceId = await InsertGoldPriceAsync(connection, transaction, CompanyId,
+                "T3_750", "Task 3 Price 750", 0.75m, 77m, 111m, true);
+            OldGoldPriceId = RetailGoldPriceId;
+            _ = await InsertGoldPriceAsync(connection, transaction, CompanyId,
+                "T3_TASK_ALT", "Task 3 Alternate Price 750", 0.75m, 66m, 99m, true);
+            var otherCompanyGoldPriceId = await InsertGoldPriceAsync(connection, transaction, OtherCompanyId,
+                "T3_750", "Task 3 Other Price 750", 0.75m, 88m, 222m, true);
+            var inactiveGoldPriceId = await InsertGoldPriceAsync(connection, transaction, CompanyId,
+                "T3_INACTIVE_PRICE", "Task 3 Inactive Price", 0.75m, 66m, 99m, false);
+            OldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_750", "Task 3 Gold 750", "T3_750", true, OldGoldPriceId);
+            InactiveOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_INACTIVE", "000 Task 3 Gold Material - Inactive", "T3_INACTIVE", false, OldGoldPriceId);
+            OtherCompanyOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, OtherCompanyId,
+                "T3_GOLD_750", "000 Task 3 Gold Material - Other Company", "T3_750", true,
+                otherCompanyGoldPriceId);
+            AmbiguousOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "GOLD_T3_TASK_ALT", "000 Task 3 Gold Material - Ambiguous", "T3_750", true);
+            UnmappedOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_UNMAPPED", "000 Task 3 Gold Material - Unmapped", "NO_PRICE", true);
+            InactivePriceOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_INACTIVE_PRICE", "000 Task 3 Gold Material - Inactive Price", "T3_INACTIVE_PRICE",
+                true, inactiveGoldPriceId);
+            OtherCompanyPriceOldGoldMaterialId = await InsertMaterialAsync(connection, transaction, CompanyId,
+                "T3_GOLD_OTHER_PRICE", "000 Task 3 Gold Material - Other Company Price", "T3_750", true,
+                otherCompanyGoldPriceId);
+            var boundedMaterials = new List<long>();
+            for (var index = 0; index < 105; index++)
+            {
+                var sortKey = 104 - index;
+                boundedMaterials.Insert(0, await InsertMaterialAsync(connection, transaction, CompanyId,
+                    $"T3_BOUND_GOLD_{index:000}", $"000 Task 3 Gold Material {sortKey:000}",
+                    "T3_750", true, OldGoldPriceId));
+            }
+            ExpectedOldGoldMaterialIds = boundedMaterials.Take(100).ToArray();
+
+            var displayedProductId = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_DISPLAYED", "Task 3 Displayed", "DISPLAYED", 9,
+                RetailGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_INSTOCK", "Task 3 In Stock", "IN_STOCK", 10,
+                RetailGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_18K", "Task 3 18K", "DISPLAYED", 15,
+                retailGoldPriceId: null, purity: "18K");
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_SOLD", "Task 3 Sold", "SOLD", 11,
+                RetailGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                nonSalesLocationId, "T3_PRODUCT_RAW", "Task 3 Raw", "IN_STOCK", 12,
+                RetailGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, OtherBranchId,
+                OtherBranchSalesFloorId, "T3_PRODUCT_BRANCH_B", "Task 3 Branch B Product", "DISPLAYED", 13,
+                RetailGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, OtherCompanyId, OtherCompanyBranchId,
+                OtherCompanySalesFloorId, "T3_PRODUCT_COMPANY_B", "Task 3 Company B Product", "DISPLAYED", 14,
+                otherCompanyGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_WRONG_PRICE_CO", "Task 3 Wrong Price Company", "DISPLAYED", 16,
+                otherCompanyGoldPriceId);
+            _ = await InsertProductAsync(connection, transaction, CompanyId, BranchId,
+                SalesFloorLocationId, "T3_PRODUCT_INACTIVE_PRICE", "Task 3 Inactive Price", "DISPLAYED", 17,
+                inactiveGoldPriceId);
+
+            var salesOrderId = await InsertIdAsync(connection, transaction, """
+                INSERT INTO SALES_ORDERS
+                    (COMPANY_ID, BRANCH_ID, CODE, ORDER_TYPE, CUSTOMER_ID, ORDER_DATE,
+                     SALES_PERSON_ID, STATUS_CODE, SUBTOTAL, DISCOUNT_AMOUNT, TAX_AMOUNT,
+                     GRAND_TOTAL, CREATED_BY, UPDATED_BY)
+                VALUES
+                    (@CID, @BID, 'T3-SO-001', 'RETAIL', @CUSTOMER, DATE '2026-10-02',
+                     @SALESPERSON, 'COMPLETED', 353, 3, 0, 350, @CREATED_BY, @CREATED_BY)
+                RETURNING ID
+                """,
+                ("@CID", CompanyId), ("@BID", BranchId), ("@CUSTOMER", NamedCustomerId),
+                ("@SALESPERSON", SalespersonId), ("@CREATED_BY", LimitedUserId));
+            await ExecuteAsync(connection, transaction, """
+                INSERT INTO SALES_ORDER_ITEMS
+                    (ORDER_ID, LINE_NUMBER, PRODUCT_NAME, GOLD_PURITY, QUANTITY, ESTIMATED_WEIGHT,
+                     GOLD_UNIT_PRICE, LABOR_AMOUNT, STONE_AMOUNT, LINE_SUBTOTAL, LINE_TOTAL,
+                     FINISHED_PRODUCT_ID, SOURCE_GOLD_PRICE_PER_CHI, APPLIED_GOLD_PRICE_PER_CHI,
+                     SOURCE_LABOR_AMOUNT_VND, APPLIED_LABOR_AMOUNT_VND,
+                     SOURCE_STONE_AMOUNT_VND, APPLIED_STONE_AMOUNT_VND,
+                     IS_PRICE_OVERRIDE, PRICE_OVERRIDE_REASON)
+                VALUES
+                    (@ORDER_ID, 1, 'Task 3 Displayed', 'T3_750', 1, 2.5,
+                     100, 20, 10, 280, 280,
+                     @PRODUCT_ID, 111, 100, 25, 20, 8, 10, TRUE, 'Task 3 override')
+                """, ("@ORDER_ID", salesOrderId), ("@PRODUCT_ID", displayedProductId));
+
+            _ = await InsertCheckoutAsync(connection, transaction, CompanyId, BranchId,
+                "T3-CHK-001", new DateTime(2026, 10, 1), NamedCustomerId, SalespersonId,
+                SalesFloorLocationId, LimitedUserId, null);
+            MiddleCheckoutId = await InsertCheckoutAsync(connection, transaction, CompanyId, BranchId,
+                "T3-CHK-002", new DateTime(2026, 10, 2), NamedCustomerId, SalespersonId,
+                SalesFloorLocationId, LimitedUserId, salesOrderId);
+            _ = await InsertCheckoutAsync(connection, transaction, CompanyId, BranchId,
+                "T3-CHK-003", new DateTime(2026, 10, 3), NamedCustomerId, SalespersonId,
+                SalesFloorLocationId, LimitedUserId, null);
+            OldGoldOnlyCheckoutId = await InsertOldGoldCheckoutAsync(connection, transaction,
+                CompanyId, BranchId, "T3-CHK-OLD-001", new DateTime(2026, 10, 3),
+                NamedCustomerId, SalespersonId, OldGoldLocationId, LimitedUserId);
+            OtherBranchCheckoutId = await InsertCheckoutAsync(connection, transaction, CompanyId, OtherBranchId,
+                "T3-CHK-B01", new DateTime(2026, 10, 4), NamedCustomerId, SalespersonId,
+                OtherBranchSalesFloorId, LimitedUserId, null);
+
+            var otherCustomerId = await ScalarAsync(connection, transaction,
+                "SELECT ID FROM CUSTOMERS WHERE COMPANY_ID = @CID AND CODE = 'T3_OTHER_CO'",
+                ("@CID", OtherCompanyId));
+            OtherCompanyCheckoutId = await InsertCheckoutAsync(connection, transaction, OtherCompanyId,
+                OtherCompanyBranchId, "T3-CHK-C01", new DateTime(2026, 10, 5), otherCustomerId,
+                OtherCompanyUserId, OtherCompanySalesFloorId, OtherCompanyUserId, null);
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private static async Task AssertSchemaVersionAsync(FbConnection connection, FbTransaction transaction)
+    {
+        var version = await ScalarAsync(connection, transaction,
+            "SELECT MAX(VERSION_NO) FROM SCHEMA_MIGRATIONS");
+        if (version != 51)
+            throw new InvalidOperationException($"Task 3 requires schema version 51, found {version}.");
+    }
+
+    private static async Task<long> InsertUserAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        long roleId,
+        string username,
+        string displayName,
+        bool active) =>
+        await InsertIdAsync(connection, transaction, """
+            INSERT INTO USERS
+                (USERNAME, PASSWORD_HASH, PASSWORD_SALT, PASSWORD_ITERATIONS, DISPLAY_NAME,
+                 ROLE_CODE, BRANCH_CODE, BRANCH_NAME, IS_ACTIVE, COMPANY_ID, ROLE_ID, DEFAULT_BRANCH_ID)
+            SELECT @USERNAME, @HASH, @SALT, 100000, @DISPLAY_NAME,
+                   R.CODE, B.CODE, B.NAME, @ACTIVE, @CID, @RID, @BID
+            FROM ROLES R
+            JOIN BRANCHES B ON B.ID = @BID
+            WHERE R.ID = @RID
+            RETURNING ID
+            """,
+            ("@USERNAME", username), ("@HASH", PasswordHash), ("@SALT", PasswordSalt),
+            ("@DISPLAY_NAME", displayName), ("@ACTIVE", active), ("@CID", companyId),
+            ("@RID", roleId), ("@BID", branchId));
+
+    private static Task<long> InsertCustomerGroupAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        string code) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO CUSTOMER_GROUPS
+                (COMPANY_ID, CODE, NAME, MIN_POINTS, DISCOUNT_RATE, IS_DEFAULT, IS_ACTIVE)
+            VALUES (@CID, @CODE, @CODE, 0, 0, FALSE, TRUE)
+            RETURNING ID
+            """, ("@CID", companyId), ("@CODE", code));
+
+    private static Task<long> InsertCustomerAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        long groupId,
+        string code,
+        string name,
+        string phone,
+        bool active) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO CUSTOMERS
+                (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
+                 NAME, PHONE, OPENING_POINTS, IS_ACTIVE)
+            VALUES (@CID, @BID, @GID, @CODE, 'INDIVIDUAL', @NAME, @PHONE, 0, @ACTIVE)
+            RETURNING ID
+            """, ("@CID", companyId), ("@BID", branchId), ("@GID", groupId),
+            ("@CODE", code), ("@NAME", name), ("@PHONE", phone), ("@ACTIVE", active));
+
+    private static Task<long> InsertLocationAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long branchId,
+        string code,
+        string name,
+        string scope,
+        bool active) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO LOCATIONS (BRANCH_ID, CODE, NAME, LOCATION_TYPE, INVENTORY_SCOPE, IS_ACTIVE)
+            VALUES (@BID, @CODE, @NAME, 'WAREHOUSE', @SCOPE, @ACTIVE)
+            RETURNING ID
+            """, ("@BID", branchId), ("@CODE", code), ("@NAME", name),
+            ("@SCOPE", scope), ("@ACTIVE", active));
+
+    private static Task<long> InsertMaterialAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        string code,
+        string name,
+        string purity,
+        bool active,
+        long? oldGoldPriceId = null) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO MATERIALS
+                (COMPANY_ID, CODE, NAME, MATERIAL_TYPE, PURITY_CODE, UNIT_CODE,
+                 REFERENCE_COST, IS_ACTIVE, TRACKING_MODE, MIN_STOCK, OLD_GOLD_PRICE_ID)
+            VALUES (@CID, @CODE, @NAME, 'GOLD', @PURITY, 'CHI', 0, @ACTIVE, 'WEIGHT', 0,
+                    @OLD_GOLD_PRICE)
+            RETURNING ID
+            """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
+            ("@PURITY", purity), ("@ACTIVE", active), ("@OLD_GOLD_PRICE", oldGoldPriceId));
+
+    private static Task<long> InsertGoldPriceAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        string code,
+        string name,
+        decimal purity,
+        decimal buy,
+        decimal sell,
+        bool active) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO GOLD_PRICES
+                (COMPANY_ID, CODE, NAME, PURITY_RATE, BUY_PRICE_PER_CHI, SELL_PRICE_PER_CHI,
+                 BUY_PRICE_PER_GRAM, SELL_PRICE_PER_GRAM, CURRENCY_CODE, DISPLAY_ORDER, IS_ACTIVE)
+            VALUES (@CID, @CODE, @NAME, @PURITY, @BUY, @SELL, 0, 0, 'VND', 900, @ACTIVE)
+            RETURNING ID
+            """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
+            ("@PURITY", purity), ("@BUY", buy), ("@SELL", sell), ("@ACTIVE", active));
+
+    private static Task<long> InsertProductAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        long locationId,
+        string code,
+        string name,
+        string status,
+        long rowVersion,
+        long? retailGoldPriceId,
+        string purity = "T3_750") =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO FINISHED_PRODUCTS
+                (COMPANY_ID, BRANCH_ID, CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME,
+                 GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT, STONE_WEIGHT, LABOR_COST,
+                 MATERIAL_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST, LOCATION_ID,
+                 STATUS_CODE, ROW_VERSION, RETAIL_GOLD_PRICE_ID)
+            VALUES
+                (@CID, @BID, @CODE, @BARCODE, @QR, @NAME,
+                 @PURITY, 3.25, 2.50, 0.75, 25,
+                 277.50, 8, 310.50, @LOCATION, @STATUS, @ROW_VERSION, @RETAIL_PRICE)
+            RETURNING ID
+            """, ("@CID", companyId), ("@BID", branchId), ("@CODE", code),
+            ("@BARCODE", $"BAR-{code}"), ("@QR", $"QR-{code}"), ("@NAME", name),
+            ("@PURITY", purity), ("@LOCATION", locationId), ("@STATUS", status),
+            ("@ROW_VERSION", rowVersion), ("@RETAIL_PRICE", retailGoldPriceId));
+
+    private static Task<long> InsertCheckoutAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        string code,
+        DateTime documentDate,
+        long customerId,
+        long salespersonId,
+        long sourceLocationId,
+        long createdBy,
+        long? salesOrderId) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO SALES_CHECKOUTS
+                (COMPANY_ID, BRANCH_ID, CODE, CHECKOUT_TYPE, DOCUMENT_DATE, CUSTOMER_ID,
+                 SALESPERSON_ID, SOURCE_LOCATION_ID, SALE_GROSS_VND, OLD_GOLD_TOTAL_VND,
+                 DISCOUNT_AMOUNT_VND, NET_AMOUNT_VND, SALES_ORDER_ID, CLIENT_REQUEST_ID,
+                 REQUEST_HASH, STATUS_CODE, NOTES, CREATED_BY)
+            VALUES
+                (@CID, @BID, @CODE, 'SALE', @DOCUMENT_DATE, @CUSTOMER,
+                 @SALESPERSON, @LOCATION, 353, 0, 3, 350, @ORDER_ID, @REQUEST_ID,
+                 @HASH, 'POSTED', 'Task 3 checkout', @CREATED_BY)
+            RETURNING ID
+            """, ("@CID", companyId), ("@BID", branchId), ("@CODE", code),
+            ("@DOCUMENT_DATE", documentDate), ("@CUSTOMER", customerId),
+            ("@SALESPERSON", salespersonId), ("@LOCATION", sourceLocationId),
+            ("@ORDER_ID", salesOrderId), ("@REQUEST_ID", Guid.NewGuid().ToString()),
+            ("@HASH", new string('A', 64)), ("@CREATED_BY", createdBy));
+
+    private static Task<long> InsertOldGoldCheckoutAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        string code,
+        DateTime documentDate,
+        long customerId,
+        long salespersonId,
+        long oldGoldDestinationLocationId,
+        long createdBy) =>
+        InsertIdAsync(connection, transaction, """
+            INSERT INTO SALES_CHECKOUTS
+                (COMPANY_ID, BRANCH_ID, CODE, CHECKOUT_TYPE, DOCUMENT_DATE, CUSTOMER_ID,
+                 SALESPERSON_ID, SOURCE_LOCATION_ID, OLD_GOLD_DESTINATION_LOCATION_ID,
+                 SALE_GROSS_VND, OLD_GOLD_TOTAL_VND, DISCOUNT_AMOUNT_VND, NET_AMOUNT_VND,
+                 CLIENT_REQUEST_ID, REQUEST_HASH, STATUS_CODE, NOTES, CREATED_BY)
+            VALUES
+                (@CID, @BID, @CODE, 'OLD_GOLD_PURCHASE', @DOCUMENT_DATE, @CUSTOMER,
+                 @SALESPERSON, NULL, @OLD_GOLD_LOCATION,
+                 0, 350, 0, -350, @REQUEST_ID, @HASH, 'POSTED',
+                 'Task 3 old-gold-only checkout', @CREATED_BY)
+            RETURNING ID
+            """, ("@CID", companyId), ("@BID", branchId), ("@CODE", code),
+            ("@DOCUMENT_DATE", documentDate), ("@CUSTOMER", customerId),
+            ("@SALESPERSON", salespersonId), ("@OLD_GOLD_LOCATION", oldGoldDestinationLocationId),
+            ("@REQUEST_ID", Guid.NewGuid().ToString()), ("@HASH", new string('B', 64)),
+            ("@CREATED_BY", createdBy));
+
+    private static async Task<long> ScalarAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        string sql,
+        params (string Name, object? Value)[] parameters)
+    {
+        await using var command = CreateCommand(connection, transaction, sql, parameters);
+        return Convert.ToInt64(await command.ExecuteScalarAsync());
+    }
+
+    private static Task<long> InsertIdAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        string sql,
+        params (string Name, object? Value)[] parameters) =>
+        ScalarAsync(connection, transaction, sql, parameters);
+
+    private static async Task ExecuteAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        string sql,
+        params (string Name, object? Value)[] parameters)
+    {
+        await using var command = CreateCommand(connection, transaction, sql, parameters);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static FbCommand CreateCommand(
+        FbConnection connection,
+        FbTransaction transaction,
+        string sql,
+        params (string Name, object? Value)[] parameters)
+    {
+        var command = new FbCommand(sql, connection, transaction);
+        foreach (var (name, value) in parameters)
+            command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        return command;
+    }
+
+    private static string ResolveVerifiedDatabasePath()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            var revisedCandidate = Path.Combine(
+                directory.FullName,
+                ".superpowers",
+                "sdd",
+                "2026-10-05-sales-checkout",
+                "task3-fixtures",
+                "sales_checkout_revised_v51_final.fdb");
+            if (File.Exists(revisedCandidate))
+                return revisedCandidate;
+        }
+
+        throw new FileNotFoundException(
+            "Task 3 integration tests require the revised schema-v51 verified database copy.");
+    }
+
+    private static string ResolveWorktreeRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "KAZUKO_ERP_JEWELRY.sln")))
+                return directory.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Cannot locate the sales-checkout worktree root.");
+    }
+}

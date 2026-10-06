@@ -51,7 +51,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                    COALESCE((SELECT SUM(O.GRAND_TOTAL - COALESCE((
                                 SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
                                 FROM ORDER_PAYMENTS P
-                                WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0))
+                                WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+                                - COALESCE((
+                                SELECT SUM(X.AMOUNT_VND)
+                                FROM SALES_CHECKOUT_OFFSETS X
+                                WHERE X.SALES_ORDER_ID = O.ID), 0))
                              FROM SALES_ORDERS O
                              WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')), 0),
                    (SELECT MAX(O.ORDER_DATE) FROM SALES_ORDERS O
@@ -474,6 +478,10 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                        SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
                        FROM ORDER_PAYMENTS P
                        WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+                   + COALESCE((
+                       SELECT SUM(X.AMOUNT_VND)
+                       FROM SALES_CHECKOUT_OFFSETS X
+                       WHERE X.SALES_ORDER_ID = O.ID), 0)
             FROM SALES_ORDERS O
             WHERE O.CUSTOMER_ID = @CID
               AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
@@ -517,6 +525,10 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                        SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
                        FROM ORDER_PAYMENTS P
                        WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+                   + COALESCE((
+                       SELECT SUM(X.AMOUNT_VND)
+                       FROM SALES_CHECKOUT_OFFSETS X
+                       WHERE X.SALES_ORDER_ID = O.ID), 0)
             FROM SALES_ORDERS O
             WHERE O.CUSTOMER_ID = @CID
               AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')

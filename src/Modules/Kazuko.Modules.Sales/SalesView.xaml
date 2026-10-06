@@ -52,7 +52,10 @@
                         Command="{Binding PreviousCommand}" />
                 <Button Content="Sau"
                         Style="{StaticResource SalesGhostButtonStyle}"
-                        Command="{Binding NextCommand}"
+                        Command="{Binding NextCommand}" />
+                <Button Content="In A4"
+                        Style="{StaticResource SalesOutlineButtonStyle}"
+                        Command="{Binding PrintCommand}"
                         Margin="0" />
             </StackPanel>
         </Grid>
@@ -71,9 +74,14 @@
 
         <Border Grid.Row="2" Style="{StaticResource SalesCardStyle}" Padding="12,10" Margin="0,12,0,0">
             <DockPanel LastChildFill="False">
-                <TextBlock DockPanel.Dock="Left"
-                           Text="F9 — thanh toán nhanh · Enter — nhập dòng hàng"
-                           Style="{StaticResource SalesHintStyle}" />
+                <StackPanel DockPanel.Dock="Left">
+                    <TextBlock Text="F9 — thanh toán nhanh · Enter — nhập dòng hàng"
+                               Style="{StaticResource SalesHintStyle}" />
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
+                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding SuccessMessage}" Foreground="{DynamicResource PrimaryBrush}"
+                               TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
                 <Button DockPanel.Dock="Right"
                         Content="Thanh toán (F9)"
                         Style="{StaticResource SalesPrimaryButtonStyle}"

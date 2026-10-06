@@ -212,7 +212,7 @@ public sealed class FirebirdFinancialVoucherPostingService : IFinancialVoucherPo
             return;
         }
 
-        if (method == PaymentMethods.BankTransfer)
+        if (method is PaymentMethods.BankTransfer or PaymentMethods.Card)
         {
             await using var command = new FbCommand("""
                 SELECT COUNT(*)

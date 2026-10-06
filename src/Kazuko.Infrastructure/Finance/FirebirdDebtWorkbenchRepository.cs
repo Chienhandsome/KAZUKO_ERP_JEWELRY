@@ -72,7 +72,11 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                    COALESCE((SELECT SUM(COALESCE((
                                 SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
                                 FROM ORDER_PAYMENTS P
-                                WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0))
+                                WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+                                + COALESCE((
+                                SELECT SUM(X.AMOUNT_VND)
+                                FROM SALES_CHECKOUT_OFFSETS X
+                                WHERE X.SALES_ORDER_ID = O.ID), 0))
                              FROM SALES_ORDERS O
                              WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
                                AND (@HAS_FROM = 0 OR O.ORDER_DATE >= @FROM_DATE)
@@ -260,6 +264,28 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                     type + " / " + reader.GetString(4),
                     isRefund ? 0m : amount,
                     isRefund ? amount : 0m));
+            }
+        }
+
+        await using (var offsetCmd = new FbCommand("""
+            SELECT C.DOCUMENT_DATE, C.CODE, O.AMOUNT_VND
+            FROM SALES_CHECKOUT_OFFSETS O
+            JOIN SALES_CHECKOUTS C ON C.ID = O.CHECKOUT_ID
+            JOIN SALES_ORDERS SO ON SO.ID = O.SALES_ORDER_ID
+            WHERE SO.CUSTOMER_ID = @CID
+            ORDER BY C.DOCUMENT_DATE, C.ID
+            """, connection))
+        {
+            offsetCmd.Parameters.Add("@CID", FbDbType.BigInt).Value = customerId;
+            await using var reader = await offsetCmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                entries.Add((
+                    reader.GetDateTime(0),
+                    reader.GetString(1),
+                    "Bù trừ vàng cũ",
+                    reader.GetDecimal(2),
+                    0m));
             }
         }
 

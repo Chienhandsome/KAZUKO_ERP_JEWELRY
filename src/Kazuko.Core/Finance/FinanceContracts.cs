@@ -20,6 +20,7 @@ public static class PaymentMethods
 {
     public const string Cash = "CASH";
     public const string BankTransfer = "BANK_TRANSFER";
+    public const string Card = "CARD";
 }
 
 public static class PayablePartyTypes
