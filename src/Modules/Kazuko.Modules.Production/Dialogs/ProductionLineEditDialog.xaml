@@ -64,9 +64,10 @@
                                      Style="{StaticResource ProductionDialogFieldStyle}"
                                      IsEnabled="{Binding IsEditable}" />
                             <TextBlock Text="Tiền công mỗi món" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding LaborCostPerUnitText, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Text="{Binding LaborCostPerUnitText, UpdateSourceTrigger=LostFocus}"
                                      Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}" />
+                                     IsEnabled="{Binding IsEditable}"
+                                     LostFocus="LaborCostPerUnitTextBox_OnLostFocus" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Loại vàng (kho NVL) *" Style="{StaticResource ProductionFieldLabelStyle}" />

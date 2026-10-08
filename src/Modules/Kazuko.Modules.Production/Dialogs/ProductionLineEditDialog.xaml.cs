@@ -42,4 +42,10 @@ public partial class ProductionLineEditDialog : Window
             e.Handled = true;
         }
     }
+
+    private void LaborCostPerUnitTextBox_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is ProductionLineEditDialogViewModel vm)
+            vm.FormatLaborCostPerUnitText();
+    }
 }

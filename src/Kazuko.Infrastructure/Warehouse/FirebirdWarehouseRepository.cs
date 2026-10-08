@@ -372,13 +372,29 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         ArgumentNullException.ThrowIfNull(session);
         EnsureBranch(session);
 
+        var search = (filter.SearchText ?? string.Empty).Trim();
+        var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
+        var types = (filter.DocumentType ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => t.Trim().ToUpperInvariant())
+            .Where(t => t.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        // DocumentType may be a single code or comma-separated (e.g. ISSUE,PRODUCTION_MATERIAL_ISSUE on Issue tab).
+        var typeClause = types.Length == 0
+            ? "1=1"
+            : types.Length == 1
+                ? "D.DOCUMENT_TYPE = @TYPE0"
+                : "D.DOCUMENT_TYPE IN (" + string.Join(", ", types.Select((_, i) => "@TYPE" + i)) + ")";
+
         var result = new List<StockDocumentSummary>();
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
+        await using var command = new FbCommand($"""
             SELECT D.ID, D.CODE, D.DOCUMENT_DATE, D.DOCUMENT_TYPE, D.STATUS_CODE,
                    COALESCE(S.NAME, ''), COALESCE(T.NAME, ''), COALESCE(D.REFERENCE_NO, ''),
-                   COALESCE(D.COUNTERPARTY_NAME, ''), D.SUPPLIER_ID,
+                   COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, ''), D.SUPPLIER_ID,
                    (SELECT COUNT(*) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID)
                      + (SELECT COUNT(*) FROM FINISHED_PRODUCT_DOCUMENT_LINES FX WHERE FX.DOCUMENT_ID = D.ID),
                    COALESCE((SELECT SUM(X.QUANTITY) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID), 0)
@@ -390,27 +406,26 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
             FROM STOCK_DOCUMENTS D
             LEFT JOIN LOCATIONS S ON S.ID = D.SOURCE_LOCATION_ID
             LEFT JOIN LOCATIONS T ON T.ID = D.DESTINATION_LOCATION_ID
+            LEFT JOIN SUPPLIERS SUP ON SUP.ID = D.SUPPLIER_ID
+            LEFT JOIN CUSTOMERS CUS ON CUS.ID = D.CUSTOMER_ID
             LEFT JOIN USERS CU ON CU.ID = D.CREATED_BY
             LEFT JOIN USERS PU ON PU.ID = D.POSTED_BY
             WHERE D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND D.BRANCH_ID = @BRANCH_ID
-              AND (@HAS_TYPE = 0 OR D.DOCUMENT_TYPE = @TYPE)
+              AND ({typeClause})
               AND (@HAS_STATUS = 0 OR D.STATUS_CODE = @STATUS)
               AND (@HAS_FROM = 0 OR D.DOCUMENT_DATE >= @FROM_DATE)
               AND (@HAS_TO = 0 OR D.DOCUMENT_DATE <= @TO_DATE)
               AND (@HAS_SEARCH = 0
                    OR CAST(D.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
                    OR CAST(COALESCE(D.REFERENCE_NO, '') AS VARCHAR(200) CHARACTER SET UTF8) CONTAINING @SEARCH
-                   OR COALESCE(D.COUNTERPARTY_NAME, '') CONTAINING @SEARCH)
+                   OR COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, '') CONTAINING @SEARCH)
             ORDER BY D.DOCUMENT_DATE DESC, D.ID DESC
             """, connection);
 
-        var search = (filter.SearchText ?? string.Empty).Trim();
-        var type = (filter.DocumentType ?? string.Empty).Trim().ToUpperInvariant();
-        var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
         command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
-        command.Parameters.Add("@HAS_TYPE", FbDbType.Integer).Value = type.Length > 0 ? 1 : 0;
-        command.Parameters.Add("@TYPE", FbDbType.VarChar, 30).Value = type;
+        for (var i = 0; i < types.Length; i++)
+            command.Parameters.Add("@TYPE" + i, FbDbType.VarChar, 30).Value = types[i];
         command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
         command.Parameters.Add("@STATUS", FbDbType.VarChar, 20).Value = status;
         command.Parameters.Add("@HAS_FROM", FbDbType.Integer).Value = filter.FromDate.HasValue ? 1 : 0;
@@ -460,10 +475,13 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
             SELECT D.ID, D.CODE, D.DOCUMENT_DATE, D.DOCUMENT_TYPE, D.STATUS_CODE,
                    D.SOURCE_LOCATION_ID, D.DESTINATION_LOCATION_ID, D.PRODUCTION_ORDER_ID, D.SUPPLIER_ID,
                    COALESCE(D.PURPOSE_CODE, ''), COALESCE(D.REFERENCE_NO, ''),
-                   COALESCE(D.COUNTERPARTY_NAME, ''), COALESCE(D.NOTES, ''),
+                   COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, ''), COALESCE(D.NOTES, ''),
                    COALESCE(CU.DISPLAY_NAME, ''), D.CREATED_AT,
-                   COALESCE(PU.DISPLAY_NAME, ''), D.POSTED_AT, COALESCE(D.CANCELLATION_REASON, '')
+                   COALESCE(PU.DISPLAY_NAME, ''), D.POSTED_AT, COALESCE(D.CANCELLATION_REASON, ''),
+                   COALESCE(D.SOURCE_TYPE, '')
             FROM STOCK_DOCUMENTS D
+            LEFT JOIN SUPPLIERS SUP ON SUP.ID = D.SUPPLIER_ID
+            LEFT JOIN CUSTOMERS CUS ON CUS.ID = D.CUSTOMER_ID
             LEFT JOIN USERS CU ON CU.ID = D.CREATED_BY
             LEFT JOIN USERS PU ON PU.ID = D.POSTED_BY
             WHERE D.ID = @ID
@@ -495,7 +513,8 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
             reader.GetDateTime(14),
             reader.GetString(15),
             reader.IsDBNull(16) ? null : reader.GetDateTime(16),
-            reader.GetString(17));
+            reader.GetString(17),
+            reader.GetString(18));
     }
 
     public async Task<IReadOnlyList<StockDocumentLine>> GetDocumentLinesAsync(

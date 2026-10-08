@@ -104,7 +104,8 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         command.Parameters.Add("@HAS_FROM", FbDbType.Integer).Value = filter.FromDate.HasValue ? 1 : 0;
         command.Parameters.Add("@FROM_DATE", FbDbType.TimeStamp).Value = filter.FromDate ?? DateTime.Today;
         command.Parameters.Add("@HAS_TO", FbDbType.Integer).Value = filter.ToDate.HasValue ? 1 : 0;
-        command.Parameters.Add("@TO_DATE", FbDbType.TimeStamp).Value = filter.ToDate ?? DateTime.Today;
+        command.Parameters.Add("@TO_DATE", FbDbType.TimeStamp).Value =
+            filter.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.Today.AddDays(1).AddTicks(-1);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -180,9 +181,12 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
         command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
         command.Parameters.Add("@HAS_FROM", FbDbType.Integer).Value = filter.FromDate.HasValue ? 1 : 0;
-        command.Parameters.Add("@FROM_DATE", FbDbType.TimeStamp).Value = filter.FromDate ?? DateTime.Today;
+        command.Parameters.Add("@FROM_DATE", FbDbType.TimeStamp).Value =
+            filter.FromDate?.Date ?? DateTime.Today;
         command.Parameters.Add("@HAS_TO", FbDbType.Integer).Value = filter.ToDate.HasValue ? 1 : 0;
-        command.Parameters.Add("@TO_DATE", FbDbType.TimeStamp).Value = filter.ToDate ?? DateTime.Today;
+        // Inclusive end-of-day so debts created "hôm nay" vẫn hiện khi lọc đến ngày hôm nay.
+        command.Parameters.Add("@TO_DATE", FbDbType.TimeStamp).Value =
+            filter.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.Today.AddDays(1).AddTicks(-1);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -319,8 +323,17 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         await connection.OpenAsync(cancellationToken);
 
         await using (var debtCmd = new FbCommand("""
-            SELECT D.CREATED_AT, D.CODE, D.DEBT_KIND, D.ORIGINAL_AMOUNT_VND
+            SELECT D.CREATED_AT,
+                   COALESCE(SD.CODE, D.CODE) AS DOC_CODE,
+                   D.DEBT_KIND,
+                   D.ORIGINAL_AMOUNT_VND,
+                   COALESCE(SD.CODE, ''),
+                   COALESCE(SD.SOURCE_TYPE, ''),
+                   D.CODE
             FROM PAYABLE_DEBTS D
+            LEFT JOIN STOCK_DOCUMENTS SD
+              ON D.ORIGIN_DOCUMENT_TYPE = 'STOCK_DOCUMENT'
+             AND SD.ID = D.ORIGIN_DOCUMENT_ID
             WHERE D.SUPPLIER_ID = @SID
               AND D.PARTY_TYPE = 'SUPPLIER'
               AND D.STATUS_CODE <> 'CANCELLED'
@@ -333,10 +346,16 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
             await using var reader = await debtCmd.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
+                var debtKind = reader.GetString(2);
+                var stockCode = reader.GetString(4);
+                var sourceType = reader.GetString(5);
+                var debtCode = reader.GetString(6);
+                var displayCode = string.IsNullOrWhiteSpace(stockCode) ? debtCode : stockCode;
+                var desc = BuildSupplierDebtDescription(debtKind, stockCode, debtCode, sourceType);
                 entries.Add((
                     reader.GetDateTime(0),
-                    reader.GetString(1),
-                    "Phát sinh " + reader.GetString(2),
+                    displayCode,
+                    desc,
                     0m,
                     reader.GetDecimal(3)));
             }
@@ -755,6 +774,33 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         if (methods.Count != 1)
             return "MIXED";
         return methods[0] == PaymentMethods.BankTransfer ? "BANK" : methods[0];
+    }
+
+    private static string BuildSupplierDebtDescription(
+        string debtKind,
+        string stockCode,
+        string debtCode,
+        string sourceType)
+    {
+        var kindLabel = debtKind.Equals("LABOR", StringComparison.OrdinalIgnoreCase)
+            ? "Tiền công"
+            : "Nhập kho NVL";
+        var sourceLabel = sourceType.Equals("OLD_GOLD_CUSTOMER", StringComparison.OrdinalIgnoreCase)
+            ? "vàng cũ KH"
+            : sourceType.Equals("SUPPLIER", StringComparison.OrdinalIgnoreCase)
+                ? "NCC"
+                : string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(stockCode))
+        {
+            return string.IsNullOrWhiteSpace(sourceLabel)
+                ? $"{kindLabel} — phiếu {stockCode} ({debtCode})"
+                : $"{kindLabel} ({sourceLabel}) — phiếu {stockCode} ({debtCode})";
+        }
+
+        return string.IsNullOrWhiteSpace(sourceLabel)
+            ? $"Phát sinh {kindLabel}"
+            : $"Phát sinh {kindLabel} ({sourceLabel})";
     }
 
     private static string ResolveStatus(decimal remaining, DateTime? lastDebtDate)

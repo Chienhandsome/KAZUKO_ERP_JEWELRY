@@ -303,6 +303,7 @@ public sealed class BarChart : Canvas
     private static string FormatMillion(decimal value)
     {
         var millions = value / 1_000_000m;
-        return millions.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+        // Keep one decimal so small stock values do not collapse to "0".
+        return millions.ToString("N1", CultureInfo.GetCultureInfo("vi-VN"));
     }
 }

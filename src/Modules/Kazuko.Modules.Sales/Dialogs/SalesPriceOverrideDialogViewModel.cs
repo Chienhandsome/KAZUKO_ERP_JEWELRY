@@ -95,16 +95,6 @@ public sealed class SalesPriceOverrideDialogViewModel : ObservableObject
 
     private void Confirm()
     {
-        var changed =
-            GoldPrice != SourceGoldPricePerChi
-            || LaborAmount != SourceLaborAmountVnd
-            || StoneAmount != SourceStoneAmountVnd;
-        if (changed && string.IsNullOrWhiteSpace(OverrideReason))
-        {
-            ErrorMessage = "Điều chỉnh giá phải nhập lý do.";
-            return;
-        }
-
         if (GoldPrice < 0 || LaborAmount < 0 || StoneAmount < 0)
         {
             ErrorMessage = "Giá / công / đá không được âm.";

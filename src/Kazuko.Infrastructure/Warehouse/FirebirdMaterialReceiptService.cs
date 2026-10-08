@@ -56,16 +56,19 @@ public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
             var code = await StockPostingSupport.NextDocumentCodeAsync(
                 connection, fbTx, "STOCK_RECEIPT", session.BranchId, "PNK", cancellationToken);
 
+            var counterpartyName = await ResolveCounterpartyNameAsync(
+                connection, fbTx, source, draft.SupplierId, draft.CustomerId, cancellationToken);
+
             await using (var insertDoc = new FbCommand("""
                 INSERT INTO STOCK_DOCUMENTS
                     (COMPANY_ID, BRANCH_ID, CODE, DOCUMENT_TYPE, DOCUMENT_DATE,
                      DESTINATION_LOCATION_ID, PURPOSE_CODE, SOURCE_TYPE, SUPPLIER_ID, CUSTOMER_ID,
-                     NOTES, STATUS_CODE, TOTAL_AMOUNT_VND, PAID_AMOUNT_VND, DEBT_AMOUNT_VND,
+                     COUNTERPARTY_NAME, NOTES, STATUS_CODE, TOTAL_AMOUNT_VND, PAID_AMOUNT_VND, DEBT_AMOUNT_VND,
                      CREATED_BY, CREATED_AT, POSTED_BY, POSTED_AT)
                 VALUES
                     (@CID, @BID, @CODE, 'RECEIPT', @DATE,
                      @LOC, @PURPOSE, @SOURCE, @SUP, @CUS,
-                     @NOTES, 'POSTED', @TOTAL, @PAID, @DEBT,
+                     @PARTY, @NOTES, 'POSTED', @TOTAL, @PAID, @DEBT,
                      @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
                 RETURNING ID
                 """, connection, fbTx))
@@ -81,6 +84,8 @@ public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
                     draft.SupplierId is > 0 ? draft.SupplierId.Value : DBNull.Value;
                 insertDoc.Parameters.Add("@CUS", FbDbType.BigInt).Value =
                     draft.CustomerId is > 0 ? draft.CustomerId.Value : DBNull.Value;
+                insertDoc.Parameters.Add("@PARTY", FbDbType.VarChar, 200).Value =
+                    string.IsNullOrWhiteSpace(counterpartyName) ? DBNull.Value : counterpartyName;
                 insertDoc.Parameters.Add("@NOTES", FbDbType.VarChar, 1000).Value =
                     (object?)draft.Notes ?? DBNull.Value;
                 insertDoc.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = total;
@@ -261,5 +266,34 @@ public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
         command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
         if (Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) != 1)
             throw new InvalidOperationException("Kho nhận NVL không hợp lệ. Chỉ được nhập vào kho nguyên vật liệu.");
+    }
+
+    private static async Task<string> ResolveCounterpartyNameAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        string sourceType,
+        long? supplierId,
+        long? customerId,
+        CancellationToken cancellationToken)
+    {
+        if (sourceType == StockSourceTypes.OldGoldCustomer && customerId is > 0)
+        {
+            await using var cmd = new FbCommand(
+                "SELECT COALESCE(NAME, '') FROM CUSTOMERS WHERE ID = @ID",
+                connection, transaction);
+            cmd.Parameters.Add("@ID", FbDbType.BigInt).Value = customerId.Value;
+            return Convert.ToString(await cmd.ExecuteScalarAsync(cancellationToken))?.Trim() ?? string.Empty;
+        }
+
+        if (supplierId is > 0)
+        {
+            await using var cmd = new FbCommand(
+                "SELECT COALESCE(NAME, '') FROM SUPPLIERS WHERE ID = @ID",
+                connection, transaction);
+            cmd.Parameters.Add("@ID", FbDbType.BigInt).Value = supplierId.Value;
+            return Convert.ToString(await cmd.ExecuteScalarAsync(cancellationToken))?.Trim() ?? string.Empty;
+        }
+
+        return string.Empty;
     }
 }

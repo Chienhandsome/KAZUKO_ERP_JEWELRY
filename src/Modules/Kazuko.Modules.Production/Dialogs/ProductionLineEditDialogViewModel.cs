@@ -62,7 +62,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             GoldTypeCode = source.GoldTypeCode;
             GoldTypeName = source.GoldTypeName;
             PlannedQuantityText = source.PlannedQuantity.ToString(CultureInfo.CurrentCulture);
-            LaborCostPerUnitText = source.LaborCostPerUnit.ToString("0.##", CultureInfo.CurrentCulture);
+            LaborCostPerUnitText = FormatLaborCost(source.LaborCostPerUnit);
             Description = source.Description;
             Notes = source.Notes;
 
@@ -191,8 +191,43 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
     public string LaborCostPerUnitText
     {
         get => _laborCostPerUnitText;
-        set => SetProperty(ref _laborCostPerUnitText, value ?? string.Empty);
+        set
+        {
+            var raw = value ?? string.Empty;
+            if (decimal.TryParse(raw.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var labor)
+                && labor >= 0)
+            {
+                // On set: keep thousand-separated display when value is a valid amount.
+                SetProperty(ref _laborCostPerUnitText, FormatLaborCost(labor));
+            }
+            else
+            {
+                SetProperty(ref _laborCostPerUnitText, raw);
+            }
+        }
     }
+
+    /// <summary>Reformats labor cost with thousand separators after LostFocus.</summary>
+    public void FormatLaborCostPerUnitText()
+    {
+        if (decimal.TryParse(
+                _laborCostPerUnitText.Trim(),
+                NumberStyles.Number,
+                CultureInfo.CurrentCulture,
+                out var labor)
+            && labor >= 0)
+        {
+            var formatted = FormatLaborCost(labor);
+            if (!string.Equals(_laborCostPerUnitText, formatted, StringComparison.Ordinal))
+            {
+                _laborCostPerUnitText = formatted;
+                OnPropertyChanged(nameof(LaborCostPerUnitText));
+            }
+        }
+    }
+
+    private static string FormatLaborCost(decimal value) =>
+        value.ToString("N0", CultureInfo.CurrentCulture);
 
     public string? Description
     {
@@ -230,7 +265,8 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         target.GoldTypeCode = GoldTypeCode.Trim();
         target.GoldTypeName = GoldTypeName.Trim();
         target.PlannedQuantity = int.Parse(PlannedQuantityText.Trim(), CultureInfo.CurrentCulture);
-        target.LaborCostPerUnit = decimal.Parse(LaborCostPerUnitText.Trim(), CultureInfo.CurrentCulture);
+        target.LaborCostPerUnit = decimal.Parse(
+            LaborCostPerUnitText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture);
         target.Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
         target.Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes.Trim();
 

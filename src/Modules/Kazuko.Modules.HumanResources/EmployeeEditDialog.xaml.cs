@@ -30,4 +30,10 @@ public partial class EmployeeEditDialog : Window
             }
         }
     }
+
+    private void SalaryTextBox_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is EmployeeEditDialogViewModel vm)
+            vm.FormatSalaryTexts();
+    }
 }

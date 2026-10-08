@@ -101,6 +101,7 @@ public sealed class WarehouseViewModel : ObservableObject
     private string _detailStatus = string.Empty;
     private string _detailReference = string.Empty;
     private string _detailCounterparty = string.Empty;
+    private string _detailSource = string.Empty;
     private string _detailNotes = string.Empty;
     private string _detailCreatedBy = string.Empty;
     private string _detailPostedBy = string.Empty;
@@ -174,6 +175,8 @@ public sealed class WarehouseViewModel : ObservableObject
         DocumentTypeOptions.Add("OPENING");
         DocumentTypeOptions.Add("RECEIPT");
         DocumentTypeOptions.Add("ISSUE");
+        // GX = giao NVL sản xuất (PRODUCTION_MATERIAL_ISSUE); XK = xuất kho thường (ISSUE).
+        DocumentTypeOptions.Add("PRODUCTION_MATERIAL_ISSUE");
         DocumentTypeOptions.Add("TRANSFER");
         DocumentTypeOptions.Add("OUTSOURCED_CRAFT_ISSUE");
         DocumentTypeOptions.Add("CRAFT_RETURN_RECEIPT");
@@ -679,6 +682,12 @@ public sealed class WarehouseViewModel : ObservableObject
         private set => SetProperty(ref _detailCounterparty, value);
     }
 
+    public string DetailSource
+    {
+        get => _detailSource;
+        private set => SetProperty(ref _detailSource, value);
+    }
+
     public string DetailNotes
     {
         get => _detailNotes;
@@ -1009,6 +1018,7 @@ public sealed class WarehouseViewModel : ObservableObject
         if (session is null)
             return;
 
+        var previousStatus = StatusMessage;
         using var scope = BeginLoad("Đang tải chi tiết phiếu...");
         try
         {
@@ -1030,6 +1040,7 @@ public sealed class WarehouseViewModel : ObservableObject
             DetailStatus = row.StatusDisplay;
             DetailReference = detail.ReferenceNo;
             DetailCounterparty = detail.CounterpartyName;
+            DetailSource = FormatSourceType(detail.SourceType);
             DetailNotes = detail.Notes;
             DetailCreatedBy = detail.CreatedByName;
             DetailPostedBy = string.IsNullOrWhiteSpace(detail.PostedByName) ? "—" : detail.PostedByName;
@@ -1047,6 +1058,11 @@ public sealed class WarehouseViewModel : ObservableObject
         {
             ClearDocumentDetail();
             ErrorMessage = "Không thể tải chi tiết phiếu kho.";
+        }
+        finally
+        {
+            if (string.Equals(StatusMessage, "Đang tải chi tiết phiếu...", StringComparison.Ordinal))
+                StatusMessage = previousStatus ?? string.Empty;
         }
     }
 
@@ -1538,11 +1554,28 @@ public sealed class WarehouseViewModel : ObservableObject
     {
         var type = SelectedDocumentType == "Tất cả" ? string.Empty : SelectedDocumentType;
         if (SelectedTabIndex == WarehouseTabs.Receipt)
+        {
             type = "RECEIPT";
+        }
         else if (SelectedTabIndex == WarehouseTabs.Issue)
-            type = "ISSUE";
+        {
+            // Issue tab: XK (ISSUE) + GX giao NVL SX (PRODUCTION_MATERIAL_ISSUE) by default.
+            // Narrow via SelectedDocumentType when user picks a specific issue-family type.
+            type = SelectedDocumentType switch
+            {
+                "PRODUCTION_MATERIAL_ISSUE" => "PRODUCTION_MATERIAL_ISSUE",
+                "FINISHED_GOODS_ISSUE" => "FINISHED_GOODS_ISSUE",
+                "OUTSOURCED_CRAFT_ISSUE" => "OUTSOURCED_CRAFT_ISSUE",
+                "ISSUE" or "Tất cả" or "" or null => "ISSUE,PRODUCTION_MATERIAL_ISSUE",
+                _ => string.IsNullOrWhiteSpace(SelectedDocumentType)
+                    ? "ISSUE,PRODUCTION_MATERIAL_ISSUE"
+                    : SelectedDocumentType
+            };
+        }
         else if (SelectedTabIndex == WarehouseTabs.Transfer)
+        {
             type = "TRANSFER";
+        }
 
         return new StockDocumentSearchFilter(
             DocumentSearchText,
@@ -1609,6 +1642,7 @@ public sealed class WarehouseViewModel : ObservableObject
         DetailStatus = string.Empty;
         DetailReference = string.Empty;
         DetailCounterparty = string.Empty;
+        DetailSource = string.Empty;
         DetailNotes = string.Empty;
         DetailCreatedBy = string.Empty;
         DetailPostedBy = string.Empty;
@@ -1652,20 +1686,39 @@ public sealed class WarehouseViewModel : ObservableObject
     private static string ClassifyGoldType(string purityOrType, string materialType)
     {
         var text = $"{purityOrType} {materialType}".ToUpperInvariant();
-        if (text.Contains("24", StringComparison.Ordinal))
+        // Purity catalog: 9999/999 → 24K, 750 → 18K (see FirebirdWarehouseGoldPricingSupport).
+        if (text.Contains("9999", StringComparison.Ordinal)
+            || text.Contains("999", StringComparison.Ordinal)
+            || text.Contains("24K", StringComparison.Ordinal)
+            || text.Contains("24", StringComparison.Ordinal))
             return "24K";
-        if (text.Contains("18", StringComparison.Ordinal))
+        if (text.Contains("750", StringComparison.Ordinal)
+            || text.Contains("18K", StringComparison.Ordinal)
+            || text.Contains("18", StringComparison.Ordinal))
             return "18K";
-        if (text.Contains("SILVER", StringComparison.Ordinal) || text.Contains("BẠC", StringComparison.Ordinal) || text.Contains("BAC", StringComparison.Ordinal))
+        if (text.Contains("SILVER", StringComparison.Ordinal)
+            || text.Contains("BẠC", StringComparison.Ordinal)
+            || text.Contains("BAC", StringComparison.Ordinal)
+            || text.Contains("925", StringComparison.Ordinal)
+            || text.Contains("950", StringComparison.Ordinal))
             return "Bạc";
-        if (text.Contains("STONE", StringComparison.Ordinal) || text.Contains("ĐÁ", StringComparison.Ordinal) || text.Contains("DA", StringComparison.Ordinal))
+        if (text.Contains("STONE", StringComparison.Ordinal)
+            || text.Contains("ĐÁ", StringComparison.Ordinal)
+            || materialType.Equals("STONE", StringComparison.OrdinalIgnoreCase))
             return "Đá quý";
-        if (materialType.Equals("GOLD", StringComparison.OrdinalIgnoreCase) && text.Contains("14", StringComparison.Ordinal))
-            return "Khác";
         if (materialType.Equals("GOLD", StringComparison.OrdinalIgnoreCase))
             return "Khác";
         return "Khác";
     }
+
+    private static string FormatSourceType(string? sourceType) =>
+        (sourceType ?? string.Empty).Trim().ToUpperInvariant() switch
+        {
+            "SUPPLIER" => "Nhà cung cấp (NCC)",
+            "OLD_GOLD_CUSTOMER" => "Vàng cũ khách hàng",
+            "" => "—",
+            var other => other
+        };
 
     private static string FormatMoney(decimal value) =>
         value.ToString("N0", ViCulture) + " VNĐ";

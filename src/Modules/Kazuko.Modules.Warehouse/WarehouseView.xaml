@@ -10,6 +10,7 @@
         <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
         <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
         <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+        <conv:BrushKeyToBrushConverter x:Key="BrushKeyToBrush" />
 
         <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
             <Setter Property="MinHeight" Value="32" />
@@ -793,7 +794,7 @@
                                                     <DataTemplate>
                                                         <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
                                                             <Border Width="10" Height="10" CornerRadius="2" Margin="0,0,6,0"
-                                                                    Background="{DynamicResource PrimaryBrush}" />
+                                                                    Background="{Binding BrushKey, Converter={StaticResource BrushKeyToBrush}}" />
                                                             <TextBlock Text="{Binding LegendText}" FontSize="{DynamicResource FontSize.Caption}"
                                                                        Foreground="{DynamicResource TextSecondaryBrush}" />
                                                         </StackPanel>
@@ -1280,6 +1281,8 @@
                                             <TextBox Text="{Binding DetailStatus, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
                                             <TextBlock Text="Đối tác" Style="{StaticResource DetailLabelStyle}" />
                                             <TextBox Text="{Binding DetailCounterparty, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Nguồn NVL" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailSource, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
                                         </StackPanel>
                                     </ScrollViewer>
                                     <TextBlock Grid.Column="0" Text="Chọn một phiếu để xem chi tiết."

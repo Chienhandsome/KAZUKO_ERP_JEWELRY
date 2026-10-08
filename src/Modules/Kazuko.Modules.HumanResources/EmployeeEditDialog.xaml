@@ -68,7 +68,7 @@
                     <TextBlock Text="Ngày sinh" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
                     <DatePicker SelectedDate="{Binding DateOfBirth}" Margin="0,0,0,8" FontSize="{DynamicResource FontSize.Body}" />
 
-                    <TextBlock Text="Mã chấm công" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBlock Text="Mã chấm công (tự sinh, có thể sửa)" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
                     <TextBox Text="{Binding AttendanceCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8"
                              Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
@@ -111,14 +111,16 @@
                             <ColumnDefinition Width="8" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Text="{Binding BaseSalaryText, UpdateSourceTrigger=PropertyChanged}" MinHeight="36"
+                        <TextBox Grid.Column="0" Text="{Binding BaseSalaryText, UpdateSourceTrigger=LostFocus}" MinHeight="36"
                                  Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                                  Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
-                        <TextBox Grid.Column="2" Text="{Binding AllowanceText, UpdateSourceTrigger=PropertyChanged}" MinHeight="36"
+                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                 LostFocus="SalaryTextBox_OnLostFocus" />
+                        <TextBox Grid.Column="2" Text="{Binding AllowanceText, UpdateSourceTrigger=LostFocus}" MinHeight="36"
                                  Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                                  Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                 LostFocus="SalaryTextBox_OnLostFocus" />
                     </Grid>
                     <TextBlock Text="{Binding SalaryError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
                                FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />

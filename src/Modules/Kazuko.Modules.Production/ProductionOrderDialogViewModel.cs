@@ -59,6 +59,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private string _qcDefectNotes = string.Empty;
     private string _completionPreview = string.Empty;
     private bool _isQcAdjustmentMode;
+    private string _qcChecklistTitle = "Checklist QC";
 
     private readonly IGoldTypeCatalogService _goldTypes;
     private GoldTypeOption? _selectedQcGoldType;
@@ -193,7 +194,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(CanEditSelectedQc));
                 OnPropertyChanged(nameof(CanStartQcAdjustment));
-                OnPropertyChanged(nameof(QcChecklistText));
+                RefreshQcChecklist();
                 ((AsyncRelayCommand)StartQcAdjustmentCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)CancelQcAdjustmentCommand).NotifyCanExecuteChanged();
                 ((AsyncRelayCommand)AddQcImageCommand).NotifyCanExecuteChanged();
@@ -301,47 +302,71 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public bool IsReturnFullyBalanced =>
         ReturnLines.Count > 0 && ReturnLines.All(x => x.IsBalanced);
 
-    public string QcChecklistText
+    public string QcChecklistTitle
     {
-        get
+        get => _qcChecklistTitle;
+        private set => SetProperty(ref _qcChecklistTitle, value);
+    }
+
+    public ObservableCollection<ProductionQcChecklistItemViewModel> QcChecklistItems { get; } = [];
+
+    private void RefreshQcChecklist()
+    {
+        QcChecklistItems.Clear();
+
+        if (SelectedQcUnit is null)
         {
-            if (SelectedQcUnit is null)
-                return "Chọn một món để xem checklist QC.";
-            if (SelectedQcUnit.IsPassed && !IsQcAdjustmentMode)
-            {
-                return "Đã đạt QC — form chỉ xem. Bấm Điều chỉnh QC để sửa (tạo lần điều chỉnh có audit).";
-            }
+            QcChecklistTitle = "Checklist QC";
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Chọn một món để xem checklist QC.", isComplete: false, isInfoOnly: true));
+            return;
+        }
 
-            var isPass = string.Equals(QcResultCode, ProductionQcResultCodes.Pass, StringComparison.OrdinalIgnoreCase);
-            if (IsQcAdjustmentMode)
-            {
-                var reasonOk = !string.IsNullOrWhiteSpace(QcDefectNotes);
-                if (!isPass)
-                    return $"Điều chỉnh → Không đạt: {(reasonOk ? "✓" : "○")} Lý do";
+        if (SelectedQcUnit.IsPassed && !IsQcAdjustmentMode)
+        {
+            QcChecklistTitle = "Đã đạt QC";
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel(
+                "Form chỉ xem. Bấm Điều chỉnh QC để sửa (tạo lần điều chỉnh có audit).",
+                isComplete: true,
+                isInfoOnly: true));
+            return;
+        }
 
-                var weightOk = QcGoldWeight is > 0;
-                var unitOk = !string.IsNullOrWhiteSpace(QcWeightUnit);
-                var purityOk = !string.IsNullOrWhiteSpace(QcPurityCode);
-                var componentOk = QcComponents.Any(x => x.QuantityUsed > 0);
-                var imageOk = QcImages.Count > 0;
-                return $"Điều chỉnh → Đạt: {(reasonOk ? "✓" : "○")} Lý do  {(weightOk ? "✓" : "○")} TL  {(unitOk ? "✓" : "○")} ĐVT  {(purityOk ? "✓" : "○")} Tuổi  {(componentOk ? "✓" : "○")} Cấu thành  {(imageOk ? "✓" : "○")} Ảnh mới";
-            }
-
+        var isPass = string.Equals(QcResultCode, ProductionQcResultCodes.Pass, StringComparison.OrdinalIgnoreCase);
+        if (IsQcAdjustmentMode)
+        {
+            var reasonOk = !string.IsNullOrWhiteSpace(QcDefectNotes);
             if (!isPass)
             {
-                var noteOk = !string.IsNullOrWhiteSpace(QcDefectNotes);
-                return $"Không đạt: {(noteOk ? "✓" : "○")} Lý do lỗi";
+                QcChecklistTitle = "Điều chỉnh → Không đạt";
+                QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Lý do điều chỉnh", reasonOk));
+                return;
             }
 
-            {
-                var weightOk = QcGoldWeight is > 0;
-                var unitOk = !string.IsNullOrWhiteSpace(QcWeightUnit);
-                var purityOk = !string.IsNullOrWhiteSpace(QcPurityCode);
-                var componentOk = QcComponents.Any(x => x.QuantityUsed > 0);
-                var imageOk = QcImages.Count > 0;
-                return $"Đạt: {(weightOk ? "✓" : "○")} TL vàng  {(unitOk ? "✓" : "○")} ĐVT  {(purityOk ? "✓" : "○")} Tuổi vàng  {(componentOk ? "✓" : "○")} Cấu thành  {(imageOk ? "✓" : "○")} Ảnh QC";
-            }
+            QcChecklistTitle = "Điều chỉnh → Đạt — bắt buộc đủ các mục";
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Lý do điều chỉnh", reasonOk));
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Trọng lượng vàng", QcGoldWeight is > 0));
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Đơn vị trọng lượng", !string.IsNullOrWhiteSpace(QcWeightUnit)));
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Tuổi vàng", !string.IsNullOrWhiteSpace(QcPurityCode)));
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Cấu thành NVL", QcComponents.Any(x => x.QuantityUsed > 0)));
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Ảnh mới cho lần điều chỉnh", QcImages.Count > 0));
+            return;
         }
+
+        if (!isPass)
+        {
+            QcChecklistTitle = "Không đạt — bắt buộc";
+            QcChecklistItems.Add(new ProductionQcChecklistItemViewModel(
+                "Lý do lỗi",
+                !string.IsNullOrWhiteSpace(QcDefectNotes)));
+            return;
+        }
+
+        QcChecklistTitle = "Đạt — bắt buộc đủ các mục";
+        QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Trọng lượng vàng", QcGoldWeight is > 0));
+        QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Đơn vị trọng lượng", !string.IsNullOrWhiteSpace(QcWeightUnit)));
+        QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Tuổi vàng", !string.IsNullOrWhiteSpace(QcPurityCode)));
+        QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Cấu thành NVL", QcComponents.Any(x => x.QuantityUsed > 0)));
+        QcChecklistItems.Add(new ProductionQcChecklistItemViewModel("Ảnh QC", QcImages.Count > 0));
     }
 
     public IReadOnlyList<ProductionNamedOption> OrderSourceOptions { get; } =
@@ -605,7 +630,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             if (SetProperty(ref _qcResultCode, value))
             {
                 OnPropertyChanged(nameof(SelectedQcResultOption));
-                OnPropertyChanged(nameof(QcChecklistText));
+                RefreshQcChecklist();
             }
         }
     }
@@ -627,7 +652,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 OnPropertyChanged(nameof(QcGoldWeightText));
             }
 
-            OnPropertyChanged(nameof(QcChecklistText));
+            RefreshQcChecklist();
         }
     }
 
@@ -645,7 +670,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             {
                 if (_qcGoldWeight is not null)
                     SetProperty(ref _qcGoldWeight, null, nameof(QcGoldWeight));
-                OnPropertyChanged(nameof(QcChecklistText));
+                RefreshQcChecklist();
                 return;
             }
 
@@ -664,7 +689,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                     SetProperty(ref _qcGoldWeight, parsed, nameof(QcGoldWeight));
             }
 
-            OnPropertyChanged(nameof(QcChecklistText));
+            RefreshQcChecklist();
         }
     }
 
@@ -674,7 +699,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _qcWeightUnit, value))
-                OnPropertyChanged(nameof(QcChecklistText));
+                RefreshQcChecklist();
         }
     }
 
@@ -686,7 +711,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             if (SetProperty(ref _qcPurityCode, value))
             {
                 SyncSelectedQcGoldTypeFromCode();
-                OnPropertyChanged(nameof(QcChecklistText));
+                RefreshQcChecklist();
             }
         }
     }
@@ -703,7 +728,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             {
                 _qcPurityCode = value.Code;
                 OnPropertyChanged(nameof(QcPurityCode));
-                OnPropertyChanged(nameof(QcChecklistText));
+                RefreshQcChecklist();
             }
         }
     }
@@ -714,7 +739,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _qcDefectNotes, value))
-                OnPropertyChanged(nameof(QcChecklistText));
+                RefreshQcChecklist();
         }
     }
 
@@ -1157,7 +1182,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         var staging = await _attachments.ImportToStagingAsync(dialog.FileName);
         QcImages.Add(new ProductionQcImageEditorViewModel(
             staging, Path.GetFileName(dialog.FileName), QcImages.Count));
-        OnPropertyChanged(nameof(QcChecklistText));
+        RefreshQcChecklist();
     }
 
     private async Task RecordQcAsync()
@@ -1198,6 +1223,27 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 components,
                 images,
                 IsAdjustment: adjusting);
+
+            var clientErrors = ProductionQcValidator.Validate(
+                draft,
+                SelectedQcUnit.StatusCode,
+                id =>
+                {
+                    var row = QcComponents.FirstOrDefault(x => x.MaterialBalanceId == id);
+                    return row is null ? null : row.MaxQuantity;
+                });
+            if (clientErrors.Count > 0)
+            {
+                var detail = string.Join(Environment.NewLine, clientErrors.Select(e => "• " + e));
+                ErrorMessage = string.Join(" ", clientErrors);
+                MessageBox.Show(
+                    "Thiếu hoặc sai các trường bắt buộc khi lưu QC:" + Environment.NewLine + Environment.NewLine + detail,
+                    "Không thể lưu QC",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
             await _application.RecordQcAsync(draft, RequireSession());
             IsQcAdjustmentMode = false;
             await LoadDetailAsync(_id.Value);
@@ -1211,6 +1257,11 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
+            MessageBox.Show(
+                ex.Message,
+                "Không thể lưu QC",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
         finally
         {
@@ -1234,7 +1285,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 QcDefectNotes = string.Empty;
 
             await RebuildQcComponentsAsync(SelectedQcUnit, isAdjustment: true);
-            OnPropertyChanged(nameof(QcChecklistText));
+            RefreshQcChecklist();
             OnPropertyChanged(nameof(CanEditSelectedQc));
         }
         catch (Exception ex)
@@ -1397,7 +1448,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             SelectedQcGoldType = null;
             QcDefectNotes = string.Empty;
             OnPropertyChanged(nameof(CanEditSelectedQc));
-            OnPropertyChanged(nameof(QcChecklistText));
+            RefreshQcChecklist();
             return;
         }
 
@@ -1423,7 +1474,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(CanEditSelectedQc));
-        OnPropertyChanged(nameof(QcChecklistText));
+        RefreshQcChecklist();
     }
 
     private async Task RebuildQcComponentsAsync(ProductionQcUnitEditorViewModel unit, bool isAdjustment)
@@ -1468,7 +1519,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 component.QuantityUsed = prior.QuantityUsed;
             }
 
-            component.PropertyChanged += (_, _) => OnPropertyChanged(nameof(QcChecklistText));
+            component.PropertyChanged += (_, _) => RefreshQcChecklist();
             QcComponents.Add(component);
         }
     }
@@ -1826,7 +1877,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(StockMaterialsHint));
         OnPropertyChanged(nameof(ReturnBalanceSummary));
         OnPropertyChanged(nameof(IsReturnFullyBalanced));
-        OnPropertyChanged(nameof(QcChecklistText));
+        RefreshQcChecklist();
         RefreshWorkflowSteps();
         ((AsyncRelayCommand)SaveDraftCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)CancelDraftCommand).NotifyCanExecuteChanged();
@@ -2284,6 +2335,21 @@ public sealed class ProductionReturnLineEditorViewModel : ObservableObject
 
     public ProductionReturnBalanceLineDraft ToDraft() =>
         new(MaterialBalanceId, QuantityInProduct, QuantityReturned, QuantityScrap, QuantityLoss);
+}
+
+public sealed class ProductionQcChecklistItemViewModel
+{
+    public ProductionQcChecklistItemViewModel(string label, bool isComplete, bool isInfoOnly = false)
+    {
+        Label = label;
+        IsComplete = isComplete;
+        IsInfoOnly = isInfoOnly;
+    }
+
+    public string Label { get; }
+    public bool IsComplete { get; }
+    public bool IsInfoOnly { get; }
+    public string StatusIcon => IsInfoOnly ? "•" : (IsComplete ? "✓" : "○");
 }
 
 public sealed class ProductionQcUnitEditorViewModel

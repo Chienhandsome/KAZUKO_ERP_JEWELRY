@@ -1,6 +1,7 @@
 using System.Windows;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
 using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
@@ -14,6 +15,7 @@ using Kazuko.Core.Suppliers;
 using Kazuko.Core.Updates;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Authentication;
+using Kazuko.Infrastructure.Company;
 using Kazuko.Infrastructure.Customers;
 using Kazuko.Infrastructure.Finance;
 using Kazuko.Infrastructure.HumanResources;
@@ -60,6 +62,7 @@ public partial class App : Application
     {
         IPreferencesService preferences = new JsonPreferencesService();
         IAppearanceService appearance = new AppearanceService(preferences);
+        ICompanyProfileService companyProfile = new FirebirdCompanyProfileService();
         IAuthenticationService authentication = new FirebirdAuthenticationService();
         INavigationService navigation = new NavigationService();
         var moduleLayout = ModuleLayoutPaths.CreateDefaultLocalAppData();
@@ -109,6 +112,7 @@ public partial class App : Application
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
+        _services.AddSingleton(companyProfile);
         _services.AddSingleton(authentication);
         _services.AddSingleton(navigation);
         _services.AddSingleton(packageInstaller);

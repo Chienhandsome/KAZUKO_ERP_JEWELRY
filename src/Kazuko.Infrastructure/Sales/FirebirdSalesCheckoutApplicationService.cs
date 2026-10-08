@@ -253,12 +253,12 @@ public sealed class FirebirdSalesCheckoutApplicationService : ISalesCheckoutAppl
             $"{{\"finishedProductId\":{x.Draft.FinishedProductId}," +
             $"\"sourceGold\":{x.Pricing.SourceGoldPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
             $"\"appliedGold\":{x.Draft.AppliedGoldPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
-            $"\"reason\":\"{EscapeJson(x.Draft.OverrideReason!)}\"}}");
+            $"\"reason\":\"{EscapeJson(x.Draft.OverrideReason ?? string.Empty)}\"}}");
         var oldGoldParts = prepared.OldGoldLines.Where(x => x.IsPriceOverride).Select(x =>
             $"{{\"materialId\":{x.Draft.MaterialId}," +
             $"\"sourceBuy\":{x.SourceBuyPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
             $"\"appliedBuy\":{x.Draft.AppliedBuyPricePerChi.ToString(CultureInfo.InvariantCulture)}," +
-            $"\"reason\":\"{EscapeJson(x.Draft.OverrideReason!)}\"}}");
+            $"\"reason\":\"{EscapeJson(x.Draft.OverrideReason ?? string.Empty)}\"}}");
         return "[" + string.Join(',', saleParts.Concat(oldGoldParts)) + "]";
     }
 

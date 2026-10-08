@@ -44,12 +44,8 @@ public static class SalesCheckoutValidator
             if (line.ValuePercent < 0 || line.ValuePercent > 100) errors.Add("Phần trăm giá trị phải trong khoảng 0–100.");
             if (line.AppliedBuyPricePerChi < 0) errors.Add("Giá mua vàng cũ không được âm.");
         }
-        if (context.HasPriceOverride)
-        {
-            if (!context.Permissions.CanOverridePrice) errors.Add("Không có quyền điều chỉnh giá.");
-            if (!sales.Any(x => !string.IsNullOrWhiteSpace(x.OverrideReason)) && !oldGold.Any(x => !string.IsNullOrWhiteSpace(x.OverrideReason)))
-                errors.Add("Điều chỉnh giá bắt buộc có lý do.");
-        }
+        if (context.HasPriceOverride && !context.Permissions.CanOverridePrice)
+            errors.Add("Không có quyền điều chỉnh giá.");
         if (draft.DiscountAmountVnd < 0 || draft.DiscountAmountVnd > totals.SaleGrossVnd)
             errors.Add("Giảm giá phải không âm và không vượt tổng bán.");
         if (draft.ReceivableAmountVnd < 0) errors.Add("Công nợ không được âm.");

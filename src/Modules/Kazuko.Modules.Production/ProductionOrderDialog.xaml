@@ -555,7 +555,7 @@
                     </Border>
                     <Grid Visibility="{Binding ShowQcReady, Converter={StaticResource BoolToVis}}">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="280" />
+                            <ColumnDefinition Width="336" />
                             <ColumnDefinition Width="12" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
@@ -572,9 +572,23 @@
                         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
                             <Border Style="{StaticResource ProductionCardStyle}">
                                 <StackPanel>
-                                    <Border Style="{StaticResource ProductionEmptyStateStyle}" Margin="0,0,0,12" Padding="12,10">
-                                        <TextBlock Text="{Binding QcChecklistText}" Style="{StaticResource ProductionHintStyle}"
-                                                   FontSize="{DynamicResource FontSize.Body}" />
+                                    <Border Style="{StaticResource ProductionChecklistPanelStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding QcChecklistTitle}"
+                                                       Style="{StaticResource ProductionChecklistTitleStyle}" />
+                                            <ItemsControl ItemsSource="{Binding QcChecklistItems}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                            <TextBlock Text="{Binding StatusIcon}"
+                                                                       Style="{StaticResource ProductionChecklistIconStyle}" />
+                                                            <TextBlock Text="{Binding Label}"
+                                                                       Style="{StaticResource ProductionChecklistItemStyle}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
                                     </Border>
                                     <TextBlock Text="Kết quả QC" Style="{StaticResource ProductionFieldLabelStyle}" />
                                     <ComboBox ItemsSource="{Binding QcResultOptions}"

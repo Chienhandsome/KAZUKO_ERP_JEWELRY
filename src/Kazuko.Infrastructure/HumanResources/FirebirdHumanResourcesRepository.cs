@@ -172,6 +172,40 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
         return count > 0;
     }
 
+    public async Task<string> SuggestNextAttendanceCodeAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT COALESCE(ATTENDANCE_CODE, '')
+            FROM HR_EMPLOYEES
+            WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+              AND ATTENDANCE_CODE IS NOT NULL
+            """, connection);
+
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var maxNumeric = 0;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var code = reader.GetString(0).Trim();
+            if (code.Length == 0)
+                continue;
+            used.Add(code);
+            if (int.TryParse(code, out var n) && n > maxNumeric)
+                maxNumeric = n;
+        }
+
+        for (var candidate = Math.Max(1, maxNumeric + 1); candidate < maxNumeric + 10_000; candidate++)
+        {
+            var text = candidate.ToString();
+            if (!used.Contains(text))
+                return text;
+        }
+
+        return (maxNumeric + 1).ToString();
+    }
+
     public async Task<EmployeeEditResult> SaveAsync(
         EmployeeSaveRequest request,
         AuthenticatedSession session,

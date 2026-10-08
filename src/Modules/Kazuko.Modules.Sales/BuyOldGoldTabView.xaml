@@ -64,7 +64,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="280" MinWidth="240" />
+                <ColumnDefinition Width="340" MinWidth="300" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource SalesCardStyle}" Padding="14">
@@ -187,26 +187,26 @@
             <Border Grid.Column="2" Style="{StaticResource SalesCardStyle}" Padding="16">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Tổng cộng"
-                               Style="{StaticResource SalesSectionHeaderStyle}"
-                               HorizontalAlignment="Center" Margin="0,0,0,14" />
+                               Style="{StaticResource SalesTotalPaneHeaderStyle}" />
                     <Button DockPanel.Dock="Bottom"
                             Content="Thanh toán (F9)"
                             Style="{StaticResource SalesPrimaryButtonStyle}"
                             Command="{Binding DataContext.PayCommand, RelativeSource={RelativeSource AncestorType=local:SalesView}}"
-                            MinHeight="44"
-                            Margin="0,10,0,0" />
-                    <Border DockPanel.Dock="Bottom" Style="{StaticResource SalesAmountHeroStyle}">
+                            MinHeight="48"
+                            Margin="0,12,0,0" />
+                    <Border DockPanel.Dock="Bottom" Style="{StaticResource SalesAmountDueHeroStyle}">
                         <StackPanel>
                             <TextBlock Text="Phải trả"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       FontSize="{DynamicResource FontSize.Caption}"
+                                       Foreground="{DynamicResource SuccessBrush}"
+                                       FontSize="{DynamicResource FontSize.Subtitle}"
+                                       FontWeight="SemiBold"
                                        HorizontalAlignment="Center" />
                             <TextBlock Text="{Binding AmountPayableText}"
                                        Foreground="{DynamicResource DangerBrush}"
                                        FontSize="{DynamicResource FontSize.Display}"
                                        FontWeight="Bold"
                                        HorizontalAlignment="Center"
-                                       Margin="0,4,0,0"
+                                       Margin="0,6,0,0"
                                        TextWrapping="Wrap"
                                        TextAlignment="Center" />
                         </StackPanel>
@@ -215,11 +215,9 @@
                         <TextBlock Text="Tiền vàng cũ" Style="{StaticResource SalesFieldLabelStyle}" />
                         <TextBox Style="{StaticResource SalesSummaryValueStyle}"
                                  Text="{Binding OldGoldTotalText, Mode=OneWay}" />
-                        <TextBlock Text="Tổng cộng" Style="{StaticResource SalesFieldLabelStyle}" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-                        <TextBox Style="{StaticResource SalesSummaryValueStyle}"
-                                 Text="{Binding AmountPayableText, Mode=OneWay}"
-                                 FontWeight="SemiBold" Margin="0" />
+                        <TextBlock Text="Tổng cộng" Style="{StaticResource SalesGrandTotalLabelStyle}" />
+                        <TextBox Style="{StaticResource SalesGrandTotalValueStyle}"
+                                 Text="{Binding AmountPayableText, Mode=OneWay}" />
                     </StackPanel>
                 </DockPanel>
             </Border>

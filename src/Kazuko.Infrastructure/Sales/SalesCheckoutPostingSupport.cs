@@ -92,9 +92,6 @@ public static class SalesCheckoutPostingSupport
                 product.Id, product.GoldWeightChi, product.SourceGoldPricePerChi,
                 product.SourceLaborAmountVnd, product.SourceStoneAmountVnd);
             var amounts = SalesCheckoutCalculator.CalculateSaleLine(line, pricing);
-            if (amounts.IsPriceOverride && string.IsNullOrWhiteSpace(line.OverrideReason))
-                throw new InvalidOperationException(
-                    $"Dòng thành phẩm '{product.Code}' thay đổi giá nên bắt buộc có lý do.");
             saleLines.Add(new PreparedSaleLine(line, pricing, amounts,
                 product.Code, product.Name, product.GoldPurity));
         }
@@ -106,9 +103,6 @@ public static class SalesCheckoutPostingSupport
                 connection, transaction, companyId, line.MaterialId, cancellationToken);
             var amounts = SalesCheckoutCalculator.CalculateOldGold(line);
             var isOverride = line.AppliedBuyPricePerChi != material.SourceBuyPricePerChi;
-            if (isOverride && string.IsNullOrWhiteSpace(line.OverrideReason))
-                throw new InvalidOperationException(
-                    $"Dòng vàng cũ '{material.Code}' thay đổi giá nên bắt buộc có lý do.");
             oldGoldLines.Add(new PreparedOldGoldLine(
                 line, material.SourceBuyPricePerChi, amounts,
                 material.Code, material.Name, material.MaterialType, material.UnitCode, isOverride));
@@ -300,7 +294,7 @@ public static class SalesCheckoutPostingSupport
             insertLine.Parameters.Add("@APPLIED_STONE", FbDbType.Decimal).Value = line.Draft.AppliedStoneAmountVnd;
             insertLine.Parameters.Add("@OVERRIDE", FbDbType.Boolean).Value = line.Amounts.IsPriceOverride;
             insertLine.Parameters.Add("@REASON", FbDbType.VarChar, 500).Value =
-                line.Amounts.IsPriceOverride ? line.Draft.OverrideReason!.Trim() : DBNull.Value;
+                OverrideReasonOrDbNull(line.Amounts.IsPriceOverride, line.Draft.OverrideReason);
             await insertLine.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -433,7 +427,7 @@ public static class SalesCheckoutPostingSupport
             insertSnapshot.Parameters.Add("@AMOUNT", FbDbType.Decimal).Value = line.Amounts.AmountVnd;
             insertSnapshot.Parameters.Add("@OVERRIDE", FbDbType.Boolean).Value = line.IsPriceOverride;
             insertSnapshot.Parameters.Add("@REASON", FbDbType.VarChar, 500).Value =
-                line.IsPriceOverride ? line.Draft.OverrideReason!.Trim() : DBNull.Value;
+                OverrideReasonOrDbNull(line.IsPriceOverride, line.Draft.OverrideReason);
             insertSnapshot.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value = DbText(line.Draft.Notes);
             await insertSnapshot.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -928,6 +922,9 @@ public static class SalesCheckoutPostingSupport
 
     private static object DbText(string? value) =>
         string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();
+
+    private static object OverrideReasonOrDbNull(bool isOverride, string? reason) =>
+        isOverride ? DbText(reason) : DBNull.Value;
 
     private static void Add(StringBuilder builder, object? value)
     {

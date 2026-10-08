@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
@@ -10,6 +11,8 @@ namespace Kazuko.Modules.HumanResources;
 
 public sealed class EmployeeEditDialogViewModel : ObservableObject
 {
+    private static readonly CultureInfo MoneyCulture = CultureInfo.GetCultureInfo("vi-VN");
+
     public static readonly string[] GenderOptions = ["", "Nam", "Nữ", "Khác"];
     public static readonly string[] ContractTypeOptions =
     [
@@ -180,6 +183,30 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
         set => SetProperty(ref _allowanceText, value);
     }
 
+    /// <summary>Định dạng lại lương/phụ cấp với dấu ngăn nghìn sau LostFocus.</summary>
+    public void FormatSalaryTexts()
+    {
+        if (TryParseMoney(BaseSalaryText, out var baseSalary))
+        {
+            var formatted = FormatMoney(baseSalary);
+            if (!string.Equals(_baseSalaryText, formatted, StringComparison.Ordinal))
+            {
+                _baseSalaryText = formatted;
+                OnPropertyChanged(nameof(BaseSalaryText));
+            }
+        }
+
+        if (TryParseMoney(AllowanceText, out var allowance))
+        {
+            var formatted = FormatMoney(allowance);
+            if (!string.Equals(_allowanceText, formatted, StringComparison.Ordinal))
+            {
+                _allowanceText = formatted;
+                OnPropertyChanged(nameof(AllowanceText));
+            }
+        }
+    }
+
     public string Notes
     {
         get => _notes;
@@ -327,8 +354,8 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
                 Address = detail.Address;
                 HireDate = detail.HireDate;
                 ContractType = detail.ContractType;
-                BaseSalaryText = detail.BaseSalary.ToString("0.##");
-                AllowanceText = detail.Allowance.ToString("0.##");
+                BaseSalaryText = FormatMoney(detail.BaseSalary);
+                AllowanceText = FormatMoney(detail.Allowance);
                 Notes = detail.Notes;
                 _selectedStatusCode = detail.StatusCode;
                 IsActive = detail.IsActive;
@@ -338,6 +365,7 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
             {
                 Title = "THÊM NHÂN VIÊN";
                 CodeDisplay = "(Tự sinh)";
+                AttendanceCode = await _repository.SuggestNextAttendanceCodeAsync();
             }
         }
         catch
@@ -407,13 +435,13 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
             ok = false;
         }
 
-        if (!decimal.TryParse(BaseSalaryText.Replace(",", ""), out baseSalary) || baseSalary < 0)
+        if (!TryParseMoney(BaseSalaryText, out baseSalary) || baseSalary < 0)
         {
             SalaryError = "Lương cơ bản không hợp lệ hoặc âm.";
             ok = false;
         }
 
-        if (!decimal.TryParse(AllowanceText.Replace(",", ""), out allowance) || allowance < 0)
+        if (!TryParseMoney(AllowanceText, out allowance) || allowance < 0)
         {
             SalaryError = string.IsNullOrEmpty(SalaryError)
                 ? "Phụ cấp không hợp lệ hoặc âm."
@@ -450,6 +478,23 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
         }
 
         return ok;
+    }
+
+    private static string FormatMoney(decimal value) =>
+        value.ToString("N0", MoneyCulture);
+
+    private static bool TryParseMoney(string? text, out decimal value)
+    {
+        var raw = (text ?? string.Empty).Trim();
+        if (raw.Length == 0)
+        {
+            value = 0;
+            return true;
+        }
+
+        return decimal.TryParse(raw, NumberStyles.Number, MoneyCulture, out value)
+               || decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out value)
+               || decimal.TryParse(raw.Replace(",", "").Replace(".", ""), NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
     }
 
     private static string Sanitize(string message)

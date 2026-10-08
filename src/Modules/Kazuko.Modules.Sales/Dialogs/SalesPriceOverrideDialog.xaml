@@ -58,7 +58,7 @@
             <TextBox Text="{Binding LaborAmount, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8" />
             <TextBlock Text="Tiền đá" Foreground="{DynamicResource TextSecondaryBrush}" />
             <TextBox Text="{Binding StoneAmount, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8" />
-            <TextBlock Text="Lý do điều chỉnh" Foreground="{DynamicResource TextSecondaryBrush}" />
+            <TextBlock Text="Lý do điều chỉnh (tuỳ chọn)" Foreground="{DynamicResource TextSecondaryBrush}" />
             <TextBox Text="{Binding OverrideReason, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8" />
             <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
         </StackPanel>

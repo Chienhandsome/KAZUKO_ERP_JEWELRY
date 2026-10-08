@@ -1,4 +1,6 @@
 using Kazuko.Core.Appearance;
+using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 
@@ -18,7 +20,6 @@ public sealed class DashboardModule : IKazukoModule
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
     {
         var navigationService = GetRequiredService<INavigationService>(services);
-        var appearanceService = GetRequiredService<IAppearanceService>(services);
 
         navigation.Register(new NavigationItem(
             "DASHBOARD",
@@ -64,15 +65,19 @@ public sealed class DashboardModule : IKazukoModule
             });
         }
 
+        var companyProfile = GetRequiredService<ICompanyProfileService>(services);
+        var sessionAccessor = GetRequiredService<ICurrentSessionAccessor>(services);
+        var appearanceService = GetRequiredService<IAppearanceService>(services);
+
         navigation.Register(new NavigationItem(
             "SETTINGS",
             "CÀI ĐẶT",
             string.Empty,
             110,
             null,
-            () => new AppearanceSettingsView
+            () => new SettingsView
             {
-                DataContext = new AppearanceSettingsViewModel(appearanceService)
+                DataContext = new SettingsViewModel(companyProfile, sessionAccessor, appearanceService)
             },
             AssetRoot + "CAIDAT.png"));
     }

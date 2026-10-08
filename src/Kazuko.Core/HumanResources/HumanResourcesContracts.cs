@@ -130,6 +130,9 @@ public interface IHumanResourcesRepository
         long? excludeEmployeeId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Gợi ý mã chấm công tiếp theo (số nguyên tăng dần, người dùng có thể sửa).</summary>
+    Task<string> SuggestNextAttendanceCodeAsync(CancellationToken cancellationToken = default);
+
     Task<EmployeeEditResult> SaveAsync(
         EmployeeSaveRequest request,
         AuthenticatedSession session,

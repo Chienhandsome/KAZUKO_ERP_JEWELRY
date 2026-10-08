@@ -7,11 +7,6 @@ using Kazuko.Modules.Sales.Services;
 
 namespace Kazuko.Modules.Sales.Dialogs;
 
-public sealed record PaymentMethodOption(string Code, string Label)
-{
-    public override string ToString() => Label;
-}
-
 public sealed class SalesPaymentAllocationRow : ObservableObject
 {
     private readonly Action? _onChanged;
@@ -21,7 +16,11 @@ public sealed class SalesPaymentAllocationRow : ObservableObject
     private BankAccountOption? _bankAccount;
     private string _referenceNumber = string.Empty;
 
-    public SalesPaymentAllocationRow(Action? onChanged = null) => _onChanged = onChanged;
+    public SalesPaymentAllocationRow(string paymentMethod, Action? onChanged = null)
+    {
+        _paymentMethod = paymentMethod;
+        _onChanged = onChanged;
+    }
 
     public string PaymentMethod
     {
@@ -43,8 +42,16 @@ public sealed class SalesPaymentAllocationRow : ObservableObject
 
     public string PaymentMethodLabel => PaymentMethod switch
     {
-        PaymentMethods.Cash => "Tiền mặt",
-        PaymentMethods.BankTransfer => "Chuyển khoản",
+        PaymentMethods.Cash => "TM (Tiền mặt)",
+        PaymentMethods.BankTransfer => "CK (Chuyển khoản)",
+        PaymentMethods.Card => "Thẻ",
+        _ => PaymentMethod
+    };
+
+    public string ShortLabel => PaymentMethod switch
+    {
+        PaymentMethods.Cash => "TM",
+        PaymentMethods.BankTransfer => "CK",
         PaymentMethods.Card => "Thẻ",
         _ => PaymentMethod
     };
@@ -108,7 +115,6 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
     private readonly bool _allowReceivable;
     private decimal _receivableAmountVnd;
     private string _errorMessage = string.Empty;
-    private SalesPaymentAllocationRow? _selectedAllocation;
     private bool? _dialogResult;
 
     public SalesPaymentDialogViewModel(
@@ -128,25 +134,32 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
         foreach (var fund in cashFunds) CashFunds.Add(fund);
         foreach (var bank in bankAccounts) BankAccounts.Add(bank);
 
-        MethodOptions.Add(new PaymentMethodOption(PaymentMethods.Cash, "Tiền mặt"));
-        MethodOptions.Add(new PaymentMethodOption(PaymentMethods.BankTransfer, "Chuyển khoản"));
-        if (!isPayout)
-            MethodOptions.Add(new PaymentMethodOption(PaymentMethods.Card, "Thẻ"));
-
         DefaultCashFund = CashFunds.FirstOrDefault(x => x.IsDefault) ?? CashFunds.FirstOrDefault();
         DefaultBankAccount = PreferPrimaryBankAccount(BankAccounts) ?? BankAccounts.FirstOrDefault();
 
-        AddAllocationCommand = new RelayCommand(AddAllocation);
-        RemoveAllocationCommand = new RelayCommand(RemoveAllocation, () => SelectedAllocation is not null);
+        CashAllocation = CreateRow(PaymentMethods.Cash, AbsoluteAmount > 0 ? AbsoluteAmount : 0m);
+        CashAllocation.CashFund = DefaultCashFund;
+
+        BankTransferAllocation = CreateRow(PaymentMethods.BankTransfer, 0m);
+        BankTransferAllocation.BankAccount = DefaultBankAccount;
+
+        // Always construct Card row so XAML bindings stay valid; hide/exclude for payout.
+        CardAllocation = CreateRow(PaymentMethods.Card, 0m);
+        CardAllocation.BankAccount = DefaultBankAccount;
+
+        Allocations.Add(CashAllocation);
+        Allocations.Add(BankTransferAllocation);
+        if (!isPayout)
+            Allocations.Add(CardAllocation);
+
         ConfirmCommand = new RelayCommand(Confirm, CanConfirm);
         CancelCommand = new RelayCommand(() => DialogResult = false);
-
-        if (Math.Abs(netAmountVnd) > 0)
-            AddAllocation();
+        NotifyAllocationChanged();
     }
 
     public string DocumentHint { get; }
     public bool IsPayout => _isPayout;
+    public bool ShowCardAllocation => !_isPayout;
     public bool CanUseReceivable => _allowReceivable;
     public decimal AbsoluteAmount => Math.Abs(_netAmountVnd);
     public string AbsoluteAmountText => AbsoluteAmount.ToString("N0", Vi);
@@ -154,22 +167,15 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
     public string ReferenceHint =>
         "Mã giao dịch / số tham chiếu (tuỳ chọn): số CK ngân hàng, mã UTR, hoặc mã chuẩn chi thẻ — để đối soát sổ quỹ.";
 
-    public ObservableCollection<PaymentMethodOption> MethodOptions { get; } = [];
     public ObservableCollection<CashFundOption> CashFunds { get; } = [];
     public ObservableCollection<BankAccountOption> BankAccounts { get; } = [];
     public ObservableCollection<SalesPaymentAllocationRow> Allocations { get; } = [];
     public CashFundOption? DefaultCashFund { get; }
     public BankAccountOption? DefaultBankAccount { get; }
 
-    public SalesPaymentAllocationRow? SelectedAllocation
-    {
-        get => _selectedAllocation;
-        set
-        {
-            if (SetProperty(ref _selectedAllocation, value))
-                ((RelayCommand)RemoveAllocationCommand).NotifyCanExecuteChanged();
-        }
-    }
+    public SalesPaymentAllocationRow CashAllocation { get; }
+    public SalesPaymentAllocationRow BankTransferAllocation { get; }
+    public SalesPaymentAllocationRow CardAllocation { get; }
 
     public decimal ReceivableAmountVnd
     {
@@ -204,8 +210,6 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
 
     public SalesPaymentDialogResult? Result { get; private set; }
 
-    public ICommand AddAllocationCommand { get; }
-    public ICommand RemoveAllocationCommand { get; }
     public ICommand ConfirmCommand { get; }
     public ICommand CancelCommand { get; }
 
@@ -215,26 +219,16 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(AllocatedPlusReceivable));
         OnPropertyChanged(nameof(AllocatedTotalText));
         OnPropertyChanged(nameof(RemainingText));
-        ((RelayCommand)ConfirmCommand).NotifyCanExecuteChanged();
+        if (ConfirmCommand is RelayCommand confirm)
+            confirm.NotifyCanExecuteChanged();
     }
 
-    private void AddAllocation()
+    private SalesPaymentAllocationRow CreateRow(string method, decimal amount)
     {
-        var remaining = _isPayout
-            ? AbsoluteAmount - AllocatedTotal
-            : AbsoluteAmount - AllocatedPlusReceivable;
-        var row = new SalesPaymentAllocationRow(NotifyAllocationChanged)
-        {
-            PaymentMethod = MethodOptions[0].Code,
-            AmountVnd = remaining > 0 ? remaining : 0,
-            CashFund = DefaultCashFund,
-            BankAccount = null
-        };
-        // Default cash uses quỹ; bank/card rows get primary account when method changes.
-        ApplyMethodDefaults(row);
-        Allocations.Add(row);
-        SelectedAllocation = row;
-        NotifyAllocationChanged();
+        var row = new SalesPaymentAllocationRow(method, NotifyAllocationChanged);
+        // Set amount after construction so the change callback is available but ConfirmCommand may still be null.
+        row.AmountVnd = amount;
+        return row;
     }
 
     private void ApplyMethodDefaults(SalesPaymentAllocationRow row)
@@ -251,13 +245,8 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
         }
     }
 
-    private void RemoveAllocation()
-    {
-        if (SelectedAllocation is null) return;
-        Allocations.Remove(SelectedAllocation);
-        SelectedAllocation = null;
-        NotifyAllocationChanged();
-    }
+    private IReadOnlyList<SalesPaymentAllocationRow> PositiveAllocations() =>
+        Allocations.Where(x => x.AmountVnd > 0).ToArray();
 
     private bool CanConfirm() => string.IsNullOrEmpty(Validate());
 
@@ -274,7 +263,7 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
         }
 
         Result = new SalesPaymentDialogResult(
-            Allocations.Select(x => x.ToDraft()).ToArray(),
+            PositiveAllocations().Select(x => x.ToDraft()).ToArray(),
             _isPayout ? 0 : ReceivableAmountVnd);
         DialogResult = true;
     }
@@ -283,7 +272,8 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
     {
         if (_isPayout)
         {
-            if (Allocations.Any(x => string.Equals(x.PaymentMethod, PaymentMethods.Card, StringComparison.OrdinalIgnoreCase)))
+            if (Allocations.Any(x => string.Equals(x.PaymentMethod, PaymentMethods.Card, StringComparison.OrdinalIgnoreCase)
+                                     && x.AmountVnd > 0))
                 return "Không được dùng thẻ cho khoản chi.";
             if (AllocatedTotal != AbsoluteAmount)
                 return "Phải phân bổ đủ số tiền chi.";
@@ -300,9 +290,8 @@ public sealed class SalesPaymentDialogViewModel : ObservableObject
                 return "Tổng thanh toán cộng công nợ phải bằng số tiền ròng.";
         }
 
-        var paymentErrors = PaymentAllocationValidator.Validate(
-            Allocations.Select(x => x.ToDraft()).ToArray(),
-            AllocatedTotal);
+        var drafts = PositiveAllocations().Select(x => x.ToDraft()).ToArray();
+        var paymentErrors = PaymentAllocationValidator.Validate(drafts, AllocatedTotal);
         return paymentErrors.Count > 0 ? string.Join(" ", paymentErrors) : string.Empty;
     }
 

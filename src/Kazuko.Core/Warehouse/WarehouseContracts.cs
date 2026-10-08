@@ -126,7 +126,8 @@ public sealed record StockDocumentDetail(
     DateTime CreatedAt,
     string PostedByName,
     DateTime? PostedAt,
-    string CancellationReason);
+    string CancellationReason,
+    string SourceType = "");
 
 public sealed record StockDocumentLine(
     long Id,

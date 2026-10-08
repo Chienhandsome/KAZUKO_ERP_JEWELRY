@@ -1,7 +1,29 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
+using System.Windows.Media;
 
 namespace Kazuko.Modules.Warehouse.Converters;
+
+/// <summary>Maps theme brush resource keys (e.g. ChartBrush.Raw) to brushes for chart legends.</summary>
+public sealed class BrushKeyToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value as string;
+        if (string.IsNullOrWhiteSpace(key))
+            return DependencyProperty.UnsetValue;
+
+        if (Application.Current?.TryFindResource(key) is Brush brush)
+            return brush;
+
+        return Application.Current?.TryFindResource("PrimaryBrush") as Brush
+               ?? Brushes.Orange;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 public sealed class BooleanToVisibilityConverter : IValueConverter
 {

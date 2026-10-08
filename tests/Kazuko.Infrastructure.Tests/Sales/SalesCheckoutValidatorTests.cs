@@ -42,12 +42,14 @@ public sealed class SalesCheckoutValidatorTests
     }
 
     [Fact]
-    public void Rejects_override_without_reason_or_permission()
+    public void Rejects_override_without_permission_reason_optional()
     {
-        Assert.Contains(SalesCheckoutValidator.Validate(Sale(), Totals(), Context(hasOverride: true)), x => x.Contains("lý do"));
+        Assert.Empty(SalesCheckoutValidator.Validate(Sale(), Totals(), Context(hasOverride: true)));
         var draft = Sale() with { SaleLines = [new(1, 100, 0, 0, "approved")] };
         Assert.Contains(SalesCheckoutValidator.Validate(draft, Totals(), Context(hasOverride: true) with { Permissions = AllPermissions with { CanOverridePrice = false } }), x => x.Contains("quyền"));
         Assert.Empty(SalesCheckoutValidator.Validate(draft, Totals(), Context(hasOverride: true)));
+        Assert.Empty(SalesCheckoutValidator.Validate(
+            Sale() with { SaleLines = [new(1, 100, 0, 0, null)] }, Totals(), Context(hasOverride: true)));
     }
 
     [Fact]

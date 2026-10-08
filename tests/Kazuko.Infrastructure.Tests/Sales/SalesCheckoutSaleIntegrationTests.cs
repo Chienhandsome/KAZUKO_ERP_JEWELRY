@@ -239,7 +239,7 @@ public sealed class SalesCheckoutSaleIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task Requires_override_reason_on_every_changed_line()
+    public async Task Allows_override_without_reason_when_permitted()
     {
         var first = await ProductAsync("T3_PRODUCT_DISPLAYED");
         var second = await ProductAsync("T3_PRODUCT_INSTOCK");
@@ -257,11 +257,16 @@ public sealed class SalesCheckoutSaleIntegrationTests : IDisposable
             ReceivableAmountVnd = total
         };
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.PostAsync(draft, AdminSession()));
+        var result = await _service.PostAsync(draft, AdminSession());
 
-        Assert.Contains("lý do", error.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(0, await CountAsync("SELECT COUNT(*) FROM SALES_CHECKOUTS WHERE CLIENT_REQUEST_ID = @RID",
-            ("@RID", draft.ClientRequestId.ToString())));
+        Assert.False(result.AlreadyPosted);
+        var audit = await RowsAsync<string>(
+            "SELECT EVENT_TYPE FROM AUDIT_LOG WHERE ENTITY_TYPE = 'SALES_CHECKOUT' AND ENTITY_ID = @ID",
+            ("@ID", result.CheckoutId.ToString()));
+        Assert.Contains("SALES_PRICE_OVERRIDE", audit);
+        Assert.Equal(1, await CountAsync(
+            "SELECT COUNT(*) FROM SALES_ORDER_ITEMS WHERE ORDER_ID = @ID AND IS_PRICE_OVERRIDE = TRUE AND PRICE_OVERRIDE_REASON IS NULL",
+            ("@ID", result.SalesOrderId!.Value)));
     }
 
     [Fact]
@@ -279,10 +284,16 @@ public sealed class SalesCheckoutSaleIntegrationTests : IDisposable
             ("@PID", replacementPriceId), ("@ID", product.FinishedProductId));
         var draft = BaseDraft(product);
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.PostAsync(draft, AdminSession()));
+        var result = await _service.PostAsync(draft, AdminSession());
 
-        Assert.Contains("lý do", error.Message, StringComparison.OrdinalIgnoreCase);
-        await AssertUnpostedAsync(draft.ClientRequestId, product.FinishedProductId);
+        Assert.False(result.AlreadyPosted);
+        var audit = await RowsAsync<string>(
+            "SELECT EVENT_TYPE FROM AUDIT_LOG WHERE ENTITY_TYPE = 'SALES_CHECKOUT' AND ENTITY_ID = @ID",
+            ("@ID", result.CheckoutId.ToString()));
+        Assert.Contains("SALES_PRICE_OVERRIDE", audit);
+        Assert.Equal(1, await CountAsync(
+            "SELECT COUNT(*) FROM SALES_ORDER_ITEMS WHERE ORDER_ID = @ID AND IS_PRICE_OVERRIDE = TRUE",
+            ("@ID", result.SalesOrderId!.Value)));
     }
 
     [Fact]
