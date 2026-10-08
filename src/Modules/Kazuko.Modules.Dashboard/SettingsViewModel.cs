@@ -27,6 +27,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _isBusy;
     private bool _isDirty;
     private string _receiptTemplateSummary = "Chưa tải.";
+    private ReceiptTemplateKindOption _selectedReceiptTemplateKind;
 
     public SettingsViewModel(
         ICompanyProfileService companyProfile,
@@ -60,7 +61,36 @@ public sealed class SettingsViewModel : ObservableObject
         ReloadReceiptTemplateCommand = new AsyncRelayCommand(
             LoadReceiptTemplateSummaryAsync, () => !IsBusy && IsReceiptTemplateSelected);
 
+        ReceiptTemplateKinds =
+        [
+            new ReceiptTemplateKindOption(
+                PrintTemplateCodes.SalesReceiptA5,
+                "A5 ngang",
+                "phoi_a5_ngang.frx",
+                "Bill bán hàng A5 ngang"),
+            new ReceiptTemplateKindOption(
+                PrintTemplateCodes.SalesReceiptA5Portrait,
+                "A5 dọc",
+                "phoi_a5_doc.frx",
+                "Bill bán hàng A5 dọc")
+        ];
+        _selectedReceiptTemplateKind = ReceiptTemplateKinds[0];
+
         _ = LoadAsync();
+    }
+
+    public IReadOnlyList<ReceiptTemplateKindOption> ReceiptTemplateKinds { get; }
+
+    public ReceiptTemplateKindOption SelectedReceiptTemplateKind
+    {
+        get => _selectedReceiptTemplateKind;
+        set
+        {
+            if (value is null || !SetProperty(ref _selectedReceiptTemplateKind, value))
+                return;
+            if (IsReceiptTemplateSelected)
+                _ = LoadReceiptTemplateSummaryAsync();
+        }
     }
 
     public IReadOnlyList<SettingsCategory> Categories { get; }
@@ -310,12 +340,13 @@ public sealed class SettingsViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            var template = await _printTemplates.GetByCodeAsync(PrintTemplateCodes.SalesReceiptA5, session);
+            var kind = SelectedReceiptTemplateKind;
+            var template = await _printTemplates.GetByCodeAsync(kind.Code, session);
             ReceiptTemplateSummary =
                 $"{template.Name}\nMã: {template.Code}\nCập nhật: {template.UpdatedAt:dd/MM/yyyy HH:mm}\n"
                 + $"Hash: {template.ContentHash[..Math.Min(16, template.ContentHash.Length)]}…\n"
                 + $"Dung lượng: {template.Content.Length:N0} bytes";
-            StatusMessage = "Đã tải thông tin mẫu in bill.";
+            StatusMessage = $"Đã tải thông tin mẫu {kind.Label}.";
         }
         catch (Exception ex)
         {
@@ -341,12 +372,13 @@ public sealed class SettingsViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            var template = await _printTemplates.GetByCodeAsync(PrintTemplateCodes.SalesReceiptA5, session);
+            var kind = SelectedReceiptTemplateKind;
+            var template = await _printTemplates.GetByCodeAsync(kind.Code, session);
             var dialog = new SaveFileDialog
             {
-                Title = "Xuất mẫu bill FastReport",
+                Title = $"Xuất mẫu bill {kind.Label}",
                 Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",
-                FileName = "phoi_a5_ngang.frx",
+                FileName = kind.DefaultFileName,
                 AddExtension = true,
                 DefaultExt = ".frx"
             };
@@ -377,7 +409,7 @@ public sealed class SettingsViewModel : ObservableObject
 
         var dialog = new OpenFileDialog
         {
-            Title = "Import mẫu bill FastReport",
+            Title = $"Import mẫu bill {SelectedReceiptTemplateKind.Label}",
             Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",
             CheckFileExists = true,
             Multiselect = false
@@ -389,10 +421,11 @@ public sealed class SettingsViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
+            var kind = SelectedReceiptTemplateKind;
             var bytes = await File.ReadAllBytesAsync(dialog.FileName);
             var saved = await _printTemplates.SaveAsync(
-                PrintTemplateCodes.SalesReceiptA5,
-                "Bill bán hàng A5 ngang",
+                kind.Code,
+                kind.DisplayName,
                 bytes,
                 $"Import từ {Path.GetFileName(dialog.FileName)}",
                 session);
@@ -400,7 +433,7 @@ public sealed class SettingsViewModel : ObservableObject
                 $"{saved.Name}\nMã: {saved.Code}\nCập nhật: {saved.UpdatedAt:dd/MM/yyyy HH:mm}\n"
                 + $"Hash: {saved.ContentHash[..Math.Min(16, saved.ContentHash.Length)]}…\n"
                 + $"Dung lượng: {saved.Content.Length:N0} bytes";
-            StatusMessage = "Đã import mẫu in bill vào database.";
+            StatusMessage = $"Đã import mẫu {kind.Label} vào database.";
         }
         catch (Exception ex)
         {
@@ -431,4 +464,13 @@ public sealed class SettingsViewModel : ObservableObject
 
     private static string Sanitize(string message) =>
         string.IsNullOrWhiteSpace(message) ? "Đã xảy ra lỗi." : message.Trim();
+}
+
+public sealed record ReceiptTemplateKindOption(
+    string Code,
+    string Label,
+    string DefaultFileName,
+    string DisplayName)
+{
+    public override string ToString() => Label;
 }

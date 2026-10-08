@@ -12,19 +12,21 @@ Module Báo cáo dùng **FastReport Open Source** để dựng mẫu in A4 (file
 - Open Source không có `Report.Print()` hay WPF PreviewControl thương mại.
 - Không dùng bản Demo FastReport.WPF có watermark trong production.
 
-## Bill thanh toán (A5 ngang) — mẫu trong database
+## Bill thanh toán (A5 ngang / dọc) — mẫu trong database
 
-Bill sau thanh toán bán hàng dùng mẫu FastReport A5 ngang lưu trong Firebird:
+Bill sau thanh toán bán hàng dùng mẫu FastReport A5 lưu trong Firebird:
 
 | Mục | Chi tiết |
 |---|---|
 | Bảng | `PRINT_TEMPLATES` (migration 57) |
-| Mã mẫu | `SALES_RECEIPT_A5` |
-| Seed mặc định | Embedded `phoi_a5_ngang.frx` (lần đầu `GetByCode` nếu chưa có dòng) |
+| Mã mẫu | `SALES_RECEIPT_A5` (ngang), `SALES_RECEIPT_A5_PORTRAIT` (dọc) |
+| Seed mặc định | Embedded `phoi_a5_ngang.frx` / `phoi_a5_doc.frx` |
 | Contract | `IPrintTemplateStore` / `FirebirdPrintTemplateStore` |
-| Runtime in | `SalesReceiptPrintService` — load BLOB → bind DataSet + parameters → PDF |
-| Xem trước | WebView2 PDF trong `SalesReceiptPreviewDialog` |
-| Chỉnh sửa | Cài đặt → **Mẫu in bill**: Xuất `.frx` → Designer Community → Import lại |
+| Runtime in | `SalesReceiptPrintService` — chọn orientation → load BLOB → bind → PDF |
+| Xem trước | WebView2 PDF; ComboBox **A5 ngang / A5 dọc** (lưu `%LocalAppData%\KazukoERP\sales.receipt.orientation.json`) |
+| Chỉnh sửa | Cài đặt → **Mẫu in bill** (chọn khổ) → Xuất/Import `.frx` |
+
+**Máy in (vd. HP M1212nf):** orientation Portrait/Landscape do **driver** xử lý — không cần xoay giấy tay trong khay. Trong hộp thoại in chọn đúng A5 + Portrait (mẫu dọc) hoặc Landscape (mẫu ngang), hoặc Fit to page.
 
 ### Bind dữ liệu bill
 

@@ -14,6 +14,7 @@ public partial class SalesReceiptPreviewDialog : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         viewModel.PrintViaPreviewAsync = PrintViaWebViewAsync;
+        viewModel.ReloadPdfAsync = LoadPdfAsync;
         viewModel.CloseRequested += (_, result) =>
         {
             DialogResult = result;
@@ -27,7 +28,7 @@ public partial class SalesReceiptPreviewDialog : Window
         try
         {
             await PdfViewer.EnsureCoreWebView2Async();
-            // Hộp thoại in Edge: chọn khổ A5 ngang hoặc Fit to page để tránh cắt lề.
+            // Hộp thoại in Edge: chọn khổ A5 ngang/dọc hoặc Fit to page.
             PdfViewer.CoreWebView2.ShowPrintUI();
         }
         catch
@@ -58,8 +59,6 @@ public partial class SalesReceiptPreviewDialog : Window
 
     private void Window_Closed(object sender, EventArgs e)
     {
-        // Keep PDF until process ends so Print verb can read it; best-effort delete later.
-        // Caller may clean via SalesReceiptPrintService.TryDeleteTempPdf when appropriate.
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)

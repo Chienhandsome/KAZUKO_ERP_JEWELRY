@@ -1,6 +1,7 @@
 using System.Windows;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
+using Kazuko.Core.Printing;
 using Kazuko.Core.Sales;
 
 namespace Kazuko.Modules.Sales.Services;
@@ -65,11 +66,13 @@ public sealed class WpfSalesReceiptPresenter : ISalesReceiptPresenter
         var session = _sessionAccessor.Current
             ?? throw new InvalidOperationException("Chưa đăng nhập.");
         var receipt = await _printData.GetReceiptAsync(checkoutId, session, cancellationToken);
-        var pdfPath = await _printService.ExportToTempPdfAsync(receipt, session, cancellationToken);
+        var orientation = SalesReceiptPrintPreferences.Load();
+        var pdfPath = await _printService.ExportToTempPdfAsync(receipt, session, orientation, cancellationToken);
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            var viewModel = new Dialogs.SalesReceiptPreviewDialogViewModel(receipt, pdfPath, _printService);
+            var viewModel = new Dialogs.SalesReceiptPreviewDialogViewModel(
+                receipt, pdfPath, _printService, session, orientation);
             var dialog = new Dialogs.SalesReceiptPreviewDialog(viewModel)
             {
                 Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(x => x.IsActive)

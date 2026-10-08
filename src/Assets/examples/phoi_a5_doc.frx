@@ -38,10 +38,29 @@ namespace FastReport
       <Column Name="TRONGLUONGHOT" DataType="System.Decimal"/>
       <Column Name="CAT" DataType="System.Decimal"/>
       <Column Name="VANGTHUCTE" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE_CHUOI" DataType="System.String"/>
+      <Column Name="TRONGLUONGVANG_CHUOI" DataType="System.String"/>
       <Column Name="MATHANG" DataType="System.String"/>
+      <Column Name="LADE" DataType="System.Int32"/>
+    </TableDataSource>
+    <TableDataSource Name="OldGold" ReferenceName="Data.OldGold" DataType="System.Int32" Enabled="true">
+      <Column Name="DONGIA" DataType="System.Decimal"/>
+      <Column Name="THANHTIEN" DataType="System.Decimal"/>
+      <Column Name="CONGBAN" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGVANG" DataType="System.Decimal"/>
+      <Column Name="MAVACH" DataType="System.String"/>
+      <Column Name="LOAIVANG" DataType="System.String"/>
+      <Column Name="TONGTRONGLUONG" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGHOT" DataType="System.Decimal"/>
+      <Column Name="CAT" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE_CHUOI" DataType="System.String"/>
+      <Column Name="TRONGLUONGVANG_CHUOI" DataType="System.String"/>
+      <Column Name="MATHANG" DataType="System.String"/>
+      <Column Name="LADE" DataType="System.Int32"/>
     </TableDataSource>
   </Dictionary>
-  <ReportPage Name="Page1" PaperWidth="148.1" PaperHeight="210.1" LeftMargin="5" RightMargin="5">
+  <ReportPage Name="Page1" PaperWidth="148.1" PaperHeight="210.1" LeftMargin="10" TopMargin="8" RightMargin="10" BottomMargin="8">
     <ReportTitleBand Name="ReportTitle1" Width="522.02" Height="217.35">
       <TextObject Name="Text1" Top="94.5" Width="519.75" Height="37.8" Text="GIẤY ĐẢM BẢO VÀNG" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 16pt, style=Bold"/>
       <TableObject Name="Table3" Top="189" Width="516.62" Height="28.35">
@@ -75,7 +94,7 @@ namespace FastReport
       <TextObject Name="Text64" Left="85.05" Top="170.1" Width="245.7" Height="18.9" Text="[Người in]" Font="Tahoma, 10pt"/>
       <TextObject Name="Text66" Left="189" Top="151.2" Width="141.75" Height="18.9" Text="In lúc: [Date]" Format="Custom" Format.Format="HH:mm" HorzAlign="Right" Font="Tahoma, 10pt"/>
     </ReportTitleBand>
-    <DataBand Name="Data1" Top="221.56" Width="522.02" Height="18.9" CanGrow="true" DataSource="DataSet" Filter="[DataSet.LADE]==0">
+    <DataBand Name="Data1" Top="221.56" Width="522.02" Height="18.9" CanGrow="true" DataSource="DataSet">
       <TableObject Name="Table2" Width="516.6" Height="18.9">
         <TableColumn Name="Column4" Width="33.06"/>
         <TableColumn Name="Column25" Width="56.7"/>
@@ -114,7 +133,7 @@ namespace FastReport
         </TableRow>
         <TableRow Name="Row9">
           <TableCell Name="Cell68" Border.Lines="All" Border.Color="Gray" Text="Cộng" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
-          <TableCell Name="Cell69" Border.Lines="All" Border.Color="Gray" Text="[[Tiền vàng mới]-[Tiền vàng cũ]]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell69" Border.Lines="All" Border.Color="Gray" Text="[Cộng tiền]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
         </TableRow>
         <TableRow Name="Row10">
           <TableCell Name="Cell73" Border.Lines="All" Border.Color="Gray" Text="Tiền bớt" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
@@ -143,7 +162,7 @@ namespace FastReport
     </PageFooterBand>
   </ReportPage>
   <ReportPage Name="Page2" PaperWidth="148.1" PaperHeight="210.1">
-    <DataBand Name="Data2" Top="22.02" Width="484.22" Height="18.9" DataSource="DataSet" Filter="[DataSet.LADE]==30">
+    <DataBand Name="Data2" Top="22.02" Width="484.22" Height="18.9" DataSource="OldGold">
       <TableObject Name="Table5" Width="296.16" Height="18.9">
         <TableColumn Name="Column35" Width="33.04"/>
         <TableColumn Name="Column36" Width="56.7"/>
@@ -151,11 +170,11 @@ namespace FastReport
         <TableColumn Name="Column38"/>
         <TableColumn Name="Column39" Width="98.48"/>
         <TableRow Name="Row13">
-          <TableCell Name="Cell82" Border.Lines="All" Border.Color="Gray" Text="[DataSet.LOAIVANG]" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell83" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGVANG_CHUOI]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell84" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGHOT]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell85" Border.Lines="All" Border.Color="Gray" Text="[DataSet.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell86" Border.Lines="All" Border.Color="Gray" Text="[DataSet.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell82" Border.Lines="All" Border.Color="Gray" Text="[OldGold.LOAIVANG]" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell83" Border.Lines="All" Border.Color="Gray" Text="[OldGold.TRONGLUONGVANG_CHUOI]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell84" Border.Lines="All" Border.Color="Gray" Text="[OldGold.TRONGLUONGHOT]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell85" Border.Lines="All" Border.Color="Gray" Text="[OldGold.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell86" Border.Lines="All" Border.Color="Gray" Text="[OldGold.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
         </TableRow>
       </TableObject>
       <DataHeaderBand Name="DataHeader1" Width="484.22" Height="18.9">
@@ -177,7 +196,7 @@ namespace FastReport
     </DataBand>
   </ReportPage>
   <ReportPage Name="Page3" PaperWidth="148.1" PaperHeight="210.1">
-    <DataBand Name="Data3" Top="18.25" Width="484.22" Height="15.12" CanGrow="true" DataSource="DataSet" Filter="[DataSet.LADE]==0">
+    <DataBand Name="Data3" Top="18.25" Width="484.22" Height="15.12" CanGrow="true" DataSource="DataSet">
       <TableObject Name="Table7" Width="300.04" Height="15.12">
         <TableColumn Name="Column49" Width="56.7"/>
         <TableColumn Name="Column50" Width="60.68"/>
@@ -211,7 +230,7 @@ namespace FastReport
     </DataBand>
   </ReportPage>
   <ReportPage Name="Page4" PaperWidth="148.1" PaperHeight="210.1">
-    <DataBand Name="Data4" Top="18.25" Width="484.22" Height="15.12" DataSource="DataSet" Filter="[DataSet.LADE]==30">
+    <DataBand Name="Data4" Top="18.25" Width="484.22" Height="15.12" DataSource="OldGold">
       <TableObject Name="Table9" Width="300.04" Height="15.12">
         <TableColumn Name="Column59" Width="56.7"/>
         <TableColumn Name="Column60" Width="60.68"/>
@@ -219,11 +238,11 @@ namespace FastReport
         <TableColumn Name="Column62" Width="56.7"/>
         <TableColumn Name="Column63" Width="75.6"/>
         <TableRow Name="Row17" Height="15.12">
-          <TableCell Name="Cell106" Border.Lines="All" Border.Color="Gray" Text="[DataSet.LOAIVANG]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell107" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGVANG_CHUOI]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell108" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGHOT]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell109" Border.Lines="All" Border.Color="Gray" Text="[DataSet.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
-          <TableCell Name="Cell110" Border.Lines="All" Border.Color="Gray" Text="[DataSet.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell106" Border.Lines="All" Border.Color="Gray" Text="[OldGold.LOAIVANG]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell107" Border.Lines="All" Border.Color="Gray" Text="[OldGold.TRONGLUONGVANG_CHUOI]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell108" Border.Lines="All" Border.Color="Gray" Text="[OldGold.TRONGLUONGHOT]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell109" Border.Lines="All" Border.Color="Gray" Text="[OldGold.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell110" Border.Lines="All" Border.Color="Gray" Text="[OldGold.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
         </TableRow>
       </TableObject>
       <DataHeaderBand Name="DataHeader3" Width="484.22" Height="15.12">

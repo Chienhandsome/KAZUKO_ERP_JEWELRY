@@ -1,5 +1,4 @@
 using System.IO;
-using System.Text;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Printing;
@@ -47,40 +46,32 @@ public sealed class SalesReceiptPrintServiceTests
         Assert.Equal(277.5m, components.Rows[0]["THANHTIEN"]);
     }
 
-    [Fact]
-    public async Task CreatePreparedReportAsync_prepares_a5_template_without_compiler_errors()
+    [Theory]
+    [InlineData("phoi_a5_ngang.frx", SalesReceiptOrientation.Landscape)]
+    [InlineData("phoi_a5_doc.frx", SalesReceiptOrientation.Portrait)]
+    public async Task CreatePreparedReportAsync_prepares_a5_templates_without_compiler_errors(
+        string fileName,
+        SalesReceiptOrientation orientation)
     {
-        var frxPath = FindExampleFrx();
+        var frxPath = FindExampleFrx(fileName);
         Assert.True(File.Exists(frxPath), $"Missing template: {frxPath}");
 
-        // Simulate already-seeded DB BLOB that still has commercial Filters + nested [[A]-[B]].
-        var xml = await File.ReadAllTextAsync(frxPath);
-        xml = xml.Replace(
-            "DataBand Name=\"Data1\" Top=\"230.11\" Width=\"756.38\" Height=\"18.9\" CanGrow=\"true\" Guides=\"0\" DataSource=\"DataSet\"",
-            "DataBand Name=\"Data1\" Top=\"230.11\" Width=\"756.38\" Height=\"18.9\" CanGrow=\"true\" Guides=\"0\" DataSource=\"DataSet\" Filter=\"[DataSet.LADE]==0\"",
-            StringComparison.Ordinal);
-        xml = xml.Replace(
-            "DataBand Name=\"Data2\" Top=\"20.72\" Width=\"484.22\" Height=\"18.9\" DataSource=\"OldGold\"",
-            "DataBand Name=\"Data2\" Top=\"20.72\" Width=\"484.22\" Height=\"18.9\" DataSource=\"DataSet\" Filter=\"[DataSet.LADE]==30\"",
-            StringComparison.Ordinal);
-        xml = xml.Replace("[Cộng tiền]", "[[Tiền vàng mới]-[Tiền vàng cũ]]", StringComparison.Ordinal);
-        xml = xml.Replace("[OldGold.", "[DataSet.", StringComparison.Ordinal);
-
-        var store = new StubPrintTemplateStore(Encoding.UTF8.GetBytes(xml));
+        var store = new StubPrintTemplateStore(await File.ReadAllBytesAsync(frxPath));
         var service = new SalesReceiptPrintService(store);
         var session = new AuthenticatedSession(1, "admin", "Admin", "ADMIN", 1, "BR", "Branch");
 
-        using var report = await service.CreatePreparedReportAsync(BuildReceipt(1, 1), session);
+        using var report = await service.CreatePreparedReportAsync(
+            BuildReceipt(1, 1), session, orientation);
         Assert.NotNull(report);
         Assert.True(report.PreparedPages.Count > 0);
     }
 
-    private static string FindExampleFrx()
+    private static string FindExampleFrx(string fileName)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var candidate = Path.Combine(dir.FullName, "src", "Assets", "examples", "phoi_a5_ngang.frx");
+            var candidate = Path.Combine(dir.FullName, "src", "Assets", "examples", fileName);
             if (File.Exists(candidate))
                 return candidate;
             dir = dir.Parent;
@@ -89,7 +80,7 @@ public sealed class SalesReceiptPrintServiceTests
         return Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..", "..", "..", "..", "..",
-            "src", "Assets", "examples", "phoi_a5_ngang.frx"));
+            "src", "Assets", "examples", fileName));
     }
 
     private sealed class StubPrintTemplateStore : IPrintTemplateStore

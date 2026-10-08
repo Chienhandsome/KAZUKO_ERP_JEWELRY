@@ -270,11 +270,22 @@
                                        FontSize="{DynamicResource FontSize.Subtitle}"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}" />
-                            <TextBlock Text="Mẫu A5 ngang (FastReport Open Source) lưu trong database. Xuất .frx → chỉnh bằng FastReport Designer Community (miễn phí) → Import lại."
+                            <TextBlock Text="Mẫu A5 ngang/dọc (FastReport Open Source) lưu trong database. Xuất .frx → chỉnh bằng FastReport Designer Community (miễn phí) → Import lại. Khi in phiếu có thể chọn khổ trên hộp xem trước."
                                        Margin="0,6,0,16"
                                        FontSize="{DynamicResource FontSize.Body}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        TextWrapping="Wrap" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <TextBlock Text="Khổ mẫu:"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <ComboBox Width="160"
+                                          ItemsSource="{Binding ReceiptTemplateKinds}"
+                                          SelectedItem="{Binding SelectedReceiptTemplateKind}"
+                                          DisplayMemberPath="Label" />
+                            </StackPanel>
 
                             <TextBlock Text="{Binding ErrorMessage}"
                                        Foreground="{DynamicResource DangerBrush}"
