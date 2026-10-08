@@ -8,6 +8,11 @@
     <ProjectReference Include="..\..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FastReport.OpenSource" Version="2025.2.0" />
+    <PackageReference Include="FastReport.OpenSource.Export.PdfSimple" Version="2025.2.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="..\..\Assets\icons\BAN_HANG.png">
       <Link>Assets\icons\BAN_HANG.png</Link>
     </Resource>

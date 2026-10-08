@@ -1,277 +1,414 @@
+using System.Data;
 using System.Globalization;
-using System.Windows;
-using System.Windows.Documents;
-using System.Windows.Media;
-using Kazuko.Core.Finance;
+using System.IO;
+using FastReport;
+using FastReport.Data;
+using FastReport.Export.PdfSimple;
+using Kazuko.Core.Authentication;
+using Kazuko.Core.Printing;
 using Kazuko.Core.Sales;
 
 namespace Kazuko.Modules.Sales.Services;
 
 /// <summary>
-/// Builds an A4 FlowDocument from an immutable sales receipt snapshot.
-/// Page size is fixed at 96 DPI A4; does not read live price tables.
+/// Builds sales receipt PDF from FastReport template (A5 ngang/dọc) loaded via <see cref="IPrintTemplateStore"/>.
 /// </summary>
 public sealed class SalesReceiptPrintService
 {
-    public const double A4WidthDip = 793.7;
-    public const double A4HeightDip = 1122.5;
+    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
 
-    public FlowDocument CreateDocument(SalesReceiptDto receipt)
+    private readonly IPrintTemplateStore _templates;
+
+    public SalesReceiptPrintService(IPrintTemplateStore templates)
+    {
+        _templates = templates ?? throw new ArgumentNullException(nameof(templates));
+    }
+
+    public async Task<Report> CreatePreparedReportAsync(
+        SalesReceiptDto receipt,
+        AuthenticatedSession session,
+        SalesReceiptOrientation orientation = SalesReceiptOrientation.Landscape,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(receipt);
-        ArgumentNullException.ThrowIfNull(receipt.Checkout);
+        ArgumentNullException.ThrowIfNull(session);
+        var template = await _templates.GetByCodeAsync(
+            SalesReceiptOrientationCodes.ToTemplateCode(orientation),
+            session,
+            cancellationToken);
 
-        var checkout = receipt.Checkout;
-        var doc = new FlowDocument
-        {
-            PageWidth = A4WidthDip,
-            PageHeight = A4HeightDip,
-            PagePadding = new Thickness(48, 40, 48, 40),
-            FontFamily = new FontFamily("Segoe UI"),
-            FontSize = 12,
-            ColumnWidth = A4WidthDip
-        };
+        var report = new Report();
+        using (var stream = new MemoryStream(template.Content))
+            report.Load(stream);
 
-        doc.Blocks.Add(new Paragraph(new Bold(new Run(receipt.CompanyName)))
-        {
-            FontSize = 16,
-            Margin = new Thickness(0, 0, 0, 2),
-            TextAlignment = TextAlignment.Center
-        });
-        doc.Blocks.Add(new Paragraph(new Run(receipt.BranchName))
-        {
-            Margin = new Thickness(0, 0, 0, 2),
-            TextAlignment = TextAlignment.Center
-        });
-        if (!string.IsNullOrWhiteSpace(receipt.BranchAddress) || !string.IsNullOrWhiteSpace(receipt.BranchPhone))
-        {
-            doc.Blocks.Add(new Paragraph(new Run(
-                $"{receipt.BranchAddress ?? string.Empty}" +
-                (string.IsNullOrWhiteSpace(receipt.BranchAddress) || string.IsNullOrWhiteSpace(receipt.BranchPhone)
-                    ? string.Empty
-                    : "  |  ") +
-                (string.IsNullOrWhiteSpace(receipt.BranchPhone) ? string.Empty : $"ĐT: {receipt.BranchPhone}")))
-            {
-                Margin = new Thickness(0, 0, 0, 8),
-                TextAlignment = TextAlignment.Center,
-                FontSize = 11
-            });
-        }
+        // Open Source compiles DataBand.Filter as C# — "[DataSet.LADE]==…" fails.
+        // Also the .frx Dictionary often omits LADE / *_CHUOI columns. Split tables + clear filters.
+        NormalizeReceiptTemplate(report);
 
-        doc.Blocks.Add(new Paragraph(new Bold(new Run(CheckoutTitle(checkout.CheckoutType))))
-        {
-            FontSize = 15,
-            Margin = new Thickness(0, 4, 0, 8),
-            TextAlignment = TextAlignment.Center
-        });
+        var saleTable = BuildSaleLineTable(receipt);
+        var componentTable = BuildComponentTable(receipt);
+        RegisterTable(report, saleTable, "DataSet");
+        RegisterTable(report, componentTable, "OldGold");
 
-        doc.Blocks.Add(MetaParagraph(
-            $"Số: {checkout.DocumentCode}  |  Ngày: {checkout.DocumentDate:dd/MM/yyyy}  |  Loại: {checkout.CheckoutType}"));
-        doc.Blocks.Add(MetaParagraph(
-            $"Khách: {checkout.CustomerName}" +
-            (string.IsNullOrWhiteSpace(checkout.CustomerPhone) ? string.Empty : $" ({checkout.CustomerPhone})")));
-        doc.Blocks.Add(MetaParagraph(
-            $"NV bán: {checkout.SalespersonName}  |  Thu ngân: {checkout.CreatedByDisplayName}"));
+        BindSaleAndOldGoldBands(report);
+        ApplyParameters(report, receipt);
+        // Precompute nested expression that breaks Open Source: [[A]-[B]]
+        SetParameter(report, "Cộng tiền", receipt.Checkout.Totals.SaleGrossVnd - receipt.Checkout.Totals.OldGoldTotalVnd);
 
-        if (checkout.SaleLines.Count > 0)
-        {
-            doc.Blocks.Add(SectionTitle("Hàng bán"));
-            var saleTable = CreateTable(
-                "STT", "Mã", "Tên", "TL vàng", "Giá vàng", "Công", "Đá", "Thành tiền");
-            var index = 1;
-            foreach (var line in checkout.SaleLines)
-            {
-                AddRow(saleTable,
-                    index.ToString(CultureInfo.InvariantCulture),
-                    line.ProductCode,
-                    line.ProductName,
-                    FormatQty(line.GoldWeightChi),
-                    FormatMoney(line.AppliedPrices.AppliedGoldPricePerChi),
-                    FormatMoney(line.Amounts.LaborAmountVnd),
-                    FormatMoney(line.Amounts.StoneAmountVnd),
-                    FormatMoney(line.Amounts.TotalAmountVnd));
-                index++;
-            }
-
-            doc.Blocks.Add(saleTable);
-        }
-
-        if (checkout.OldGoldLines.Count > 0)
-        {
-            doc.Blocks.Add(SectionTitle("Vàng cũ"));
-            var oldTable = CreateTable(
-                "STT", "Nguyên liệu", "TL", "TL quy", "%", "Giá mua", "Thành tiền");
-            var index = 1;
-            foreach (var line in checkout.OldGoldLines)
-            {
-                AddRow(oldTable,
-                    index.ToString(CultureInfo.InvariantCulture),
-                    line.MaterialName,
-                    FormatQty(line.Draft.TotalWeightChi),
-                    FormatQty(line.Amounts.ConvertedWeightChi),
-                    FormatQty(line.Draft.ValuePercent),
-                    FormatMoney(line.Draft.AppliedBuyPricePerChi),
-                    FormatMoney(line.Amounts.AmountVnd));
-                index++;
-            }
-
-            doc.Blocks.Add(oldTable);
-        }
-
-        if (checkout.Allocations.Count > 0)
-        {
-            doc.Blocks.Add(SectionTitle("Thanh toán"));
-            var payTable = CreateTable("STT", "Phương thức", "Số tiền", "Tham chiếu");
-            var index = 1;
-            foreach (var allocation in checkout.Allocations)
-            {
-                AddRow(payTable,
-                    index.ToString(CultureInfo.InvariantCulture),
-                    MethodLabel(allocation.PaymentMethod),
-                    FormatMoney(allocation.AmountVnd),
-                    allocation.ReferenceNumber ?? string.Empty);
-                index++;
-            }
-
-            doc.Blocks.Add(payTable);
-        }
-
-        var totalsIntro = SectionTitle("Tổng kết");
-        totalsIntro.KeepWithNext = true;
-        doc.Blocks.Add(totalsIntro);
-        AddKeptParagraph(doc, $"Doanh thu hàng: {FormatMoney(checkout.Totals.SaleGrossVnd)}");
-        AddKeptParagraph(doc, $"Chiết khấu: {FormatMoney(checkout.Totals.DiscountAmountVnd)}");
-        AddKeptParagraph(doc, $"Vàng cũ: {FormatMoney(checkout.Totals.OldGoldTotalVnd)}");
-        AddKeptParagraph(doc, $"Bù trừ: {FormatMoney(checkout.Totals.OffsetAmountVnd)}");
-        doc.Blocks.Add(new Paragraph(new Bold(new Run($"Thanh toán net: {FormatMoney(checkout.Totals.NetAmountVnd)}")))
-        {
-            Margin = new Thickness(0, 4, 0, 2),
-            KeepTogether = true,
-            KeepWithNext = true
-        });
-        if (checkout.Totals.ReceivableAmountVnd > 0)
-            AddKeptParagraph(doc, $"Công nợ phải thu: {FormatMoney(checkout.Totals.ReceivableAmountVnd)}");
-        if (checkout.Totals.PayoutAmountVnd > 0)
-            AddKeptParagraph(doc, $"Chi khách: {FormatMoney(checkout.Totals.PayoutAmountVnd)}");
-        if (!string.IsNullOrWhiteSpace(checkout.Notes))
-            AddKeptParagraph(doc, $"Ghi chú: {checkout.Notes}");
-
-        doc.Blocks.Add(new Paragraph(new Run(" "))
-        {
-            Margin = new Thickness(0, 20, 0, 0),
-            KeepTogether = true,
-            KeepWithNext = true
-        });
-        doc.Blocks.Add(new Paragraph(new Run(
-            "Khách hàng                    Thu ngân                    Quản lý"))
-        {
-            TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, 0, 0, 28),
-            KeepTogether = true,
-            KeepWithNext = true
-        });
-        doc.Blocks.Add(new Paragraph(new Run(
-            "..................             ..................             .................."))
-        {
-            TextAlignment = TextAlignment.Center,
-            KeepTogether = true
-        });
-
-        return doc;
+        report.Prepare();
+        return report;
     }
 
-    public DocumentPaginator CreatePaginator(SalesReceiptDto receipt)
+    public async Task<string> ExportToTempPdfAsync(
+        SalesReceiptDto receipt,
+        AuthenticatedSession session,
+        SalesReceiptOrientation orientation = SalesReceiptOrientation.Landscape,
+        CancellationToken cancellationToken = default)
     {
-        var document = CreateDocument(receipt);
-        var paginator = ((IDocumentPaginatorSource)document).DocumentPaginator;
-        paginator.PageSize = new Size(A4WidthDip, A4HeightDip);
-        if (paginator is DynamicDocumentPaginator dynamicPaginator)
-            dynamicPaginator.ComputePageCount();
-        return paginator;
+        using var report = await CreatePreparedReportAsync(receipt, session, orientation, cancellationToken);
+        var suffix = orientation == SalesReceiptOrientation.Portrait ? "doc" : "ngang";
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"kazuko-sales-receipt-{suffix}-{receipt.Checkout.DocumentCode.Replace('/', '-')}-{Guid.NewGuid():N}.pdf");
+        using var export = new PDFSimpleExport();
+        report.Export(export, path);
+        return path;
     }
 
-    private static string CheckoutTitle(string checkoutType) => checkoutType switch
+    public void PrintPdf(string pdfPath)
     {
-        SalesCheckoutTypes.TradeIn => "PHIẾU BÁN KÈM THU ĐỔI VÀNG CŨ",
-        SalesCheckoutTypes.OldGoldPurchase => "PHIẾU MUA VÀNG CŨ",
-        _ => "PHIẾU BÁN HÀNG"
-    };
+        if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
+            throw new InvalidOperationException("Không tìm thấy file PDF để in.");
 
-    private static Paragraph SectionTitle(string text) =>
-        new(new Bold(new Run(text))) { Margin = new Thickness(0, 12, 0, 4) };
-
-    private static Paragraph MetaParagraph(string text) =>
-        new(new Run(text)) { Margin = new Thickness(0, 0, 0, 2) };
-
-    private static void AddKeptParagraph(FlowDocument doc, string text)
-    {
-        doc.Blocks.Add(new Paragraph(new Run(text))
+        // Mở PDF (không silent Verb=print) — người dùng chọn khổ A5 ngang / Fit để tránh cắt lề.
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pdfPath)
         {
-            Margin = new Thickness(0, 0, 0, 2),
-            KeepTogether = true,
-            KeepWithNext = true
+            UseShellExecute = true
         });
     }
 
-    private static Table CreateTable(params string[] headers)
+    public static void TryDeleteTempPdf(string? path)
     {
-        var table = new Table
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        try
         {
-            CellSpacing = 0,
-            Margin = new Thickness(0, 4, 0, 8)
-        };
-        foreach (var _ in headers)
-            table.Columns.Add(new TableColumn());
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // ignore cleanup failures
+        }
+    }
 
-        // First row group acts as the repeating table header for paginator consumers.
-        var headerGroup = new TableRowGroup();
-        var headerRow = new TableRow();
-        foreach (var header in headers)
-            headerRow.Cells.Add(HeaderCell(header));
-        headerGroup.Rows.Add(headerRow);
-        table.RowGroups.Add(headerGroup);
-
-        table.RowGroups.Add(new TableRowGroup());
+    /// <summary>Combined mapping (unit tests). Runtime uses split sale/old-gold tables.</summary>
+    public static DataTable BuildLineTable(SalesReceiptDto receipt)
+    {
+        var table = CreateLineSchema("DataSet");
+        foreach (DataRow row in BuildSaleLineTable(receipt).Rows)
+            table.ImportRow(row);
+        foreach (DataRow row in BuildComponentTable(receipt).Rows)
+            table.ImportRow(row);
         return table;
     }
 
-    private static void AddRow(Table table, params string[] cells)
+    public static DataTable BuildSaleLineTable(SalesReceiptDto receipt)
     {
-        var body = table.RowGroups[^1];
-        var row = new TableRow();
-        foreach (var cell in cells)
-            row.Cells.Add(BodyCell(cell));
-        body.Rows.Add(row);
+        var table = CreateLineSchema("DataSet");
+        foreach (var line in receipt.Checkout.SaleLines)
+        {
+            var gold = line.GoldWeightChi;
+            var stone = line.StoneWeightChi;
+            var total = line.TotalWeightChi > 0 ? line.TotalWeightChi : gold + stone;
+            table.Rows.Add(
+                line.ProductCode,
+                line.ProductName,
+                line.GoldPurity,
+                total,
+                gold,
+                stone,
+                gold,
+                FormatQty(gold),
+                FormatQty(gold),
+                line.Amounts.LaborAmountVnd,
+                line.AppliedPrices.AppliedGoldPricePerChi,
+                line.Amounts.TotalAmountVnd,
+                0m,
+                0);
+        }
+
+        return table;
     }
 
-    private static TableCell HeaderCell(string text) =>
-        new(new Paragraph(new Bold(new Run(text))))
-        {
-            BorderBrush = Brushes.Gray,
-            BorderThickness = new Thickness(0.5),
-            Padding = new Thickness(3),
-            Background = Brushes.WhiteSmoke
-        };
-
-    private static TableCell BodyCell(string text) =>
-        new(new Paragraph(new Run(text)))
-        {
-            BorderBrush = Brushes.LightGray,
-            BorderThickness = new Thickness(0.5),
-            Padding = new Thickness(3)
-        };
-
-    private static string MethodLabel(string method) => method switch
+    /// <summary>
+    /// Bảng thành phần (Subreport trái): ưu tiên dòng vàng cũ;
+    /// nếu không có thì lấy thành phần vàng từ dòng bán (tuổi / TL / đơn giá / tiền vàng).
+    /// </summary>
+    public static DataTable BuildComponentTable(SalesReceiptDto receipt)
     {
-        PaymentMethods.Cash => "Tiền mặt",
-        PaymentMethods.BankTransfer => "Chuyển khoản",
-        PaymentMethods.Card => "Thẻ",
-        _ => method
-    };
+        var table = CreateLineSchema("OldGold");
+        if (receipt.Checkout.OldGoldLines.Count > 0)
+        {
+            foreach (var line in receipt.Checkout.OldGoldLines)
+            {
+                var gold = line.Amounts.GoldWeightChi;
+                var stone = line.Draft.StoneWeightChi;
+                var loai = string.IsNullOrWhiteSpace(line.MaterialCode) ? line.MaterialName : line.MaterialCode;
+                table.Rows.Add(
+                    string.Empty,
+                    line.MaterialName,
+                    loai,
+                    line.Draft.TotalWeightChi,
+                    gold,
+                    stone,
+                    gold,
+                    FormatQty(gold),
+                    FormatQty(gold),
+                    0m,
+                    line.Draft.AppliedBuyPricePerChi,
+                    line.Amounts.AmountVnd,
+                    0m,
+                    30);
+            }
 
-    private static string FormatMoney(decimal value) =>
-        value.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+            return table;
+        }
+
+        foreach (var line in receipt.Checkout.SaleLines)
+        {
+            var gold = line.GoldWeightChi;
+            var stone = line.StoneWeightChi;
+            var total = line.TotalWeightChi > 0 ? line.TotalWeightChi : gold + stone;
+            var loai = string.IsNullOrWhiteSpace(line.GoldPurity) ? line.ProductName : line.GoldPurity;
+            table.Rows.Add(
+                line.ProductCode,
+                line.ProductName,
+                loai,
+                total,
+                gold,
+                stone,
+                gold,
+                FormatQty(gold),
+                FormatQty(gold),
+                0m,
+                line.AppliedPrices.AppliedGoldPricePerChi,
+                line.Amounts.GoldAmountVnd,
+                0m,
+                30);
+        }
+
+        return table;
+    }
+
+    [Obsolete("Use BuildComponentTable")]
+    public static DataTable BuildOldGoldLineTable(SalesReceiptDto receipt) =>
+        BuildComponentTable(receipt);
+
+    private static DataTable CreateLineSchema(string tableName)
+    {
+        var table = new DataTable(tableName);
+        table.Columns.Add("MAVACH", typeof(string));
+        table.Columns.Add("MATHANG", typeof(string));
+        table.Columns.Add("LOAIVANG", typeof(string));
+        table.Columns.Add("TONGTRONGLUONG", typeof(decimal));
+        table.Columns.Add("TRONGLUONGVANG", typeof(decimal));
+        table.Columns.Add("TRONGLUONGHOT", typeof(decimal));
+        table.Columns.Add("VANGTHUCTE", typeof(decimal));
+        table.Columns.Add("VANGTHUCTE_CHUOI", typeof(string));
+        table.Columns.Add("TRONGLUONGVANG_CHUOI", typeof(string));
+        table.Columns.Add("CONGBAN", typeof(decimal));
+        table.Columns.Add("DONGIA", typeof(decimal));
+        table.Columns.Add("THANHTIEN", typeof(decimal));
+        table.Columns.Add("CAT", typeof(decimal));
+        table.Columns.Add("LADE", typeof(int));
+        return table;
+    }
+
+    private static void NormalizeReceiptTemplate(Report report)
+    {
+        // Clear filters that Open Source cannot compile ([DataSet.LADE]==…).
+        foreach (Base obj in report.AllObjects)
+        {
+            if (obj is DataBand band)
+                band.Filter = string.Empty;
+        }
+
+        // Lề PDF ≥ 10mm — máy in vật lý thường cắt vùng < 5–8mm.
+        foreach (PageBase pageBase in report.Pages)
+        {
+            if (pageBase is not ReportPage page)
+                continue;
+            // Page2/3/4 are Subreport hosts on A5 dọc — không in thành trang riêng.
+            if (page.Name is "Page2" or "Page3" or "Page4")
+            {
+                page.Visible = false;
+                continue;
+            }
+
+            if (page.LeftMargin < 10f)
+                page.LeftMargin = 10f;
+            if (page.RightMargin < 10f)
+                page.RightMargin = 10f;
+            if (page.TopMargin < 8f)
+                page.TopMargin = 8f;
+            if (page.BottomMargin < 8f)
+                page.BottomMargin = 8f;
+        }
+
+        // Bảng thành phần nằm ở Subreport Page2 — in đè lên summary, không tách trang.
+        foreach (Base obj in report.AllObjects)
+        {
+            if (obj is SubreportObject sub)
+                sub.PrintOnParent = true;
+        }
+
+        // Replace nested [[A]-[B]] which also fails Open Source expression compile.
+        // TableCell lives in a commercial assembly — touch Text via reflection.
+        foreach (Base obj in EnumerateTree(report))
+        {
+            if (!TryGetText(obj, out var text)
+                || !text.Contains("[[Tiền vàng mới]-[Tiền vàng cũ]]", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            TrySetText(obj, "[Cộng tiền]");
+        }
+    }
+
+    private static void RegisterTable(Report report, DataTable table, string name)
+    {
+        // Drop dictionary stub so RegisterData publishes full column set (incl. LADE / *_CHUOI).
+        var existing = report.Dictionary.FindByName(name);
+        if (existing is not null)
+            existing.Dispose();
+
+        report.RegisterData(table, name);
+        var dataSource = report.GetDataSource(name);
+        if (dataSource is not null)
+            dataSource.Enabled = true;
+    }
+
+    private static void BindSaleAndOldGoldBands(Report report)
+    {
+        var saleSource = report.GetDataSource("DataSet");
+        var oldSource = report.GetDataSource("OldGold");
+
+        foreach (Base obj in report.AllObjects)
+        {
+            if (obj is not DataBand band)
+                continue;
+
+            // Landscape: Data2 = thành phần. Portrait: Data2/Data4 = thành phần; Data1/Data3 = dòng bán.
+            if (IsComponentBand(band))
+            {
+                if (oldSource is not null)
+                    band.DataSource = oldSource;
+                RewriteDataSetReferences(band, "OldGold");
+            }
+            else
+            {
+                if (saleSource is not null)
+                    band.DataSource = saleSource;
+            }
+        }
+    }
+
+    private static bool IsComponentBand(DataBand band) =>
+        band.Name is "Data2" or "Data4";
+
+    private static void RewriteDataSetReferences(Base root, string newSourceName)
+    {
+        foreach (Base obj in EnumerateTree(root))
+        {
+            if (!TryGetText(obj, out var text) || !text.Contains("[DataSet.", StringComparison.Ordinal))
+                continue;
+
+            TrySetText(obj, text.Replace("[DataSet.", $"[{newSourceName}.", StringComparison.Ordinal));
+        }
+    }
+
+    private static IEnumerable<Base> EnumerateTree(Base root)
+    {
+        yield return root;
+        foreach (Base child in root.ChildObjects)
+        {
+            foreach (var nested in EnumerateTree(child))
+                yield return nested;
+        }
+    }
+
+    private static bool TryGetText(Base obj, out string text)
+    {
+        text = string.Empty;
+        if (obj is TextObject textObject)
+        {
+            text = textObject.Text ?? string.Empty;
+            return !string.IsNullOrEmpty(text);
+        }
+
+        var prop = obj.GetType().GetProperty("Text");
+        if (prop?.PropertyType != typeof(string) || !prop.CanRead)
+            return false;
+
+        text = prop.GetValue(obj) as string ?? string.Empty;
+        return !string.IsNullOrEmpty(text);
+    }
+
+    private static void TrySetText(Base obj, string value)
+    {
+        if (obj is TextObject textObject)
+        {
+            textObject.Text = value;
+            return;
+        }
+
+        var prop = obj.GetType().GetProperty("Text");
+        if (prop?.PropertyType == typeof(string) && prop.CanWrite)
+            prop.SetValue(obj, value);
+    }
+
+    private static void ApplyParameters(Report report, SalesReceiptDto receipt)
+    {
+        var checkout = receipt.Checkout;
+        var totals = checkout.Totals;
+
+        SetParameter(report, "Tên khách", checkout.CustomerName);
+        SetParameter(report, "Số phiếu", checkout.DocumentCode);
+        SetParameter(report, "Ngày", checkout.DocumentDate);
+        SetParameter(report, "Date", DateTime.Now);
+        SetParameter(report, "Tiền vàng mới", totals.SaleGrossVnd);
+        SetParameter(report, "Tiền vàng cũ", totals.OldGoldTotalVnd);
+        SetParameter(report, "Tiền bớt", totals.DiscountAmountVnd);
+        SetParameter(report, "Tổng cộng", totals.NetAmountVnd);
+        SetParameter(report, "Tổng cộng bằng chữ", VietnameseMoneyText.ToDong(totals.NetAmountVnd));
+        SetParameter(report, "Công ty", receipt.CompanyName);
+        SetParameter(report, "Chi nhánh", receipt.BranchName);
+        SetParameter(report, "Điện thoại", receipt.BranchPhone ?? string.Empty);
+        SetParameter(report, "Địa chỉ", receipt.BranchAddress ?? string.Empty);
+        SetParameter(report, "Nhân viên", checkout.SalespersonName);
+        SetParameter(report, "Người in", checkout.SalespersonName);
+        SetParameter(report, "Thu ngân", checkout.CreatedByDisplayName);
+    }
+
+    private static void SetParameter(Report report, string name, object value)
+    {
+        var existing = report.Parameters.FindByName(name);
+        if (existing is null)
+        {
+            report.Parameters.Add(new Parameter(name)
+            {
+                DataType = value.GetType(),
+                Value = value
+            });
+        }
+        else
+        {
+            report.SetParameterValue(name, value);
+        }
+    }
 
     private static string FormatQty(decimal value) =>
-        value.ToString("0.####", CultureInfo.InvariantCulture);
+        value.ToString("0.####", Vi);
 }

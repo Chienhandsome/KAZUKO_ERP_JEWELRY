@@ -3,6 +3,7 @@ using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
+using Kazuko.Core.Printing;
 using Kazuko.Core.Sales;
 using Kazuko.Modules.Sales.Services;
 
@@ -21,8 +22,11 @@ public sealed class SalesModule : IKazukoModule
         services.AddSingleton<ISalesPriceOverrideDialogService>(new WpfSalesPriceOverrideDialogService());
         var printData = GetRequiredService<ISalesPrintDataService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        var templates = GetRequiredService<IPrintTemplateStore>(services);
+        var printService = new SalesReceiptPrintService(templates);
+        services.AddSingleton(printService);
         services.AddSingleton<ISalesReceiptPresenter>(
-            new WpfSalesReceiptPresenter(printData, session, new SalesReceiptPrintService()));
+            new WpfSalesReceiptPresenter(printData, session, printService));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

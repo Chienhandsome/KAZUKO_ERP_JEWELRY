@@ -1,8 +1,10 @@
+using System.IO;
 using System.Windows.Input;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Printing;
 using Microsoft.Win32;
 
 namespace Kazuko.Modules.Dashboard;
@@ -12,6 +14,7 @@ public sealed record SettingsCategory(string Key, string Label);
 public sealed class SettingsViewModel : ObservableObject
 {
     private readonly ICompanyProfileService _companyProfile;
+    private readonly IPrintTemplateStore _printTemplates;
     private readonly ICurrentSessionAccessor _sessionAccessor;
 
     private SettingsCategory _selectedCategory;
@@ -23,20 +26,24 @@ public sealed class SettingsViewModel : ObservableObject
     private string _errorMessage = string.Empty;
     private bool _isBusy;
     private bool _isDirty;
+    private string _receiptTemplateSummary = "Chưa tải.";
 
     public SettingsViewModel(
         ICompanyProfileService companyProfile,
         ICurrentSessionAccessor sessionAccessor,
-        IAppearanceService appearance)
+        IAppearanceService appearance,
+        IPrintTemplateStore printTemplates)
     {
         _companyProfile = companyProfile ?? throw new ArgumentNullException(nameof(companyProfile));
         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
+        _printTemplates = printTemplates ?? throw new ArgumentNullException(nameof(printTemplates));
         Appearance = new AppearanceSettingsViewModel(
             appearance ?? throw new ArgumentNullException(nameof(appearance)));
 
         Categories =
         [
             new SettingsCategory("general", "Thông tin chung"),
+            new SettingsCategory("receipt_template", "Mẫu in bill"),
             new SettingsCategory("appearance", "Giao diện")
         ];
         _selectedCategory = Categories[0];
@@ -46,6 +53,12 @@ public sealed class SettingsViewModel : ObservableObject
         PickLogoCommand = new RelayCommand(PickLogo, () => !IsBusy && IsGeneralSelected);
         ClearLogoCommand = new RelayCommand(ClearLogo, () => !IsBusy && IsGeneralSelected && HasLogo);
         SelectCategoryCommand = new RelayCommand<SettingsCategory>(SelectCategory);
+        ExportReceiptTemplateCommand = new AsyncRelayCommand(
+            ExportReceiptTemplateAsync, () => !IsBusy && IsReceiptTemplateSelected);
+        ImportReceiptTemplateCommand = new AsyncRelayCommand(
+            ImportReceiptTemplateAsync, () => !IsBusy && IsReceiptTemplateSelected);
+        ReloadReceiptTemplateCommand = new AsyncRelayCommand(
+            LoadReceiptTemplateSummaryAsync, () => !IsBusy && IsReceiptTemplateSelected);
 
         _ = LoadAsync();
     }
@@ -63,7 +76,10 @@ public sealed class SettingsViewModel : ObservableObject
                 return;
             OnPropertyChanged(nameof(IsGeneralSelected));
             OnPropertyChanged(nameof(IsAppearanceSelected));
+            OnPropertyChanged(nameof(IsReceiptTemplateSelected));
             NotifyCommands();
+            if (IsReceiptTemplateSelected)
+                _ = LoadReceiptTemplateSummaryAsync();
         }
     }
 
@@ -72,6 +88,9 @@ public sealed class SettingsViewModel : ObservableObject
 
     public bool IsAppearanceSelected =>
         string.Equals(SelectedCategory.Key, "appearance", StringComparison.Ordinal);
+
+    public bool IsReceiptTemplateSelected =>
+        string.Equals(SelectedCategory.Key, "receipt_template", StringComparison.Ordinal);
 
     public string CompanyName
     {
@@ -146,11 +165,20 @@ public sealed class SettingsViewModel : ObservableObject
         private set => SetProperty(ref _isDirty, value);
     }
 
+    public string ReceiptTemplateSummary
+    {
+        get => _receiptTemplateSummary;
+        private set => SetProperty(ref _receiptTemplateSummary, value);
+    }
+
     public ICommand SaveCommand { get; }
     public ICommand ReloadCommand { get; }
     public ICommand PickLogoCommand { get; }
     public ICommand ClearLogoCommand { get; }
     public ICommand SelectCategoryCommand { get; }
+    public ICommand ExportReceiptTemplateCommand { get; }
+    public ICommand ImportReceiptTemplateCommand { get; }
+    public ICommand ReloadReceiptTemplateCommand { get; }
 
     private void SelectCategory(SettingsCategory? category)
     {
@@ -269,6 +297,121 @@ public sealed class SettingsViewModel : ObservableObject
         ErrorMessage = string.Empty;
     }
 
+    private async Task LoadReceiptTemplateSummaryAsync()
+    {
+        var session = _sessionAccessor.Current;
+        if (session is null)
+        {
+            ReceiptTemplateSummary = "Chưa đăng nhập.";
+            return;
+        }
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var template = await _printTemplates.GetByCodeAsync(PrintTemplateCodes.SalesReceiptA5, session);
+            ReceiptTemplateSummary =
+                $"{template.Name}\nMã: {template.Code}\nCập nhật: {template.UpdatedAt:dd/MM/yyyy HH:mm}\n"
+                + $"Hash: {template.ContentHash[..Math.Min(16, template.ContentHash.Length)]}…\n"
+                + $"Dung lượng: {template.Content.Length:N0} bytes";
+            StatusMessage = "Đã tải thông tin mẫu in bill.";
+        }
+        catch (Exception ex)
+        {
+            ReceiptTemplateSummary = "Không tải được mẫu in.";
+            ErrorMessage = Sanitize(ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task ExportReceiptTemplateAsync()
+    {
+        var session = _sessionAccessor.Current;
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var template = await _printTemplates.GetByCodeAsync(PrintTemplateCodes.SalesReceiptA5, session);
+            var dialog = new SaveFileDialog
+            {
+                Title = "Xuất mẫu bill FastReport",
+                Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",
+                FileName = "phoi_a5_ngang.frx",
+                AddExtension = true,
+                DefaultExt = ".frx"
+            };
+            if (dialog.ShowDialog() != true)
+                return;
+
+            await File.WriteAllBytesAsync(dialog.FileName, template.Content);
+            StatusMessage = $"Đã xuất mẫu tới {dialog.FileName}. Mở bằng FastReport Designer Community để chỉnh.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = Sanitize(ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task ImportReceiptTemplateAsync()
+    {
+        var session = _sessionAccessor.Current;
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import mẫu bill FastReport",
+            Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var bytes = await File.ReadAllBytesAsync(dialog.FileName);
+            var saved = await _printTemplates.SaveAsync(
+                PrintTemplateCodes.SalesReceiptA5,
+                "Bill bán hàng A5 ngang",
+                bytes,
+                $"Import từ {Path.GetFileName(dialog.FileName)}",
+                session);
+            ReceiptTemplateSummary =
+                $"{saved.Name}\nMã: {saved.Code}\nCập nhật: {saved.UpdatedAt:dd/MM/yyyy HH:mm}\n"
+                + $"Hash: {saved.ContentHash[..Math.Min(16, saved.ContentHash.Length)]}…\n"
+                + $"Dung lượng: {saved.Content.Length:N0} bytes";
+            StatusMessage = "Đã import mẫu in bill vào database.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = Sanitize(ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private void MarkDirty()
     {
         IsDirty = true;
@@ -281,6 +424,9 @@ public sealed class SettingsViewModel : ObservableObject
         ((AsyncRelayCommand)ReloadCommand).NotifyCanExecuteChanged();
         ((RelayCommand)PickLogoCommand).NotifyCanExecuteChanged();
         ((RelayCommand)ClearLogoCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)ExportReceiptTemplateCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)ImportReceiptTemplateCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)ReloadReceiptTemplateCommand).NotifyCanExecuteChanged();
     }
 
     private static string Sanitize(string message) =>

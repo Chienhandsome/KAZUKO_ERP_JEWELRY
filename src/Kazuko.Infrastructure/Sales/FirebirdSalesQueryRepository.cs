@@ -602,14 +602,18 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
     {
         var result = new List<SalesLineSnapshot>();
         await using var command = new FbCommand("""
-            SELECT SOI.FINISHED_PRODUCT_ID, FP.CODE, SOI.PRODUCT_NAME, SOI.ESTIMATED_WEIGHT,
+            SELECT SOI.FINISHED_PRODUCT_ID, FP.CODE, SOI.PRODUCT_NAME,
+                   COALESCE(FP.GOLD_WEIGHT, SOI.ESTIMATED_WEIGHT),
                    COALESCE(SOI.SOURCE_GOLD_PRICE_PER_CHI, SOI.GOLD_UNIT_PRICE),
                    COALESCE(SOI.SOURCE_LABOR_AMOUNT_VND, SOI.LABOR_AMOUNT),
                    COALESCE(SOI.SOURCE_STONE_AMOUNT_VND, SOI.STONE_AMOUNT),
                    COALESCE(SOI.APPLIED_GOLD_PRICE_PER_CHI, SOI.GOLD_UNIT_PRICE),
                    COALESCE(SOI.APPLIED_LABOR_AMOUNT_VND, SOI.LABOR_AMOUNT),
                    COALESCE(SOI.APPLIED_STONE_AMOUNT_VND, SOI.STONE_AMOUNT),
-                   SOI.PRICE_OVERRIDE_REASON, SOI.IS_PRICE_OVERRIDE, SOI.LINE_TOTAL
+                   SOI.PRICE_OVERRIDE_REASON, SOI.IS_PRICE_OVERRIDE, SOI.LINE_TOTAL,
+                   COALESCE(FP.GOLD_PURITY, ''),
+                   COALESCE(FP.STONE_WEIGHT, 0),
+                   COALESCE(FP.TOTAL_WEIGHT, COALESCE(FP.GOLD_WEIGHT, SOI.ESTIMATED_WEIGHT))
             FROM SALES_ORDER_ITEMS SOI
             JOIN FINISHED_PRODUCTS FP ON FP.ID = SOI.FINISHED_PRODUCT_ID
             WHERE SOI.ORDER_ID = @ORDER_ID
@@ -620,16 +624,20 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
         while (await reader.ReadAsync(cancellationToken))
         {
             var finishedProductId = reader.GetInt64(0);
-            var weight = reader.GetDecimal(3);
+            var goldWeight = reader.GetDecimal(3);
             var appliedGold = reader.GetDecimal(7);
             var appliedLabor = reader.GetDecimal(8);
             var appliedStone = reader.GetDecimal(9);
             var isOverride = reader.GetBoolean(11);
+            var stoneWeight = reader.GetDecimal(14);
+            var totalWeight = reader.GetDecimal(15);
+            if (totalWeight <= 0)
+                totalWeight = goldWeight + stoneWeight;
             result.Add(new SalesLineSnapshot(
                 finishedProductId,
                 reader.GetString(1),
                 reader.GetString(2),
-                weight,
+                goldWeight,
                 reader.GetDecimal(4),
                 reader.GetDecimal(5),
                 reader.GetDecimal(6),
@@ -641,11 +649,14 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
                     reader.IsDBNull(10) ? null : reader.GetString(10)),
                 new SalesLineAmounts(
                     finishedProductId,
-                    Math.Round(weight * appliedGold, 2, MidpointRounding.AwayFromZero),
+                    Math.Round(goldWeight * appliedGold, 2, MidpointRounding.AwayFromZero),
                     appliedLabor,
                     appliedStone,
                     reader.GetDecimal(12),
-                    isOverride)));
+                    isOverride),
+                reader.GetString(13),
+                stoneWeight,
+                totalWeight));
         }
 
         return result;
@@ -662,7 +673,8 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
                    L.ITEM_QUANTITY, L.TOTAL_WEIGHT_CHI, L.STONE_WEIGHT_CHI,
                    L.IMPURITY_WEIGHT_CHI, L.VALUE_PERCENT, L.APPLIED_BUY_PRICE_PER_CHI,
                    L.PRICE_OVERRIDE_REASON, L.NOTES,
-                   L.GOLD_WEIGHT_CHI, L.CONVERTED_WEIGHT_CHI, L.AMOUNT_VND
+                   L.GOLD_WEIGHT_CHI, L.CONVERTED_WEIGHT_CHI, L.AMOUNT_VND,
+                   COALESCE(NULLIF(TRIM(M.CODE), ''), M.NAME)
             FROM SALES_OLD_GOLD_LINES L
             JOIN MATERIALS M ON M.ID = L.MATERIAL_ID
             WHERE L.CHECKOUT_ID = @CHECKOUT_ID
@@ -689,7 +701,8 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
                 new OldGoldLineAmounts(
                     reader.GetDecimal(11),
                     reader.GetDecimal(12),
-                    reader.GetDecimal(13))));
+                    reader.GetDecimal(13)),
+                reader.GetString(14)));
         }
 
         return result;

@@ -1,65 +1,286 @@
 <Window x:Class="Kazuko.Modules.Warehouse.WarehouseGoldPriceDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Bảng giá vàng kho"
-        Width="900" Height="620" MinWidth="760" MinHeight="520"
+        Title="BẢNG GIÁ VÀNG KHO - KAZUKO ERP JEWELRY"
+        Width="980" Height="650"
+        MinWidth="880" MinHeight="560"
         WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}">
-    <DockPanel Margin="16">
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="Hủy" Style="{DynamicResource NavButtonStyle}" Command="{Binding CancelCommand}"
-                    MinHeight="40" Margin="0,0,8,0" IsCancel="True" />
-            <Button Content="Lưu bảng giá kho" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding SaveCommand}"
-                    MinHeight="40" IsDefault="True" />
-        </StackPanel>
+    <Window.Resources>
+        <Style x:Key="WgpPrimaryButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinWidth" Value="130" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="WgpOutlineButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinWidth" Value="110" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="WgpDataGridStyle" TargetType="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="RowHeight" Value="46" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Padding" Value="8,2" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Padding="{TemplateBinding Padding}"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            SnapsToDevicePixels="True">
+                                        <ContentPresenter VerticalAlignment="Center" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="WgpDataGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Height" Value="42" />
+        </Style>
+    </Window.Resources>
 
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-            <StackPanel>
-                <TextBlock Text="Bảng giá vàng kho" FontSize="{DynamicResource FontSize.Heading}"
-                           FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                <TextBlock Text="Đơn vị: VND/chỉ. Loại vàng lấy từ danh mục GOLD_TYPES (thêm loại mới ở Tỉ giá). Chỉnh giá kho tại đây không đổi giá bán lẻ."
-                           Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
-                           TextWrapping="Wrap" Margin="0,4,0,0" />
-            </StackPanel>
+        <!-- Header giống bảng tỉ giá -->
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" Padding="16,10" Margin="0,0,0,10"
+                CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE8A1;" FontFamily="Segoe MDL2 Assets"
+                               FontSize="{DynamicResource FontSize.Heading}"
+                               Foreground="{DynamicResource PrimaryBrush}"
+                               VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Bảng giá vàng kho"
+                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="Đơn vị: VND/chỉ · Loại vàng từ danh mục GOLD_TYPES (thêm ở Tỉ giá)"
+                                   FontSize="{DynamicResource FontSize.Caption}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Text="Chỉnh giá kho không đổi giá bán lẻ"
+                           FontWeight="SemiBold"
+                           FontSize="{DynamicResource FontSize.Caption}"
+                           Foreground="{DynamicResource PrimaryBrush}"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
 
-            <DataGrid Grid.Row="1" ItemsSource="{Binding Prices}" AutoGenerateColumns="False"
-                      CanUserAddRows="False" CanUserDeleteRows="False" Margin="0,12,0,0"
-                      FontSize="{DynamicResource FontSize.Subtitle}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Mã" Binding="{Binding GoldCode}" Width="100" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldName}" Width="*" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Giá kho / chỉ" Binding="{Binding IssuePricePerChi, UpdateSourceTrigger=LostFocus, StringFormat=N0}" Width="150">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                                <Setter Property="FontWeight" Value="Bold" />
-                                <Setter Property="HorizontalAlignment" Value="Right" />
-                            </Style>
-                        </DataGridTextColumn.ElementStyle>
-                        <DataGridTextColumn.EditingElementStyle>
-                            <Style TargetType="TextBox">
-                                <Setter Property="HorizontalContentAlignment" Value="Right" />
-                                <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                            </Style>
-                        </DataGridTextColumn.EditingElementStyle>
-                    </DataGridTextColumn>
-                    <DataGridTextColumn Header="Mua lẻ tham chiếu" Binding="{Binding RetailBuyPricePerChi, StringFormat=N0}" Width="150" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Bán lẻ tham chiếu" Binding="{Binding RetailSellPricePerChi, StringFormat=N0}" Width="150" IsReadOnly="True" />
-                </DataGrid.Columns>
-            </DataGrid>
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Prices}"
+                  Style="{StaticResource WgpDataGridStyle}"
+                  ColumnHeaderStyle="{StaticResource WgpDataGridColumnHeaderStyle}"
+                  IsReadOnly="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Mã" Binding="{Binding GoldCode, Mode=OneWay}" Width="90" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="Bold" />
+                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldName, Mode=OneWay}" Width="*" MinWidth="140" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Giá kho / chỉ"
+                                  Binding="{Binding IssuePricePerChi, UpdateSourceTrigger=LostFocus, StringFormat=N0}"
+                                  Width="150">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                    <DataGridTextColumn.EditingElementStyle>
+                        <Style TargetType="TextBox">
+                            <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                            <Setter Property="HorizontalContentAlignment" Value="Right" />
+                        </Style>
+                    </DataGridTextColumn.EditingElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Mua lẻ (tham chiếu)"
+                                  Binding="{Binding RetailBuyPricePerChi, Mode=OneWay, StringFormat=N0}"
+                                  Width="150" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Bán lẻ (tham chiếu)"
+                                  Binding="{Binding RetailSellPricePerChi, Mode=OneWay, StringFormat=N0}"
+                                  Width="150" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Cập nhật lúc"
+                                  Binding="{Binding UpdatedAtDisplay, Mode=OneWay}"
+                                  Width="140" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
 
-            <StackPanel Grid.Row="2" Margin="0,12,0,0">
-                <TextBlock Text="Ghi chú thay đổi" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Height="56"
-                         AcceptsReturn="True" TextWrapping="Wrap" />
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" Padding="12,10" Margin="0,12,0,0"
+                CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Ghi chú thay đổi"
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Body}" />
+                <TextBox Grid.Column="1"
+                         Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="40"
+                         Padding="10,8"
+                         FontSize="{DynamicResource FontSize.Body}"
+                         Background="{DynamicResource AppBackgroundBrush}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         BorderBrush="{DynamicResource BorderBrush}"
+                         BorderThickness="1" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="Lưu bảng giá kho" Style="{StaticResource WgpPrimaryButtonStyle}"
+                        Command="{Binding SaveCommand}" Margin="0,0,8,0" IsDefault="True" />
+                <Button Content="Thoát" Style="{StaticResource WgpOutlineButtonStyle}"
+                        Command="{Binding CancelCommand}" IsCancel="True" />
             </StackPanel>
         </Grid>
-    </DockPanel>
+    </Grid>
 </Window>

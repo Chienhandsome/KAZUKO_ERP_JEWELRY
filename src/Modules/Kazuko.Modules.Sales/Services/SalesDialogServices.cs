@@ -53,11 +53,11 @@ public sealed class WpfSalesReceiptPresenter : ISalesReceiptPresenter
     public WpfSalesReceiptPresenter(
         ISalesPrintDataService printData,
         ICurrentSessionAccessor sessionAccessor,
-        SalesReceiptPrintService? printService = null)
+        SalesReceiptPrintService printService)
     {
         _printData = printData ?? throw new ArgumentNullException(nameof(printData));
         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
-        _printService = printService ?? new SalesReceiptPrintService();
+        _printService = printService ?? throw new ArgumentNullException(nameof(printService));
     }
 
     public async Task ShowAsync(long checkoutId, CancellationToken cancellationToken = default)
@@ -65,11 +65,11 @@ public sealed class WpfSalesReceiptPresenter : ISalesReceiptPresenter
         var session = _sessionAccessor.Current
             ?? throw new InvalidOperationException("Chưa đăng nhập.");
         var receipt = await _printData.GetReceiptAsync(checkoutId, session, cancellationToken);
-        var document = _printService.CreateDocument(receipt);
+        var pdfPath = await _printService.ExportToTempPdfAsync(receipt, session, cancellationToken);
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            var viewModel = new Dialogs.SalesReceiptPreviewDialogViewModel(receipt, document);
+            var viewModel = new Dialogs.SalesReceiptPreviewDialogViewModel(receipt, pdfPath, _printService);
             var dialog = new Dialogs.SalesReceiptPreviewDialog(viewModel)
             {
                 Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(x => x.IsActive)

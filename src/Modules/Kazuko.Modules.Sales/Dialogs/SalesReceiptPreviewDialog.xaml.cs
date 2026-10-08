@@ -1,60 +1,72 @@
+using System.Diagnostics;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
-using Kazuko.Core.Sales;
-using Kazuko.Modules.Sales.Services;
+using System.Windows.Input;
 
 namespace Kazuko.Modules.Sales.Dialogs;
 
 public partial class SalesReceiptPreviewDialog : Window
 {
+    private readonly SalesReceiptPreviewDialogViewModel _viewModel;
+
     public SalesReceiptPreviewDialog(SalesReceiptPreviewDialogViewModel viewModel)
     {
         InitializeComponent();
+        _viewModel = viewModel;
         DataContext = viewModel;
-        PreviewViewer.Document = viewModel.Document;
+        viewModel.PrintViaPreviewAsync = PrintViaWebViewAsync;
         viewModel.CloseRequested += (_, result) =>
         {
             DialogResult = result;
             Close();
         };
-        viewModel.PrintRequested += OnPrintRequested;
+        Loaded += async (_, _) => await LoadPdfAsync(viewModel.PdfPath);
     }
 
-    private void OnPrintRequested(object? sender, EventArgs e)
+    private async Task PrintViaWebViewAsync()
     {
-        if (DataContext is not SalesReceiptPreviewDialogViewModel vm)
-            return;
-
         try
         {
-            var dialog = new PrintDialog();
-            if (dialog.ShowDialog() != true)
-                return;
+            await PdfViewer.EnsureCoreWebView2Async();
+            // Hộp thoại in Edge: chọn khổ A5 ngang hoặc Fit to page để tránh cắt lề.
+            PdfViewer.CoreWebView2.ShowPrintUI();
+        }
+        catch
+        {
+            Process.Start(new ProcessStartInfo(_viewModel.PdfPath) { UseShellExecute = true });
+        }
+    }
 
-            var paginator = ((IDocumentPaginatorSource)vm.Document).DocumentPaginator;
-            paginator.PageSize = new Size(
-                SalesReceiptPrintService.A4WidthDip,
-                SalesReceiptPrintService.A4HeightDip);
-            dialog.PrintDocument(paginator, $"Phiếu {vm.DocumentCode}");
+    private async Task LoadPdfAsync(string pdfPath)
+    {
+        FallbackText.Visibility = Visibility.Visible;
+        try
+        {
+            await PdfViewer.EnsureCoreWebView2Async();
+            PdfViewer.CoreWebView2.Navigate(new Uri(pdfPath).AbsoluteUri);
+            FallbackText.Visibility = Visibility.Collapsed;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                this,
-                ex.Message,
-                "In phiếu bán hàng",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            FallbackText.Text =
+                "Không mở được xem trước PDF trong app.\n"
+                + "Cần Microsoft Edge WebView2 Runtime.\n"
+                + "Dùng nút «Mở PDF» hoặc «In».\n\n"
+                + ex.Message;
+            FallbackText.Visibility = Visibility.Visible;
         }
     }
 
-    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private void Window_Closed(object sender, EventArgs e)
     {
-        if (e.Key == System.Windows.Input.Key.Escape
-            && DataContext is SalesReceiptPreviewDialogViewModel vm)
+        // Keep PDF until process ends so Print verb can read it; best-effort delete later.
+        // Caller may clean via SalesReceiptPrintService.TryDeleteTempPdf when appropriate.
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
         {
-            vm.CloseCommand.Execute(null);
+            _viewModel.CloseCommand.Execute(null);
             e.Handled = true;
         }
     }

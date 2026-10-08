@@ -260,13 +260,91 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Giao diện -->
+                    <!-- Mẫu in bill (FastReport .frx trong DB) -->
+                    <Border MaxWidth="720"
+                            HorizontalAlignment="Left"
+                            Style="{DynamicResource CardBorderStyle}"
+                            Visibility="{Binding IsReceiptTemplateSelected, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <TextBlock Text="Mẫu in bill bán hàng"
+                                       FontSize="{DynamicResource FontSize.Subtitle}"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}" />
+                            <TextBlock Text="Mẫu A5 ngang (FastReport Open Source) lưu trong database. Xuất .frx → chỉnh bằng FastReport Designer Community (miễn phí) → Import lại."
+                                       Margin="0,6,0,16"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       Foreground="{DynamicResource DangerBrush}"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ErrorMessage}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <Border Background="{DynamicResource SurfaceAltBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="14"
+                                    Margin="0,0,0,16">
+                                <TextBlock Text="{Binding ReceiptTemplateSummary}"
+                                           FontSize="{DynamicResource FontSize.Body}"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Xuất .frx"
+                                        Command="{Binding ExportReceiptTemplateCommand}"
+                                        Style="{DynamicResource PrimaryButtonStyle}"
+                                        MinWidth="130" Margin="0,0,10,0" />
+                                <Button Content="Import .frx"
+                                        Command="{Binding ImportReceiptTemplateCommand}"
+                                        Style="{DynamicResource NavButtonStyle}"
+                                        MinWidth="130" Margin="0,0,10,0" />
+                                <Button Content="Tải lại"
+                                        Command="{Binding ReloadReceiptTemplateCommand}"
+                                        Style="{DynamicResource NavButtonStyle}"
+                                        MinWidth="110" />
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding StatusMessage}"
+                                       Margin="0,14,0,0"
+                                       FontSize="{DynamicResource FontSize.Caption}"
+                                       Foreground="{DynamicResource SuccessBrush}"
+                                       TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StatusMessage}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Giao diện: giữ DataContext ở StackPanel con để Visibility vẫn bind SettingsViewModel -->
                     <Border MaxWidth="560"
                             HorizontalAlignment="Left"
                             Style="{DynamicResource CardBorderStyle}"
-                            Visibility="{Binding IsAppearanceSelected, Converter={StaticResource BoolToVis}}"
-                            DataContext="{Binding Appearance}">
-                        <StackPanel>
+                            Visibility="{Binding IsAppearanceSelected, Converter={StaticResource BoolToVis}}">
+                        <StackPanel DataContext="{Binding Appearance}">
                             <TextBlock Text="Giao diện"
                                        FontSize="{DynamicResource FontSize.Subtitle}"
                                        FontWeight="Bold"

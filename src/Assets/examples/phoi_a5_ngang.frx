@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ReportInfo.Created="09/26/2010 07:10:27" ReportInfo.Modified="10/08/2026 09:14:00" ReportInfo.CreatorVersion="1.2.47.0">
+  <ScriptText>using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Windows.Forms;
+using System.Drawing;
+using System.Data;
+using FastReport;
+using FastReport.Data;
+using FastReport.Dialog;
+using FastReport.Barcode;
+using FastReport.Table;
+using FastReport.Utils;
+
+namespace FastReport
+{
+  public class ReportScript
+  {
+
+    private void Table1_ManualBuild(object sender, EventArgs e)
+    {
+      
+    }
+  }
+}
+</ScriptText>
+  <Dictionary>
+    <TableDataSource Name="DataSet" ReferenceName="Data.DataSet" DataType="System.Int32" Enabled="true">
+      <Column Name="DONGIA" DataType="System.Decimal"/>
+      <Column Name="THANHTIEN" DataType="System.Decimal"/>
+      <Column Name="CONGBAN" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGVANG" DataType="System.Decimal"/>
+      <Column Name="MAVACH" DataType="System.String"/>
+      <Column Name="LOAIVANG" DataType="System.String"/>
+      <Column Name="TONGTRONGLUONG" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGHOT" DataType="System.Decimal"/>
+      <Column Name="CAT" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE_CHUOI" DataType="System.String"/>
+      <Column Name="TRONGLUONGVANG_CHUOI" DataType="System.String"/>
+      <Column Name="MATHANG" DataType="System.String"/>
+      <Column Name="LADE" DataType="System.Int32"/>
+    </TableDataSource>
+    <TableDataSource Name="OldGold" ReferenceName="Data.OldGold" DataType="System.Int32" Enabled="true">
+      <Column Name="DONGIA" DataType="System.Decimal"/>
+      <Column Name="THANHTIEN" DataType="System.Decimal"/>
+      <Column Name="CONGBAN" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGVANG" DataType="System.Decimal"/>
+      <Column Name="MAVACH" DataType="System.String"/>
+      <Column Name="LOAIVANG" DataType="System.String"/>
+      <Column Name="TONGTRONGLUONG" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGHOT" DataType="System.Decimal"/>
+      <Column Name="CAT" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE_CHUOI" DataType="System.String"/>
+      <Column Name="TRONGLUONGVANG_CHUOI" DataType="System.String"/>
+      <Column Name="MATHANG" DataType="System.String"/>
+      <Column Name="LADE" DataType="System.Int32"/>
+    </TableDataSource>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="210.1" PaperHeight="148.1" LeftMargin="10" TopMargin="8" RightMargin="10" BottomMargin="8">
+    <ReportTitleBand Name="ReportTitle1" Width="718.5" Height="225.9">
+      <TableObject Name="Table3" Left="8" Top="207" Width="702" Height="18.9" Border.Lines="Left, Right, Top">
+        <TableColumn Name="Column7" Width="30"/>
+        <TableColumn Name="Column24" Width="54"/>
+        <TableColumn Name="Column8" Width="150"/>
+        <TableColumn Name="Column26" Width="46"/>
+        <TableColumn Name="Column40" Width="50"/>
+        <TableColumn Name="Column9" Width="78"/>
+        <TableColumn Name="Column10" Width="48"/>
+        <TableColumn Name="Column20" Width="56"/>
+        <TableColumn Name="Column22" Width="84"/>
+        <TableColumn Name="Column11" Width="106"/>
+        <TableRow Name="Row5">
+          <TableCell Name="Cell32" Text="TT" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell49" Border.Lines="Left, Right, Top" Text="Mã vạch" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell33" Border.Lines="Left, Right, Top" Text="Tên hàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell51" Border.Lines="Left, Right, Top" Text="L. vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell87" Border.Lines="Left, Right, Top" Text="Tổng TL" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell34" Border.Lines="Left, Right, Top" Text="TL. vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell35" Border.Lines="Left, Right, Top" Text="TL Hột" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell45" Border.Lines="Left, Right, Top" Text="T. Công" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell47" Border.Lines="Left, Right, Top" Text="Đơn giá" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+          <TableCell Name="Cell36" Border.Lines="Left, Right, Top" Text="Thành tiền" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+        </TableRow>
+      </TableObject>
+      <TextObject Name="Text43" Left="600" Top="171.75" Width="90.53" Height="17.12" Text="Ngày: [Ngày]" Format="Custom" Format.Format="dd/MM/yyyy" HorzAlign="Center" Font="Tahoma, 7pt"/>
+      <TextObject Name="Text3" Left="8" Top="189.65" Width="113.4" Height="18.9" Text="Khách hàng:" Font="Tahoma, 9pt, style=Bold"/>
+      <TextObject Name="Text44" Left="99.5" Top="189.65" Width="300" Height="18.9" Text="[Tên khách]" Font="Tahoma, 9pt, style=Bold"/>
+      <BarcodeObject Name="Barcode1" Left="612" Top="184.65" Width="79" Height="17.01" AutoSize="false" Expression="[Số phiếu]" Text="PX000001" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
+      <TextObject Name="Text52" Left="390" Top="191.65" Width="132.3" Height="18.9" Text="Số: [Số phiếu]" HorzAlign="Right" Font="Tahoma, 7pt"/>
+      <TextObject Name="Text66" Left="530" Top="191.65" Width="73.79" Height="18.9" Text="In lúc: [Date]" Format="Custom" Format.Format="HH:mm" HorzAlign="Right" Font="Tahoma, 7pt"/>
+    </ReportTitleBand>
+    <DataBand Name="Data1" Top="230.11" Width="718.5" Height="18.9" CanGrow="true" Guides="0" DataSource="DataSet">
+      <TableObject Name="Table2" Left="8" Width="702" Height="18.9" Border.Lines="All">
+        <TableColumn Name="Column4" Width="30"/>
+        <TableColumn Name="Column25" Width="54"/>
+        <TableColumn Name="Column5" Width="150"/>
+        <TableColumn Name="Column27" Width="46"/>
+        <TableColumn Name="Column41" Width="50"/>
+        <TableColumn Name="Column6" Width="78"/>
+        <TableColumn Name="Column16" Width="48"/>
+        <TableColumn Name="Column21" Width="56"/>
+        <TableColumn Name="Column23" Width="84"/>
+        <TableColumn Name="Column17" Width="106"/>
+        <TableRow Name="Row4" MinHeight="18.9" AutoSize="true">
+          <TableCell Name="Cell29" Border.Lines="All" Text="[Row#]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell50" Border.Lines="All" Text="[DataSet.MAVACH]" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell30" Border.Lines="All" Text="[DataSet.MATHANG]" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell52" Border.Lines="All" Text="[DataSet.LOAIVANG]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell88" Border.Lines="All" Text="[DataSet.TONGTRONGLUONG]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell31" Border.Lines="All" Text="[DataSet.VANGTHUCTE_CHUOI]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell41" Border.Lines="All" Text="[DataSet.TRONGLUONGHOT]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell46" Border.Lines="All" Text="[DataSet.CONGBAN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell48" Border.Lines="All" Text="[DataSet.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell42" Border.Lines="All" Text="[DataSet.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+        </TableRow>
+      </TableObject>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="253.22" Width="718.5" Height="207.9" CanGrow="true" CanBreak="true">
+      <SubreportObject Name="Subreport1" Left="8" Top="3" Width="311.85" Height="89.01" ReportPage="Page2" PrintOnParent="true"/>
+      <TableObject Name="Table1" Left="400" Top="3" Width="292.93" Height="88.4">
+        <TableColumn Name="Column28" Width="118.12"/>
+        <TableColumn Name="Column29" Width="174.81"/>
+        <TableRow Name="Row7" Height="18.29">
+          <TableCell Name="Cell58" Border.Lines="All" Text="Vàng mới" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell59" Border.Lines="All" Text="[Tiền vàng mới]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row8" Height="16.46">
+          <TableCell Name="Cell63" Border.Lines="All" Text="Vàng cũ" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell64" Border.Lines="All" Text="[Tiền vàng cũ]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row9" Height="18.29">
+          <TableCell Name="Cell68" Border.Lines="All" Text="Cộng" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell69" Border.Lines="All" Text="[Cộng tiền]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row10" Height="16.46">
+          <TableCell Name="Cell73" Border.Lines="All" Text="Tiền bớt" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell74" Border.Lines="All" Text="[Tiền bớt]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row11">
+          <TableCell Name="Cell75" Border.Lines="All" Text="Tổng cộng" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell76" Border.Lines="All" Text="[Tổng cộng]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+        </TableRow>
+      </TableObject>
+      <TextObject Name="Text2" Left="8" Top="90.05" Width="702" Height="18.9" Text="[Tổng cộng bằng chữ]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold, Italic"/>
+    </ReportSummaryBand>
+  </ReportPage>
+  <ReportPage Name="Page2" PaperWidth="148.1" PaperHeight="210.1">
+    <DataBand Name="Data2" Top="20.72" Width="484.22" Height="18.9" DataSource="OldGold">
+      <TableObject Name="Table5" Width="305.61" Height="18.9">
+        <TableColumn Name="Column35" Width="33.04"/>
+        <TableColumn Name="Column36" Width="56.7"/>
+        <TableColumn Name="Column37" Width="41.79"/>
+        <TableColumn Name="Column38" Width="75.6"/>
+        <TableColumn Name="Column39" Width="98.48"/>
+        <TableRow Name="Row13">
+          <TableCell Name="Cell82" Border.Lines="All" Text="[OldGold.LOAIVANG]" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell83" Border.Lines="All" Text="[OldGold.TRONGLUONGVANG_CHUOI]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell84" Border.Lines="All" Text="[OldGold.TRONGLUONGHOT]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell85" Border.Lines="All" Text="[OldGold.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell86" Border.Lines="All" Text="[OldGold.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+        </TableRow>
+      </TableObject>
+      <DataHeaderBand Name="DataHeader1" Width="484.22" Height="18.9">
+        <TableObject Name="Table4" Width="305.61" Height="18.9">
+          <TableColumn Name="Column30" Width="33.04"/>
+          <TableColumn Name="Column31" Width="56.7"/>
+          <TableColumn Name="Column32" Width="41.79"/>
+          <TableColumn Name="Column33" Width="75.6"/>
+          <TableColumn Name="Column34" Width="98.48"/>
+          <TableRow Name="Row12">
+            <TableCell Name="Cell77" Border.Lines="All" Text="Loại" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell78" Border.Lines="All" Text="TL vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell79" Border.Lines="All" Text="TL hột" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell80" Border.Lines="All" Text="Đ.giá" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell81" Border.Lines="All" Text="Thành tiền" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          </TableRow>
+        </TableObject>
+      </DataHeaderBand>
+    </DataBand>
+  </ReportPage>
+</Report>

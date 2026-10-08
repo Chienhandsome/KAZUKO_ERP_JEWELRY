@@ -1,0 +1,247 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ReportInfo.Created="09/26/2010 07:10:27" ReportInfo.Modified="10/08/2026 11:50:43" ReportInfo.CreatorVersion="1.2.47.0">
+  <ScriptText>using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Windows.Forms;
+using System.Drawing;
+using System.Data;
+using FastReport;
+using FastReport.Data;
+using FastReport.Dialog;
+using FastReport.Barcode;
+using FastReport.Table;
+using FastReport.Utils;
+
+namespace FastReport
+{
+  public class ReportScript
+  {
+
+    private void Table1_ManualBuild(object sender, EventArgs e)
+    {
+      
+    }
+  }
+}
+</ScriptText>
+  <Dictionary>
+    <TableDataSource Name="DataSet" ReferenceName="Data.DataSet" DataType="System.Int32" Enabled="true">
+      <Column Name="DONGIA" DataType="System.Decimal"/>
+      <Column Name="THANHTIEN" DataType="System.Decimal"/>
+      <Column Name="CONGBAN" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGVANG" DataType="System.Decimal"/>
+      <Column Name="MAVACH" DataType="System.String"/>
+      <Column Name="LOAIVANG" DataType="System.String"/>
+      <Column Name="TONGTRONGLUONG" DataType="System.Decimal"/>
+      <Column Name="TRONGLUONGHOT" DataType="System.Decimal"/>
+      <Column Name="CAT" DataType="System.Decimal"/>
+      <Column Name="VANGTHUCTE" DataType="System.Decimal"/>
+      <Column Name="MATHANG" DataType="System.String"/>
+    </TableDataSource>
+  </Dictionary>
+  <ReportPage Name="Page1" PaperWidth="148.1" PaperHeight="210.1" LeftMargin="5" RightMargin="5">
+    <ReportTitleBand Name="ReportTitle1" Width="522.02" Height="217.35">
+      <TextObject Name="Text1" Top="94.5" Width="519.75" Height="37.8" Text="GIẤY ĐẢM BẢO VÀNG" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 16pt, style=Bold"/>
+      <TableObject Name="Table3" Top="189" Width="516.62" Height="28.35">
+        <TableColumn Name="Column7" Width="33.04"/>
+        <TableColumn Name="Column24" Width="56.7"/>
+        <TableColumn Name="Column8" Width="107.94"/>
+        <TableColumn Name="Column26" Width="37.8"/>
+        <TableColumn Name="Column9" Width="51.23"/>
+        <TableColumn Name="Column10" Width="40.91"/>
+        <TableColumn Name="Column20" Width="56.7"/>
+        <TableColumn Name="Column22" Width="56.7"/>
+        <TableColumn Name="Column11" Width="75.6"/>
+        <TableRow Name="Row5" Height="28.35">
+          <TableCell Name="Cell32" Border.Lines="All" Border.Color="Gray" Text="TT" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell49" Border.Lines="All" Border.Color="Gray" Text="Mã vạch" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell33" Border.Lines="All" Border.Color="Gray" Text="Tên hàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell51" Border.Lines="All" Border.Color="Gray" Text="L. vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell34" Border.Lines="All" Border.Color="Gray" Text="TL. vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell35" Border.Lines="All" Border.Color="Gray" Text="TL Hột" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell45" Border.Lines="All" Border.Color="Gray" Text="T. Công" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell47" Border.Lines="All" Border.Color="Gray" Text="Đơn giá" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell36" Border.Lines="All" Border.Color="Gray" Text="Thành tiền" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+      </TableObject>
+      <TextObject Name="Text43" Top="132.3" Width="122.85" Height="18.9" Text="Ngày: [Ngày]" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text3" Top="151.2" Width="85.05" Height="18.9" Text="Khách hàng:" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text44" Left="85.05" Top="151.2" Width="245.7" Height="18.9" Text="[Tên khách]" Font="Tahoma, 10pt"/>
+      <BarcodeObject Name="Barcode1" Left="384.45" Top="132.3" Width="126.25" Height="26.46" AutoSize="false" Expression="[Số phiếu]" Text="PX000001" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
+      <TextObject Name="Text52" Left="189" Top="132.3" Width="141.75" Height="18.9" Text="Số: [Số phiếu]" HorzAlign="Right" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text63" Top="170.1" Width="85.05" Height="18.9" Text="Nhân viên:" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text64" Left="85.05" Top="170.1" Width="245.7" Height="18.9" Text="[Người in]" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text66" Left="189" Top="151.2" Width="141.75" Height="18.9" Text="In lúc: [Date]" Format="Custom" Format.Format="HH:mm" HorzAlign="Right" Font="Tahoma, 10pt"/>
+    </ReportTitleBand>
+    <DataBand Name="Data1" Top="221.56" Width="522.02" Height="18.9" CanGrow="true" DataSource="DataSet" Filter="[DataSet.LADE]==0">
+      <TableObject Name="Table2" Width="516.6" Height="18.9">
+        <TableColumn Name="Column4" Width="33.06"/>
+        <TableColumn Name="Column25" Width="56.7"/>
+        <TableColumn Name="Column5" Width="107.92"/>
+        <TableColumn Name="Column27" Width="37.8"/>
+        <TableColumn Name="Column6" Width="51.21"/>
+        <TableColumn Name="Column16" Width="40.91"/>
+        <TableColumn Name="Column21" Width="56.7"/>
+        <TableColumn Name="Column23" Width="56.7"/>
+        <TableColumn Name="Column17" Width="75.6"/>
+        <TableRow Name="Row4" MinHeight="18.9" AutoSize="true">
+          <TableCell Name="Cell29" Border.Lines="All" Border.Color="Gray" Text="[Row#]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell50" Border.Lines="All" Border.Color="Gray" Text="[DataSet.MAVACH]" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell30" Border.Lines="All" Border.Color="Gray" Text="[DataSet.MATHANG]" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell52" Border.Lines="All" Border.Color="Gray" Text="[DataSet.LOAIVANG]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell31" Border.Lines="All" Border.Color="Gray" Text="[DataSet.VANGTHUCTE_CHUOI]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell41" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGHOT]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell46" Border.Lines="All" Border.Color="Gray" Text="[DataSet.CONGBAN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell48" Border.Lines="All" Border.Color="Gray" Text="[DataSet.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell42" Border.Lines="All" Border.Color="Gray" Text="[DataSet.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+        </TableRow>
+      </TableObject>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="244.67" Width="522.02" Height="207.9" CanGrow="true" CanBreak="true">
+      <SubreportObject Name="Subreport1" Top="9.45" Width="311.85" Height="94.5" ReportPage="Page2" PrintOnParent="true"/>
+      <TableObject Name="Table1" Left="328.3" Top="9.45" Width="188.98" Height="94.5">
+        <TableColumn Name="Column28" Width="80.32"/>
+        <TableColumn Name="Column29" Width="108.66"/>
+        <TableRow Name="Row7">
+          <TableCell Name="Cell58" Border.Lines="All" Border.Color="Gray" Text="Vàng mới" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell59" Border.Lines="All" Border.Color="Gray" Text="[Tiền vàng mới]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row8">
+          <TableCell Name="Cell63" Border.Lines="All" Border.Color="Gray" Text="Vàng cũ" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell64" Border.Lines="All" Border.Color="Gray" Text="[Tiền vàng cũ]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row9">
+          <TableCell Name="Cell68" Border.Lines="All" Border.Color="Gray" Text="Cộng" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell69" Border.Lines="All" Border.Color="Gray" Text="[[Tiền vàng mới]-[Tiền vàng cũ]]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row10">
+          <TableCell Name="Cell73" Border.Lines="All" Border.Color="Gray" Text="Tiền bớt" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell74" Border.Lines="All" Border.Color="Gray" Text="[Tiền bớt]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row11">
+          <TableCell Name="Cell75" Border.Lines="All" Border.Color="Gray" Text="Tổng cộng" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          <TableCell Name="Cell76" Border.Lines="All" Border.Color="Gray" Text="[Tổng cộng]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+        </TableRow>
+      </TableObject>
+      <TextObject Name="Text2" Top="103.95" Width="519.75" Height="18.9" Text="[Tổng cộng bằng chữ]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold, Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="456.78" Width="522.02" Height="198.45" CanGrow="true">
+      <TextObject Name="Text59" Top="160.65" Width="198.45" Height="37.8" Text="[Tổng cộng bằng chữ]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold, Italic"/>
+      <SubreportObject Name="Subreport3" Left="207.9" Top="113.4" Width="311.85" Height="66.15" ReportPage="Page4" PrintOnParent="true"/>
+      <TextObject Name="Text58" Left="141.75" Top="113.4" Width="85.05" Height="18.9" Text="Vàng cũ:" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt, style=Underline"/>
+      <TextObject Name="Text61" Top="94.5" Width="56.7" Height="18.9" Text="N viên:" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text62" Left="56.7" Top="94.5" Width="132.3" Height="18.9" Text="[Người in]" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text56" Top="75.6" Width="56.7" Height="18.9" Text="Số:" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text60" Left="56.7" Top="75.6" Width="132.3" Height="18.9" Text="[Số phiếu]" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text54" Top="56.7" Width="56.7" Height="18.9" Text="Ngày:" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text55" Left="56.7" Top="56.7" Width="132.3" Height="18.9" Text="[Ngày]" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt"/>
+      <SubreportObject Name="Subreport2" Left="207.9" Top="9.45" Width="311.85" Height="66.15" ReportPage="Page3" PrintOnParent="true"/>
+      <BarcodeObject Name="Barcode2" Top="9.45" Width="126.25" Height="26.46" AutoSize="false" Expression="[Số phiếu]" Text="PX000001" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
+      <TextObject Name="Text57" Left="141.75" Top="9.45" Width="85.05" Height="18.9" Text="Vàng mới" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt, style=Underline"/>
+    </PageFooterBand>
+  </ReportPage>
+  <ReportPage Name="Page2" PaperWidth="148.1" PaperHeight="210.1">
+    <DataBand Name="Data2" Top="22.02" Width="484.22" Height="18.9" DataSource="DataSet" Filter="[DataSet.LADE]==30">
+      <TableObject Name="Table5" Width="296.16" Height="18.9">
+        <TableColumn Name="Column35" Width="33.04"/>
+        <TableColumn Name="Column36" Width="56.7"/>
+        <TableColumn Name="Column37" Width="41.79"/>
+        <TableColumn Name="Column38"/>
+        <TableColumn Name="Column39" Width="98.48"/>
+        <TableRow Name="Row13">
+          <TableCell Name="Cell82" Border.Lines="All" Border.Color="Gray" Text="[DataSet.LOAIVANG]" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell83" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGVANG_CHUOI]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell84" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGHOT]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell85" Border.Lines="All" Border.Color="Gray" Text="[DataSet.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell86" Border.Lines="All" Border.Color="Gray" Text="[DataSet.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+        </TableRow>
+      </TableObject>
+      <DataHeaderBand Name="DataHeader1" Width="484.22" Height="18.9">
+        <TableObject Name="Table4" Width="296.16" Height="18.9">
+          <TableColumn Name="Column30" Width="33.04"/>
+          <TableColumn Name="Column31" Width="56.7"/>
+          <TableColumn Name="Column32" Width="41.79"/>
+          <TableColumn Name="Column33"/>
+          <TableColumn Name="Column34" Width="98.48"/>
+          <TableRow Name="Row12">
+            <TableCell Name="Cell77" Border.Lines="All" Border.Color="Gray" Text="Loại" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell78" Border.Lines="All" Border.Color="Gray" Text="TL vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell79" Border.Lines="All" Border.Color="Gray" Text="TL hột" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell80" Border.Lines="All" Border.Color="Gray" Text="Đ.giá" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell81" Border.Lines="All" Border.Color="Gray" Text="Thành tiền" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          </TableRow>
+        </TableObject>
+      </DataHeaderBand>
+    </DataBand>
+  </ReportPage>
+  <ReportPage Name="Page3" PaperWidth="148.1" PaperHeight="210.1">
+    <DataBand Name="Data3" Top="18.25" Width="484.22" Height="15.12" CanGrow="true" DataSource="DataSet" Filter="[DataSet.LADE]==0">
+      <TableObject Name="Table7" Width="300.04" Height="15.12">
+        <TableColumn Name="Column49" Width="56.7"/>
+        <TableColumn Name="Column50" Width="60.68"/>
+        <TableColumn Name="Column51" Width="50.36"/>
+        <TableColumn Name="Column52" Width="56.7"/>
+        <TableColumn Name="Column53" Width="75.6"/>
+        <TableRow Name="Row15" MinHeight="15.12" Height="15.12">
+          <TableCell Name="Cell96" Border.Lines="All" Border.Color="Gray" Text="[DataSet.MAVACH]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell97" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGVANG_CHUOI]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell98" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGHOT]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell99" Border.Lines="All" Border.Color="Gray" Text="[DataSet.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell100" Border.Lines="All" Border.Color="Gray" Text="[DataSet.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+        </TableRow>
+      </TableObject>
+      <DataHeaderBand Name="DataHeader2" Width="484.22" Height="15.12">
+        <TableObject Name="Table6" Width="300.04" Height="15.12">
+          <TableColumn Name="Column41" Width="56.7"/>
+          <TableColumn Name="Column44" Width="60.68"/>
+          <TableColumn Name="Column45" Width="50.36"/>
+          <TableColumn Name="Column47" Width="56.7"/>
+          <TableColumn Name="Column48" Width="75.6"/>
+          <TableRow Name="Row14" Height="15.12">
+            <TableCell Name="Cell88" Border.Lines="All" Border.Color="Gray" Text="Mã vạch" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell91" Border.Lines="All" Border.Color="Gray" Text="TL. vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell92" Border.Lines="All" Border.Color="Gray" Text="TL Hột" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell94" Border.Lines="All" Border.Color="Gray" Text="Đơn giá" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell95" Border.Lines="All" Border.Color="Gray" Text="Thành tiền" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          </TableRow>
+        </TableObject>
+      </DataHeaderBand>
+    </DataBand>
+  </ReportPage>
+  <ReportPage Name="Page4" PaperWidth="148.1" PaperHeight="210.1">
+    <DataBand Name="Data4" Top="18.25" Width="484.22" Height="15.12" DataSource="DataSet" Filter="[DataSet.LADE]==30">
+      <TableObject Name="Table9" Width="300.04" Height="15.12">
+        <TableColumn Name="Column59" Width="56.7"/>
+        <TableColumn Name="Column60" Width="60.68"/>
+        <TableColumn Name="Column61" Width="50.36"/>
+        <TableColumn Name="Column62" Width="56.7"/>
+        <TableColumn Name="Column63" Width="75.6"/>
+        <TableRow Name="Row17" Height="15.12">
+          <TableCell Name="Cell106" Border.Lines="All" Border.Color="Gray" Text="[DataSet.LOAIVANG]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell107" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGVANG_CHUOI]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell108" Border.Lines="All" Border.Color="Gray" Text="[DataSet.TRONGLUONGHOT]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell109" Border.Lines="All" Border.Color="Gray" Text="[DataSet.DONGIA]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+          <TableCell Name="Cell110" Border.Lines="All" Border.Color="Gray" Text="[DataSet.THANHTIEN]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+        </TableRow>
+      </TableObject>
+      <DataHeaderBand Name="DataHeader3" Width="484.22" Height="15.12">
+        <TableObject Name="Table8" Width="300.04" Height="15.12">
+          <TableColumn Name="Column54" Width="56.7"/>
+          <TableColumn Name="Column55" Width="60.68"/>
+          <TableColumn Name="Column56" Width="50.36"/>
+          <TableColumn Name="Column57" Width="56.7"/>
+          <TableColumn Name="Column58" Width="75.6"/>
+          <TableRow Name="Row16" Height="15.12">
+            <TableCell Name="Cell101" Border.Lines="All" Border.Color="Gray" Text="L. vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell102" Border.Lines="All" Border.Color="Gray" Text="TL. vàng" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell103" Border.Lines="All" Border.Color="Gray" Text="TL Hột" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell104" Border.Lines="All" Border.Color="Gray" Text="Đơn giá" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+            <TableCell Name="Cell105" Border.Lines="All" Border.Color="Gray" Text="Thành tiền" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+          </TableRow>
+        </TableObject>
+      </DataHeaderBand>
+    </DataBand>
+  </ReportPage>
+</Report>

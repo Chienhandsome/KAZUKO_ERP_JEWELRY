@@ -7,8 +7,17 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FirebirdSql.Data.FirebirdClient" Version="10.3.4" />
+    <PackageReference Include="FastReport.OpenSource" Version="2025.2.0" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Kazuko.Infrastructure.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\Assets\examples\phoi_a5_ngang.frx"
+                      Link="PrintTemplates\phoi_a5_ngang.frx"
+                      LogicalName="Kazuko.Infrastructure.PrintTemplates.phoi_a5_ngang.frx" />
+    <EmbeddedResource Include="..\Assets\examples\phoi_a5_doc.frx"
+                      Link="PrintTemplates\phoi_a5_doc.frx"
+                      LogicalName="Kazuko.Infrastructure.PrintTemplates.phoi_a5_doc.frx" />
   </ItemGroup>
 </Project>

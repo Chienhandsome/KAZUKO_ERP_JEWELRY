@@ -53,8 +53,9 @@ public sealed class WarehouseGoldPriceDialogViewModel : ObservableObject
     {
         try
         {
+            var index = 1;
             foreach (var item in await _repository.GetAsync(_session))
-                Prices.Add(new WarehouseGoldPriceRowViewModel(item));
+                Prices.Add(new WarehouseGoldPriceRowViewModel(item, index++));
         }
         catch (Exception ex)
         {
@@ -85,8 +86,9 @@ public sealed class WarehouseGoldPriceRowViewModel : ObservableObject
 {
     private decimal _issuePricePerChi;
 
-    public WarehouseGoldPriceRowViewModel(WarehouseGoldPriceItem item)
+    public WarehouseGoldPriceRowViewModel(WarehouseGoldPriceItem item, int index)
     {
+        Index = index;
         Id = item.Id;
         GoldCode = item.GoldCode;
         GoldName = item.GoldName;
@@ -98,6 +100,7 @@ public sealed class WarehouseGoldPriceRowViewModel : ObservableObject
         UpdatedAt = item.UpdatedAt;
     }
 
+    public int Index { get; }
     public long Id { get; }
     public string GoldCode { get; }
     public string GoldName { get; }
@@ -106,6 +109,7 @@ public sealed class WarehouseGoldPriceRowViewModel : ObservableObject
     public decimal RetailSellPricePerChi { get; }
     public long RowVersion { get; }
     public DateTime UpdatedAt { get; }
+    public string UpdatedAtDisplay => UpdatedAt.ToString("dd/MM/yyyy HH:mm");
 
     public decimal IssuePricePerChi
     {

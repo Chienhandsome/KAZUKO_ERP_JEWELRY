@@ -5,15 +5,44 @@
 Module Báo cáo dùng **FastReport Open Source** để dựng mẫu in A4 (file `.frx`).
 
 - Dữ liệu vẫn lấy qua Application/Infrastructure service (không SQL trong View/ViewModel).
-- Mẫu in nằm ở `Templates/*.frx` (copy ra output). Có thể chỉnh kéo-thả bằng **FastReport Designer**.
+- Mẫu báo cáo A4 nằm ở `Templates/*.frx` (copy ra output). Có thể chỉnh kéo-thả bằng **FastReport Designer Community** (miễn phí).
 - Runtime: `FastReport.OpenSource` + `FastReport.OpenSource.Export.PdfSimple`.
 - Xem trước trong app: xuất PDF và hiển thị bằng WebView2 (thay DataGrid).
 - Mở PDF ngoài / In: xuất PDF tạm rồi mở shell / verb `print`.
 - Open Source không có `Report.Print()` hay WPF PreviewControl thương mại.
+- Không dùng bản Demo FastReport.WPF có watermark trong production.
 
-## Tái sử dụng (Shared)
+## Bill thanh toán (A5 ngang) — mẫu trong database
 
-Mỗi báo cáo mới chỉ viết phần riêng; phần khung dùng chung trong `Kazuko.Modules.Reports/Shared/`:
+Bill sau thanh toán bán hàng dùng mẫu FastReport A5 ngang lưu trong Firebird:
+
+| Mục | Chi tiết |
+|---|---|
+| Bảng | `PRINT_TEMPLATES` (migration 57) |
+| Mã mẫu | `SALES_RECEIPT_A5` |
+| Seed mặc định | Embedded `phoi_a5_ngang.frx` (lần đầu `GetByCode` nếu chưa có dòng) |
+| Contract | `IPrintTemplateStore` / `FirebirdPrintTemplateStore` |
+| Runtime in | `SalesReceiptPrintService` — load BLOB → bind DataSet + parameters → PDF |
+| Xem trước | WebView2 PDF trong `SalesReceiptPreviewDialog` |
+| Chỉnh sửa | Cài đặt → **Mẫu in bill**: Xuất `.frx` → Designer Community → Import lại |
+
+### Bind dữ liệu bill
+
+- Parameters: `Tên khách`, `Số phiếu`, `Ngày`, `Tiền vàng mới`, `Tiền vàng cũ`, `Tiền bớt`, `Tổng cộng`, `Tổng cộng bằng chữ`, `Cộng tiền`, …
+- DataSource `DataSet`: dòng bán (cột `LOAIVANG` = tuổi vàng thành phẩm).
+- DataSource `OldGold`: **bảng thành phần** (Subreport trái dưới — `Loại`, `TL vàng`, `TL hột`, `Đ.giá`, `Thành tiền`). Ưu tiên dòng vàng cũ; nếu không có thì lấy thành phần vàng từ dòng bán.
+- Lề mẫu ≥ 10mm; nút In dùng hộp thoại WebView2 (chọn A5 ngang / Fit) — tránh `Verb=print` cắt lề.
+- Runtime Open Source: clear `Filter` thương mại, tách 2 bảng, `PrintOnParent` cho Subreport.
+
+### Không làm (giữ free)
+
+- Không mua FastReport WPF commercial / Online Designer.
+- Không nhúng Designer trong app.
+- Không dùng FlowDocument cho bill nghiệp vụ mới.
+
+## Tái sử dụng (Shared — module Báo cáo)
+
+Mỗi báo cáo A4 mới chỉ viết phần riêng; phần khung dùng chung trong `Kazuko.Modules.Reports/Shared/`:
 
 | Thành phần | Vai trò |
 |---|---|
@@ -38,20 +67,13 @@ Checklist báo cáo mới:
 - Layout lưu theo máy (`reports.*.columns.json`), không ghi Firebird.
 - Áp dụng xong dựng lại PDF preview theo cột đã chọn.
 
-## Không dùng
+## Designer (Community, free)
 
-- Không hard-code layout phức tạp bằng `FlowDocument` cho báo cáo nghiệp vụ mới.
-- Không dùng bản Demo FastReport.WPF có watermark trong production.
-- Không nhét logic SQL hoặc mọi bộ lọc vào một siêu ViewModel.
+1. Tải FastReport Designer Community từ [GitHub FastReport releases](https://github.com/FastReports/FastReport/releases).
+2. **Bill:** Cài đặt → Xuất `.frx` → mở Designer → lưu → Import lại vào DB.
+3. **Báo cáo A4:** mở file trong `Templates/` → kéo thả → build lại app (copy ra output).
 
-## Designer
-
-1. Cài FastReport Designer (Community/Commercial tùy license).
-2. Mở file `.frx` trong `Templates/`.
-3. Kéo thả TextObject / Table / cột DataBand; lưu file.
-4. Build lại app — mẫu mới được copy ra thư mục chạy.
-
-Nếu thiếu `.frx` lúc chạy, app tự tạo mẫu mặc định và ghi ra thư mục templates (lần đầu).
+Nếu thiếu `.frx` báo cáo A4 lúc chạy, app tự tạo mẫu mặc định và ghi ra thư mục templates (lần đầu).
 
 ## Báo cáo đã có
 
@@ -59,3 +81,4 @@ Nếu thiếu `.frx` lúc chạy, app tự tạo mẫu mặc định và ghi ra 
 |-----|-----|
 | `reports.warehouse.jewelry_on_hand` | `jewelry_on_hand_v3.frx` |
 | `reports.warehouse.jewelry_on_hand_summary` | `jewelry_on_hand_summary_v1.frx` |
+| Bill bán hàng (Sales) | `SALES_RECEIPT_A5` trong `PRINT_TEMPLATES` |

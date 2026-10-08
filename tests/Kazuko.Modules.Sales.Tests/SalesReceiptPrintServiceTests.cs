@@ -1,6 +1,8 @@
-using System.Windows;
-using System.Windows.Documents;
+using System.IO;
+using System.Text;
+using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
+using Kazuko.Core.Printing;
 using Kazuko.Core.Sales;
 using Kazuko.Modules.Sales.Services;
 using Xunit;
@@ -10,77 +12,116 @@ namespace Kazuko.Modules.Sales.Tests;
 public sealed class SalesReceiptPrintServiceTests
 {
     [Fact]
-    public void Short_receipt_fits_one_a4_page() =>
-        RunSta(() =>
-        {
-            var service = new SalesReceiptPrintService();
-            var receipt = BuildReceipt(saleLines: 2, oldGoldLines: 1);
-            var document = service.CreateDocument(receipt);
-            var paginator = service.CreatePaginator(receipt);
-
-            Assert.Equal(SalesReceiptPrintService.A4WidthDip, document.PageWidth);
-            Assert.Equal(SalesReceiptPrintService.A4HeightDip, document.PageHeight);
-            Assert.Equal(new Size(SalesReceiptPrintService.A4WidthDip, SalesReceiptPrintService.A4HeightDip), paginator.PageSize);
-            Assert.Equal(1, paginator.PageCount);
-            Assert.Contains(document.Blocks.OfType<Paragraph>(), p => p.KeepTogether);
-            Assert.True(HasTableHeaderGroup(document));
-        });
-
-    [Fact]
-    public void Long_receipt_paginates_with_a4_page_size_and_table_headers() =>
-        RunSta(() =>
-        {
-            var service = new SalesReceiptPrintService();
-            var receipt = BuildReceipt(saleLines: 80, oldGoldLines: 0);
-            var document = service.CreateDocument(receipt);
-            var paginator = service.CreatePaginator(receipt);
-
-            Assert.Equal(SalesReceiptPrintService.A4WidthDip, document.PageWidth);
-            Assert.Equal(SalesReceiptPrintService.A4HeightDip, document.PageHeight);
-            Assert.True(paginator.PageCount > 1, $"Expected multi-page receipt, got {paginator.PageCount}.");
-            Assert.True(HasTableHeaderGroup(document));
-
-            for (var page = 0; page < paginator.PageCount; page++)
-            {
-                var visual = paginator.GetPage(page);
-                Assert.NotNull(visual);
-                Assert.Equal(SalesReceiptPrintService.A4WidthDip, visual.Size.Width, 1);
-                Assert.Equal(SalesReceiptPrintService.A4HeightDip, visual.Size.Height, 1);
-            }
-
-            Assert.Contains(document.Blocks.OfType<Paragraph>(), p => p.KeepTogether);
-        });
-
-    private static void RunSta(Action action)
+    public void BuildLineTable_maps_sale_and_old_gold_with_lade_filter()
     {
-        Exception? captured = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                action();
-            }
-            catch (Exception ex)
-            {
-                captured = ex;
-            }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
-        if (captured is not null)
-            throw captured;
+        var receipt = BuildReceipt(saleLines: 2, oldGoldLines: 1);
+        var table = SalesReceiptPrintService.BuildLineTable(receipt);
+        var sales = SalesReceiptPrintService.BuildSaleLineTable(receipt);
+        var components = SalesReceiptPrintService.BuildComponentTable(receipt);
+
+        Assert.Equal(3, table.Rows.Count);
+        Assert.Equal(2, sales.Rows.Count);
+        Assert.Equal(1, components.Rows.Count);
+        Assert.Equal(0, table.Rows[0]["LADE"]);
+        Assert.Equal(0, table.Rows[1]["LADE"]);
+        Assert.Equal(30, table.Rows[2]["LADE"]);
+        Assert.Equal("SP000", table.Rows[0]["MAVACH"]);
+        Assert.Equal("Sản phẩm demo 0", table.Rows[0]["MATHANG"]);
+        Assert.Equal("9999", table.Rows[0]["LOAIVANG"]);
+        Assert.Equal(310.5m, table.Rows[0]["THANHTIEN"]);
+        Assert.Equal("Vàng cũ 0", table.Rows[2]["MATHANG"]);
+        Assert.Equal("9999", table.Rows[2]["LOAIVANG"]);
+        Assert.Equal(84.7m, table.Rows[2]["THANHTIEN"]);
+        Assert.True(table.Columns.Contains("VANGTHUCTE_CHUOI"));
+        Assert.True(table.Columns.Contains("LADE"));
     }
 
-    private static bool HasTableHeaderGroup(FlowDocument document)
+    [Fact]
+    public void BuildComponentTable_uses_sale_lines_when_no_old_gold()
     {
-        foreach (var table in document.Blocks.OfType<Table>())
+        var receipt = BuildReceipt(saleLines: 1, oldGoldLines: 0);
+        var components = SalesReceiptPrintService.BuildComponentTable(receipt);
+
+        Assert.Single(components.Rows);
+        Assert.Equal("9999", components.Rows[0]["LOAIVANG"]);
+        Assert.Equal(277.5m, components.Rows[0]["THANHTIEN"]);
+    }
+
+    [Fact]
+    public async Task CreatePreparedReportAsync_prepares_a5_template_without_compiler_errors()
+    {
+        var frxPath = FindExampleFrx();
+        Assert.True(File.Exists(frxPath), $"Missing template: {frxPath}");
+
+        // Simulate already-seeded DB BLOB that still has commercial Filters + nested [[A]-[B]].
+        var xml = await File.ReadAllTextAsync(frxPath);
+        xml = xml.Replace(
+            "DataBand Name=\"Data1\" Top=\"230.11\" Width=\"756.38\" Height=\"18.9\" CanGrow=\"true\" Guides=\"0\" DataSource=\"DataSet\"",
+            "DataBand Name=\"Data1\" Top=\"230.11\" Width=\"756.38\" Height=\"18.9\" CanGrow=\"true\" Guides=\"0\" DataSource=\"DataSet\" Filter=\"[DataSet.LADE]==0\"",
+            StringComparison.Ordinal);
+        xml = xml.Replace(
+            "DataBand Name=\"Data2\" Top=\"20.72\" Width=\"484.22\" Height=\"18.9\" DataSource=\"OldGold\"",
+            "DataBand Name=\"Data2\" Top=\"20.72\" Width=\"484.22\" Height=\"18.9\" DataSource=\"DataSet\" Filter=\"[DataSet.LADE]==30\"",
+            StringComparison.Ordinal);
+        xml = xml.Replace("[Cộng tiền]", "[[Tiền vàng mới]-[Tiền vàng cũ]]", StringComparison.Ordinal);
+        xml = xml.Replace("[OldGold.", "[DataSet.", StringComparison.Ordinal);
+
+        var store = new StubPrintTemplateStore(Encoding.UTF8.GetBytes(xml));
+        var service = new SalesReceiptPrintService(store);
+        var session = new AuthenticatedSession(1, "admin", "Admin", "ADMIN", 1, "BR", "Branch");
+
+        using var report = await service.CreatePreparedReportAsync(BuildReceipt(1, 1), session);
+        Assert.NotNull(report);
+        Assert.True(report.PreparedPages.Count > 0);
+    }
+
+    private static string FindExampleFrx()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
         {
-            if (table.RowGroups.Count >= 2 && table.RowGroups[0].Rows.Count == 1)
-                return true;
+            var candidate = Path.Combine(dir.FullName, "src", "Assets", "examples", "phoi_a5_ngang.frx");
+            if (File.Exists(candidate))
+                return candidate;
+            dir = dir.Parent;
         }
 
-        return false;
+        return Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..",
+            "src", "Assets", "examples", "phoi_a5_ngang.frx"));
+    }
+
+    private sealed class StubPrintTemplateStore : IPrintTemplateStore
+    {
+        private readonly byte[] _content;
+
+        public StubPrintTemplateStore(byte[] content) => _content = content;
+
+        public Task<PrintTemplateDto> GetByCodeAsync(
+            string code,
+            AuthenticatedSession session,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PrintTemplateDto(
+                1, code, "Bill A5", _content, "test", DateTime.UtcNow, null));
+
+        public Task<PrintTemplateDto> SaveAsync(
+            string code,
+            string name,
+            byte[] content,
+            string? notes,
+            AuthenticatedSession session,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
+    [Fact]
+    public void VietnameseMoneyText_reads_common_amounts()
+    {
+        Assert.Contains("đồng", VietnameseMoneyText.ToDong(0), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Một", VietnameseMoneyText.ToDong(1));
+        var million = VietnameseMoneyText.ToDong(1_000_000m);
+        Assert.Contains("triệu", million, StringComparison.OrdinalIgnoreCase);
     }
 
     private static SalesReceiptDto BuildReceipt(int saleLines, int oldGoldLines)
@@ -93,7 +134,10 @@ public sealed class SalesReceiptPrintServiceTests
             var amounts = new SalesLineAmounts(id, 277.5m, 25m, 8m, 310.5m, false);
             sales.Add(new SalesLineSnapshot(
                 id, $"SP{i:000}", $"Sản phẩm demo {i}", 2.5m,
-                111m, 25m, 8m, draft, amounts));
+                111m, 25m, 8m, draft, amounts,
+                GoldPurity: "9999",
+                StoneWeightChi: 0.1m,
+                TotalWeightChi: 2.6m));
         }
 
         var oldGold = new List<OldGoldLineSnapshot>();
@@ -101,7 +145,8 @@ public sealed class SalesReceiptPrintServiceTests
         {
             var draft = new OldGoldLineDraft(10 + i, 1, 1.2m, 0.1m, 0, 100, 77m, null, null);
             oldGold.Add(new OldGoldLineSnapshot(
-                10 + i, $"Vàng cũ {i}", 77m, draft, new OldGoldLineAmounts(1.1m, 1.1m, 84.7m)));
+                10 + i, $"Vàng cũ {i}", 77m, draft, new OldGoldLineAmounts(1.1m, 1.1m, 84.7m),
+                MaterialCode: "9999"));
         }
 
         var allocations = new List<PaymentAllocationDraft>
