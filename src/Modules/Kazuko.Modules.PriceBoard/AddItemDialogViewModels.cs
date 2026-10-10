@@ -11,7 +11,6 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
     private string _name = string.Empty;
     private string _buyText = "0";
     private string _sellText = "0";
-    private string _issueText = "0";
     private string _error = string.Empty;
 
     public AddGoldTypeDialogViewModel(string unitCode)
@@ -26,7 +25,6 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
     public string UnitName { get; }
     public string BuyLabel => $"Giá mua lẻ ({UnitName}) *";
     public string SellLabel => $"Giá bán lẻ ({UnitName}) *";
-    public string IssueLabel => $"Giá kho / chỉ ({UnitName}) *";
 
     public string Code
     {
@@ -50,12 +48,6 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
     {
         get => _sellText;
         set => SetProperty(ref _sellText, value);
-    }
-
-    public string IssueText
-    {
-        get => _issueText;
-        set => SetProperty(ref _issueText, value);
     }
 
     public string Error
@@ -96,13 +88,7 @@ public sealed class AddGoldTypeDialogViewModel : ObservableObject
             return;
         }
 
-        if (!decimal.TryParse(IssueText.Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var issue) || issue <= 0)
-        {
-            Error = "Giá kho / chỉ phải lớn hơn 0.";
-            return;
-        }
-
-        RequestClose?.Invoke(new AddGoldTypeResult(Code.Trim(), Name.Trim(), purity, buy, sell, issue));
+        RequestClose?.Invoke(new AddGoldTypeResult(Code.Trim(), Name.Trim(), purity, buy, sell));
     }
 }
 

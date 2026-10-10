@@ -4,20 +4,19 @@ namespace Kazuko.Core.Warehouse;
 
 public sealed record WarehouseGoldPriceItem(
     long Id,
-    long GoldPriceId,
     string GoldCode,
     string GoldName,
     decimal PurityRate,
-    decimal IssuePricePerChi,
-    decimal RetailBuyPricePerChi,
-    decimal RetailSellPricePerChi,
+    decimal BuyPricePerChi,
+    decimal SellPricePerChi,
     long RowVersion,
     string UpdatedByName,
     DateTime UpdatedAt);
 
 public sealed record WarehouseGoldPriceUpdate(
     long Id,
-    decimal IssuePricePerChi,
+    decimal BuyPricePerChi,
+    decimal SellPricePerChi,
     long RowVersion);
 
 public interface IWarehouseGoldPriceRepository

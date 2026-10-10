@@ -43,7 +43,6 @@ public sealed class GoldTypeEditorService : IGoldTypeEditorService
 
         var buyChi = GoldUnitConverter.ConvertToChi(captured.BuyPrice, unitCode);
         var sellChi = GoldUnitConverter.ConvertToChi(captured.SellPrice, unitCode);
-        var issueChi = GoldUnitConverter.ConvertToChi(captured.IssuePrice, unitCode);
         var purity = captured.PurityRate > 0
             ? captured.PurityRate
             : GoldTypePurity.InferFromCode(captured.Code);
@@ -54,8 +53,7 @@ public sealed class GoldTypeEditorService : IGoldTypeEditorService
                 captured.Name,
                 purity,
                 buyChi,
-                sellChi,
-                issueChi),
+                sellChi),
             session,
             cancellationToken);
 

@@ -16,7 +16,7 @@ public static class ProductionOrderDraftValidator
         else if (source == ProductionOrderSources.SalesOrder)
         {
             if (draft.SalesOrderId is null or <= 0)
-                errors.Add("Lệnh theo đơn bán phải chọn đúng một đơn bán đã xác nhận.");
+                errors.Add("Lệnh theo đơn đặt phải chọn khách và đặt cọc (tab Mẫu sản phẩm) trước khi lưu.");
         }
         else
         {
@@ -71,6 +71,12 @@ public static class ProductionOrderDraftValidator
                 errors.Add($"Dòng mẫu {lineIndex}: thiếu tên mẫu.");
             if (string.IsNullOrWhiteSpace(line.GoldTypeCode) || string.IsNullOrWhiteSpace(line.GoldTypeName))
                 errors.Add($"Dòng mẫu {lineIndex}: thiếu loại vàng.");
+            if (line.EstimatedWeightChi < 0)
+                errors.Add($"Dòng {line.LineNumber}: trọng lượng vàng ước tính không được âm.");
+            if (line.GoldUnitPricePerChi < 0)
+                errors.Add($"Dòng {line.LineNumber}: giá vàng/chỉ không được âm.");
+            if (line.StoneAmountPerUnitVnd < 0)
+                errors.Add($"Dòng {line.LineNumber}: tiền đá không được âm.");
             if (line.PlannedQuantity < 1)
                 errors.Add($"Dòng mẫu {lineIndex}: số lượng phải ≥ 1.");
             if (line.LaborCostPerUnit < 0)

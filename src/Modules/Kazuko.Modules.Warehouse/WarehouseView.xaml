@@ -156,17 +156,42 @@
         </Style>
 
         <Style x:Key="LinkButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource LinkBrush}" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="MinWidth" Value="112" />
+            <Setter Property="Padding" Value="12,5" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" />
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryHoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -589,11 +614,6 @@
                                                         <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
                                                                 Command="{Binding OpenReceiptTabCommand}"
                                                                 ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
-                                                        <Button Content="Thợ ngoài" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenCraftTrackingCommand}"
-                                                                ToolTip="Danh mục thợ ngoài (dùng cho sản xuất OUTSOURCED)" />
-                                                        <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenMaterialIssueCommand}" />
                                                     </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Grid.Row="1" Margin="0,0,0,8">
@@ -629,7 +649,7 @@
                                                                Visibility="{Binding IsOverviewRawEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
                                                 <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
-                                                        Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                        Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllRawMaterialsCommand}" />
                                             </Grid>
                                         </Border>
@@ -654,8 +674,12 @@
                                                         <TextBlock Text="Trang sức hoàn thiện, sản phẩm chế tác" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenFinishedGoodsIssueCommand}" />
+                                                        <Button Content="+ Nhập thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenProductionFinishedReceiptCommand}"
+                                                                ToolTip="Nhập toàn bộ thành phẩm của một lệnh sản xuất đã hoàn thành" />
+                                                        <Button Content="Xuất kho bán hàng" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                                Command="{Binding OpenFinishedProductTransferCommand}"
+                                                                ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
                                                     </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Grid.Row="1" Margin="0,0,0,8">
@@ -665,6 +689,9 @@
                                                     <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
                                                               ItemsSource="{Binding GoldTypeFilterOptions}"
                                                               SelectedItem="{Binding OverviewFinishedGoldType}" />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding ProductGroupFilterOptions}"
+                                                              SelectedItem="{Binding OverviewFinishedGroup}" />
                                                     <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
                                                               ItemsSource="{Binding FinishedStatusOptions}"
                                                               SelectedItem="{Binding OverviewFinishedStatus}" />
@@ -679,6 +706,7 @@
                                                             <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="48" />
                                                             <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="100" />
                                                             <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                                            <DataGridTextColumn Header="Nhóm" grid:DataGridColumnLayout.Key="ProductGroup" Binding="{Binding ProductGroupName, Mode=OneWay}" Width="100" />
                                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
                                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="56" />
                                                         </DataGrid.Columns>
@@ -690,7 +718,7 @@
                                                                Visibility="{Binding IsOverviewFinishedEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
                                                 <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
-                                                        Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                        Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllFinishedProductsCommand}" />
                                             </Grid>
                                         </Border>
@@ -714,13 +742,6 @@
                                                         <TextBlock Text="KHO BÁN HÀNG" Style="{StaticResource PanelTitleStyle}" />
                                                         <TextBlock Text="Hàng trưng bày, hàng bán lẻ" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập từ kho thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
-                                                                Command="{Binding OpenFinishedProductTransferCommand}"
-                                                                ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
-                                                        <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                Command="{Binding OpenSalesGoodsIssueCommand}" />
-                                                    </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Grid.Row="1" Margin="0,0,0,8">
                                                     <TextBox Width="160" Style="{StaticResource FilterFieldStyle}"
@@ -729,6 +750,9 @@
                                                     <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
                                                               ItemsSource="{Binding GoldTypeFilterOptions}"
                                                               SelectedItem="{Binding OverviewSaleGoldType}" />
+                                                    <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
+                                                              ItemsSource="{Binding ProductGroupFilterOptions}"
+                                                              SelectedItem="{Binding OverviewSaleGroup}" />
                                                     <ComboBox Width="130" Style="{StaticResource FilterComboStyle}"
                                                               ItemsSource="{Binding SaleStatusOptions}"
                                                               SelectedItem="{Binding OverviewSaleStatus}" />
@@ -743,6 +767,7 @@
                                                             <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="48" />
                                                             <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="100" />
                                                             <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                                            <DataGridTextColumn Header="Nhóm" grid:DataGridColumnLayout.Key="ProductGroup" Binding="{Binding ProductGroupName, Mode=OneWay}" Width="100" />
                                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
                                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="56" />
                                                         </DataGrid.Columns>
@@ -754,7 +779,7 @@
                                                                Visibility="{Binding IsOverviewSaleEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
                                                 <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
-                                                        Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                        Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllSalesGoodsCommand}" />
                                             </Grid>
                                         </Border>
@@ -826,7 +851,7 @@
                                             </Grid.RowDefinitions>
                                             <Grid Margin="0,0,0,8">
                                                 <TextBlock Text="Lịch sử nhập xuất gần đây" Style="{StaticResource PanelTitleStyle}" />
-                                                <Button Content="Xem tất cả >" Style="{StaticResource LinkButtonStyle}"
+                                                <Button Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         HorizontalAlignment="Right"
                                                         Command="{Binding ViewAllRecentHistoryCommand}" />
                                             </Grid>
@@ -889,11 +914,6 @@
                                     <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
                                             Command="{Binding OpenReceiptTabCommand}"
                                             ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
-                                    <Button Content="Thợ ngoài" Style="{StaticResource SecondaryActionButtonStyle}"
-                                            Command="{Binding OpenCraftTrackingCommand}"
-                                            ToolTip="Danh mục thợ ngoài (dùng cho sản xuất OUTSOURCED)" />
-                                    <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                            Command="{Binding OpenMaterialIssueCommand}" />
                                 </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
@@ -1018,6 +1038,9 @@
                                 <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding GoldTypeFilterOptions}"
                                           SelectedItem="{Binding SelectedFinishedGoldType}" />
+                                <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding ProductGroupFilterOptions}"
+                                          SelectedItem="{Binding SelectedFinishedGroup}" />
                                 <ComboBox Width="160" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding FinishedStatusOptions}"
                                           SelectedItem="{Binding SelectedFinishedStatus}" />
@@ -1026,8 +1049,11 @@
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearFinishedFiltersCommand}" MinWidth="90" />
                                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                            Command="{Binding OpenFinishedGoodsIssueCommand}" />
+                                    <Button Content="+ Nhập thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
+                                            Command="{Binding OpenProductionFinishedReceiptCommand}" />
+                                    <Button Content="Xuất kho bán hàng" Style="{StaticResource PrimaryActionButtonStyle}"
+                                            Command="{Binding OpenFinishedProductTransferCommand}"
+                                            ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
                                 </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
@@ -1047,6 +1073,7 @@
                                             <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
                                             <DataGridTextColumn Header="Mã SP" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
                                             <DataGridTextColumn Header="Tên sản phẩm" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                            <DataGridTextColumn Header="Nhóm" grid:DataGridColumnLayout.Key="ProductGroup" Binding="{Binding ProductGroupName, Mode=OneWay}" Width="110" />
                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
                                             <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
@@ -1077,6 +1104,9 @@
                                                 <TextBox Text="{Binding SelectedFinishedProduct.ProductName, Mode=OneWay, TargetNullValue=—}"
                                                          Style="{StaticResource DetailValueStyle}"
                                                          TextWrapping="Wrap" />
+                                                <TextBlock Text="Nhóm thành phẩm" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedFinishedProduct.ProductGroupName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
                                                 <TextBlock Text="Loại vàng" Style="{StaticResource DetailLabelStyle}" />
                                                 <TextBox Text="{Binding SelectedFinishedProduct.GoldPurity, Mode=OneWay, TargetNullValue=—}"
                                                          Style="{StaticResource DetailValueStyle}" />
@@ -1121,6 +1151,9 @@
                                 <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding GoldTypeFilterOptions}"
                                           SelectedItem="{Binding SelectedSaleGoldType}" />
+                                <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
+                                          ItemsSource="{Binding ProductGroupFilterOptions}"
+                                          SelectedItem="{Binding SelectedSaleGroup}" />
                                 <ComboBox Width="160" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding SaleStatusOptions}"
                                           SelectedItem="{Binding SelectedSaleStatus}" />
@@ -1128,13 +1161,6 @@
                                         Command="{Binding SearchSaleItemsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearSaleFiltersCommand}" MinWidth="90" />
-                                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button Content="+ Nhập từ kho thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
-                                            Command="{Binding OpenFinishedProductTransferCommand}"
-                                            ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
-                                    <Button Content="Xuất kho" Style="{StaticResource SecondaryActionButtonStyle}"
-                                            Command="{Binding OpenSalesGoodsIssueCommand}" />
-                                </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
@@ -1153,6 +1179,7 @@
                                             <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index" Binding="{Binding Index, Mode=OneWay}" Width="50" />
                                             <DataGridTextColumn Header="Mã HB" grid:DataGridColumnLayout.Key="Code" Binding="{Binding Code, Mode=OneWay}" Width="130" />
                                             <DataGridTextColumn Header="Tên hàng" grid:DataGridColumnLayout.Key="ProductName" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="150" />
+                                            <DataGridTextColumn Header="Nhóm" grid:DataGridColumnLayout.Key="ProductGroup" Binding="{Binding ProductGroupName, Mode=OneWay}" Width="110" />
                                             <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="GoldType" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
                                             <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
                                             <DataGridTextColumn Header="Giá trị" grid:DataGridColumnLayout.Key="StockValue" Binding="{Binding StockValueText, Mode=OneWay}" Width="110" />
@@ -1183,6 +1210,9 @@
                                                 <TextBox Text="{Binding SelectedSaleItem.ProductName, Mode=OneWay, TargetNullValue=—}"
                                                          Style="{StaticResource DetailValueStyle}"
                                                          TextWrapping="Wrap" />
+                                                <TextBlock Text="Nhóm thành phẩm" Style="{StaticResource DetailLabelStyle}" />
+                                                <TextBox Text="{Binding SelectedSaleItem.ProductGroupName, Mode=OneWay, TargetNullValue=—}"
+                                                         Style="{StaticResource DetailValueStyle}" />
                                                 <TextBlock Text="Loại vàng" Style="{StaticResource DetailLabelStyle}" />
                                                 <TextBox Text="{Binding SelectedSaleItem.GoldPurity, Mode=OneWay, TargetNullValue=—}"
                                                          Style="{StaticResource DetailValueStyle}" />
@@ -1325,12 +1355,6 @@
                                         Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
-                                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button Content="+ Xuất NVL" Style="{StaticResource PrimaryActionButtonStyle}"
-                                            Command="{Binding OpenMaterialIssueCommand}" />
-                                    <Button Content="+ Xuất thành phẩm" Style="{StaticResource SecondaryActionButtonStyle}"
-                                            Command="{Binding OpenFinishedGoodsIssueCommand}" />
-                                </StackPanel>
                             </WrapPanel>
                             <Grid Grid.Row="1">
                                 <DataGrid ItemsSource="{Binding Documents}"
@@ -1376,9 +1400,10 @@
                                         Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
-                                <Button Content="+ Chuyển TP sang bán hàng"
+                                <Button Content="+ Xuất kho bán hàng"
                                         Style="{StaticResource PrimaryActionButtonStyle}"
                                         Command="{Binding OpenFinishedProductTransferCommand}"
+                                        ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng"
                                         Margin="12,0,0,0" />
                             </WrapPanel>
                             <Grid Grid.Row="1">

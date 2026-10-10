@@ -121,6 +121,11 @@ public interface ICustomerRepository
         bool activeOnly = true,
         CancellationToken cancellationToken = default);
 
+    Task<CustomerGroupOption> CreateGroupAsync(
+        string name,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CustomerListItem>> SearchAsync(
         CustomerSearchFilter filter,
         CancellationToken cancellationToken = default);

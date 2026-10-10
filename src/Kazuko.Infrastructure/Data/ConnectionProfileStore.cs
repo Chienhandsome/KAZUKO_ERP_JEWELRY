@@ -32,6 +32,9 @@ public static class ConnectionProfileStore
     public static ConnectionProfile Load(string defaultDatabasePath)
     {
         var environment = FromEnvironment(defaultDatabasePath);
+        if (IsPortableMode())
+            return environment;
+
         try
         {
             if (!File.Exists(FilePath))
@@ -93,5 +96,11 @@ public static class ConnectionProfileStore
             Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_USER") ?? "SYSDBA",
             Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PASSWORD") ?? string.Empty,
             useEmbedded);
+    }
+
+    private static bool IsPortableMode()
+    {
+        var value = Environment.GetEnvironmentVariable("KAZUKO_PORTABLE_MODE");
+        return value is "1" or "true" or "TRUE" or "yes" or "YES";
     }
 }

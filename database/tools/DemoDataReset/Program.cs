@@ -83,7 +83,7 @@ catch
     throw;
 }
 
-Console.WriteLine("Done. Login admin (password unchanged). Seed: customers, suppliers, gold prices, materials, finished products, cash fund, bank account.");
+Console.WriteLine("Done. Login admin (password unchanged). Seed: employees, customers, suppliers, gold catalog, raw-material opening stock, finished products, cash fund, bank account.");
 return 0;
 
 static async Task<List<string>> ListUserTablesAsync(FbConnection connection, FbTransaction transaction)
@@ -218,6 +218,18 @@ static async Task SeedAsync(
     long rawLocId,
     long adminId)
 {
+    // Employees (independent HR master data)
+    await InsertEmployeeAsync(connection, transaction, companyId, branchId, adminId,
+        "NV000001", "Nguyễn Minh Anh", "0903000001", "NV001", 12_000_000m);
+    await InsertEmployeeAsync(connection, transaction, companyId, branchId, adminId,
+        "NV000002", "Trần Quốc Bảo", "0903000002", "NV002", 14_000_000m);
+    await InsertEmployeeAsync(connection, transaction, companyId, branchId, adminId,
+        "NV000003", "Lê Thị Hương", "0903000003", "NV003", 11_000_000m);
+    await InsertEmployeeAsync(connection, transaction, companyId, branchId, adminId,
+        "NV000004", "Phạm Văn Khang", "0903000004", "NV004", 15_000_000m);
+    await InsertEmployeeAsync(connection, transaction, companyId, branchId, adminId,
+        "NV000005", "Võ Ngọc Lan", "0903000005", "NV005", 13_000_000m);
+
     // Customer groups
     var groupRegular = await InsertIdAsync(connection, transaction, """
         INSERT INTO CUSTOMER_GROUPS (COMPANY_ID, CODE, NAME, IS_ACTIVE, IS_DEFAULT)
@@ -271,19 +283,34 @@ static async Task SeedAsync(
     await InsertSupplierAsync(connection, transaction, companyId, branchId, grpDaQuy, adminId,
         "NCC000003", "Đá quý An Phú", "0902000003", "Đà Nẵng", "0402000003");
 
-    // Gold prices
-    var p585 = await InsertGoldPriceAsync(connection, transaction, companyId, "585", "Vàng 585 (14K)", 0.585m, 7_800_000m, 8_100_000m, 10);
-    var p750 = await InsertGoldPriceAsync(connection, transaction, companyId, "750", "Vàng 750 (18K)", 0.750m, 10_200_000m, 10_500_000m, 20);
-    var p999 = await InsertGoldPriceAsync(connection, transaction, companyId, "999", "Vàng 999 (24K nữ trang)", 0.999m, 13_800_000m, 14_100_000m, 30);
-    var p9999 = await InsertGoldPriceAsync(connection, transaction, companyId, "9999", "Vàng 9999 (24K)", 0.9999m, 14_300_000m, 14_600_000m, 40);
+    // Unified gold-type catalog + retail prices
+    var t585 = await InsertGoldTypeAsync(connection, transaction, companyId, adminId,
+        "585", "Vàng 585 (14K)", 0.585m, 10);
+    var t750 = await InsertGoldTypeAsync(connection, transaction, companyId, adminId,
+        "750", "Vàng 750 (18K)", 0.750m, 20);
+    var t999 = await InsertGoldTypeAsync(connection, transaction, companyId, adminId,
+        "999", "Vàng 999 (24K nữ trang)", 0.999m, 30);
+    var t9999 = await InsertGoldTypeAsync(connection, transaction, companyId, adminId,
+        "9999", "Vàng 9999 (24K)", 0.9999m, 40);
 
-    // Warehouse issue prices (required when posting FG issue / retail sale)
+    var p585 = await InsertGoldPriceAsync(connection, transaction, companyId, t585,
+        "585", "Vàng 585 (14K)", 0.585m, 7_800_000m, 8_100_000m, 10);
+    var p750 = await InsertGoldPriceAsync(connection, transaction, companyId, t750,
+        "750", "Vàng 750 (18K)", 0.750m, 10_200_000m, 10_500_000m, 20);
+    var p999 = await InsertGoldPriceAsync(connection, transaction, companyId, t999,
+        "999", "Vàng 999 (24K nữ trang)", 0.999m, 13_800_000m, 14_100_000m, 30);
+    var p9999 = await InsertGoldPriceAsync(connection, transaction, companyId, t9999,
+        "9999", "Vàng 9999 (24K)", 0.9999m, 14_300_000m, 14_600_000m, 40);
+
+    // Warehouse buy/sell prices (legacy issue price mirrors warehouse buy price).
     await ExecuteAsync(connection, transaction, """
         INSERT INTO WAREHOUSE_GOLD_PRICES
             (COMPANY_ID, GOLD_PRICE_ID, GOLD_TYPE_CODE, GOLD_TYPE_NAME, PURITY_RATE,
-             ISSUE_PRICE_PER_CHI, IS_ACTIVE, ROW_VERSION, UPDATED_AT)
+             ISSUE_PRICE_PER_CHI, BUY_PRICE_PER_CHI, SELL_PRICE_PER_CHI,
+             IS_ACTIVE, ROW_VERSION, UPDATED_AT, GOLD_TYPE_ID)
         SELECT G.COMPANY_ID, G.ID, G.CODE, G.NAME, G.PURITY_RATE,
-               G.BUY_PRICE_PER_CHI, TRUE, 0, CURRENT_TIMESTAMP
+               G.BUY_PRICE_PER_CHI, G.BUY_PRICE_PER_CHI, G.SELL_PRICE_PER_CHI,
+               TRUE, 0, CURRENT_TIMESTAMP, G.GOLD_TYPE_ID
         FROM GOLD_PRICES G
         WHERE G.COMPANY_ID = @CID
           AND NOT EXISTS (
@@ -291,25 +318,43 @@ static async Task SeedAsync(
               WHERE W.COMPANY_ID = G.COMPANY_ID AND W.GOLD_TYPE_CODE = G.CODE)
         """, ("@CID", companyId));
 
-    // Old-gold materials
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_585", "Vàng 585", "585", p585);
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_750", "Vàng 750", "750", p750);
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_999", "Vàng 999", "999", p999);
-    await InsertMaterialAsync(connection, transaction, companyId, "GOLD_9999", "Vàng 9999", "9999", p9999);
+    // Raw-gold materials and opening balances in the raw-material warehouse
+    var m585 = await InsertMaterialAsync(connection, transaction, companyId,
+        "GOLD_585", "Vàng 585", "585", p585, t585, 7_800_000m);
+    var m750 = await InsertMaterialAsync(connection, transaction, companyId,
+        "GOLD_750", "Vàng 750", "750", p750, t750, 10_200_000m);
+    var m999 = await InsertMaterialAsync(connection, transaction, companyId,
+        "GOLD_999", "Vàng 999", "999", p999, t999, 13_800_000m);
+    var m9999 = await InsertMaterialAsync(connection, transaction, companyId,
+        "GOLD_9999", "Vàng 9999", "9999", p9999, t9999, 14_300_000m);
+
+    await SeedOpeningStockAsync(
+        connection, transaction, companyId, branchId, rawLocId, adminId,
+        [
+            (m585, 100m, 7_800_000m),
+            (m750, 80m, 10_200_000m),
+            (m999, 60m, 13_800_000m),
+            (m9999, 50m, 14_300_000m)
+        ]);
+
+    var braceletGroupId = await InsertFinishedProductGroupAsync(connection, transaction, companyId, "BRACELET", "Lắc tay", 10);
+    var earringGroupId = await InsertFinishedProductGroupAsync(connection, transaction, companyId, "EARRING", "Bông tai", 20);
+    var ringGroupId = await InsertFinishedProductGroupAsync(connection, transaction, companyId, "RING", "Nhẫn", 30);
+    var necklaceGroupId = await InsertFinishedProductGroupAsync(connection, transaction, companyId, "NECKLACE", "Dây chuyền", 40);
 
     // Finished products (sellable)
-    var catalog = new (string Code, string Name, string Purity, long PriceId, decimal Total, decimal Gold, decimal Stone, decimal Labor, decimal StoneAmt)[]
+    var catalog = new (string Code, string Name, long GroupId, string Purity, long PriceId, long GoldTypeId, decimal Total, decimal Gold, decimal Stone, decimal Labor, decimal StoneAmt)[]
     {
-        ("TP-2026-000001", "Nhẫn trơn 9999", "9999", p9999, 1.00m, 1.00m, 0m, 50_000m, 0m),
-        ("TP-2026-000002", "Nhẫn trơn 9999", "9999", p9999, 1.20m, 1.20m, 0m, 50_000m, 0m),
-        ("TP-2026-000003", "Dây chuyền 9999", "9999", p9999, 2.50m, 2.50m, 0m, 120_000m, 0m),
-        ("TP-2026-000004", "Bông tai 750", "750", p750, 1.50m, 1.20m, 0.30m, 180_000m, 200_000m),
-        ("TP-2026-000005", "Lắc tay 750", "750", p750, 3.00m, 2.80m, 0.20m, 220_000m, 150_000m),
-        ("TP-2026-000006", "Nhẫn đá 750", "750", p750, 2.00m, 1.60m, 0.40m, 250_000m, 500_000m),
-        ("TP-2026-000007", "Vòng 999", "999", p999, 4.00m, 4.00m, 0m, 80_000m, 0m),
-        ("TP-2026-000008", "Mặt dây 999", "999", p999, 1.80m, 1.80m, 0m, 90_000m, 0m),
-        ("TP-2026-000009", "Nhẫn 585", "585", p585, 2.20m, 2.00m, 0.20m, 150_000m, 100_000m),
-        ("TP-2026-000010", "Bông 585", "585", p585, 1.10m, 1.00m, 0.10m, 130_000m, 80_000m),
+        ("TP-2026-000001", "Nhẫn trơn 9999", ringGroupId, "9999", p9999, t9999, 1.00m, 1.00m, 0m, 50_000m, 0m),
+        ("TP-2026-000002", "Nhẫn trơn 9999", ringGroupId, "9999", p9999, t9999, 1.20m, 1.20m, 0m, 50_000m, 0m),
+        ("TP-2026-000003", "Dây chuyền 9999", necklaceGroupId, "9999", p9999, t9999, 2.50m, 2.50m, 0m, 120_000m, 0m),
+        ("TP-2026-000004", "Bông tai 750", earringGroupId, "750", p750, t750, 1.50m, 1.20m, 0.30m, 180_000m, 200_000m),
+        ("TP-2026-000005", "Lắc tay 750", braceletGroupId, "750", p750, t750, 3.00m, 2.80m, 0.20m, 220_000m, 150_000m),
+        ("TP-2026-000006", "Nhẫn đá 750", ringGroupId, "750", p750, t750, 2.00m, 1.60m, 0.40m, 250_000m, 500_000m),
+        ("TP-2026-000007", "Vòng 999", braceletGroupId, "999", p999, t999, 4.00m, 4.00m, 0m, 80_000m, 0m),
+        ("TP-2026-000008", "Mặt dây 999", necklaceGroupId, "999", p999, t999, 1.80m, 1.80m, 0m, 90_000m, 0m),
+        ("TP-2026-000009", "Nhẫn 585", ringGroupId, "585", p585, t585, 2.20m, 2.00m, 0.20m, 150_000m, 100_000m),
+        ("TP-2026-000010", "Bông 585", earringGroupId, "585", p585, t585, 1.10m, 1.00m, 0.10m, 130_000m, 80_000m),
     };
 
     foreach (var item in catalog)
@@ -329,8 +374,7 @@ static async Task SeedAsync(
         VALUES (@CID, @BID, 'TK_CHINH', 'Tài khoản chính', '0001-DEMO', TRUE)
         """, ("@CID", companyId), ("@BID", branchId));
 
-    // Document sequences soft reset if table exists / has rows already wiped
-    _ = rawLocId;
+    // Document sequences are recreated lazily by each posting workflow.
     _ = salesLocId;
 }
 
@@ -370,33 +414,145 @@ static Task InsertSupplierAsync(
         ("@CODE", code), ("@NAME", name), ("@PHONE", phone),
         ("@REGION", region), ("@TAX", taxCode), ("@UID", userId));
 
+static Task InsertEmployeeAsync(
+    FbConnection connection, FbTransaction transaction,
+    long companyId, long branchId, long userId,
+    string code, string fullName, string phone, string attendanceCode, decimal baseSalary) =>
+    ExecuteAsync(connection, transaction, """
+        INSERT INTO HR_EMPLOYEES
+            (COMPANY_ID, CREATED_BRANCH_ID, CODE, FULL_NAME, ATTENDANCE_CODE,
+             PHONE, HIRE_DATE, CONTRACT_TYPE, BASE_SALARY, ALLOWANCE,
+             STATUS_CODE, IS_ACTIVE, CREATED_BY, UPDATED_BY, UPDATED_AT)
+        VALUES
+            (@CID, @BID, @CODE, @NAME, @ATTENDANCE,
+             @PHONE, CURRENT_DATE, 'FULL_TIME', @SALARY, 0,
+             'WORKING', TRUE, @UID, @UID, CURRENT_TIMESTAMP)
+        """,
+        ("@CID", companyId), ("@BID", branchId), ("@CODE", code),
+        ("@NAME", fullName), ("@ATTENDANCE", attendanceCode),
+        ("@PHONE", phone), ("@SALARY", baseSalary), ("@UID", userId));
+
+static Task<long> InsertGoldTypeAsync(
+    FbConnection connection, FbTransaction transaction, long companyId, long userId,
+    string code, string name, decimal purity, int order) =>
+    InsertIdAsync(connection, transaction, """
+        INSERT INTO GOLD_TYPES
+            (COMPANY_ID, CODE, NAME, PURITY_RATE, DISPLAY_ORDER, IS_ACTIVE,
+             CREATED_BY, CREATED_AT, UPDATED_BY, UPDATED_AT)
+        VALUES
+            (@CID, @CODE, @NAME, @PURITY, @ORD, TRUE,
+             @UID, CURRENT_TIMESTAMP, @UID, CURRENT_TIMESTAMP)
+        RETURNING ID
+        """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
+        ("@PURITY", purity), ("@ORD", order), ("@UID", userId));
+
 static Task<long> InsertGoldPriceAsync(
-    FbConnection connection, FbTransaction transaction, long companyId,
+    FbConnection connection, FbTransaction transaction, long companyId, long goldTypeId,
     string code, string name, decimal purity, decimal buy, decimal sell, int order) =>
     InsertIdAsync(connection, transaction, """
         INSERT INTO GOLD_PRICES
             (COMPANY_ID, CODE, NAME, PURITY_RATE, BUY_PRICE_PER_CHI, SELL_PRICE_PER_CHI,
-             BUY_PRICE_PER_GRAM, SELL_PRICE_PER_GRAM, CURRENCY_CODE, DISPLAY_ORDER, IS_ACTIVE)
-        VALUES (@CID, @CODE, @NAME, @PURITY, @BUY, @SELL, 0, 0, 'VND', @ORD, TRUE)
+             BUY_PRICE_PER_GRAM, SELL_PRICE_PER_GRAM, CURRENCY_CODE, DISPLAY_ORDER, IS_ACTIVE,
+             GOLD_TYPE_ID, UPDATED_AT)
+        VALUES (@CID, @CODE, @NAME, @PURITY, @BUY, @SELL, 0, 0, 'VND', @ORD, TRUE,
+                @GOLD_TYPE_ID, CURRENT_TIMESTAMP)
         RETURNING ID
         """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
-        ("@PURITY", purity), ("@BUY", buy), ("@SELL", sell), ("@ORD", order));
+        ("@PURITY", purity), ("@BUY", buy), ("@SELL", sell), ("@ORD", order),
+        ("@GOLD_TYPE_ID", goldTypeId));
 
-static Task InsertMaterialAsync(
+static Task<long> InsertMaterialAsync(
     FbConnection connection, FbTransaction transaction, long companyId,
-    string code, string name, string purity, long oldGoldPriceId) =>
-    ExecuteAsync(connection, transaction, """
+    string code, string name, string purity, long oldGoldPriceId, long goldTypeId,
+    decimal referenceCost) =>
+    InsertIdAsync(connection, transaction, """
         INSERT INTO MATERIALS
             (COMPANY_ID, CODE, NAME, MATERIAL_TYPE, PURITY_CODE, UNIT_CODE,
-             REFERENCE_COST, IS_ACTIVE, TRACKING_MODE, MIN_STOCK, OLD_GOLD_PRICE_ID)
-        VALUES (@CID, @CODE, @NAME, 'GOLD', @PURITY, 'CHI', 0, TRUE, 'WEIGHT', 0, @PRICE)
+             REFERENCE_COST, IS_ACTIVE, TRACKING_MODE, MIN_STOCK, OLD_GOLD_PRICE_ID,
+             GOLD_TYPE_ID)
+        VALUES (@CID, @CODE, @NAME, 'GOLD', @PURITY, 'CHI', @COST, TRUE, 'WEIGHT', 0,
+                @PRICE, @GOLD_TYPE_ID)
+        RETURNING ID
         """, ("@CID", companyId), ("@CODE", code), ("@NAME", name),
-        ("@PURITY", purity), ("@PRICE", oldGoldPriceId));
+        ("@PURITY", purity), ("@COST", referenceCost), ("@PRICE", oldGoldPriceId),
+        ("@GOLD_TYPE_ID", goldTypeId));
+
+static Task<long> InsertFinishedProductGroupAsync(
+    FbConnection connection, FbTransaction transaction, long companyId,
+    string code, string name, int displayOrder) =>
+    InsertIdAsync(connection, transaction, """
+        INSERT INTO FINISHED_PRODUCT_GROUPS
+            (COMPANY_ID, CODE, NAME, DISPLAY_ORDER, IS_ACTIVE, CREATED_AT)
+        VALUES (@CID, @CODE, @NAME, @ORD, TRUE, CURRENT_TIMESTAMP)
+        RETURNING ID
+        """, ("@CID", companyId), ("@CODE", code), ("@NAME", name), ("@ORD", displayOrder));
+
+static async Task SeedOpeningStockAsync(
+    FbConnection connection,
+    FbTransaction transaction,
+    long companyId,
+    long branchId,
+    long rawLocationId,
+    long userId,
+    IReadOnlyList<(long MaterialId, decimal Quantity, decimal UnitCost)> items)
+{
+    var documentId = await InsertIdAsync(connection, transaction, """
+        INSERT INTO STOCK_DOCUMENTS
+            (COMPANY_ID, BRANCH_ID, CODE, DOCUMENT_TYPE, DOCUMENT_DATE,
+             DESTINATION_LOCATION_ID, REFERENCE_NO, NOTES, STATUS_CODE,
+             CREATED_BY, CREATED_AT, POSTED_BY, POSTED_AT)
+        VALUES
+            (@CID, @BID, 'TONDAU-DEMO', 'OPENING', CURRENT_DATE,
+             @LOCATION, 'DEMO-RESET', 'Tồn đầu vàng nguyên liệu sau reset dữ liệu demo', 'POSTED',
+             @UID, CURRENT_TIMESTAMP, @UID, CURRENT_TIMESTAMP)
+        RETURNING ID
+        """, ("@CID", companyId), ("@BID", branchId),
+        ("@LOCATION", rawLocationId), ("@UID", userId));
+
+    var lineNumber = 0;
+    foreach (var item in items)
+    {
+        lineNumber++;
+        var lineId = await InsertIdAsync(connection, transaction, """
+            INSERT INTO STOCK_DOCUMENT_LINES
+                (DOCUMENT_ID, LINE_NUMBER, MATERIAL_ID, QUANTITY, UNIT_COST,
+                 LINE_AMOUNT, STANDARD_UNIT_CODE)
+            VALUES
+                (@DOC, @LINE_NO, @MATERIAL, @QUANTITY, @COST,
+                 @AMOUNT, 'CHI')
+            RETURNING ID
+            """, ("@DOC", documentId), ("@LINE_NO", lineNumber),
+            ("@MATERIAL", item.MaterialId), ("@QUANTITY", item.Quantity),
+            ("@COST", item.UnitCost), ("@AMOUNT", item.Quantity * item.UnitCost));
+
+        await ExecuteAsync(connection, transaction, """
+            INSERT INTO STOCK_BALANCES
+                (MATERIAL_ID, LOCATION_ID, QUANTITY, AVERAGE_COST, UPDATED_AT)
+            VALUES
+                (@MATERIAL, @LOCATION, @QUANTITY, @COST, CURRENT_TIMESTAMP)
+            """, ("@MATERIAL", item.MaterialId), ("@LOCATION", rawLocationId),
+            ("@QUANTITY", item.Quantity), ("@COST", item.UnitCost));
+
+        await ExecuteAsync(connection, transaction, """
+            INSERT INTO STOCK_MOVEMENTS
+                (DOCUMENT_ID, DOCUMENT_LINE_ID, MATERIAL_ID, LOCATION_ID,
+                 MOVEMENT_TYPE, QUANTITY_CHANGE, UNIT_COST, VALUE_CHANGE,
+                 OCCURRED_AT, CREATED_BY)
+            VALUES
+                (@DOC, @LINE, @MATERIAL, @LOCATION,
+                 'IN', @QUANTITY, @COST, @AMOUNT,
+                 CURRENT_TIMESTAMP, @UID)
+            """, ("@DOC", documentId), ("@LINE", lineId),
+            ("@MATERIAL", item.MaterialId), ("@LOCATION", rawLocationId),
+            ("@QUANTITY", item.Quantity), ("@COST", item.UnitCost),
+            ("@AMOUNT", item.Quantity * item.UnitCost), ("@UID", userId));
+    }
+}
 
 static Task InsertFinishedProductAsync(
     FbConnection connection, FbTransaction transaction,
     long companyId, long branchId, long locationId, long userId,
-    (string Code, string Name, string Purity, long PriceId, decimal Total, decimal Gold, decimal Stone, decimal Labor, decimal StoneAmt) item)
+    (string Code, string Name, long GroupId, string Purity, long PriceId, long GoldTypeId, decimal Total, decimal Gold, decimal Stone, decimal Labor, decimal StoneAmt) item)
 {
     var material = item.Gold * 100_000m; // placeholder cost
     var totalCost = material + item.Labor + item.StoneAmt;
@@ -405,17 +561,19 @@ static Task InsertFinishedProductAsync(
             (COMPANY_ID, BRANCH_ID, CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME,
              GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT, STONE_WEIGHT, LABOR_COST,
              MATERIAL_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST, LOCATION_ID,
-             STATUS_CODE, ROW_VERSION, RETAIL_GOLD_PRICE_ID, CREATED_BY, CREATED_AT)
+             STATUS_CODE, ROW_VERSION, RETAIL_GOLD_PRICE_ID, GOLD_TYPE_ID,
+             FINISHED_PRODUCT_GROUP_ID, CREATED_BY, CREATED_AT)
         VALUES
             (@CID, @BID, @CODE, @CODE, @CODE, @NAME,
              @PURITY, @TOTAL_W, @GOLD_W, @STONE_W, @LABOR,
              @MAT, @STONE_AMT, @TOTAL_COST, @LOC,
-             'IN_STOCK', 1, @PRICE, @UID, CURRENT_TIMESTAMP)
+             'IN_STOCK', 1, @PRICE, @GOLD_TYPE_ID, @GROUP_ID, @UID, CURRENT_TIMESTAMP)
         """,
         ("@CID", companyId), ("@BID", branchId), ("@CODE", item.Code), ("@NAME", item.Name),
         ("@PURITY", item.Purity), ("@TOTAL_W", item.Total), ("@GOLD_W", item.Gold), ("@STONE_W", item.Stone),
         ("@LABOR", item.Labor), ("@MAT", material), ("@STONE_AMT", item.StoneAmt), ("@TOTAL_COST", totalCost),
-        ("@LOC", locationId), ("@PRICE", item.PriceId), ("@UID", userId));
+        ("@LOC", locationId), ("@PRICE", item.PriceId),
+        ("@GOLD_TYPE_ID", item.GoldTypeId), ("@GROUP_ID", item.GroupId), ("@UID", userId));
 }
 
 static async Task<long> InsertIdAsync(

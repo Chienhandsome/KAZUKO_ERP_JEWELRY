@@ -151,6 +151,32 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         return result;
     }
 
+    public async Task<IReadOnlyList<ProductionFinishedReceiptOrderOption>> GetCompletedUnreceivedOrdersAsync(
+        long branchId,
+        CancellationToken cancellationToken = default)
+    {
+        if (branchId <= 0)
+            return [];
+
+        var result = new List<ProductionFinishedReceiptOrderOption>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT ID, CODE
+            FROM PRODUCTION_ORDERS
+            WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+              AND BRANCH_ID = @BRANCH_ID
+              AND STATUS_CODE = 'COMPLETED'
+              AND FINISHED_RECEIPT_DOCUMENT_ID IS NULL
+            ORDER BY COMPLETED_AT DESC, ID DESC
+            """, connection);
+        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            result.Add(new ProductionFinishedReceiptOrderOption(reader.GetInt64(0), reader.GetString(1)));
+        return result;
+    }
+
     public async Task<ProductionOrderDetail?> GetOrderDetailAsync(
         long orderId,
         long branchId,
@@ -242,7 +268,8 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
             JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
             WHERE O.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND O.BRANCH_ID = @BRANCH_ID
-              AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+              AND O.ORDER_TYPE = 'CUSTOM'
+              AND O.STATUS_CODE IN ('DEPOSITED', 'CONFIRMED')
               AND NOT EXISTS (
                   SELECT 1 FROM PRODUCTION_ORDERS PO
                   WHERE PO.SALES_ORDER_ID = O.ID)
@@ -436,7 +463,10 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         var lines = new List<ProductionOrderLineDto>();
         await using var command = new FbCommand("""
             SELECT ID, LINE_NUMBER, MODEL_CODE, MODEL_NAME, GOLD_TYPE_CODE, GOLD_TYPE_NAME,
-                   PLANNED_QUANTITY, LABOR_COST_PER_UNIT, DESCRIPTION, NOTES
+                   PLANNED_QUANTITY, LABOR_COST_PER_UNIT,
+                   COALESCE(ESTIMATED_WEIGHT_CHI, 0), COALESCE(GOLD_UNIT_PRICE_PER_CHI, 0),
+                   COALESCE(STONE_AMOUNT_PER_UNIT_VND, 0),
+                   DESCRIPTION, NOTES
             FROM PRODUCTION_ORDER_LINES
             WHERE PRODUCTION_ORDER_ID = @ID
             ORDER BY LINE_NUMBER
@@ -454,8 +484,11 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                 reader.GetString(5),
                 reader.GetInt32(6),
                 reader.GetDecimal(7),
-                reader.IsDBNull(8) ? null : reader.GetString(8),
-                reader.IsDBNull(9) ? null : reader.GetString(9)));
+                reader.GetDecimal(8),
+                reader.GetDecimal(9),
+                reader.GetDecimal(10),
+                reader.IsDBNull(11) ? null : reader.GetString(11),
+                reader.IsDBNull(12) ? null : reader.GetString(12)));
         }
 
         return lines;

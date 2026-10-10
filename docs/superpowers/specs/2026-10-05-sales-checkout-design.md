@@ -35,7 +35,7 @@ Một lần hoàn tất phải ghi đồng bộ chứng từ bán, biến độn
 - Trả hàng, bù trừ sau bán, hủy hoặc đảo chứng từ đã ghi sổ.
 - Giữ đơn/gọi lại đơn và lưu nháp.
 - Hóa đơn điện tử.
-- Đơn đặt chế tác hoặc sản phẩm chưa có sẵn; luồng này sẽ tích hợp module Sản xuất sau.
+- Đơn đặt chế tác hoặc sản phẩm chưa có sẵn trên màn checkout bán lẻ; luồng đơn đặt + cọc + lệnh SX được chốt tại `docs/10-CRAFT-CUSTOM-ORDER.md` (tách khỏi checkout hàng sẵn).
 - Khổ in A5, K80 và K58.
 
 Tab hóa đơn điện tử hiện có trong mock UI được ẩn cho tới khi có contract tích hợp riêng. Không để control trông như hoạt động nhưng không ghi dữ liệu.

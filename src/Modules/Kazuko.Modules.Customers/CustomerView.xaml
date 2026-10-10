@@ -882,10 +882,6 @@
                     <TextBlock Text="Sẽ triển khai" Margin="20"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                 </TabItem>
-                <TabItem Header="Nhóm khách hàng" IsEnabled="False">
-                    <TextBlock Text="Sẽ triển khai" Margin="20"
-                               Foreground="{DynamicResource TextSecondaryBrush}" />
-                </TabItem>
                 <TabItem Header="Lịch sử mua hàng">
                     <Grid Margin="16">
                         <Grid.RowDefinitions>

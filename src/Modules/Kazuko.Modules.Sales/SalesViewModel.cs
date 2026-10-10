@@ -3,7 +3,9 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Production;
 using Kazuko.Core.Sales;
+using Kazuko.Core.Warehouse;
 using Kazuko.Modules.Sales.Services;
 
 namespace Kazuko.Modules.Sales;
@@ -45,7 +47,10 @@ public sealed class SalesViewModel : ObservableObject
         ISalesPaymentDialogService paymentDialog,
         ICustomerEditorService customerEditor,
         ISalesPriceOverrideDialogService priceOverrideDialog,
-        ISalesReceiptPresenter receiptPresenter)
+        ISalesReceiptPresenter receiptPresenter,
+        ICraftOrderApplicationService craftOrders,
+        IWarehouseRepository warehouse,
+        IProductionOrderEditorService productionOrderEditor)
     {
         _queries = queries;
         _checkout = checkout;
@@ -60,6 +65,13 @@ public sealed class SalesViewModel : ObservableObject
 
         BuySell = new BuySellWorkspaceViewModel(OnWorkspaceChanged);
         BuyOldGold = new BuyOldGoldWorkspaceViewModel(OnWorkspaceChanged);
+        CraftOrders = new CraftOrderWorkspaceViewModel(
+            craftOrders,
+            warehouse,
+            RequireSession,
+            request => _paymentDialog.Show(request),
+            preferredSource => productionOrderEditor.ShowCreate(preferredSource),
+            OnWorkspaceChanged);
         History = new InvoiceHistoryWorkspaceViewModel(_queries, RequireSession, OnWorkspaceChanged);
         BuySell.FindProductAsync = code => FindProductAsync(code);
         BuySell.SearchProductsAsync = SearchProductsAsync;
@@ -68,9 +80,22 @@ public sealed class SalesViewModel : ObservableObject
         BuyOldGold.AddCustomerAction = () => AddCustomerForBuyOldGold();
         BuySell.EditSellPriceAction = EditSellPrice;
         History.PrintCheckoutAsync = id => PrintCheckoutAsync(id);
+        CraftOrders.GetCashFunds = () => _funds;
+        CraftOrders.GetBankAccounts = () => _banks;
+        CraftOrders.GetCanApproveDebt = () => _permissions.CanApproveDebt;
+        CraftOrders.ReportSuccess = msg =>
+        {
+            SuccessMessage = msg;
+            ErrorMessage = string.Empty;
+        };
+        CraftOrders.ReportError = msg =>
+        {
+            ErrorMessage = msg;
+            SuccessMessage = string.Empty;
+        };
 
         NewCommand = new AsyncRelayCommand(NewAsync, () => !IsPosting);
-        PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && !IsHistoryTab && _permissions.CanPost);
+        PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && IsCheckoutTab && _permissions.CanPost);
         PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && CanPrintCurrent);
 
         _ = InitializeAsync();
@@ -78,6 +103,7 @@ public sealed class SalesViewModel : ObservableObject
 
     public BuySellWorkspaceViewModel BuySell { get; }
     public BuyOldGoldWorkspaceViewModel BuyOldGold { get; }
+    public CraftOrderWorkspaceViewModel CraftOrders { get; }
     public InvoiceHistoryWorkspaceViewModel History { get; }
 
     public int MainTabIndex
@@ -88,13 +114,17 @@ public sealed class SalesViewModel : ObservableObject
             if (!SetProperty(ref _mainTabIndex, value))
                 return;
             OnWorkspaceChanged();
+            if (IsCraftOrderTab)
+                _ = CraftOrders.EnsureLoadedAsync();
             if (IsHistoryTab && _permissions.CanReadHistory)
                 _ = History.EnsureLoadedAsync();
         }
     }
 
     public bool IsBuySellTab => MainTabIndex == 0;
-    public bool IsHistoryTab => MainTabIndex == 2;
+    public bool IsCheckoutTab => MainTabIndex is 0 or 1;
+    public bool IsCraftOrderTab => MainTabIndex == 2;
+    public bool IsHistoryTab => MainTabIndex == 3;
     public bool CanPrintCurrent =>
         _permissions.CanPrintReceipt
         && (History.SelectedDetail?.CheckoutId > 0 || LastResult is { CheckoutId: > 0 });
@@ -169,6 +199,8 @@ public sealed class SalesViewModel : ObservableObject
             ErrorMessage = string.Empty;
             var session = RequireSession();
             _permissions = await _authorization.GetPermissionsAsync(session);
+            CraftOrders.CanCollect = _permissions.CanPost;
+            CraftOrders.CanCreateOrder = _permissions.CanPost;
             History.CanReadHistory = _permissions.CanReadHistory;
             History.CanPrint = _permissions.CanPrintReceipt;
             OnPropertyChanged(nameof(Permissions));
@@ -480,6 +512,8 @@ public sealed class SalesViewModel : ObservableObject
     private void OnWorkspaceChanged()
     {
         OnPropertyChanged(nameof(IsBuySellTab));
+        OnPropertyChanged(nameof(IsCheckoutTab));
+        OnPropertyChanged(nameof(IsCraftOrderTab));
         OnPropertyChanged(nameof(IsHistoryTab));
         OnPropertyChanged(nameof(CanPrintCurrent));
         ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();

@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
-using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
@@ -18,16 +17,12 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private readonly IMaterialReceiptService _receiptService;
     private readonly IWarehouseRepository _warehouse;
     private readonly ISupplierRepository _suppliers;
-    private readonly ICustomerRepository _customers;
     private readonly ISupplierEditorService _supplierEditor;
-    private readonly ICustomerEditorService _customerEditor;
     private readonly IGoldTypeEditorService _goldTypeEditor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
     private readonly AuthenticatedSession _session;
-    private string _sourceType = StockSourceTypes.Supplier;
     private SupplierListItem? _selectedSupplier;
-    private CustomerListItem? _selectedCustomer;
     private WarehouseLocationOption? _selectedLocation;
     private MaterialOption? _selectedMaterial;
     private decimal _lineQuantity = 1;
@@ -41,9 +36,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         IMaterialReceiptService receiptService,
         IWarehouseRepository warehouse,
         ISupplierRepository suppliers,
-        ICustomerRepository customers,
         ISupplierEditorService supplierEditor,
-        ICustomerEditorService customerEditor,
         IGoldTypeEditorService goldTypeEditor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
@@ -52,9 +45,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _receiptService = receiptService;
         _warehouse = warehouse;
         _suppliers = suppliers;
-        _customers = customers;
         _supplierEditor = supplierEditor;
-        _customerEditor = customerEditor;
         _goldTypeEditor = goldTypeEditor;
         _funds = funds;
         _banks = banks;
@@ -68,7 +59,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         AddPaymentCommand = new RelayCommand(AddPayment);
         RemovePaymentCommand = new RelayCommand(RemoveSelectedPayment, () => SelectedPayment is not null);
         CreateSupplierCommand = new RelayCommand(CreateSupplier);
-        CreateCustomerCommand = new RelayCommand(CreateCustomer);
         CreateGoldTypeCommand = new AsyncRelayCommand(CreateGoldTypeAsync);
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         CancelCommand = new RelayCommand(() => DialogResult = false);
@@ -77,7 +67,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
 
     public ObservableCollection<WarehouseLocationOption> Locations { get; } = new();
     public ObservableCollection<SupplierListItem> Suppliers { get; } = new();
-    public ObservableCollection<CustomerListItem> Customers { get; } = new();
     public ObservableCollection<MaterialOption> Materials { get; } = new();
     public ObservableCollection<CashFundOption> Funds { get; } = new();
     public ObservableCollection<BankAccountOption> Banks { get; } = new();
@@ -85,49 +74,10 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public ObservableCollection<ReceiptLineRow> Lines { get; } = new();
     public ObservableCollection<PaymentRow> Payments { get; } = new();
 
-    public string SourceType
-    {
-        get => _sourceType;
-        set
-        {
-            if (SetProperty(ref _sourceType, value))
-            {
-                OnPropertyChanged(nameof(IsSupplierSource));
-                OnPropertyChanged(nameof(IsOldGoldSource));
-            }
-        }
-    }
-
-    public bool IsSupplierSource
-    {
-        get => string.Equals(SourceType, StockSourceTypes.Supplier, StringComparison.OrdinalIgnoreCase);
-        set
-        {
-            if (value)
-                SourceType = StockSourceTypes.Supplier;
-        }
-    }
-
-    public bool IsOldGoldSource
-    {
-        get => string.Equals(SourceType, StockSourceTypes.OldGoldCustomer, StringComparison.OrdinalIgnoreCase);
-        set
-        {
-            if (value)
-                SourceType = StockSourceTypes.OldGoldCustomer;
-        }
-    }
-
     public SupplierListItem? SelectedSupplier
     {
         get => _selectedSupplier;
         set => SetProperty(ref _selectedSupplier, value);
-    }
-
-    public CustomerListItem? SelectedCustomer
-    {
-        get => _selectedCustomer;
-        set => SetProperty(ref _selectedCustomer, value);
     }
 
     public WarehouseLocationOption? SelectedLocation
@@ -210,7 +160,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public ICommand AddPaymentCommand { get; }
     public ICommand RemovePaymentCommand { get; }
     public ICommand CreateSupplierCommand { get; }
-    public ICommand CreateCustomerCommand { get; }
     public ICommand CreateGoldTypeCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
@@ -229,8 +178,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
 
         foreach (var supplier in await _suppliers.SearchAsync(new SupplierSearchFilter(string.Empty, 0, string.Empty, true)))
             Suppliers.Add(supplier);
-        foreach (var customer in await _customers.SearchAsync(new CustomerSearchFilter(string.Empty, 0, string.Empty, true)))
-            Customers.Add(customer);
         foreach (var material in await _warehouse.SearchMaterialsAsync(string.Empty, string.Empty, _session))
             Materials.Add(material);
         foreach (var fund in await _funds.GetActiveFundsAsync(_session))
@@ -312,14 +259,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _ = ReloadSuppliersAsync(created.Id);
     }
 
-    private void CreateCustomer()
-    {
-        var created = _customerEditor.ShowCreate();
-        if (created is null)
-            return;
-        _ = ReloadCustomersAsync(created.Id);
-    }
-
     private async Task CreateGoldTypeAsync()
     {
         try
@@ -344,16 +283,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         foreach (var supplier in await _suppliers.SearchAsync(new SupplierSearchFilter(string.Empty, 0, string.Empty, true)))
             Suppliers.Add(supplier);
         SelectedSupplier = Suppliers.FirstOrDefault(x => x.Id == selectId);
-        SourceType = StockSourceTypes.Supplier;
-    }
-
-    private async Task ReloadCustomersAsync(long selectId)
-    {
-        Customers.Clear();
-        foreach (var customer in await _customers.SearchAsync(new CustomerSearchFilter(string.Empty, 0, string.Empty, true)))
-            Customers.Add(customer);
-        SelectedCustomer = Customers.FirstOrDefault(x => x.Id == selectId);
-        SourceType = StockSourceTypes.OldGoldCustomer;
     }
 
     private async Task ReloadMaterialsAsync(string goldTypeCode)
@@ -386,9 +315,9 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             var draft = new MaterialReceiptDraft(
                 DateTime.Now,
                 SelectedLocation.Id,
-                SourceType,
-                IsSupplierSource ? SelectedSupplier?.Id : null,
-                IsSupplierSource ? null : SelectedCustomer?.Id,
+                StockSourceTypes.Supplier,
+                SelectedSupplier?.Id,
+                null,
                 Notes,
                 Lines.Select(l => new MaterialReceiptLineDraft(
                     l.MaterialId, l.Quantity, l.UnitPrice, "VND", l.ExchangeRate, null)).ToList(),

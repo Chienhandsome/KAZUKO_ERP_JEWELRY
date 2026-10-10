@@ -69,7 +69,11 @@ public sealed class WarehouseGoldPriceDialogViewModel : ObservableObject
         {
             ErrorMessage = string.Empty;
             await _repository.SaveAsync(
-                Prices.Select(x => new WarehouseGoldPriceUpdate(x.Id, x.IssuePricePerChi, x.RowVersion)).ToList(),
+                Prices.Select(x => new WarehouseGoldPriceUpdate(
+                    x.Id,
+                    x.BuyPricePerChi,
+                    x.SellPricePerChi,
+                    x.RowVersion)).ToList(),
                 Notes,
                 _session);
             DialogResult = true;
@@ -84,7 +88,8 @@ public sealed class WarehouseGoldPriceDialogViewModel : ObservableObject
 
 public sealed class WarehouseGoldPriceRowViewModel : ObservableObject
 {
-    private decimal _issuePricePerChi;
+    private decimal _buyPricePerChi;
+    private decimal _sellPricePerChi;
 
     public WarehouseGoldPriceRowViewModel(WarehouseGoldPriceItem item, int index)
     {
@@ -93,9 +98,8 @@ public sealed class WarehouseGoldPriceRowViewModel : ObservableObject
         GoldCode = item.GoldCode;
         GoldName = item.GoldName;
         PurityRate = item.PurityRate;
-        _issuePricePerChi = item.IssuePricePerChi;
-        RetailBuyPricePerChi = item.RetailBuyPricePerChi;
-        RetailSellPricePerChi = item.RetailSellPricePerChi;
+        _buyPricePerChi = item.BuyPricePerChi;
+        _sellPricePerChi = item.SellPricePerChi;
         RowVersion = item.RowVersion;
         UpdatedAt = item.UpdatedAt;
     }
@@ -105,15 +109,19 @@ public sealed class WarehouseGoldPriceRowViewModel : ObservableObject
     public string GoldCode { get; }
     public string GoldName { get; }
     public decimal PurityRate { get; }
-    public decimal RetailBuyPricePerChi { get; }
-    public decimal RetailSellPricePerChi { get; }
     public long RowVersion { get; }
     public DateTime UpdatedAt { get; }
     public string UpdatedAtDisplay => UpdatedAt.ToString("dd/MM/yyyy HH:mm");
 
-    public decimal IssuePricePerChi
+    public decimal BuyPricePerChi
     {
-        get => _issuePricePerChi;
-        set => SetProperty(ref _issuePricePerChi, value);
+        get => _buyPricePerChi;
+        set => SetProperty(ref _buyPricePerChi, value);
+    }
+
+    public decimal SellPricePerChi
+    {
+        get => _sellPricePerChi;
+        set => SetProperty(ref _sellPricePerChi, value);
     }
 }

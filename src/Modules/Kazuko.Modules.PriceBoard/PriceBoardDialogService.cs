@@ -128,6 +128,5 @@ public sealed record AddGoldTypeResult(
     string Name,
     decimal PurityRate,
     decimal BuyPrice,
-    decimal SellPrice,
-    decimal IssuePrice);
+    decimal SellPrice);
 public sealed record AddCurrencyResult(string Code, string Name, decimal BuyRate, decimal SellRate);

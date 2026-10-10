@@ -60,7 +60,7 @@ namespace FastReport
       <Column Name="LADE" DataType="System.Int32"/>
     </TableDataSource>
   </Dictionary>
-  <ReportPage Name="Page1" Landscape="true" PaperWidth="210.1" PaperHeight="148.1" LeftMargin="10" TopMargin="8" RightMargin="10" BottomMargin="8">
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="210" PaperHeight="148" LeftMargin="12" TopMargin="10" RightMargin="12" BottomMargin="10">
     <ReportTitleBand Name="ReportTitle1" Width="718.5" Height="225.9">
       <TableObject Name="Table3" Left="8" Top="207" Width="702" Height="18.9" Border.Lines="Left, Right, Top">
         <TableColumn Name="Column7" Width="30"/>
@@ -121,7 +121,7 @@ namespace FastReport
     </DataBand>
     <ReportSummaryBand Name="ReportSummary1" Top="253.22" Width="718.5" Height="207.9" CanGrow="true" CanBreak="true">
       <SubreportObject Name="Subreport1" Left="8" Top="3" Width="311.85" Height="89.01" ReportPage="Page2" PrintOnParent="true"/>
-      <TableObject Name="Table1" Left="400" Top="3" Width="292.93" Height="88.4">
+      <TableObject Name="Table1" Left="417.07" Top="3" Width="292.93" Height="88.4">
         <TableColumn Name="Column28" Width="118.12"/>
         <TableColumn Name="Column29" Width="174.81"/>
         <TableRow Name="Row7" Height="18.29">

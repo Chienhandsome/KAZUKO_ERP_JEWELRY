@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Kazuko.Modules.Production;
 
@@ -19,10 +21,20 @@ public partial class ProductionOrderDialog : Window
 
     private void LinesGrid_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (DataContext is ProductionOrderDialogViewModel viewModel
-            && viewModel.EditLineCommand.CanExecute(viewModel.SelectedLine))
+        if (DataContext is not ProductionOrderDialogViewModel viewModel)
+            return;
+
+        for (var element = e.OriginalSource as DependencyObject; element is not null; element = VisualTreeHelper.GetParent(element))
         {
-            viewModel.EditLineCommand.Execute(viewModel.SelectedLine);
+            if (element is DataGridRow { Item: ProductionLineEditorViewModel row })
+            {
+                if (viewModel.EditLineCommand.CanExecute(row))
+                    viewModel.EditLineCommand.Execute(row);
+                e.Handled = true;
+                return;
+            }
+            if (ReferenceEquals(element, sender))
+                return;
         }
     }
 }

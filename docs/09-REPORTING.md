@@ -26,14 +26,14 @@ Bill sau thanh toán bán hàng dùng mẫu FastReport A5 lưu trong Firebird:
 | Xem trước | WebView2 PDF; ComboBox **A5 ngang / A5 dọc** (lưu `%LocalAppData%\KazukoERP\sales.receipt.orientation.json`) |
 | Chỉnh sửa | Cài đặt → **Mẫu in bill** (chọn khổ) → Xuất/Import `.frx` |
 
-**Máy in (vd. HP M1212nf):** orientation Portrait/Landscape do **driver** xử lý — không cần xoay giấy tay trong khay. Trong hộp thoại in chọn đúng A5 + Portrait (mẫu dọc) hoặc Landscape (mẫu ngang), hoặc Fit to page.
+**Máy in (vd. HP M1212nf):** nút **In** dùng `PrintDocument` thẳng máy mặc định (không hộp thoại), giống setting WPS: khổ **A5**, lề ~4mm, **fit + auto-center + auto-rotate**. Mẫu dọc: lề trái ≥ 14mm / phải ≥ 16mm; khối **Vàng mới / Vàng cũ** trong `ReportSummary`.
 
 ### Bind dữ liệu bill
 
 - Parameters: `Tên khách`, `Số phiếu`, `Ngày`, `Tiền vàng mới`, `Tiền vàng cũ`, `Tiền bớt`, `Tổng cộng`, `Tổng cộng bằng chữ`, `Cộng tiền`, …
 - DataSource `DataSet`: dòng bán (cột `LOAIVANG` = tuổi vàng thành phẩm).
 - DataSource `OldGold`: **bảng thành phần** (Subreport trái dưới — `Loại`, `TL vàng`, `TL hột`, `Đ.giá`, `Thành tiền`). Ưu tiên dòng vàng cũ; nếu không có thì lấy thành phần vàng từ dòng bán.
-- Lề mẫu ≥ 10mm; nút In dùng hộp thoại WebView2 (chọn A5 ngang / Fit) — tránh `Verb=print` cắt lề.
+- Lề mẫu ≥ 10mm; nút **In** = `PrintDocument` A5 Portrait + fit margins + auto-center + auto-rotate (giống WPS).
 - Runtime Open Source: clear `Filter` thương mại, tách 2 bảng, `PrintOnParent` cho Subreport.
 
 ### Không làm (giữ free)

@@ -1,0 +1,37 @@
+/* Verification for migration 60 — independent warehouse buy/sell prices. */
+
+CREATE EXCEPTION EX_VERIFY_FAILED 'Warehouse buy/sell price verify failed';
+
+SET TERM ^ ;
+EXECUTE BLOCK AS
+DECLARE VARIABLE v_cnt INTEGER;
+BEGIN
+    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 60 INTO :v_cnt;
+    IF (:v_cnt <> 1) THEN
+        EXCEPTION EX_VERIFY_FAILED 'SCHEMA_MIGRATIONS thieu phien ban 60.';
+
+    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
+    WHERE RDB$RELATION_NAME = 'WAREHOUSE_GOLD_PRICES'
+      AND RDB$FIELD_NAME IN ('BUY_PRICE_PER_CHI', 'SELL_PRICE_PER_CHI')
+    INTO :v_cnt;
+    IF (:v_cnt <> 2) THEN
+        EXCEPTION EX_VERIFY_FAILED 'Thieu cot gia mua/ban trong kho.';
+
+    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
+    WHERE RDB$RELATION_NAME = 'WAREHOUSE_GOLD_PRICE_HISTORY'
+      AND RDB$FIELD_NAME IN (
+          'OLD_BUY_PRICE_PER_CHI', 'NEW_BUY_PRICE_PER_CHI',
+          'OLD_SELL_PRICE_PER_CHI', 'NEW_SELL_PRICE_PER_CHI')
+    INTO :v_cnt;
+    IF (:v_cnt <> 4) THEN
+        EXCEPTION EX_VERIFY_FAILED 'Thieu cot lich su gia mua/ban trong kho.';
+
+    SELECT COUNT(*) FROM WAREHOUSE_GOLD_PRICES
+    WHERE BUY_PRICE_PER_CHI < 0 OR SELL_PRICE_PER_CHI < 0
+    INTO :v_cnt;
+    IF (:v_cnt <> 0) THEN
+        EXCEPTION EX_VERIFY_FAILED 'Ton tai gia mua/ban trong kho am.';
+END^
+SET TERM ; ^
+
+DROP EXCEPTION EX_VERIFY_FAILED;

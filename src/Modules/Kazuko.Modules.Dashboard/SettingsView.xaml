@@ -221,11 +221,7 @@
                                             HorizontalAlignment="Left"
                                             MinWidth="140"
                                             Margin="0" />
-                                    <TextBlock Text="Ảnh được copy vào thư mục ứng dụng; xóa file gốc vẫn xem được."
-                                               Margin="0,10,0,0"
-                                               FontSize="{DynamicResource FontSize.Caption}"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"
-                                               TextWrapping="Wrap" />
+
                                 </StackPanel>
                             </Grid>
 

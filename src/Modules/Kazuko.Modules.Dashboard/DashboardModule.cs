@@ -47,6 +47,8 @@ public sealed class DashboardModule : IKazukoModule
                 "Theo dõi công nợ\ntiền và vàng", false),
             Feature("CUSTOMER", "KHÁCH HÀNG", "KH.png", 60,
                 "Quản lý thông tin\nkhách hàng", true),
+            Feature("FINANCE", "TÀI CHÍNH", "TC.png", 70,
+                "Quản lý thu chi,\nquỹ tiền và ngân hàng", true),
             Feature("HR", "NHÂN SỰ", "NHAN_SU.png", 80,
                 "Quản lý nhân viên,\nchấm công, lương", true),
             Feature("REPORT", "BÁO CÁO", "BC.png", 90,

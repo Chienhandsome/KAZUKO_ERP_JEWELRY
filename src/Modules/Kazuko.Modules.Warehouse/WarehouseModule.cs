@@ -1,9 +1,9 @@
 using Kazuko.Core.Authentication;
-using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
 using Kazuko.Core.PriceBoard;
+using Kazuko.Core.Production;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
@@ -30,20 +30,17 @@ public sealed class WarehouseModule : IKazukoModule
         var repository = GetRequiredService<IWarehouseRepository>(services);
         var warehouseGoldPrices = GetRequiredService<IWarehouseGoldPriceRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        var navigationService = GetRequiredService<INavigationService>(services);
         var materialReceipts = GetRequiredService<IMaterialReceiptService>(services);
-        var materialIssues = GetRequiredService<IMaterialIssueService>(services);
-        var outsourcedCraft = GetRequiredService<IOutsourcedCraftService>(services);
-        var finishedGoods = GetRequiredService<IFinishedGoodsIssueService>(services);
         var finishedProductTransfers = GetRequiredService<IFinishedProductTransferService>(services);
-        var externalWorkers = GetRequiredService<IExternalWorkerRepository>(services);
         var suppliers = GetRequiredService<ISupplierRepository>(services);
-        var customers = GetRequiredService<ICustomerRepository>(services);
         var supplierEditor = GetRequiredService<ISupplierEditorService>(services);
-        var customerEditor = GetRequiredService<ICustomerEditorService>(services);
         var goldTypeEditor = GetRequiredService<IGoldTypeEditorService>(services);
         var funds = GetRequiredService<ICashFundRepository>(services);
         var banks = GetRequiredService<IBankAccountRepository>(services);
         var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
+        var productionQueries = GetRequiredService<IProductionQueryRepository>(services);
+        var productionApplication = GetRequiredService<IProductionApplicationService>(services);
 
         navigation.Register(new NavigationItem(
             "WAREHOUSE",
@@ -58,23 +55,32 @@ public sealed class WarehouseModule : IKazukoModule
                     warehouseGoldPrices,
                     session,
                     materialReceipts,
-                    materialIssues,
-                    outsourcedCraft,
-                    finishedGoods,
                     finishedProductTransfers,
-                    externalWorkers,
                     suppliers,
-                    customers,
                     supplierEditor,
-                    customerEditor,
                     goldTypeEditor,
                     funds,
                     banks,
-                    goldTypes)
+                    goldTypes,
+                    productionQueries,
+                    productionApplication)
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",
             ShowInSidebar: true,
+            ShowOnHome: true,
+            IsPlaceholder: false));
+
+        navigation.Register(new NavigationItem(
+            "WAREHOUSE_GOLD_PRICES",
+            "GIÁ VÀNG KHO",
+            string.Empty,
+            25,
+            null,
+            () => new WarehouseGoldPriceLaunchView(warehouseGoldPrices, session, navigationService),
+            AssetRoot + "KHO.png",
+            "Cập nhật giá mua và\ngiá bán vàng trong kho",
+            ShowInSidebar: false,
             ShowOnHome: true,
             IsPlaceholder: false));
     }

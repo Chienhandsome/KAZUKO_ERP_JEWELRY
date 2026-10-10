@@ -358,9 +358,6 @@
                         <TextBox Text="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource SalesNumericTextBoxStyle}"
                                  Margin="0,0,0,10" />
-                        <TextBlock Text="Tổng cộng" Style="{StaticResource SalesGrandTotalLabelStyle}" />
-                        <TextBox Style="{StaticResource SalesGrandTotalValueStyle}"
-                                 Text="{Binding GrandTotalText, Mode=OneWay}" />
                     </StackPanel>
                 </DockPanel>
             </Border>

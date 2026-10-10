@@ -133,6 +133,8 @@ public sealed record ProductionOrderListItem(
     int PlannedQuantityTotal,
     long RowVersion);
 
+public sealed record ProductionFinishedReceiptOrderOption(long Id, string Code);
+
 public sealed record ProductionOrderLineDto(
     long Id,
     int LineNumber,
@@ -142,6 +144,9 @@ public sealed record ProductionOrderLineDto(
     string GoldTypeName,
     int PlannedQuantity,
     decimal LaborCostPerUnit,
+    decimal EstimatedWeightChi,
+    decimal GoldUnitPricePerChi,
+    decimal StoneAmountPerUnitVnd,
     string? Description,
     string? Notes);
 
@@ -304,6 +309,9 @@ public sealed record ProductionOrderLineDraft(
     string GoldTypeName,
     int PlannedQuantity,
     decimal LaborCostPerUnit,
+    decimal EstimatedWeightChi,
+    decimal GoldUnitPricePerChi,
+    decimal StoneAmountPerUnitVnd,
     string? Description,
     string? Notes);
 
@@ -416,8 +424,8 @@ public sealed record ProductionReworkReturnDraft(
 public sealed record ProductionCompleteResult(
     long ProductionOrderId,
     string Code,
-    long FinishedReceiptDocumentId,
-    string FinishedReceiptDocumentCode,
+    long? FinishedReceiptDocumentId,
+    string? FinishedReceiptDocumentCode,
     int FinishedProductCount,
     long? PayableDebtId,
     decimal TotalLaborCostVnd,
@@ -443,6 +451,10 @@ public interface IProductionQueryRepository
 
     Task<ProductionOrderDetail?> GetOrderDetailAsync(
         long orderId,
+        long branchId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ProductionFinishedReceiptOrderOption>> GetCompletedUnreceivedOrdersAsync(
         long branchId,
         CancellationToken cancellationToken = default);
 
@@ -512,6 +524,12 @@ public interface IProductionApplicationService
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 
+    Task<ProductionCompleteResult> PostFinishedReceiptAsync(
+        long productionOrderId,
+        long expectedRowVersion,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
     Task<ProductionCancelResult> CancelAsync(
         long productionOrderId,
         long expectedRowVersion,
@@ -542,6 +560,20 @@ public interface IProductionAttachmentStore
 
     void TryDeleteStagingFile(string? stagingPath);
 }
+
+/// <summary>
+/// Mở dialog lệnh sản xuất hoặc đơn đặt từ module khác.
+/// </summary>
+public interface IProductionOrderEditorService
+{
+    /// <param name="preferredOrderSource">SALES_ORDER mở form tạo đơn đặt; null/STOCK mở form lệnh sản xuất.</param>
+    ProductionOrderEditResult? ShowCreate(string? preferredOrderSource = null);
+}
+
+public sealed record ProductionOrderEditResult(
+    long? ProductionOrderId,
+    string? Code,
+    bool DialogConfirmed);
 
 public interface IProductionPrintDataService
 {

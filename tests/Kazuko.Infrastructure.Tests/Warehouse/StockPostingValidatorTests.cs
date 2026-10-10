@@ -95,9 +95,10 @@ public sealed class StockPostingValidatorTests
     {
         Assert.False(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("DRAFT"));
         Assert.False(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("CANCELLED"));
-        Assert.False(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("COMPLETED"));
+        Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("COMPLETED"));
         Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("CONFIRMED"));
         Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("DEPOSITED"));
+        Assert.True(FinishedGoodsIssueValidator.IsConfirmedSalesOrderStatus("READY"));
     }
 
     [Fact]

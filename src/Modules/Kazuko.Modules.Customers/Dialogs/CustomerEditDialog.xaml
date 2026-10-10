@@ -308,11 +308,61 @@
 
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Nhóm khách hàng *" Style="{StaticResource FieldLabelStyle}" />
-                        <ComboBox ItemsSource="{Binding Groups}"
-                                  SelectedItem="{Binding SelectedGroup}"
-                                  DisplayMemberPath="Name"
-                                  Style="{StaticResource DialogComboStyle}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox ItemsSource="{Binding Groups}"
+                                      SelectedItem="{Binding SelectedGroup}"
+                                      DisplayMemberPath="Name"
+                                      Style="{StaticResource DialogComboStyle}"
+                                      Margin="0,0,8,4" />
+                            <Button Grid.Column="1"
+                                    Content="Thêm nhóm khách hàng"
+                                    Command="{Binding AddGroupCommand}"
+                                    Style="{StaticResource RoundedOutlineButtonStyle}"
+                                    MinHeight="36"
+                                    Padding="10,6"
+                                    Margin="0,0,0,4" />
+                        </Grid>
                         <TextBlock Text="{Binding GroupError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <Border Background="{DynamicResource SurfaceAltBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="10"
+                                Margin="0,0,0,12"
+                                Visibility="{Binding IsAddingGroup, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <TextBlock Text="Tên nhóm mới"
+                                           Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Text="{Binding NewGroupName, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DialogFieldStyle}"
+                                         MaxLength="100" />
+                                <TextBlock Text="{Binding NewGroupError, Mode=OneWay}"
+                                           Style="{StaticResource FieldErrorStyle}" />
+                                <TextBlock Text="Nhóm chỉ dùng để phân loại khách hàng; không tự áp dụng điểm hoặc chiết khấu."
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="{DynamicResource FontSize.Caption}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,8" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Hủy"
+                                            Command="{Binding CancelAddGroupCommand}"
+                                            Style="{StaticResource RoundedOutlineButtonStyle}"
+                                            MinHeight="36"
+                                            Padding="12,6"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="Tạo nhóm"
+                                            Command="{Binding CreateGroupCommand}"
+                                            Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                            MinHeight="36"
+                                            Padding="12,6" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
                         <TextBlock Text="Khu vực" Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox ItemsSource="{Binding Regions}"

@@ -3,9 +3,12 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
+using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
+using Kazuko.Core.Sales;
 using Kazuko.Core.Warehouse;
 
 namespace Kazuko.Modules.Production;
@@ -21,6 +24,10 @@ public sealed class ProductionViewModel : ObservableObject
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IExternalWorkerEditorService _externalWorkerEditor;
     private readonly IGoldTypeCatalogService _goldTypes;
+    private readonly ICraftOrderApplicationService _craftOrders;
+    private readonly ICashFundRepository _cashFunds;
+    private readonly IBankAccountRepository _bankAccounts;
+    private readonly ICustomerEditorService _customerEditor;
     private CancellationTokenSource? _loadCts;
 
     private string _searchText = string.Empty;
@@ -47,7 +54,11 @@ public sealed class ProductionViewModel : ObservableObject
         IProductionPrintDataService printData,
         ICurrentSessionAccessor sessionAccessor,
         IExternalWorkerEditorService externalWorkerEditor,
-        IGoldTypeCatalogService goldTypes)
+        IGoldTypeCatalogService goldTypes,
+        ICraftOrderApplicationService craftOrders,
+        ICashFundRepository cashFunds,
+        IBankAccountRepository bankAccounts,
+        ICustomerEditorService customerEditor)
     {
         _queries = queries;
         _application = application;
@@ -56,6 +67,10 @@ public sealed class ProductionViewModel : ObservableObject
         _sessionAccessor = sessionAccessor;
         _externalWorkerEditor = externalWorkerEditor;
         _goldTypes = goldTypes;
+        _craftOrders = craftOrders;
+        _cashFunds = cashFunds;
+        _bankAccounts = bankAccounts;
+        _customerEditor = customerEditor;
 
         var today = DateTime.Today;
         _fromDate = new DateTime(today.Year, today.Month, 1);
@@ -68,8 +83,8 @@ public sealed class ProductionViewModel : ObservableObject
         StatusFilterOptions.Add("Hủy");
 
         SourceFilterOptions.Add("Tất cả nguồn");
-        SourceFilterOptions.Add("Nhập kho");
-        SourceFilterOptions.Add("Theo đơn bán");
+        SourceFilterOptions.Add("Chế tác nhập kho");
+        SourceFilterOptions.Add("Chế tác theo đơn");
 
         ExecutionFilterOptions.Add("Tất cả hình thức");
         ExecutionFilterOptions.Add("Nội bộ");
@@ -276,8 +291,8 @@ public sealed class ProductionViewModel : ObservableObject
         };
         string? source = SelectedSourceFilter switch
         {
-            "Nhập kho" => ProductionOrderSources.Stock,
-            "Theo đơn bán" => ProductionOrderSources.SalesOrder,
+            "Chế tác nhập kho" => ProductionOrderSources.Stock,
+            "Chế tác theo đơn" => ProductionOrderSources.SalesOrder,
             _ => null
         };
         string? execution = SelectedExecutionFilter switch
@@ -313,7 +328,11 @@ public sealed class ProductionViewModel : ObservableObject
                     _sessionAccessor,
                     _externalWorkerEditor,
                     _goldTypes,
-                    branchId)
+                    branchId,
+                    _craftOrders,
+                    _cashFunds,
+                    _bankAccounts,
+                    _customerEditor)
             };
             dialog.ShowDialog();
             await LoadAsync();
@@ -344,7 +363,11 @@ public sealed class ProductionViewModel : ObservableObject
                     _sessionAccessor,
                     _externalWorkerEditor,
                     _goldTypes,
-                    branchId)
+                    branchId,
+                    _craftOrders,
+                    _cashFunds,
+                    _bankAccounts,
+                    _customerEditor)
             };
             dialog.ShowDialog();
             await LoadAsync();
@@ -400,8 +423,8 @@ public sealed class ProductionOrderRowViewModel
         StatusDisplay = ProductionOrderStatuses.ToListDisplay(item.StatusCode);
         SourceDisplay = item.OrderSource switch
         {
-            ProductionOrderSources.Stock => "Nhập kho",
-            ProductionOrderSources.SalesOrder => "Theo đơn bán",
+            ProductionOrderSources.Stock => "Chế tác nhập kho",
+            ProductionOrderSources.SalesOrder => "Chế tác theo đơn",
             _ => item.OrderSource
         };
         ExecutionDisplay = item.ExecutionType switch

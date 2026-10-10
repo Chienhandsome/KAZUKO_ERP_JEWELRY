@@ -278,18 +278,16 @@ public sealed class PriceBoardDialogViewModel : ObservableObject
         {
             var buyChi = GoldUnitConverter.ConvertToChi(result.BuyPrice, _unitCode);
             var sellChi = GoldUnitConverter.ConvertToChi(result.SellPrice, _unitCode);
-            var issueChi = GoldUnitConverter.ConvertToChi(result.IssuePrice, _unitCode);
             await _goldTypes.CreateAsync(
                 new GoldTypeUpsertRequest(
                     result.Code,
                     result.Name,
                     result.PurityRate,
                     buyChi,
-                    sellChi,
-                    issueChi),
+                    sellChi),
                 session);
             await LoadAsync();
-            StatusMessage = $"Đã thêm loại vàng {result.Code} (giá lẻ + giá kho + NVL).";
+            StatusMessage = $"Đã thêm loại vàng {result.Code} và giá mua/bán lẻ.";
         }
         catch (Exception ex)
         {

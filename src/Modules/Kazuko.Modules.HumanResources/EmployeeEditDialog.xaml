@@ -164,10 +164,7 @@
                                     Background="{DynamicResource SurfaceBrush}"
                                     Foreground="{DynamicResource TextPrimaryBrush}"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Cursor="Hand" />
-                            <TextBlock Text="Ảnh được copy vào thư mục ứng dụng; xóa file gốc vẫn xem được."
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       FontSize="{DynamicResource FontSize.Caption}"
-                                       TextWrapping="Wrap" Margin="0,8,0,0" />
+
                         </StackPanel>
                     </Grid>
 

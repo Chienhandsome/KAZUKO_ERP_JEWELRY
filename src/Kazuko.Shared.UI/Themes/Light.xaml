@@ -5,7 +5,7 @@
     <Color x:Key="Color.AppBackground">#FFF7F3EC</Color>
     <Color x:Key="Color.Surface">#FFFFFFFF</Color>
     <Color x:Key="Color.SurfaceAlt">#FFFFF8F1</Color>
-    <Color x:Key="Color.TextPrimary">#FF292520</Color>
+    <Color x:Key="Color.TextPrimary">#FF000000</Color>
     <Color x:Key="Color.TextSecondary">#FF746E67</Color>
     <Color x:Key="Color.Border">#FFE7DED4</Color>
     <Color x:Key="Color.Success">#FF268A56</Color>

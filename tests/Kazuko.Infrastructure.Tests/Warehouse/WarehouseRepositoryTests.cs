@@ -261,7 +261,7 @@ public sealed class WarehouseRepositoryTests : IDisposable
 
         var session = await ResolveSessionAsync();
         var items = await _repository.SearchFinishedProductStockAsync(
-            new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty),
+            new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty, string.Empty),
             session);
 
         Assert.NotNull(items);
@@ -294,7 +294,7 @@ public sealed class WarehouseRepositoryTests : IDisposable
 
         var session = await ResolveSessionAsync();
         var items = await _repository.SearchSaleItemStockAsync(
-            new SaleItemSearchFilter(string.Empty, string.Empty, string.Empty),
+            new SaleItemSearchFilter(string.Empty, string.Empty, string.Empty, string.Empty),
             session);
 
         Assert.NotNull(items);
@@ -321,7 +321,7 @@ public sealed class WarehouseRepositoryTests : IDisposable
 
         var session = await ResolveSessionAsync();
         var all = await _repository.SearchFinishedProductStockAsync(
-            new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty),
+            new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty, string.Empty),
             session);
         if (all.Count == 0)
             return;
@@ -331,7 +331,7 @@ public sealed class WarehouseRepositoryTests : IDisposable
             return;
 
         var filtered = await _repository.SearchFinishedProductStockAsync(
-            new FinishedProductSearchFilter(string.Empty, firstPurity, string.Empty),
+            new FinishedProductSearchFilter(string.Empty, string.Empty, firstPurity, string.Empty),
             session);
         Assert.All(filtered, item =>
             Assert.Contains(firstPurity, item.GoldPurity, StringComparison.OrdinalIgnoreCase));

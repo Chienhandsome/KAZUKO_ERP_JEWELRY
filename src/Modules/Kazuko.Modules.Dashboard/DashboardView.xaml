@@ -80,7 +80,7 @@
                 <ItemsControl Grid.Row="1" Margin="14,0" ItemsSource="{Binding HomeTiles}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <primitives:UniformGrid Columns="4" />
+                            <primitives:UniformGrid Rows="2" Columns="5" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>

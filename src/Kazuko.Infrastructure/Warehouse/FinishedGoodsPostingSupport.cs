@@ -38,8 +38,13 @@ public static class FinishedGoodsPostingSupport
         if (finishedProductIds.Count == 0)
             throw new InvalidOperationException("Phiếu xuất phải có ít nhất một thành phẩm.");
 
-        await EnsureSourceLocationAsync(connection, transaction, companyId, session.BranchId,
-            sourceLocationId, cancellationToken);
+        // Dialog Kho chỉ xuất từ SALES_FLOOR; checkout bán lẻ vẫn được lấy từ TP hoặc BH.
+        await EnsureSourceLocationAsync(
+            connection, transaction, companyId, session.BranchId, sourceLocationId,
+            retailOnly
+                ? ["FINISHED_GOODS", "SALES_FLOOR"]
+                : ["SALES_FLOOR"],
+            cancellationToken);
 
         var products = new List<IssueProduct>(finishedProductIds.Count);
         foreach (var productId in finishedProductIds)
@@ -174,22 +179,25 @@ public static class FinishedGoodsPostingSupport
 
     private static async Task EnsureSourceLocationAsync(
         FbConnection connection, FbTransaction transaction, long companyId, long branchId,
-        long locationId, CancellationToken cancellationToken)
+        long locationId, IReadOnlyList<string> allowedScopes, CancellationToken cancellationToken)
     {
-        // Retail checkout and warehouse FG issue both allow FINISHED_GOODS | SALES_FLOOR
-        // (aligned with SalesCheckoutPostingSupport.EnsureSalesLocationAsync).
-        await using var command = new FbCommand("""
+        if (allowedScopes.Count == 0)
+            throw new InvalidOperationException("Chưa cấu hình phạm vi kho xuất thành phẩm.");
+
+        var scopeList = string.Join(", ", allowedScopes.Select(s => $"'{s.Replace("'", "''", StringComparison.Ordinal)}'"));
+        await using var command = new FbCommand($"""
             SELECT COUNT(*)
             FROM LOCATIONS L
             JOIN BRANCHES B ON B.ID = L.BRANCH_ID AND B.COMPANY_ID = @CID
             WHERE L.ID = @ID AND L.BRANCH_ID = @BID AND L.IS_ACTIVE = TRUE
-              AND L.INVENTORY_SCOPE IN ('FINISHED_GOODS', 'SALES_FLOOR')
+              AND L.INVENTORY_SCOPE IN ({scopeList})
             """, connection, transaction);
         command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
         command.Parameters.Add("@ID", FbDbType.BigInt).Value = locationId;
         command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
         if (Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) != 1)
-            throw new InvalidOperationException("Kho xuất thành phẩm không hợp lệ hoặc không thuộc chi nhánh hiện tại.");
+            throw new InvalidOperationException(
+                "Kho xuất thành phẩm không hợp lệ. Xuất theo đơn từ màn Kho chỉ cho phép từ Kho bán hàng.");
     }
 
     private sealed record IssueProduct(

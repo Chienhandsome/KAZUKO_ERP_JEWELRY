@@ -29,7 +29,8 @@ public sealed record GoldTypeDetail(
     decimal BuyPricePerChi,
     decimal SellPricePerChi,
     long WarehouseGoldPriceId,
-    decimal IssuePricePerChi,
+    decimal WarehouseBuyPricePerChi,
+    decimal WarehouseSellPricePerChi,
     long MaterialId);
 
 public sealed record GoldTypeUpsertRequest(
@@ -38,7 +39,6 @@ public sealed record GoldTypeUpsertRequest(
     decimal PurityRate,
     decimal BuyPricePerChi,
     decimal SellPricePerChi,
-    decimal IssuePricePerChi,
     int? DisplayOrder = null);
 
 /// <summary>Suy ra tỷ lệ tuổi từ mã loại vàng (750 → 0.750, 9999 → 0.9999).</summary>
@@ -85,8 +85,6 @@ public static class GoldTypeCatalogValidator
             errors.Add("Giá mua bán lẻ / chỉ phải lớn hơn 0.");
         if (request.SellPricePerChi <= 0)
             errors.Add("Giá bán lẻ / chỉ phải lớn hơn 0.");
-        if (request.IssuePricePerChi <= 0)
-            errors.Add("Giá kho / chỉ phải lớn hơn 0.");
         return errors;
     }
 }

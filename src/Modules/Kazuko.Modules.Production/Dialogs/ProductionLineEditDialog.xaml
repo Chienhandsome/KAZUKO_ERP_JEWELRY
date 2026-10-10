@@ -32,7 +32,7 @@
                        FontSize="{DynamicResource FontSize.Heading}"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryBrush}" />
-            <TextBlock Text="Nhập thông tin mẫu và đính kèm ảnh / file thiết kế."
+            <TextBlock Text="Nhập thông tin sản phẩm và đính kèm ảnh / file thiết kế."
                        Margin="0,4,0,0"
                        Style="{StaticResource ProductionHintStyle}" />
             <TextBlock Text="{Binding ErrorMessage}"
@@ -43,7 +43,7 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <Border Style="{StaticResource ProductionCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Thông tin mẫu" Style="{StaticResource ProductionSectionHeaderStyle}" />
+                    <TextBlock Text="Thông tin sản phẩm" Style="{StaticResource ProductionSectionHeaderStyle}" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -51,11 +51,11 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="Mã mẫu" Style="{StaticResource ProductionFieldLabelStyle}" />
+                            <TextBlock Text="Mã sản phẩm" Style="{StaticResource ProductionFieldLabelStyle}" />
                             <TextBox Text="{Binding ModelCode, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource ProductionDialogFieldStyle}"
                                      IsEnabled="{Binding IsEditable}" />
-                            <TextBlock Text="Tên mẫu *" Style="{StaticResource ProductionFieldLabelStyle}" />
+                            <TextBlock Text="Tên sản phẩm *" Style="{StaticResource ProductionFieldLabelStyle}" />
                             <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource ProductionDialogFieldStyle}"
                                      IsEnabled="{Binding IsEditable}" />
@@ -63,11 +63,25 @@
                             <TextBox Text="{Binding PlannedQuantityText, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource ProductionDialogFieldStyle}"
                                      IsEnabled="{Binding IsEditable}" />
+                            <TextBlock Text="TL vàng ước tính (chỉ) *" Style="{StaticResource ProductionFieldLabelStyle}" />
+                            <TextBox Text="{Binding EstimatedWeightChiText, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource ProductionDialogFieldStyle}"
+                                     IsEnabled="{Binding IsEditable}" />
+                            <TextBlock Text="Giá vàng / chỉ *" Style="{StaticResource ProductionFieldLabelStyle}" />
+                            <TextBox Text="{Binding GoldUnitPricePerChiText, UpdateSourceTrigger=LostFocus}"
+                                     Style="{StaticResource ProductionDialogFieldStyle}"
+                                     IsEnabled="{Binding IsEditable}"
+                                     LostFocus="MoneyField_OnLostFocus" />
                             <TextBlock Text="Tiền công mỗi món" Style="{StaticResource ProductionFieldLabelStyle}" />
                             <TextBox Text="{Binding LaborCostPerUnitText, UpdateSourceTrigger=LostFocus}"
                                      Style="{StaticResource ProductionDialogFieldStyle}"
                                      IsEnabled="{Binding IsEditable}"
-                                     LostFocus="LaborCostPerUnitTextBox_OnLostFocus" />
+                                     LostFocus="MoneyField_OnLostFocus" />
+                            <TextBlock Text="Đá mỗi món" Style="{StaticResource ProductionFieldLabelStyle}" />
+                            <TextBox Text="{Binding StoneAmountPerUnitVndText, UpdateSourceTrigger=LostFocus}"
+                                     Style="{StaticResource ProductionDialogFieldStyle}"
+                                     IsEnabled="{Binding IsEditable}"
+                                     LostFocus="MoneyField_OnLostFocus" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Loại vàng (kho NVL) *" Style="{StaticResource ProductionFieldLabelStyle}" />
@@ -94,6 +108,10 @@
                             <TextBlock Text="{Binding SelectedGoldStockHint, Mode=OneWay}"
                                        Style="{StaticResource ProductionHintStyle}"
                                        Margin="0,0,0,10"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding QuotePreviewText, Mode=OneWay}"
+                                       Style="{StaticResource ProductionHintStyle}"
+                                       FontWeight="SemiBold"
                                        TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>

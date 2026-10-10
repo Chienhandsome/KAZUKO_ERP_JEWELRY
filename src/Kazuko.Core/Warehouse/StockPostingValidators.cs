@@ -206,7 +206,9 @@ public static class FinishedGoodsIssueValidator
     public static bool IsConfirmedSalesOrderStatus(string? statusCode)
     {
         var status = (statusCode ?? string.Empty).Trim().ToUpperInvariant();
-        return status is "CONFIRMED" or "DEPOSITED" or "IN_PRODUCTION" or "READY" or "PARTIALLY_DELIVERED";
+        // COMPLETED: đã tất toán tiền ở Bán hàng nhưng chưa xuất kho (thu trước, giao sau).
+        return status is "CONFIRMED" or "DEPOSITED" or "IN_PRODUCTION" or "READY"
+            or "PARTIALLY_DELIVERED" or "COMPLETED";
     }
 
     public static bool RejectManualFinishedReceipt(string documentType, string? purposeCode, long? productionOrderId)

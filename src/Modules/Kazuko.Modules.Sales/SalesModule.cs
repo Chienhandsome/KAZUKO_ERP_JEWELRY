@@ -4,7 +4,9 @@ using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Printing;
+using Kazuko.Core.Production;
 using Kazuko.Core.Sales;
+using Kazuko.Core.Warehouse;
 using Kazuko.Modules.Sales.Services;
 
 namespace Kazuko.Modules.Sales;
@@ -59,7 +61,10 @@ public sealed class SalesModule : IKazukoModule
             GetRequiredService<ISalesPaymentDialogService>(services),
             GetRequiredService<ICustomerEditorService>(services),
             GetRequiredService<ISalesPriceOverrideDialogService>(services),
-            GetRequiredService<ISalesReceiptPresenter>(services));
+            GetRequiredService<ISalesReceiptPresenter>(services),
+            GetRequiredService<ICraftOrderApplicationService>(services),
+            GetRequiredService<IWarehouseRepository>(services),
+            GetRequiredService<IProductionOrderEditorService>(services));
 
     private static T GetRequiredService<T>(IServiceProvider services) where T : class =>
         services.GetService(typeof(T)) as T

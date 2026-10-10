@@ -10,9 +10,6 @@
         ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}">
   <Window.Resources>
-    <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
-    <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
-    <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
     <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
 
     <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
@@ -171,7 +168,7 @@
                        FontSize="{DynamicResource FontSize.Heading}"
                        FontWeight="Bold"
                        Foreground="{DynamicResource PrimaryBrush}" />
-            <TextBlock Text="Mua từ NCC hoặc thu mua vàng cũ. Khi ghi sổ sẽ tăng tồn NVL, tạo phiếu chi (nếu đã trả) và công nợ (nếu còn nợ)."
+            <TextBlock Text="Nhập mua nguyên vật liệu từ nhà cung cấp. Khi ghi sổ sẽ tăng tồn NVL, tạo phiếu chi (nếu đã trả) và công nợ (nếu còn nợ)."
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        TextWrapping="Wrap"
                        Margin="0,4,0,0" />
@@ -202,27 +199,10 @@
           </Border>
         </Grid>
 
-        <!-- Nguồn & kho -->
+        <!-- Nhà cung cấp & kho -->
         <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
           <StackPanel>
             <TextBlock Text="Thông tin phiếu" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,12" />
-
-            <TextBlock Text="Nguồn nhập" Style="{StaticResource FieldLabelStyle}" />
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-              <RadioButton Content="Nhà cung cấp"
-                           GroupName="ReceiptSource"
-                           IsChecked="{Binding IsSupplierSource}"
-                           Margin="0,0,20,0"
-                           MinHeight="32"
-                           VerticalContentAlignment="Center"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-              <RadioButton Content="Thu mua vàng cũ"
-                           GroupName="ReceiptSource"
-                           IsChecked="{Binding IsOldGoldSource}"
-                           MinHeight="32"
-                           VerticalContentAlignment="Center"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-            </StackPanel>
 
             <Grid>
               <Grid.ColumnDefinitions>
@@ -232,27 +212,23 @@
               </Grid.ColumnDefinitions>
 
               <StackPanel>
-                <TextBlock Text="Nhà cung cấp *"
-                           Style="{StaticResource FieldLabelStyle}"
-                           Visibility="{Binding IsSupplierSource, Converter={StaticResource BoolToVis}}" />
-                <TextBlock Text="Khách hàng bán vàng cũ *"
-                           Style="{StaticResource FieldLabelStyle}"
-                           Visibility="{Binding IsOldGoldSource, Converter={StaticResource BoolToVis}}" />
+                <TextBlock Text="Nhà cung cấp *" Style="{StaticResource FieldLabelStyle}" />
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                   </Grid.ColumnDefinitions>
-                  <ComboBox x:Name="PartnerCombo"
-                            Style="{StaticResource DialogComboStyle}"
+                  <ComboBox Style="{StaticResource DialogComboStyle}"
+                            ItemsSource="{Binding Suppliers}"
+                            SelectedItem="{Binding SelectedSupplier}"
                             DisplayMemberPath="Name" />
                   <Button Grid.Column="2"
                           Content="Tạo mới"
                           Style="{DynamicResource NavButtonStyle}"
                           MinHeight="40"
                           MinWidth="96"
-                          x:Name="CreatePartnerButton"
+                          Command="{Binding CreateSupplierCommand}"
                           ToolTip="Tạo nhanh đối tác khi chưa có trong danh mục" />
                 </Grid>
               </StackPanel>
@@ -325,7 +301,7 @@
                           Style="{DynamicResource NavButtonStyle}"
                           MinHeight="40"
                           MinWidth="120"
-                          ToolTip="Thêm loại vàng mới vào danh mục (giá lẻ + giá kho + NVL)" />
+                          ToolTip="Thêm loại vàng mới vào danh mục và giá mua/bán lẻ" />
                 </Grid>
                 <TextBox Grid.Row="1" Grid.Column="2"
                          Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged}"

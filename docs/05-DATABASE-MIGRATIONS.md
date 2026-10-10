@@ -435,6 +435,74 @@ powershell -File "database\tools\Invoke-KazukoMigration.ps1" `
   - Backfill từ mã giá bán lẻ / giá kho / NVL vàng; tạo đủ cặp giá và NVL `GOLD_<code>` còn thiếu.
   - Đổi tên demo NVL “Vàng cũ …” → “Vàng `<code>`”.
   - Seed permission `priceboard.goldtype.write` cho `ADMIN`/`MANAGER`.
-- **Quy tắc ứng dụng:** tạo loại vàng mới bắt buộc nhập giá bán lẻ (mua/bán) và giá kho (`ISSUE_PRICE_PER_CHI`) > 0 trong cùng transaction.
+- **Quy tắc tại version 52:** tạo loại vàng mới từng bắt buộc nhập giá bán lẻ và một giá kho. Từ version 60, UI bán lẻ chỉ nhập giá mua/bán lẻ và tự khởi tạo hai giá mua/bán trong kho; xem mục 23.
 - **Chạy trên bản copy đã có version 51** qua `Invoke-KazukoMigration.ps1`, rồi chạy verify.
+
+---
+
+## 21. Migration Version 58: `0058__craft_custom_order.sql`
+
+- **Phiên bản:** `58` — đơn đặt chế tác (`CUSTOM`) + sequence/permission thu cọc.
+- **Phụ thuộc:** version 57 (`PRINT_TEMPLATES`) phải đã áp dụng. Xác nhận `SELECT MAX(VERSION_NO) FROM SCHEMA_MIGRATIONS` trước khi chạy.
+- **Tệp nguồn:** `database/migrations/0058__craft_custom_order.sql`.
+- **Verification:** `database/verification/verify_craft_custom_order.sql`.
+- **Nội dung chính:**
+  - Seed `DOCUMENT_SEQUENCES.DOCUMENT_TYPE = 'CRAFT_ORDER'` theo chi nhánh/năm.
+  - Index hỗ trợ picker: `(COMPANY_ID, BRANCH_ID, ORDER_TYPE, STATUS_CODE)` trên `SALES_ORDERS` (nếu chưa có).
+  - Permission `sales.craft_order.create`; map `ADMIN` / `MANAGER` / `SALE`.
+- **Nghiệp vụ:** `docs/10-CRAFT-CUSTOM-ORDER.md`.
+- **Áp dụng (sau backup, đóng app):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0058__craft_custom_order.sql"
+  ```
+- **Rollback production:** restore `.fbk` trước migration 58.
+
+---
+
+## 22. Migration Version 59: `0059__production_line_quote_fields.sql`
+
+- **Phiên bản:** `59` — trường báo giá đủ trên dòng mẫu SX.
+- **Phụ thuộc:** version 58.
+- **Tệp nguồn:** `database/migrations/0059__production_line_quote_fields.sql`.
+- **Verification:** `database/verification/verify_craft_line_quote_fields.sql`.
+- **Nội dung:** thêm `ESTIMATED_WEIGHT_CHI`, `GOLD_UNIT_PRICE_PER_CHI`, `STONE_AMOUNT_PER_UNIT_VND` (DEFAULT 0) vào `PRODUCTION_ORDER_LINES`.
+- **Nghiệp vụ:** `docs/10-CRAFT-CUSTOM-ORDER.md` §3–§5.
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0059__production_line_quote_fields.sql"
+  ```
+
+---
+
+## 23. Migration Version 60: `0060__warehouse_buy_sell_prices.sql`
+
+- **Phiên bản:** `60` — tách giá mua và giá bán trong kho.
+- **Phụ thuộc:** version 59.
+- **Tệp nguồn:** `database/migrations/0060__warehouse_buy_sell_prices.sql`.
+- **Verification:** `database/verification/verify_warehouse_buy_sell_prices.sql`.
+- **Artifact SHA-256 (đã chạy trên bản copy verify):**
+  `D1E5A80FF73992643879A272C7CFD1924DF251BDB2AF6FAE7C520D585CBF9512`.
+- **Nội dung:**
+  - Thêm `BUY_PRICE_PER_CHI`, `SELL_PRICE_PER_CHI` vào `WAREHOUSE_GOLD_PRICES`.
+  - Thêm snapshot giá mua/bán cũ và mới vào `WAREHOUSE_GOLD_PRICE_HISTORY`.
+  - Backfill hai giá mới từ `ISSUE_PRICE_PER_CHI` để không mất giá kho hiện có.
+- **Nghiệp vụ:** bảng giá bán lẻ không nhập/hiện giá kho; bảng giá kho sửa độc lập giá mua và giá bán trong kho. `ISSUE_PRICE_PER_CHI` chỉ còn là cột tương thích tạm thời cho flow cũ.
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0060__warehouse_buy_sell_prices.sql"
+  ```
+
+---
+
+## 24. Migration Version 61: `0061__finished_product_groups.sql`
+
+- **Phiên bản:** `61` — danh mục nhóm thành phẩm.
+- **Phụ thuộc:** version 60.
+- **Tệp nguồn:** `database/migrations/0061__finished_product_groups.sql`.
+- **Verification:** `database/verification/verify_finished_product_groups.sql`.
+- **Nội dung:** tạo `FINISHED_PRODUCT_GROUPS`, thêm `FINISHED_PRODUCTS.FINISHED_PRODUCT_GROUP_ID`, seed bốn nhóm `Lắc tay`, `Bông tai`, `Nhẫn`, `Dây chuyền`, backfill dữ liệu hiện có và tự phân loại thành phẩm mới theo tên khi chưa chỉ định nhóm.
+- **Áp dụng:**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0061__finished_product_groups.sql"
+  ```
 

@@ -60,19 +60,19 @@ namespace FastReport
       <Column Name="LADE" DataType="System.Int32"/>
     </TableDataSource>
   </Dictionary>
-  <ReportPage Name="Page1" PaperWidth="148.1" PaperHeight="210.1" LeftMargin="10" TopMargin="8" RightMargin="10" BottomMargin="8">
-    <ReportTitleBand Name="ReportTitle1" Width="522.02" Height="217.35">
-      <TextObject Name="Text1" Top="94.5" Width="519.75" Height="37.8" Text="GIẤY ĐẢM BẢO VÀNG" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 16pt, style=Bold"/>
-      <TableObject Name="Table3" Top="189" Width="516.62" Height="28.35">
-        <TableColumn Name="Column7" Width="33.04"/>
-        <TableColumn Name="Column24" Width="56.7"/>
-        <TableColumn Name="Column8" Width="107.94"/>
-        <TableColumn Name="Column26" Width="37.8"/>
-        <TableColumn Name="Column9" Width="51.23"/>
-        <TableColumn Name="Column10" Width="40.91"/>
-        <TableColumn Name="Column20" Width="56.7"/>
-        <TableColumn Name="Column22" Width="56.7"/>
-        <TableColumn Name="Column11" Width="75.6"/>
+  <ReportPage Name="Page1" PaperWidth="148" PaperHeight="210" LeftMargin="14" TopMargin="10" RightMargin="16" BottomMargin="12">
+    <ReportTitleBand Name="ReportTitle1" Width="490" Height="145">
+      <TextObject Name="Text1" Top="0" Width="486" Height="28.35" Text="GIẤY ĐẢM BẢO VÀNG" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 14pt, style=Bold"/>
+      <TableObject Name="Table3" Top="116.55" Width="486" Height="28.35">
+        <TableColumn Name="Column7" Width="30"/>
+        <TableColumn Name="Column24" Width="54"/>
+        <TableColumn Name="Column8" Width="96"/>
+        <TableColumn Name="Column26" Width="36"/>
+        <TableColumn Name="Column9" Width="46"/>
+        <TableColumn Name="Column10" Width="40"/>
+        <TableColumn Name="Column20" Width="52"/>
+        <TableColumn Name="Column22" Width="52"/>
+        <TableColumn Name="Column11" Width="80"/>
         <TableRow Name="Row5" Height="28.35">
           <TableCell Name="Cell32" Border.Lines="All" Border.Color="Gray" Text="TT" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
           <TableCell Name="Cell49" Border.Lines="All" Border.Color="Gray" Text="Mã vạch" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
@@ -85,26 +85,26 @@ namespace FastReport
           <TableCell Name="Cell36" Border.Lines="All" Border.Color="Gray" Text="Thành tiền" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
         </TableRow>
       </TableObject>
-      <TextObject Name="Text43" Top="132.3" Width="122.85" Height="18.9" Text="Ngày: [Ngày]" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text3" Top="151.2" Width="85.05" Height="18.9" Text="Khách hàng:" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text44" Left="85.05" Top="151.2" Width="245.7" Height="18.9" Text="[Tên khách]" Font="Tahoma, 10pt"/>
-      <BarcodeObject Name="Barcode1" Left="384.45" Top="132.3" Width="126.25" Height="26.46" AutoSize="false" Expression="[Số phiếu]" Text="PX000001" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
-      <TextObject Name="Text52" Left="189" Top="132.3" Width="141.75" Height="18.9" Text="Số: [Số phiếu]" HorzAlign="Right" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text63" Top="170.1" Width="85.05" Height="18.9" Text="Nhân viên:" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text64" Left="85.05" Top="170.1" Width="245.7" Height="18.9" Text="[Người in]" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text66" Left="189" Top="151.2" Width="141.75" Height="18.9" Text="In lúc: [Date]" Format="Custom" Format.Format="HH:mm" HorzAlign="Right" Font="Tahoma, 10pt"/>
+      <TextObject Name="Text43" Top="34" Width="122.85" Height="18.9" Text="Ngày: [Ngày]" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 9pt"/>
+      <TextObject Name="Text3" Top="53" Width="85.05" Height="18.9" Text="Khách hàng:" Font="Tahoma, 9pt"/>
+      <TextObject Name="Text44" Left="85.05" Top="53" Width="230" Height="18.9" Text="[Tên khách]" Font="Tahoma, 9pt"/>
+      <BarcodeObject Name="Barcode1" Left="360" Top="34" Width="120" Height="26.46" AutoSize="false" Expression="[Số phiếu]" Text="PX000001" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
+      <TextObject Name="Text52" Left="180" Top="34" Width="140" Height="18.9" Text="Số: [Số phiếu]" HorzAlign="Right" Font="Tahoma, 9pt"/>
+      <TextObject Name="Text63" Top="72" Width="85.05" Height="18.9" Text="Nhân viên:" Font="Tahoma, 9pt"/>
+      <TextObject Name="Text64" Left="85.05" Top="72" Width="220" Height="18.9" Text="[Người in]" Font="Tahoma, 9pt"/>
+      <TextObject Name="Text66" Left="180" Top="53" Width="140" Height="18.9" Text="In lúc: [Date]" Format="Custom" Format.Format="HH:mm" HorzAlign="Right" Font="Tahoma, 9pt"/>
     </ReportTitleBand>
-    <DataBand Name="Data1" Top="221.56" Width="522.02" Height="18.9" CanGrow="true" DataSource="DataSet">
-      <TableObject Name="Table2" Width="516.6" Height="18.9">
-        <TableColumn Name="Column4" Width="33.06"/>
-        <TableColumn Name="Column25" Width="56.7"/>
-        <TableColumn Name="Column5" Width="107.92"/>
-        <TableColumn Name="Column27" Width="37.8"/>
-        <TableColumn Name="Column6" Width="51.21"/>
-        <TableColumn Name="Column16" Width="40.91"/>
-        <TableColumn Name="Column21" Width="56.7"/>
-        <TableColumn Name="Column23" Width="56.7"/>
-        <TableColumn Name="Column17" Width="75.6"/>
+    <DataBand Name="Data1" Top="149.21" Width="490" Height="18.9" CanGrow="true" DataSource="DataSet">
+      <TableObject Name="Table2" Width="486" Height="18.9">
+        <TableColumn Name="Column4" Width="30"/>
+        <TableColumn Name="Column25" Width="54"/>
+        <TableColumn Name="Column5" Width="96"/>
+        <TableColumn Name="Column27" Width="36"/>
+        <TableColumn Name="Column6" Width="46"/>
+        <TableColumn Name="Column16" Width="40"/>
+        <TableColumn Name="Column21" Width="52"/>
+        <TableColumn Name="Column23" Width="52"/>
+        <TableColumn Name="Column17" Width="80"/>
         <TableRow Name="Row4" MinHeight="18.9" AutoSize="true">
           <TableCell Name="Cell29" Border.Lines="All" Border.Color="Gray" Text="[Row#]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
           <TableCell Name="Cell50" Border.Lines="All" Border.Color="Gray" Text="[DataSet.MAVACH]" VertAlign="Center" Font="Arial, 8pt"/>
@@ -118,11 +118,11 @@ namespace FastReport
         </TableRow>
       </TableObject>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="244.67" Width="522.02" Height="207.9" CanGrow="true" CanBreak="true">
-      <SubreportObject Name="Subreport1" Top="9.45" Width="311.85" Height="94.5" ReportPage="Page2" PrintOnParent="true"/>
-      <TableObject Name="Table1" Left="328.3" Top="9.45" Width="188.98" Height="94.5">
-        <TableColumn Name="Column28" Width="80.32"/>
-        <TableColumn Name="Column29" Width="108.66"/>
+    <ReportSummaryBand Name="ReportSummary1" Top="172.32" Width="490" Height="280" CanGrow="true" CanBreak="false">
+      <SubreportObject Name="Subreport1" Top="4" Width="290" Height="90" ReportPage="Page2" PrintOnParent="true"/>
+      <TableObject Name="Table1" Left="298" Top="4" Width="188" Height="90">
+        <TableColumn Name="Column28" Width="78"/>
+        <TableColumn Name="Column29" Width="110"/>
         <TableRow Name="Row7">
           <TableCell Name="Cell58" Border.Lines="All" Border.Color="Gray" Text="Vàng mới" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
           <TableCell Name="Cell59" Border.Lines="All" Border.Color="Gray" Text="[Tiền vàng mới]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
@@ -144,22 +144,19 @@ namespace FastReport
           <TableCell Name="Cell76" Border.Lines="All" Border.Color="Gray" Text="[Tổng cộng]" Format="Custom" Format.Format="n0" HorzAlign="Right" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
         </TableRow>
       </TableObject>
-      <TextObject Name="Text2" Top="103.95" Width="519.75" Height="18.9" Text="[Tổng cộng bằng chữ]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold, Italic"/>
+      <TextObject Name="Text2" Top="98" Width="486" Height="16" Text="[Tổng cộng bằng chữ]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold, Italic"/>
+      <BarcodeObject Name="Barcode2" Top="118" Width="110" Height="22" AutoSize="false" Expression="[Số phiếu]" Text="PX000001" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
+      <TextObject Name="Text57" Left="118" Top="118" Width="70" Height="16" Text="Vàng mới" Font="Tahoma, 9pt, style=Underline"/>
+      <SubreportObject Name="Subreport2" Left="185" Top="118" Width="300" Height="56" ReportPage="Page3" PrintOnParent="true"/>
+      <TextObject Name="Text54" Top="178" Width="45" Height="16" Text="Ngày:" Font="Tahoma, 8pt"/>
+      <TextObject Name="Text55" Left="45" Top="178" Width="100" Height="16" Text="[Ngày]" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 8pt"/>
+      <TextObject Name="Text56" Top="194" Width="45" Height="16" Text="Số:" Font="Tahoma, 8pt"/>
+      <TextObject Name="Text60" Left="45" Top="194" Width="100" Height="16" Text="[Số phiếu]" Font="Tahoma, 8pt"/>
+      <TextObject Name="Text61" Top="210" Width="45" Height="16" Text="N viên:" Font="Tahoma, 8pt"/>
+      <TextObject Name="Text62" Left="45" Top="210" Width="100" Height="16" Text="[Người in]" Font="Tahoma, 8pt"/>
+      <TextObject Name="Text58" Left="118" Top="178" Width="70" Height="16" Text="Vàng cũ:" Font="Tahoma, 9pt, style=Underline"/>
+      <SubreportObject Name="Subreport3" Left="185" Top="178" Width="300" Height="56" ReportPage="Page4" PrintOnParent="true"/>
     </ReportSummaryBand>
-    <PageFooterBand Name="PageFooter1" Top="456.78" Width="522.02" Height="198.45" CanGrow="true">
-      <TextObject Name="Text59" Top="160.65" Width="198.45" Height="37.8" Text="[Tổng cộng bằng chữ]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold, Italic"/>
-      <SubreportObject Name="Subreport3" Left="207.9" Top="113.4" Width="311.85" Height="66.15" ReportPage="Page4" PrintOnParent="true"/>
-      <TextObject Name="Text58" Left="141.75" Top="113.4" Width="85.05" Height="18.9" Text="Vàng cũ:" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt, style=Underline"/>
-      <TextObject Name="Text61" Top="94.5" Width="56.7" Height="18.9" Text="N viên:" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text62" Left="56.7" Top="94.5" Width="132.3" Height="18.9" Text="[Người in]" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text56" Top="75.6" Width="56.7" Height="18.9" Text="Số:" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text60" Left="56.7" Top="75.6" Width="132.3" Height="18.9" Text="[Số phiếu]" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text54" Top="56.7" Width="56.7" Height="18.9" Text="Ngày:" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt"/>
-      <TextObject Name="Text55" Left="56.7" Top="56.7" Width="132.3" Height="18.9" Text="[Ngày]" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt"/>
-      <SubreportObject Name="Subreport2" Left="207.9" Top="9.45" Width="311.85" Height="66.15" ReportPage="Page3" PrintOnParent="true"/>
-      <BarcodeObject Name="Barcode2" Top="9.45" Width="126.25" Height="26.46" AutoSize="false" Expression="[Số phiếu]" Text="PX000001" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
-      <TextObject Name="Text57" Left="141.75" Top="9.45" Width="85.05" Height="18.9" Text="Vàng mới" Format="Custom" Format.Format="dd/MM/yyyy" Font="Tahoma, 10pt, style=Underline"/>
-    </PageFooterBand>
   </ReportPage>
   <ReportPage Name="Page2" PaperWidth="148.1" PaperHeight="210.1">
     <DataBand Name="Data2" Top="22.02" Width="484.22" Height="18.9" DataSource="OldGold">

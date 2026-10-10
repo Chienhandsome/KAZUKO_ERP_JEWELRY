@@ -13,7 +13,8 @@ public partial class SalesReceiptPreviewDialog : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
-        viewModel.PrintViaPreviewAsync = PrintViaWebViewAsync;
+        // In bằng PrintDocument (A5 + fit margins + center) giống setting WPS — không dùng WebView2 PrintAsync.
+        viewModel.PrintViaPreviewAsync = PrintFittedAsync;
         viewModel.ReloadPdfAsync = LoadPdfAsync;
         viewModel.CloseRequested += (_, result) =>
         {
@@ -23,18 +24,10 @@ public partial class SalesReceiptPreviewDialog : Window
         Loaded += async (_, _) => await LoadPdfAsync(viewModel.PdfPath);
     }
 
-    private async Task PrintViaWebViewAsync()
+    private Task PrintFittedAsync()
     {
-        try
-        {
-            await PdfViewer.EnsureCoreWebView2Async();
-            // Hộp thoại in Edge: chọn khổ A5 ngang/dọc hoặc Fit to page.
-            PdfViewer.CoreWebView2.ShowPrintUI();
-        }
-        catch
-        {
-            Process.Start(new ProcessStartInfo(_viewModel.PdfPath) { UseShellExecute = true });
-        }
+        _viewModel.PrintFitted();
+        return Task.CompletedTask;
     }
 
     private async Task LoadPdfAsync(string pdfPath)

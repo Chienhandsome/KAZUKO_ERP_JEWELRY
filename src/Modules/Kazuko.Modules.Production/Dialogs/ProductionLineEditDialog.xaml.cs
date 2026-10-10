@@ -43,9 +43,9 @@ public partial class ProductionLineEditDialog : Window
         }
     }
 
-    private void LaborCostPerUnitTextBox_OnLostFocus(object sender, RoutedEventArgs e)
+    private void MoneyField_OnLostFocus(object sender, RoutedEventArgs e)
     {
         if (DataContext is ProductionLineEditDialogViewModel vm)
-            vm.FormatLaborCostPerUnitText();
+            vm.FormatMoneyFieldsOnLostFocus();
     }
 }

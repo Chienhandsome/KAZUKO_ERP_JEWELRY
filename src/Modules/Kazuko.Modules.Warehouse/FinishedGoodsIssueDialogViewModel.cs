@@ -121,7 +121,8 @@ public sealed class FinishedGoodsIssueDialogViewModel : ObservableObject
     {
         foreach (var location in await _warehouse.GetLocationsAsync(_session))
         {
-            if (location.InventoryScope is InventoryScopes.FinishedGoods or InventoryScopes.SalesFloor)
+            // Chỉ cho xuất bán từ Kho bán hàng; không xuất thẳng từ Kho thành phẩm.
+            if (location.InventoryScope == InventoryScopes.SalesFloor)
                 Locations.Add(location);
         }
         SourceLocation = Locations.FirstOrDefault(x => x.InventoryScope == _preferredScope)

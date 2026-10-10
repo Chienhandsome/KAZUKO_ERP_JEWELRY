@@ -46,7 +46,7 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
         await using var command = new FbCommand("""
             SELECT T.ID, T.CODE, T.NAME, T.PURITY_RATE, T.DISPLAY_ORDER, T.IS_ACTIVE,
                    G.ID, G.BUY_PRICE_PER_CHI, G.SELL_PRICE_PER_CHI,
-                   W.ID, W.ISSUE_PRICE_PER_CHI,
+                   W.ID, W.BUY_PRICE_PER_CHI, W.SELL_PRICE_PER_CHI,
                    M.ID
             FROM GOLD_TYPES T
             JOIN GOLD_PRICES G ON G.GOLD_TYPE_ID = T.ID
@@ -72,7 +72,8 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
             reader.GetDecimal(8),
             reader.GetInt64(9),
             reader.GetDecimal(10),
-            reader.GetInt64(11));
+            reader.GetDecimal(11),
+            reader.GetInt64(12));
     }
 
     public async Task<long> CreateAsync(
@@ -155,10 +156,11 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
             await using (var insertWh = new FbCommand("""
                 INSERT INTO WAREHOUSE_GOLD_PRICES
                     (COMPANY_ID, GOLD_PRICE_ID, GOLD_TYPE_CODE, GOLD_TYPE_NAME, PURITY_RATE,
-                     ISSUE_PRICE_PER_CHI, IS_ACTIVE, ROW_VERSION, UPDATED_BY, UPDATED_AT, GOLD_TYPE_ID)
+                     ISSUE_PRICE_PER_CHI, BUY_PRICE_PER_CHI, SELL_PRICE_PER_CHI,
+                     IS_ACTIVE, ROW_VERSION, UPDATED_BY, UPDATED_AT, GOLD_TYPE_ID)
                 VALUES
                     (@CID, @GID, @CODE, @NAME, @PURITY,
-                     @ISSUE, TRUE, 0, @BY, CURRENT_TIMESTAMP, @TID)
+                     @BUY, @BUY, @SELL, TRUE, 0, @BY, CURRENT_TIMESTAMP, @TID)
                 """, connection, fbTx))
             {
                 insertWh.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
@@ -166,7 +168,8 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
                 insertWh.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 insertWh.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
                 insertWh.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
-                insertWh.Parameters.Add("@ISSUE", FbDbType.Decimal).Value = request.IssuePricePerChi;
+                insertWh.Parameters.Add("@BUY", FbDbType.Decimal).Value = request.BuyPricePerChi;
+                insertWh.Parameters.Add("@SELL", FbDbType.Decimal).Value = request.SellPricePerChi;
                 insertWh.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;
                 insertWh.Parameters.Add("@TID", FbDbType.BigInt).Value = typeId;
@@ -287,7 +290,6 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
                    SET GOLD_TYPE_CODE = @CODE,
                        GOLD_TYPE_NAME = @NAME,
                        PURITY_RATE = @PURITY,
-                       ISSUE_PRICE_PER_CHI = @ISSUE,
                        ROW_VERSION = ROW_VERSION + 1,
                        UPDATED_BY = @BY,
                        UPDATED_AT = CURRENT_TIMESTAMP
@@ -297,7 +299,6 @@ public sealed class FirebirdGoldTypeCatalogService : IGoldTypeCatalogService
                 updateWh.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                 updateWh.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = name;
                 updateWh.Parameters.Add("@PURITY", FbDbType.Decimal).Value = purity;
-                updateWh.Parameters.Add("@ISSUE", FbDbType.Decimal).Value = request.IssuePricePerChi;
                 updateWh.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;
                 updateWh.Parameters.Add("@TID", FbDbType.BigInt).Value = id;

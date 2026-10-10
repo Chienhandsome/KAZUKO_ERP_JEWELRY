@@ -15,7 +15,7 @@ public sealed class ProductionValidatorTests
         };
 
         var errors = ProductionOrderDraftValidator.Validate(draft);
-        Assert.Contains(errors, e => e.Contains("đơn bán", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, e => e.Contains("đơn đặt", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class ProductionValidatorTests
         {
             Lines =
             [
-                new ProductionOrderLineDraft(null, 1, "N1", "Nhẫn", "9999", "Vàng 9999", 0, -1, null, null)
+                new ProductionOrderLineDraft(null, 1, "N1", "Nhẫn", "9999", "Vàng 9999", 0, -1, 0, 0, 0, null, null)
             ]
         };
 
@@ -229,6 +229,6 @@ public sealed class ProductionValidatorTests
             null,
             null,
             [10],
-            [new ProductionOrderLineDraft(null, 1, "N1", "Nhẫn", "9999", "Vàng 9999", 5, 100_000, null, null)],
+            [new ProductionOrderLineDraft(null, 1, "N1", "Nhẫn", "9999", "Vàng 9999", 5, 100_000, 0, 0, 0, null, null)],
             Array.Empty<ProductionAttachmentDraft>());
 }

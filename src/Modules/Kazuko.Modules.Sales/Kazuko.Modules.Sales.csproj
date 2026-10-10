@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Kazuko.Core\Kazuko.Core.csproj" />
@@ -11,6 +12,7 @@
     <PackageReference Include="FastReport.OpenSource" Version="2025.2.0" />
     <PackageReference Include="FastReport.OpenSource.Export.PdfSimple" Version="2025.2.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="..\..\Assets\icons\BAN_HANG.png">

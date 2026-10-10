@@ -215,9 +215,6 @@
                         <TextBlock Text="Tiền vàng cũ" Style="{StaticResource SalesFieldLabelStyle}" />
                         <TextBox Style="{StaticResource SalesSummaryValueStyle}"
                                  Text="{Binding OldGoldTotalText, Mode=OneWay}" />
-                        <TextBlock Text="Tổng cộng" Style="{StaticResource SalesGrandTotalLabelStyle}" />
-                        <TextBox Style="{StaticResource SalesGrandTotalValueStyle}"
-                                 Text="{Binding AmountPayableText, Mode=OneWay}" />
                     </StackPanel>
                 </DockPanel>
             </Border>

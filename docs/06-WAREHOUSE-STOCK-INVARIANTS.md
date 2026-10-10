@@ -6,8 +6,8 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 
 | Nhóm | Nhập thủ công | Tăng tồn | Xuất |
 |------|---------------|----------|------|
-| NVL (`MATERIALS`: GOLD / STONE / ACCESSORY) | Có (NCC hoặc thu mua vàng cũ) | Khi chứng từ `RECEIPT` POSTED | Có (thợ ngoài, sản xuất, điều chỉnh) |
-| Thành phẩm (`FINISHED_PRODUCTS`) | **Cấm** | Chỉ từ hoàn thành lệnh chế tác / phiếu nhập chế tác hợp lệ | Chỉ theo đơn đặt chế tác đã xác nhận |
+| NVL (`MATERIALS`: GOLD / STONE / ACCESSORY) | Có (mua từ NCC) | Khi chứng từ `RECEIPT` POSTED | Service vẫn hỗ trợ xuất; **UI Kho không còn nút Xuất NVL / Thợ ngoài** |
+| Thành phẩm (`FINISHED_PRODUCTS`) | **Cấm** thủ công ngoài luồng SX/nhập hợp lệ | Chỉ từ hoàn thành lệnh chế tác / phiếu nhập chế tác hợp lệ | Bán/xuất: chuyển TP→BH rồi xuất từ BH (hoặc checkout); **không** xuất thẳng từ TP qua dialog Kho |
 
 - Không tạo `STOCK_DOCUMENTS` loại `RECEIPT` với `PURPOSE_CODE = FINISHED_RECEIPT` nếu thiếu `PRODUCTION_ORDER_ID` hợp lệ.
 - Điều chỉnh tồn thành phẩm dùng `STOCK_ADJUSTMENT` (quyền + audit), không dùng nhập kho thường.
@@ -15,6 +15,7 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 ### 1.1. Thành phẩm là cá thể duy nhất
 
 - Mỗi dòng `FINISHED_PRODUCTS` là đúng **một món**; `CODE`, `BARCODE_VALUE` và `QR_VALUE` duy nhất trong công ty (khi tạo thành phẩm từ sản xuất/chế tác, mặc định gán cả ba bằng mã serial).
+- Mỗi thành phẩm có thể gắn một nhóm từ danh mục `FINISHED_PRODUCT_GROUPS`. Bốn nhóm chuẩn ban đầu là **Lắc tay**, **Bông tai**, **Nhẫn**, **Dây chuyền**; nhóm chỉ phục vụ phân loại, lọc và hiển thị, không thay đổi cách tính tồn hay giá vốn.
 - Không lưu tồn thành phẩm bằng một bản ghi có số lượng lớn hơn 1. Tổng số món dùng `COUNT(*)`.
 - Vị trí vật lý nằm ở `LOCATION_ID`; vai trò kho nằm ở `LOCATIONS.INVENTORY_SCOPE`.
 - Hệ thống chỉ có **ba** loại kho (`INVENTORY_SCOPE`):
@@ -68,7 +69,8 @@ Sau POSTED không sửa trực tiếp số liệu tài chính/tồn. Điều ch�
 ### Nguồn (`SOURCE_TYPE`)
 
 - `SUPPLIER`: bắt buộc `SUPPLIER_ID`; `CUSTOMER_ID` NULL. Cho phép tạo nhanh NCC qua `ISupplierEditorService`.
-- `OLD_GOLD_CUSTOMER`: bắt buộc `CUSTOMER_ID`; `SUPPLIER_ID` NULL. Cho phép tạo nhanh KH qua `ICustomerEditorService`. Không dùng tên người bán tự do.
+- UI nhập kho NVL chỉ tạo nguồn `SUPPLIER`. Thu mua vàng cũ thuộc chức năng Bán hàng và không xuất hiện trong dialog Kho.
+- `OLD_GOLD_CUSTOMER` chỉ được giữ ở contract/service kho để tương thích chứng từ lịch sử; không tạo mới từ UI Kho.
 
 Mỗi phiếu đúng **một** đối tác. Không ghi sổ khi thiếu đối tác.
 
@@ -91,7 +93,7 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 
 ### Công nợ
 
-- `DebtAmountVnd > 0` → tạo `PAYABLE_DEBTS` (NCC hoặc khách bán vàng cũ).
+- `DebtAmountVnd > 0` → tạo `PAYABLE_DEBTS` cho NCC.
 - `DebtAmountVnd = 0` → không tạo dư nợ mở; vẫn lưu lịch sử thanh toán/phiếu chi.
 - Thanh toán công nợ sau này trong module Công nợ; mỗi lần thanh toán có thể chia nhiều phương thức và tạo phiếu chi tương ứng.
 
@@ -115,7 +117,7 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 
 ## 8. Xuất thành phẩm theo đơn đặt chế tác
 
-- Nguồn đơn: `SALES_ORDERS` ở pipeline đã xác nhận (không `DRAFT` / `CANCELLED`).
+- Nguồn đơn: `SALES_ORDERS` ở pipeline đã xác nhận (không `DRAFT` / `CANCELLED` / `COMPLETED`).
 - Chỉ xuất phần đã hoàn thành (`FINISHED_PRODUCTS` gắn đơn, trạng thái tồn hợp lệ).
 - Một đơn tối đa **một** phiếu `FINISHED_GOODS_ISSUE` còn hiệu lực (DRAFT hoặc POSTED).
 - Không xuất thủ công không có đơn; không vượt tồn / phần hoàn thành.
@@ -123,8 +125,17 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 - Không xóa `FINISHED_PRODUCTS` đã bán; hóa đơn/chứng từ/movement giữ lịch sử serial phục vụ báo cáo, bảo hành và kiểm toán.
 - Khi hủy đúng quy trình: hoàn đúng vị trí và trạng thái trước xuất, bỏ đánh dấu đơn, tăng `ROW_VERSION`, ghi movement đảo và audit đầy đủ.
 
+### 8.0. Ranh giới với giao đơn đặt (CUSTOM)
+
+- Posting xuất TP vẫn qua `FINISHED_GOODS_ISSUE` (serial → `SOLD`, một phiếu / đơn).
+- **Luồng chuẩn:** Bán hàng → tab **Đơn đặt** → **Giao hàng** (xuất + thu phần còn trong một thao tác).
+- Màn Kho không cung cấp nút/dialog xuất thủ công từ **Kho bán hàng**; bán hàng và giao đơn đặt phải thực hiện từ phân hệ Bán hàng để đồng bộ chứng từ, thanh toán và trạng thái serial.
+- Không có nút/dialog xuất thẳng từ Kho thành phẩm.
+- Chi tiết: `docs/10-CRAFT-CUSTOM-ORDER.md` §5.
+
 ### 8.1. Chuyển Kho thành phẩm sang Kho bán hàng
 
+- UI lập phiếu từ **Kho thành phẩm** (nút **Xuất kho bán hàng**); không còn nút “Nhập từ kho thành phẩm” trên Kho bán hàng.
 - Chỉ chuyển món đang `IN_STOCK` tại location scope `FINISHED_GOODS`.
 - Kho đích phải có scope `SALES_FLOOR`.
 - POST trong một transaction: tạo phiếu `TRANSFER`, tạo một dòng/serial, cập nhật location, đổi trạng thái sang `DISPLAYED`, ghi hai movement OUT/IN và audit.
@@ -135,13 +146,14 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 
 - `GOLD_TYPES` là nguồn sự thật duy nhất cho loại/tuổi vàng (mã `750`, `999`…). Toàn hệ thống chọn loại vàng từ catalog này (ComboBox), không nhập tay mã lệch.
 - Mỗi `GOLD_TYPES` active có đúng một dòng `GOLD_PRICES`, một dòng `WAREHOUSE_GOLD_PRICES` và một NVL `MATERIALS` (`MATERIAL_TYPE = GOLD`) gắn `GOLD_TYPE_ID`.
-- Khi CRUD loại vàng: bắt buộc nhập giá bán lẻ (mua/bán) và giá kho (`ISSUE_PRICE_PER_CHI`) — tất cả > 0 — trong cùng transaction tạo/cập nhật bốn bản ghi trên.
-- `WAREHOUSE_GOLD_PRICES` vẫn là bảng giá nội bộ xuất kho; `GOLD_PRICES` là bảng giá bán lẻ. Đổi một bên không tự đổi bên kia, nhưng cả hai phải luôn tồn tại cho mọi loại vàng active.
+- Khi tạo loại vàng từ bảng giá bán lẻ, người dùng chỉ nhập giá mua/bán lẻ. Hệ thống tạo đủ bốn bản ghi trong cùng transaction và khởi tạo giá mua/bán trong kho từ giá lẻ tương ứng; nhân viên bán không nhìn thấy hoặc nhập giá kho.
+- `WAREHOUSE_GOLD_PRICES` giữ hai giá nội bộ độc lập: `BUY_PRICE_PER_CHI` và `SELL_PRICE_PER_CHI`; `GOLD_PRICES` là bảng giá bán lẻ. Đổi một bên không tự đổi bên kia sau khi khởi tạo, nhưng cả hai phải luôn tồn tại cho mọi loại vàng active.
+- `ISSUE_PRICE_PER_CHI` là cột tương thích tạm thời cho flow xuất kho/sản xuất cũ và được đồng bộ theo `BUY_PRICE_PER_CHI` khi lưu bảng giá kho; UI không còn cho sửa trực tiếp cột này.
 - Xuất NVL vàng dùng `ISSUE_PRICE_PER_CHI` resolve theo `GOLD_TYPE_ID` (fallback CODE); đá/phụ kiện dùng giá vốn tồn kho hiện hành.
 - Giá trị xuất thành phẩm = `GOLD_WEIGHT × ISSUE_PRICE_PER_CHI + LABOR_COST + NON_GOLD_MATERIAL_COST`.
 - Khi POST phải chốt ID bảng giá, giá/chỉ, trọng lượng vàng, tiền công và chi phí phi vàng trên dòng chứng từ. Thay đổi bảng giá sau này không được làm đổi chứng từ cũ.
 - Loại vàng thiếu dòng giá hoặc giá ≤ 0 phải chặn ghi sổ với thông báo cấu hình bảng giá.
-- “Vàng cũ” là **nguồn phiếu** (thu mua từ khách), không phải tên loại vàng trong danh mục.
+- “Vàng cũ” là nghiệp vụ thu mua ở module Bán hàng, không phải tên loại vàng trong danh mục. Kho chỉ hiển thị nguồn này khi đọc chứng từ lịch sử.
 
 ## 9. Transaction và đồng thời
 

@@ -59,6 +59,8 @@ public sealed record FinishedProductStockItem(
     long Id,
     string Code,
     string ProductName,
+    string ProductGroupCode,
+    string ProductGroupName,
     string GoldPurity,
     string UnitCode,
     decimal Quantity,
@@ -71,6 +73,8 @@ public sealed record SaleItemStockItem(
     long Id,
     string Code,
     string ProductName,
+    string ProductGroupCode,
+    string ProductGroupName,
     string GoldPurity,
     string UnitCode,
     decimal Quantity,
@@ -83,9 +87,13 @@ public sealed record WarehouseSalesOrderOption(
     long Id,
     string Code,
     string CustomerName,
-    string StatusCode)
+    string StatusCode,
+    string OrderType = "")
 {
-    public string DisplayName => $"{Code} - {CustomerName}";
+    public string DisplayName =>
+        string.IsNullOrWhiteSpace(OrderType)
+            ? $"{Code} - {CustomerName} ({StatusCode})"
+            : $"{Code} - {CustomerName} ({OrderType}/{StatusCode})";
     public override string ToString() => DisplayName;
 }
 
@@ -167,13 +175,20 @@ public sealed record MaterialBalanceSearchFilter(
 
 public sealed record FinishedProductSearchFilter(
     string SearchText,
+    string ProductGroupCode,
     string GoldPurity,
     string StatusCode);
 
 public sealed record SaleItemSearchFilter(
     string SearchText,
+    string ProductGroupCode,
     string GoldPurity,
     string StatusCode);
+
+public sealed record FinishedProductGroupOption(long Id, string Code, string Name)
+{
+    public override string ToString() => Name;
+}
 
 public sealed record StockDocumentSearchFilter(
     string SearchText,
@@ -189,6 +204,10 @@ public sealed record StockMovementSearchFilter(
 
 public interface IWarehouseRepository
 {
+    Task<IReadOnlyList<FinishedProductGroupOption>> GetFinishedProductGroupsAsync(
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<WarehouseLocationOption>> GetLocationsAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);

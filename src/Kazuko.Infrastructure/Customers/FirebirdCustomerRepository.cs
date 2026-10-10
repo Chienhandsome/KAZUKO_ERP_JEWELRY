@@ -36,6 +36,87 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         return result;
     }
 
+    public async Task<CustomerGroupOption> CreateGroupAsync(
+        string name,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var normalizedName = (name ?? string.Empty).Trim();
+        if (normalizedName.Length == 0)
+            throw new InvalidOperationException("Tên nhóm khách hàng là bắt buộc.");
+        if (normalizedName.Length > 100)
+            throw new InvalidOperationException("Tên nhóm khách hàng không được vượt quá 100 ký tự.");
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTransaction = (FbTransaction)transaction;
+
+        try
+        {
+            await using (var duplicate = new FbCommand("""
+                SELECT FIRST 1 ID
+                FROM CUSTOMER_GROUPS
+                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND UPPER(TRIM(NAME)) = UPPER(@NAME)
+                """, connection, fbTransaction))
+            {
+                duplicate.Parameters.Add("@NAME", FbDbType.VarChar, 100).Value = normalizedName;
+                if (await duplicate.ExecuteScalarAsync(cancellationToken) is not null)
+                    throw new InvalidOperationException("Tên nhóm khách hàng đã tồn tại.");
+            }
+
+            var temporaryCode = $"TMP_{Guid.NewGuid():N}"[..30];
+            long id;
+            await using (var insert = new FbCommand("""
+                INSERT INTO CUSTOMER_GROUPS
+                    (COMPANY_ID, CODE, NAME, MIN_POINTS, DISCOUNT_RATE, IS_DEFAULT, IS_ACTIVE)
+                VALUES
+                    ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
+                     @CODE, @NAME, 0, 0, FALSE, TRUE)
+                RETURNING ID
+                """, connection, fbTransaction))
+            {
+                insert.Parameters.Add("@CODE", FbDbType.VarChar, 30).Value = temporaryCode;
+                insert.Parameters.Add("@NAME", FbDbType.VarChar, 100).Value = normalizedName;
+                id = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
+            }
+
+            var code = $"NKH{id:000000}";
+            await using (var updateCode = new FbCommand("""
+                UPDATE CUSTOMER_GROUPS
+                SET CODE = @CODE
+                WHERE ID = @ID
+                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """, connection, fbTransaction))
+            {
+                updateCode.Parameters.Add("@CODE", FbDbType.VarChar, 30).Value = code;
+                updateCode.Parameters.Add("@ID", FbDbType.BigInt).Value = id;
+                await updateCode.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            await AuditLogWriter.WriteAsync(
+                "CUSTOMER_GROUP_CREATED",
+                session.UserId,
+                session.Username,
+                session.BranchId,
+                "CUSTOMER_GROUPS",
+                id.ToString(),
+                $"Code={code}; Name={normalizedName}; ClassificationOnly=True",
+                cancellationToken);
+
+            return new CustomerGroupOption(id, code, normalizedName, true, false);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     public async Task<IReadOnlyList<CustomerListItem>> SearchAsync(
         CustomerSearchFilter filter,
         CancellationToken cancellationToken = default)

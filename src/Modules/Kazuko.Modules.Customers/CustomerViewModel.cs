@@ -419,7 +419,7 @@ public sealed class CustomerViewModel : ObservableObject
         var result = _editor.ShowCreate();
         if (result is null)
             return;
-        _ = SearchAsync();
+        _ = RefreshAsync();
     }
 
     private void EditSelected()
@@ -439,7 +439,7 @@ public sealed class CustomerViewModel : ObservableObject
         var result = _editor.ShowEdit(row.Id);
         if (result is null)
             return;
-        _ = SearchAsync();
+        _ = RefreshAsync();
     }
 
     private CustomerRowViewModel? ResolveActiveRow(object? parameter)

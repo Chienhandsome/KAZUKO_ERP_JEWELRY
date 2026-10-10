@@ -38,7 +38,7 @@ public sealed class SuppliersModule : IKazukoModule
             AssetRoot + "hop.png",
             "Danh mục và công nợ\nnhà cung cấp",
             ShowInSidebar: true,
-            ShowOnHome: true,
+            ShowOnHome: false,
             IsPlaceholder: false));
     }
 

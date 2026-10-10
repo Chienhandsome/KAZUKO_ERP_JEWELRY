@@ -91,6 +91,8 @@ public sealed class FinishedProductRowViewModel : ObservableObject
     public long Id => Item.Id;
     public string Code => Item.Code;
     public string ProductName => Item.ProductName;
+    public string ProductGroupCode => Item.ProductGroupCode;
+    public string ProductGroupName => Item.ProductGroupName;
     public string GoldPurity => Item.GoldPurity;
     public string UnitCode => Item.UnitCode;
     public decimal Quantity => Item.Quantity;
@@ -126,6 +128,8 @@ public sealed class SaleItemRowViewModel : ObservableObject
     public long Id => Item.Id;
     public string Code => Item.Code;
     public string ProductName => Item.ProductName;
+    public string ProductGroupCode => Item.ProductGroupCode;
+    public string ProductGroupName => Item.ProductGroupName;
     public string GoldPurity => Item.GoldPurity;
     public string UnitCode => Item.UnitCode;
     public decimal Quantity => Item.Quantity;

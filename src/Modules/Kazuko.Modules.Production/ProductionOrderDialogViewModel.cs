@@ -4,10 +4,13 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Customers;
+using Kazuko.Core.Finance;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
+using Kazuko.Core.Sales;
 using Kazuko.Core.Warehouse;
 using Kazuko.Modules.Production.Dialogs;
 using Microsoft.Win32;
@@ -50,6 +53,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private ProductionGalleryItemViewModel? _selectedGalleryImage;
     private ProductionMaterialStockOption? _selectedStockMaterial;
     private decimal _issueQuantity = 1m;
+    private bool _hasFinishedReceipt;
     private ProductionQcUnitEditorViewModel? _selectedQcUnit;
     private string _qcResultCode = ProductionQcResultCodes.Pass;
     private decimal? _qcGoldWeight;
@@ -62,7 +66,24 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private string _qcChecklistTitle = "Checklist QC";
 
     private readonly IGoldTypeCatalogService _goldTypes;
+    private readonly ICraftOrderApplicationService? _craftOrders;
+    private readonly ICashFundRepository? _cashFunds;
+    private readonly IBankAccountRepository? _bankAccounts;
+    private readonly ICustomerEditorService? _customerEditor;
     private GoldTypeOption? _selectedQcGoldType;
+
+    private string _customerSearch = string.Empty;
+    private CraftCustomerOption? _selectedCustomer;
+    private bool _isCustomerSuggestionsOpen;
+    private bool _suppressCustomerSearch;
+    private CancellationTokenSource? _customerSearchCts;
+    private string _craftOrderCode = string.Empty;
+    private string _craftOrderStatusCode = string.Empty;
+    private decimal _depositPaidAmount;
+    private decimal _depositAmount;
+    private string _depositPaymentMethod = PaymentMethods.Cash;
+    private CashFundOption? _selectedDepositCashFund;
+    private BankAccountOption? _selectedDepositBankAccount;
 
     public ProductionOrderDialogViewModel(
         long? orderId,
@@ -73,7 +94,12 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ICurrentSessionAccessor sessionAccessor,
         IExternalWorkerEditorService externalWorkerEditor,
         IGoldTypeCatalogService goldTypes,
-        long branchId)
+        long branchId,
+        ICraftOrderApplicationService? craftOrders = null,
+        ICashFundRepository? cashFunds = null,
+        IBankAccountRepository? bankAccounts = null,
+        ICustomerEditorService? customerEditor = null,
+        string? preferredOrderSource = null)
     {
         _orderId = orderId;
         _queries = queries;
@@ -84,6 +110,18 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         _externalWorkerEditor = externalWorkerEditor;
         _goldTypes = goldTypes;
         _branchId = branchId;
+        _craftOrders = craftOrders;
+        _cashFunds = cashFunds;
+        _bankAccounts = bankAccounts;
+        _customerEditor = customerEditor;
+
+        if (orderId is null
+            && !string.IsNullOrWhiteSpace(preferredOrderSource)
+            && (preferredOrderSource == ProductionOrderSources.Stock
+                || preferredOrderSource == ProductionOrderSources.SalesOrder))
+        {
+            _orderSource = preferredOrderSource;
+        }
 
         SaveDraftCommand = new AsyncRelayCommand(SaveDraftAsync, () => IsDraft && !IsBusy);
         CancelDraftCommand = new AsyncRelayCommand(CancelDraftAsync, () => CanCancel && !IsBusy);
@@ -95,12 +133,23 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         RemoveLineCommand = new ParameterRelayCommand(
             p => RemoveLine(p as ProductionLineEditorViewModel ?? SelectedLine),
             p => IsDraft && (p as ProductionLineEditorViewModel ?? SelectedLine) is not null && Lines.Count > 1);
-        RefreshSalesOrdersCommand = new AsyncRelayCommand(LoadSalesOrdersAsync);
+        SelectCustomerCommand = new ParameterRelayCommand(
+            p => SelectCustomer(p as CraftCustomerOption),
+            p => IsDraft && IsSalesOrderSource && p is CraftCustomerOption && !IsBusy);
+        CreateCustomerCommand = new RelayCommand(
+            CreateCustomer,
+            () => IsDraft && IsSalesOrderSource && _customerEditor is not null && !IsBusy);
+        PostDepositCommand = new AsyncRelayCommand(
+            PostDepositAsync,
+            () => CanEditDeposit && !IsBusy);
         RefreshEmployeesCommand = new AsyncRelayCommand(LoadEmployeesAsync);
         RefreshWorkersCommand = new AsyncRelayCommand(LoadExternalWorkersAsync);
         CreateExternalWorkerCommand = new RelayCommand(CreateExternalWorker, () => IsDraft && !IsBusy);
         RefreshStockMaterialsCommand = new AsyncRelayCommand(LoadStockMaterialsAsync, () => CanIssueMaterials && !IsBusy);
         AddIssueLineCommand = new RelayCommand(AddIssueLine, () => CanIssueMaterials && !IsBusy);
+        AddMinimumMaterialsToIssueCommand = new RelayCommand(
+            AddMinimumMaterialsToIssue,
+            () => CanIssueMaterials && HasMinimumMaterials && !IsBusy);
         RemoveIssueLineCommand = new ParameterRelayCommand(
             p =>
             {
@@ -123,7 +172,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         PrintMaterialIssueCommand = new AsyncRelayCommand(() => PrintAsync(1), () => _id is > 0 && !IsBusy);
         PrintReturnCommand = new AsyncRelayCommand(() => PrintAsync(2), () => _id is > 0 && !IsBusy);
         PrintQcCommand = new AsyncRelayCommand(() => PrintAsync(3), () => _id is > 0 && !IsBusy);
-        PrintFinishedCommand = new AsyncRelayCommand(() => PrintAsync(4), () => _id is > 0 && !IsBusy);
+        PrintFinishedCommand = new AsyncRelayCommand(() => PrintAsync(4), () => _hasFinishedReceipt && !IsBusy);
         PrintSettlementCommand = new AsyncRelayCommand(() => PrintAsync(5), () => _id is > 0 && !IsBusy);
         SelectGalleryImageCommand = new ParameterRelayCommand(
             p =>
@@ -155,8 +204,19 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ObservableCollection<ProductionEmployeePickViewModel> Employees { get; } = [];
     public ObservableCollection<ProductionExternalWorkerItemViewModel> ExternalWorkers { get; } = [];
     public ObservableCollection<ProductionLineEditorViewModel> Lines { get; } = [];
+    public ObservableCollection<CraftCustomerOption> CustomerSuggestions { get; } = [];
+    public ObservableCollection<CashFundOption> CashFunds { get; } = [];
+    public ObservableCollection<BankAccountOption> BankAccounts { get; } = [];
+
+    public IReadOnlyList<CraftPaymentMethodOption> DepositPaymentMethodOptions { get; } =
+    [
+        new(PaymentMethods.Cash, "Tiền mặt"),
+        new(PaymentMethods.BankTransfer, "Chuyển khoản"),
+        new(PaymentMethods.Card, "Thẻ")
+    ];
     public ObservableCollection<ProductionGalleryItemViewModel> GalleryImages { get; } = [];
     public ObservableCollection<ProductionMaterialStockOption> StockMaterials { get; } = [];
+    public ObservableCollection<MinimumMaterialHintViewModel> MinimumMaterials { get; } = [];
     public ObservableCollection<ProductionIssueLineEditorViewModel> IssueLines { get; } = [];
     public ObservableCollection<ProductionReturnLineEditorViewModel> ReturnLines { get; } = [];
     public ObservableCollection<ProductionQcUnitEditorViewModel> QcUnits { get; } = [];
@@ -164,6 +224,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ObservableCollection<ProductionQcImageEditorViewModel> QcImages { get; } = [];
     public ObservableCollection<GoldTypeOption> GoldTypeOptions { get; } = [];
 
+    public long? CurrentProductionOrderId => _id;
     public string WindowTitle => _id is > 0 ? $"Lệnh sản xuất {Code}" : "Tạo lệnh sản xuất";
 
     public string Code
@@ -231,19 +292,21 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         get
         {
             if (IsCompleted)
-                return "Lệnh đã hoàn tất. Có thể in chứng từ ở tab Tổng kết.";
+                return _hasFinishedReceipt
+                    ? "Lệnh đã hoàn tất và nhập kho. Có thể in phiếu nhập thành phẩm ở phần Hoàn thành lệnh."
+                    : "Lệnh đã hoàn tất. Chọn lệnh tại Kho → Nhập thành phẩm để ghi tồn kho.";
             if (_id is not > 0)
                 return "Bước 1: điền thông tin, thêm mẫu, rồi Lưu bản nháp.";
             if (IsDraft && Lines.Count == 0)
                 return "Bước 1: thêm ít nhất một mẫu sản phẩm, rồi Lưu bản nháp.";
             if (CanIssueMaterials)
-                return "Bước 2: chọn NVL còn tồn → Thêm dòng → Ghi sổ giao NVL (một lần).";
+                return "Bước 2: chọn NVL còn tồn → Thêm NVL → Ghi sổ giao NVL (một lần).";
             if (HasMaterialIssue && !HasReturn)
                 return "Bước 3: đối soát đã giao = vào TP + trả lại + phế liệu + hao hụt, rồi Ghi nhận nhận hàng.";
             if (CanWriteQc && !CanComplete)
                 return "Bước 4: QC từng món (Đạt cần TL vàng, tuổi, cấu thành > 0 và ≥ 1 ảnh).";
             if (CanComplete)
-                return "Bước 5: kiểm tra tổng kết rồi Hoàn tất lệnh để sinh serial/thành phẩm.";
+                return "Bước 5: kiểm tra tổng kết rồi Hoàn tất lệnh. Thành phẩm sẽ được nhập kho ở bước riêng.";
             return "Theo dõi tiến trình lệnh trên thanh bước phía trên.";
         }
     }
@@ -371,8 +434,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
     public IReadOnlyList<ProductionNamedOption> OrderSourceOptions { get; } =
     [
-        new(ProductionOrderSources.Stock, "Nhập kho"),
-        new(ProductionOrderSources.SalesOrder, "Theo đơn bán")
+        new(ProductionOrderSources.Stock, "Chế tác nhập kho"),
+        new(ProductionOrderSources.SalesOrder, "Chế tác theo đơn")
     ];
 
     public IReadOnlyList<ProductionNamedOption> ExecutionTypeOptions { get; } =
@@ -398,9 +461,19 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             if (SetProperty(ref _orderSource, normalized))
             {
                 if (!IsSalesOrderSource)
+                {
                     SalesOrderId = null;
+                    SelectedCustomer = null;
+                    _craftOrderCode = string.Empty;
+                    _craftOrderStatusCode = string.Empty;
+                    _depositPaidAmount = 0;
+                }
                 OnPropertyChanged(nameof(IsSalesOrderSource));
                 OnPropertyChanged(nameof(SelectedOrderSourceOption));
+                OnPropertyChanged(nameof(SelectedCustomerHint));
+                OnPropertyChanged(nameof(CraftOrderStatusText));
+                OnPropertyChanged(nameof(CanEditDeposit));
+                NotifyQuoteChanged();
                 NotifyCommands();
             }
         }
@@ -445,7 +518,175 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public long? SalesOrderId
     {
         get => _salesOrderId;
-        set => SetProperty(ref _salesOrderId, value);
+        set
+        {
+            if (SetProperty(ref _salesOrderId, value))
+            {
+                OnPropertyChanged(nameof(SelectedSalesOrder));
+                OnPropertyChanged(nameof(SelectedSalesOrderCustomer));
+                OnPropertyChanged(nameof(CanEditDeposit));
+                OnPropertyChanged(nameof(CraftOrderStatusText));
+                NotifyCommands();
+            }
+        }
+    }
+
+    public ObservableCollection<ProductionSalesOrderOption> SalesOrderOptions { get; } = [];
+
+    public ProductionSalesOrderOption? SelectedSalesOrder
+    {
+        get => SalesOrderOptions.FirstOrDefault(x => x.Id == SalesOrderId);
+        set
+        {
+            SalesOrderId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedSalesOrderCustomer));
+        }
+    }
+
+    public string SelectedSalesOrderCustomer => SelectedSalesOrder?.CustomerName ?? string.Empty;
+
+    public string CustomerSearch
+    {
+        get => _customerSearch;
+        set
+        {
+            if (!SetProperty(ref _customerSearch, value))
+                return;
+            if (_suppressCustomerSearch)
+                return;
+
+            if (SelectedCustomer is not null
+                && !string.Equals(value, SelectedCustomer.DisplayText, StringComparison.Ordinal))
+            {
+                _selectedCustomer = null;
+                OnPropertyChanged(nameof(SelectedCustomer));
+                OnPropertyChanged(nameof(SelectedCustomerHint));
+            }
+
+            _ = DebouncedSearchCustomersAsync(value);
+        }
+    }
+
+    public CraftCustomerOption? SelectedCustomer
+    {
+        get => _selectedCustomer;
+        set
+        {
+            if (!SetProperty(ref _selectedCustomer, value))
+                return;
+            OnPropertyChanged(nameof(SelectedCustomerHint));
+            OnPropertyChanged(nameof(CanEditDeposit));
+            NotifyCommands();
+            if (value is null)
+                return;
+            _suppressCustomerSearch = true;
+            CustomerSearch = value.DisplayText;
+            _suppressCustomerSearch = false;
+            IsCustomerSuggestionsOpen = false;
+        }
+    }
+
+    public bool IsCustomerSuggestionsOpen
+    {
+        get => _isCustomerSuggestionsOpen;
+        set => SetProperty(ref _isCustomerSuggestionsOpen, value);
+    }
+
+    public string SelectedCustomerHint =>
+        !IsSalesOrderSource
+            ? string.Empty
+            : SelectedCustomer is null
+                ? "Chọn khách đặt hàng (không dùng khách lẻ)."
+                : $"Khách: {SelectedCustomer.DisplayText}";
+
+    public decimal QuoteLaborTotal => Lines.Sum(x => x.LaborLineTotal);
+    public decimal QuoteTotal => Lines.Sum(x => x.QuoteLineTotal);
+
+    public int QuoteQuantityTotal => Lines.Sum(x => Math.Max(0, x.PlannedQuantity));
+
+    public string QuoteSummaryText =>
+        Lines.Count == 0
+            ? "Chưa có mẫu. Thêm mẫu để tính báo giá (vàng + công + đá)."
+            : $"{Lines.Count} mẫu · tổng SL {QuoteQuantityTotal} · báo giá {QuoteTotal:N0} đ";
+
+    public string QuoteTotalDisplay => $"Tổng báo giá (vàng + công + đá): {QuoteTotal:N0} đ";
+
+    public string CraftOrderStatusText
+    {
+        get
+        {
+            if (!IsSalesOrderSource)
+                return string.Empty;
+            if (SalesOrderId is > 0 && !string.IsNullOrWhiteSpace(_craftOrderCode))
+                return $"Đơn đặt {_craftOrderCode} · {_craftOrderStatusCode} · đã cọc {_depositPaidAmount:N0} đ. Có thể lưu lệnh.";
+            return "Chưa đặt cọc — bấm Đặt cọc sau khi chọn khách và thêm mẫu, rồi mới lưu lệnh.";
+        }
+    }
+
+    public bool CanEditDeposit =>
+        IsDraft
+        && IsSalesOrderSource
+        && SelectedCustomer is not null
+        && Lines.Count > 0
+        && QuoteTotal > 0
+        && SalesOrderId is null or <= 0
+        && _craftOrders is not null
+        && _cashFunds is not null
+        && _bankAccounts is not null;
+
+    public decimal DepositAmount
+    {
+        get => _depositAmount;
+        set
+        {
+            if (SetProperty(ref _depositAmount, value))
+                NotifyCommands();
+        }
+    }
+
+    public string DepositPaymentMethod
+    {
+        get => _depositPaymentMethod;
+        set
+        {
+            if (!SetProperty(ref _depositPaymentMethod, value))
+                return;
+            OnPropertyChanged(nameof(DepositRequiresCashFund));
+            OnPropertyChanged(nameof(DepositRequiresBankAccount));
+            OnPropertyChanged(nameof(SelectedDepositPaymentMethod));
+        }
+    }
+
+    public CraftPaymentMethodOption? SelectedDepositPaymentMethod
+    {
+        get => DepositPaymentMethodOptions.FirstOrDefault(x =>
+            string.Equals(x.Code, DepositPaymentMethod, StringComparison.OrdinalIgnoreCase));
+        set
+        {
+            if (value is null)
+                return;
+            DepositPaymentMethod = value.Code;
+        }
+    }
+
+    public bool DepositRequiresCashFund =>
+        string.Equals(DepositPaymentMethod, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase);
+
+    public bool DepositRequiresBankAccount =>
+        string.Equals(DepositPaymentMethod, PaymentMethods.BankTransfer, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(DepositPaymentMethod, PaymentMethods.Card, StringComparison.OrdinalIgnoreCase);
+
+    public CashFundOption? SelectedDepositCashFund
+    {
+        get => _selectedDepositCashFund;
+        set => SetProperty(ref _selectedDepositCashFund, value);
+    }
+
+    public BankAccountOption? SelectedDepositBankAccount
+    {
+        get => _selectedDepositBankAccount;
+        set => SetProperty(ref _selectedDepositBankAccount, value);
     }
 
     public string ExecutionType
@@ -543,7 +784,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             if (!CanIssueMaterials)
                 return "Chỉ giao NVL khi lệnh còn bản nháp và chưa ghi sổ giao. Hãy Lưu bản nháp trước.";
             if (SourceLocationId <= 0)
-                return "Chọn kho xuất NVL ở tab Thông tin lệnh trước.";
+                return "Chọn kho xuất NVL ở phần Thông tin lệnh trước.";
             if (StockMaterials.Count == 0)
                 return "Không có tồn NVL (> 0) tại kho xuất đã chọn. Bấm Tải tồn hoặc đổi kho.";
             return $"Có {StockMaterials.Count} NVL còn tồn — chọn rồi bấm Thêm dòng.";
@@ -757,12 +998,15 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ICommand RemoveLineCommand { get; }
     public ICommand SelectGalleryImageCommand { get; }
     public ICommand OpenGalleryImageCommand { get; }
-    public ICommand RefreshSalesOrdersCommand { get; }
+    public ICommand SelectCustomerCommand { get; }
+    public ICommand CreateCustomerCommand { get; }
+    public ICommand PostDepositCommand { get; }
     public ICommand RefreshEmployeesCommand { get; }
     public ICommand RefreshWorkersCommand { get; }
     public ICommand CreateExternalWorkerCommand { get; }
     public ICommand RefreshStockMaterialsCommand { get; }
     public ICommand AddIssueLineCommand { get; }
+    public ICommand AddMinimumMaterialsToIssueCommand { get; }
     public ICommand RemoveIssueLineCommand { get; }
     public ICommand PostMaterialIssueCommand { get; }
     public ICommand PostWorkerReturnCommand { get; }
@@ -799,7 +1043,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             IsBusy = true;
             await LoadGoldTypesAsync();
             await LoadLocationsAsync();
-            await LoadSalesOrdersAsync();
+            await LoadEligibleSalesOrdersAsync();
             await LoadEmployeesAsync();
             await LoadExternalWorkersAsync();
 
@@ -808,6 +1052,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             else
                 ApplyDefaultLocations();
 
+            NotifyQuoteChanged();
             IsLoaded = true;
         }
         catch (Exception ex)
@@ -877,12 +1122,257 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             Locations.Add(new ProductionLocationItemViewModel(item));
     }
 
-    private async Task LoadSalesOrdersAsync()
+    private async Task LoadEligibleSalesOrdersAsync()
     {
         var items = await _queries.SearchEligibleSalesOrdersAsync(_branchId, null);
-        SalesOrders.Clear();
+        SalesOrderOptions.Clear();
         foreach (var item in items)
-            SalesOrders.Add(new ProductionSalesOrderItemViewModel(item));
+            SalesOrderOptions.Add(item);
+        OnPropertyChanged(nameof(SelectedSalesOrder));
+    }
+
+    private async Task LoadPaymentAccountsAsync()
+    {
+        CashFunds.Clear();
+        BankAccounts.Clear();
+        if (_cashFunds is null || _bankAccounts is null)
+            return;
+
+        var session = RequireSession();
+        foreach (var fund in await _cashFunds.GetActiveFundsAsync(session))
+            CashFunds.Add(fund);
+        foreach (var bank in await _bankAccounts.GetActiveAccountsAsync(session))
+            BankAccounts.Add(bank);
+
+        SelectedDepositCashFund = CashFunds.FirstOrDefault(x => x.IsDefault) ?? CashFunds.FirstOrDefault();
+        SelectedDepositBankAccount = BankAccounts.FirstOrDefault();
+    }
+
+    private async Task DebouncedSearchCustomersAsync(string searchText)
+    {
+        if (_craftOrders is null)
+            return;
+
+        _customerSearchCts?.Cancel();
+        _customerSearchCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _customerSearchCts = cts;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                ApplyCustomerSuggestions(Array.Empty<CraftCustomerOption>());
+                return;
+            }
+
+            // Đã chọn khách và ô đang hiện đúng DisplayText → không mở lại gợi ý.
+            if (SelectedCustomer is not null
+                && string.Equals(searchText, SelectedCustomer.DisplayText, StringComparison.Ordinal))
+            {
+                ApplyCustomerSuggestions(Array.Empty<CraftCustomerOption>());
+                return;
+            }
+
+            await Task.Delay(250, cts.Token);
+            var session = RequireSession();
+            var items = await _craftOrders.SearchCustomersAsync(searchText, session, cts.Token);
+            cts.Token.ThrowIfCancellationRequested();
+            ApplyCustomerSuggestions(items);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                ErrorMessage = ex.Message;
+                ApplyCustomerSuggestions(Array.Empty<CraftCustomerOption>());
+            });
+        }
+    }
+
+    private void ApplyCustomerSuggestions(IReadOnlyList<CraftCustomerOption> items)
+    {
+        void Apply()
+        {
+            CustomerSuggestions.Clear();
+            foreach (var item in items)
+                CustomerSuggestions.Add(item);
+            IsCustomerSuggestionsOpen = CustomerSuggestions.Count > 0;
+        }
+
+        if (Application.Current?.Dispatcher?.CheckAccess() == true)
+            Apply();
+        else if (Application.Current?.Dispatcher is not null)
+            Application.Current.Dispatcher.Invoke(Apply);
+        else
+            Apply();
+    }
+
+    private void SelectCustomer(CraftCustomerOption? customer)
+    {
+        if (customer is null)
+            return;
+        if (customer.IsWalkIn)
+        {
+            ErrorMessage = "Đơn đặt không dùng khách lẻ.";
+            return;
+        }
+
+        ErrorMessage = string.Empty;
+        SelectedCustomer = customer;
+    }
+
+    private void CreateCustomer()
+    {
+        if (_customerEditor is null)
+            return;
+
+        try
+        {
+            ErrorMessage = string.Empty;
+            _ = RequireSession();
+            var result = _customerEditor.ShowCreate();
+            if (result is null)
+                return;
+
+            var code = result.Code.Trim();
+            var isWalkIn = string.Equals(code, "KH-VL", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(code, "WALK_IN", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(code, "KHACH_LE", StringComparison.OrdinalIgnoreCase);
+            if (isWalkIn)
+            {
+                ErrorMessage = "Đơn đặt không dùng khách lẻ.";
+                return;
+            }
+
+            SelectedCustomer = new CraftCustomerOption(
+                result.Id,
+                code,
+                result.Name,
+                string.IsNullOrWhiteSpace(result.Phone) ? null : result.Phone.Trim(),
+                IsWalkIn: false);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task PostDepositAsync()
+    {
+        if (_craftOrders is null)
+        {
+            ErrorMessage = "Chưa cấu hình dịch vụ đơn đặt.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            if (SelectedCustomer is null)
+                throw new InvalidOperationException("Chọn khách hàng trên tab Thông tin lệnh.");
+            if (Lines.Count == 0 || QuoteTotal <= 0)
+                throw new InvalidOperationException("Thêm mẫu và nhập báo giá (TL vàng / giá / công / đá) trước khi đặt cọc.");
+            if (Lines.Any(x => x.EstimatedWeightChi <= 0))
+                throw new InvalidOperationException("Mỗi mẫu cần trọng lượng vàng ước tính > 0 để báo giá đủ.");
+            if (DepositAmount <= 0)
+                throw new InvalidOperationException("Số tiền cọc phải > 0.");
+            if (DepositAmount > QuoteTotal)
+                throw new InvalidOperationException("Tiền cọc không được vượt tổng báo giá.");
+
+            var allocation = new PaymentAllocationDraft(
+                DepositPaymentMethod,
+                DepositAmount,
+                DepositRequiresCashFund ? SelectedDepositCashFund?.Id : null,
+                DepositRequiresBankAccount ? SelectedDepositBankAccount?.Id : null,
+                null);
+
+            var lineDrafts = Lines.Select(line => line.ToCraftLineDraft()).ToList();
+
+            var created = await _craftOrders.CreateWithDepositAsync(
+                new CraftOrderDraft(
+                    SelectedCustomer.Id,
+                    OrderDate,
+                    RequireSession().UserId > 0 ? RequireSession().UserId : null,
+                    lineDrafts,
+                    [allocation],
+                    Notes),
+                RequireSession());
+
+            SalesOrderId = created.SalesOrderId;
+            _craftOrderCode = created.Code;
+            _craftOrderStatusCode = created.StatusCode;
+            _depositPaidAmount = created.DepositAmountVnd;
+            OnPropertyChanged(nameof(CraftOrderStatusText));
+            OnPropertyChanged(nameof(CanEditDeposit));
+            NotifyCommands();
+
+            MessageBox.Show(
+                $"Đã đặt cọc {created.DepositAmountVnd:N0} đ cho đơn {created.Code}. Có thể lưu bản nháp lệnh.",
+                "Thành công",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void NotifyQuoteChanged()
+    {
+        OnPropertyChanged(nameof(QuoteLaborTotal));
+        OnPropertyChanged(nameof(QuoteTotal));
+        OnPropertyChanged(nameof(QuoteQuantityTotal));
+        OnPropertyChanged(nameof(QuoteSummaryText));
+        OnPropertyChanged(nameof(QuoteTotalDisplay));
+        OnPropertyChanged(nameof(CanEditDeposit));
+        OnPropertyChanged(nameof(CraftOrderStatusText));
+        RefreshMinimumMaterials();
+        if (DepositAmount <= 0 && QuoteTotal > 0)
+            DepositAmount = Math.Round(QuoteTotal * 0.3m, 0, MidpointRounding.AwayFromZero);
+        ((AsyncRelayCommand)PostDepositCommand).NotifyCanExecuteChanged();
+    }
+
+    private async Task LoadCraftOrderContextAsync(long? salesOrderId)
+    {
+        _craftOrderCode = string.Empty;
+        _craftOrderStatusCode = string.Empty;
+        _depositPaidAmount = 0;
+
+        if (salesOrderId is not > 0 || _craftOrders is null)
+        {
+            OnPropertyChanged(nameof(CraftOrderStatusText));
+            OnPropertyChanged(nameof(CanEditDeposit));
+            return;
+        }
+
+        var header = await _craftOrders.GetHeaderAsync(salesOrderId.Value, RequireSession());
+        if (header is null)
+        {
+            OnPropertyChanged(nameof(CraftOrderStatusText));
+            return;
+        }
+
+        _craftOrderCode = header.Code;
+        _craftOrderStatusCode = header.StatusCode;
+        _depositPaidAmount = header.DepositPaidVnd;
+        SelectedCustomer = new CraftCustomerOption(
+            header.CustomerId,
+            header.CustomerCode,
+            header.CustomerName,
+            header.CustomerPhone,
+            IsWalkIn: false);
+        OnPropertyChanged(nameof(CraftOrderStatusText));
+        OnPropertyChanged(nameof(CanEditDeposit));
     }
 
     private async Task LoadEmployeesAsync()
@@ -940,6 +1430,11 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDraft));
         OrderSource = detail.OrderSource;
         SalesOrderId = detail.SalesOrderId;
+        if (detail.SalesOrderId is > 0 && SalesOrderOptions.All(x => x.Id != detail.SalesOrderId.Value))
+            SalesOrderOptions.Add(new ProductionSalesOrderOption(detail.SalesOrderId.Value,
+                detail.SalesOrderCode ?? string.Empty, string.Empty, string.Empty, detail.OrderDate));
+        OnPropertyChanged(nameof(SelectedSalesOrder));
+        OnPropertyChanged(nameof(SelectedSalesOrderCustomer));
         ExecutionType = detail.ExecutionType;
         ExternalWorkerId = detail.ExternalWorkerId;
         OrderDate = detail.OrderDate;
@@ -949,23 +1444,14 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ReceivedByName = detail.ReceivedByName;
         Notes = detail.Notes;
         _rowVersion = detail.RowVersion;
+        _hasFinishedReceipt = detail.FinishedReceiptDocumentId is > 0;
         OnPropertyChanged(nameof(WindowTitle));
-
-        if (detail.SalesOrderId is > 0
-            && SalesOrders.All(x => x.Id != detail.SalesOrderId)
-            && !string.IsNullOrWhiteSpace(detail.SalesOrderCode))
-        {
-            SalesOrders.Insert(0, new ProductionSalesOrderItemViewModel(
-                detail.SalesOrderId.Value,
-                detail.SalesOrderCode,
-                "(đơn đã gắn)",
-                string.Empty,
-                detail.OrderDate));
-        }
 
         Lines.Clear();
         foreach (var line in detail.Lines)
             Lines.Add(new ProductionLineEditorViewModel(line));
+
+        await LoadCraftOrderContextAsync(detail.SalesOrderId);
 
         foreach (var employee in Employees)
             employee.IsSelected = detail.Workers.Any(w => w.EmployeeId == employee.Id);
@@ -991,6 +1477,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
         SelectedLine = Lines.FirstOrDefault();
         RefreshGalleryImages();
+        NotifyQuoteChanged();
 
         _hasMaterialIssue = detail.MaterialIssueDocumentId is > 0;
         _hasReturn = detail.ReturnDocumentId is > 0;
@@ -1044,6 +1531,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             {
                 StockMaterials.Clear();
                 OnPropertyChanged(nameof(StockMaterialsHint));
+                RefreshMinimumMaterials();
                 return;
             }
 
@@ -1059,6 +1547,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             }
 
             OnPropertyChanged(nameof(StockMaterialsHint));
+            RefreshMinimumMaterials();
         }
         catch (Exception ex)
         {
@@ -1083,6 +1572,94 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
         IssueLines.Add(new ProductionIssueLineEditorViewModel(SelectedStockMaterial, IssueQuantity));
         ErrorMessage = string.Empty;
+        RefreshWorkflowSteps();
+    }
+
+    public bool HasMinimumMaterials => MinimumMaterials.Count > 0;
+
+    public string MinimumMaterialsHint =>
+        HasMinimumMaterials
+            ? "Gợi ý tối thiểu theo TL vàng ước tính × SL mẫu — không bắt buộc khớp khi ghi sổ."
+            : "Chưa có TL vàng trên sản phẩm. Sửa sản phẩm để hiện NVL cần cấp tối thiểu.";
+
+    private void RefreshMinimumMaterials()
+    {
+        MinimumMaterials.Clear();
+
+        var groups = Lines
+            .Where(x => x.EstimatedWeightChi > 0 && x.PlannedQuantity > 0
+                        && (!string.IsNullOrWhiteSpace(x.GoldTypeCode) || x.GoldMaterialId is > 0))
+            .GroupBy(x => x.GoldMaterialId is > 0
+                ? $"id:{x.GoldMaterialId.Value}"
+                : $"code:{(x.GoldTypeCode ?? string.Empty).Trim().ToUpperInvariant()}")
+            .Select(g =>
+            {
+                var first = g.First();
+                var qty = g.Sum(x => x.GoldWeightTotalChi);
+                var stock = first.GoldMaterialId is > 0
+                    ? StockMaterials.FirstOrDefault(s => s.MaterialId == first.GoldMaterialId.Value)
+                    : StockMaterials.FirstOrDefault(s =>
+                        string.Equals(s.Code, first.GoldTypeCode, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(s.PurityCode, first.GoldTypeCode, StringComparison.OrdinalIgnoreCase));
+
+                return new MinimumMaterialHintViewModel(
+                    first.GoldMaterialId ?? stock?.MaterialId,
+                    first.GoldTypeCode,
+                    string.IsNullOrWhiteSpace(first.GoldTypeName) ? first.GoldTypeCode : first.GoldTypeName,
+                    qty,
+                    stock?.UnitCode ?? "CHI",
+                    stock?.QuantityOnHand,
+                    stock);
+            })
+            .Where(x => x.MinimumQuantityChi > 0)
+            .OrderBy(x => x.MaterialCode, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var item in groups)
+            MinimumMaterials.Add(item);
+
+        OnPropertyChanged(nameof(HasMinimumMaterials));
+        OnPropertyChanged(nameof(MinimumMaterialsHint));
+        ((RelayCommand)AddMinimumMaterialsToIssueCommand).NotifyCanExecuteChanged();
+    }
+
+    private void AddMinimumMaterialsToIssue()
+    {
+        if (!CanIssueMaterials)
+            return;
+
+        var added = 0;
+        foreach (var hint in MinimumMaterials)
+        {
+            var stock = hint.MatchedStock
+                ?? (hint.MaterialId is > 0
+                    ? StockMaterials.FirstOrDefault(s => s.MaterialId == hint.MaterialId.Value)
+                    : StockMaterials.FirstOrDefault(s =>
+                        string.Equals(s.Code, hint.MaterialCode, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(s.PurityCode, hint.MaterialCode, StringComparison.OrdinalIgnoreCase)));
+
+            if (stock is null)
+                continue;
+
+            var existing = IssueLines.FirstOrDefault(x => x.MaterialId == stock.MaterialId);
+            if (existing is not null)
+            {
+                var qty = Math.Max(existing.Quantity, hint.MinimumQuantityChi);
+                var notes = existing.Notes;
+                IssueLines.Remove(existing);
+                var row = new ProductionIssueLineEditorViewModel(stock, qty) { Notes = notes };
+                IssueLines.Add(row);
+                added++;
+                continue;
+            }
+
+            IssueLines.Add(new ProductionIssueLineEditorViewModel(stock, hint.MinimumQuantityChi));
+            added++;
+        }
+
+        ErrorMessage = added == 0
+            ? "Không map được NVL kho cho gợi ý tối thiểu. Chọn NVL thủ công hoặc bấm Tải tồn."
+            : string.Empty;
         RefreshWorkflowSteps();
     }
 
@@ -1336,7 +1913,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             return;
 
         if (MessageBox.Show(
-                "Hoàn tất lệnh? Sẽ sinh serial/thành phẩm và công nợ (nếu thợ ngoài).",
+                "Hoàn tất lệnh? Thành phẩm sẽ được nhập kho ở bước riêng. Công nợ tiền công thợ ngoài sẽ được ghi nhận.",
                 "Xác nhận",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
@@ -1350,7 +1927,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             _rowVersion = result.RowVersion;
             await LoadDetailAsync(_id.Value);
             MessageBox.Show(
-                $"Hoàn tất {result.Code}. Nhập TP {result.FinishedReceiptDocumentCode}, {result.FinishedProductCount} món.",
+                $"Đã hoàn tất {result.Code} ({result.FinishedProductCount} món). Chọn lệnh này tại Kho → Nhập thành phẩm để ghi tồn kho.",
                 "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
@@ -1423,9 +2000,11 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
         var passed = QcUnits.Count(x => x.IsPassed);
         var labor = QcUnits.Where(x => x.IsPassed).Sum(x => x.LaborCostSnapshot);
-        var serialPreview = CanComplete || IsCompleted
-            ? $"Sẽ tạo {passed} serial/thành phẩm (mỗi món đạt = 1)."
-            : $"Dự kiến tối đa {QcUnits.Count} serial khi mọi món đạt ({passed} đã đạt).";
+        var serialPreview = _hasFinishedReceipt
+            ? $"Đã nhập kho {passed} serial/thành phẩm."
+            : CanComplete || IsCompleted
+                ? $"Khi nhập kho sẽ tạo {passed} serial/thành phẩm (mỗi món đạt = 1)."
+                : $"Dự kiến tối đa {QcUnits.Count} serial khi mọi món đạt ({passed} đã đạt).";
         CompletionPreview =
             $"{serialPreview} Tổng tiền công dự kiến: {labor:N0} VND. " +
             (IsOutsourced && labor > 0
@@ -1453,9 +2032,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         }
 
         QcGoldWeight = unit.ActualGoldWeight;
-        QcWeightUnit = string.IsNullOrWhiteSpace(unit.ActualWeightUnitCode)
-            ? "CHI"
-            : unit.ActualWeightUnitCode!;
+        QcWeightUnit = "CHI";
         QcPurityCode = unit.GoldPurityCode ?? string.Empty;
         QcDefectNotes = unit.DefectNotes ?? string.Empty;
         QcResultCode = unit.IsPassed
@@ -1617,6 +2194,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         Lines.Add(draft);
         SelectedLine = draft;
         RefreshGalleryImages();
+        NotifyQuoteChanged();
         RefreshWorkflowSteps();
     }
 
@@ -1626,7 +2204,10 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             return;
 
         if (await ShowLineDialogAsync(line, isNew: false))
+        {
             RefreshGalleryImages();
+            NotifyQuoteChanged();
+        }
     }
 
     private async Task<bool> ShowLineDialogAsync(ProductionLineEditorViewModel line, bool isNew)
@@ -1654,12 +2235,23 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             IsBusy = false;
         }
 
+        IReadOnlyDictionary<long, decimal> sellPrices;
+        try
+        {
+            sellPrices = await LoadGoldSellPricesByMaterialIdAsync();
+        }
+        catch
+        {
+            sellPrices = new Dictionary<long, decimal>();
+        }
+
         var dialogVm = new ProductionLineEditDialogViewModel(
             _attachments,
             line.LineNumber,
             IsDraft,
             goldStock,
-            isNew ? null : line);
+            isNew ? null : line,
+            sellPrices);
 
         var dialog = new ProductionLineEditDialog
         {
@@ -1706,6 +2298,20 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             .ToList();
     }
 
+    private async Task<IReadOnlyDictionary<long, decimal>> LoadGoldSellPricesByMaterialIdAsync()
+    {
+        var map = new Dictionary<long, decimal>();
+        foreach (var option in await _goldTypes.ListAsync(activeOnly: true))
+        {
+            var detail = await _goldTypes.GetByIdAsync(option.Id);
+            if (detail is null || detail.MaterialId <= 0 || detail.SellPricePerChi <= 0)
+                continue;
+            map[detail.MaterialId] = detail.SellPricePerChi;
+        }
+
+        return map;
+    }
+
     private void RemoveLine(ProductionLineEditorViewModel? line)
     {
         if (line is null || Lines.Count <= 1)
@@ -1732,6 +2338,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
         SelectedLine = Lines.FirstOrDefault();
         RefreshGalleryImages();
+        NotifyQuoteChanged();
         RefreshWorkflowSteps();
     }
 
@@ -1883,8 +2490,12 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ((AsyncRelayCommand)CancelDraftCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)AddLineCommand).NotifyCanExecuteChanged();
         ((ParameterRelayCommand)EditLineCommand).NotifyCanExecuteChanged();
+        ((RelayCommand)CreateCustomerCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)PostDepositCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RefreshStockMaterialsCommand).NotifyCanExecuteChanged();
+        ((RelayCommand)AddMinimumMaterialsToIssueCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PostMaterialIssueCommand).NotifyCanExecuteChanged();
+        RefreshMinimumMaterials();
         ((AsyncRelayCommand)PostWorkerReturnCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)AddQcImageCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RecordQcCommand).NotifyCanExecuteChanged();
@@ -2026,8 +2637,12 @@ public sealed class ProductionLineEditorViewModel : ObservableObject
     private string _modelName = string.Empty;
     private string _goldTypeCode = string.Empty;
     private string _goldTypeName = string.Empty;
+    private long? _goldMaterialId;
     private int _plannedQuantity = 1;
     private decimal _laborCostPerUnit;
+    private decimal _estimatedWeightChi;
+    private decimal _goldUnitPricePerChi;
+    private decimal _stoneAmountPerUnitVnd;
     private string? _description;
     private string? _notes;
 
@@ -2046,6 +2661,9 @@ public sealed class ProductionLineEditorViewModel : ObservableObject
         _goldTypeName = line.GoldTypeName;
         _plannedQuantity = line.PlannedQuantity;
         _laborCostPerUnit = line.LaborCostPerUnit;
+        _estimatedWeightChi = line.EstimatedWeightChi;
+        _goldUnitPricePerChi = line.GoldUnitPricePerChi;
+        _stoneAmountPerUnitVnd = line.StoneAmountPerUnitVnd;
         _description = line.Description;
         _notes = line.Notes;
     }
@@ -2083,17 +2701,67 @@ public sealed class ProductionLineEditorViewModel : ObservableObject
         set => SetProperty(ref _goldTypeName, value ?? string.Empty);
     }
 
+    public long? GoldMaterialId
+    {
+        get => _goldMaterialId;
+        set => SetProperty(ref _goldMaterialId, value);
+    }
+
     public int PlannedQuantity
     {
         get => _plannedQuantity;
-        set => SetProperty(ref _plannedQuantity, value);
+        set
+        {
+            if (SetProperty(ref _plannedQuantity, value))
+                NotifyQuoteTotals();
+        }
     }
 
     public decimal LaborCostPerUnit
     {
         get => _laborCostPerUnit;
-        set => SetProperty(ref _laborCostPerUnit, value);
+        set
+        {
+            if (SetProperty(ref _laborCostPerUnit, value))
+                NotifyQuoteTotals();
+        }
     }
+
+    public decimal EstimatedWeightChi
+    {
+        get => _estimatedWeightChi;
+        set
+        {
+            if (SetProperty(ref _estimatedWeightChi, value))
+                NotifyQuoteTotals();
+        }
+    }
+
+    public decimal GoldUnitPricePerChi
+    {
+        get => _goldUnitPricePerChi;
+        set
+        {
+            if (SetProperty(ref _goldUnitPricePerChi, value))
+                NotifyQuoteTotals();
+        }
+    }
+
+    public decimal StoneAmountPerUnitVnd
+    {
+        get => _stoneAmountPerUnitVnd;
+        set
+        {
+            if (SetProperty(ref _stoneAmountPerUnitVnd, value))
+                NotifyQuoteTotals();
+        }
+    }
+
+    public decimal LaborLineTotal => LaborCostPerUnit * Math.Max(0, PlannedQuantity);
+
+    public decimal QuoteLineTotal => CraftOrderValidator.LineTotal(ToCraftLineDraft());
+
+    public decimal GoldWeightTotalChi => EstimatedWeightChi * Math.Max(0, PlannedQuantity);
 
     public string? Description
     {
@@ -2121,9 +2789,29 @@ public sealed class ProductionLineEditorViewModel : ObservableObject
 
     public void NotifyAttachmentSummaryChanged() => OnPropertyChanged(nameof(AttachmentSummary));
 
+    private void NotifyQuoteTotals()
+    {
+        OnPropertyChanged(nameof(LaborLineTotal));
+        OnPropertyChanged(nameof(QuoteLineTotal));
+        OnPropertyChanged(nameof(GoldWeightTotalChi));
+    }
+
+    public CraftOrderLineDraft ToCraftLineDraft() =>
+        new(
+            ModelName,
+            string.IsNullOrWhiteSpace(GoldTypeCode) ? GoldTypeName : GoldTypeCode,
+            PlannedQuantity,
+            EstimatedWeightChi,
+            GoldUnitPricePerChi,
+            LaborCostPerUnit,
+            StoneAmountPerUnitVnd,
+            Notes);
+
     public ProductionOrderLineDraft ToDraft() =>
         new(Id, LineNumber, ModelCode, ModelName, GoldTypeCode, GoldTypeName,
-            PlannedQuantity, LaborCostPerUnit, Description, Notes);
+            PlannedQuantity, LaborCostPerUnit,
+            EstimatedWeightChi, GoldUnitPricePerChi, StoneAmountPerUnitVnd,
+            Description, Notes);
 }
 
 public sealed class ProductionAttachmentEditorViewModel
@@ -2207,6 +2895,49 @@ public sealed class ProductionAttachmentEditorViewModel
 
     public ProductionAttachmentDraft ToDraft(int displayOrder) =>
         new(Id, AttachmentKind, StagingPath, StoredPath, OriginalFileName, MimeType, Caption, displayOrder, LineNumber, MarkDeleted);
+}
+
+public sealed class MinimumMaterialHintViewModel
+{
+    public MinimumMaterialHintViewModel(
+        long? materialId,
+        string materialCode,
+        string materialName,
+        decimal minimumQuantityChi,
+        string unitCode,
+        decimal? quantityOnHand,
+        ProductionMaterialStockOption? matchedStock)
+    {
+        MaterialId = materialId;
+        MaterialCode = materialCode;
+        MaterialName = materialName;
+        MinimumQuantityChi = minimumQuantityChi;
+        UnitCode = unitCode;
+        QuantityOnHand = quantityOnHand;
+        MatchedStock = matchedStock;
+    }
+
+    public long? MaterialId { get; }
+    public string MaterialCode { get; }
+    public string MaterialName { get; }
+    public decimal MinimumQuantityChi { get; }
+    public string UnitCode { get; }
+    public decimal? QuantityOnHand { get; }
+    public ProductionMaterialStockOption? MatchedStock { get; }
+
+    public string OnHandDisplay =>
+        QuantityOnHand is null
+            ? "Chưa map tồn"
+            : $"{QuantityOnHand.Value:0.###} {UnitCode}";
+
+    public string MinimumDisplay => $"{MinimumQuantityChi:0.###} {UnitCode}";
+
+    public string StockStatusHint =>
+        QuantityOnHand is null
+            ? "Cần chọn NVL thủ công"
+            : QuantityOnHand.Value + 0.0001m < MinimumQuantityChi
+                ? "Tồn thấp hơn tối thiểu"
+                : "Đủ tồn gợi ý";
 }
 
 public sealed class ProductionIssueLineEditorViewModel

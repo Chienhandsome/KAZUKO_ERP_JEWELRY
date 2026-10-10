@@ -123,7 +123,7 @@ public sealed class FinishedProductTransferDialogViewModel : ObservableObject
         DestinationLocation = DestinationLocations.FirstOrDefault();
 
         var items = await _warehouse.SearchFinishedProductStockAsync(
-            new FinishedProductSearchFilter(string.Empty, string.Empty, "IN_STOCK"), _session);
+            new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty, "IN_STOCK"), _session);
         _allCandidates.AddRange(items);
         ApplyCandidateFilter();
     }

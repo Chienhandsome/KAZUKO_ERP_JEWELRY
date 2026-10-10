@@ -47,9 +47,6 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Làm mới (F5)"
-                        Style="{StaticResource ProductionOutlineButtonStyle}"
-                        Command="{Binding RefreshCommand}" />
                 <Button Content="Tạo lệnh"
                         Style="{StaticResource ProductionPrimaryButtonStyle}"
                         Command="{Binding CreateOrderCommand}"
@@ -92,12 +89,12 @@
                     <TextBox Width="240"
                              Style="{StaticResource ProductionFilterFieldStyle}"
                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Mã lệnh, mẫu, đơn bán, thợ/nhân viên" />
+                             ToolTip="Mã lệnh, mẫu, đơn đặt, thợ/nhân viên" />
                     <ComboBox Width="150"
                               Style="{StaticResource ProductionFilterComboStyle}"
                               ItemsSource="{Binding StatusFilterOptions}"
                               SelectedItem="{Binding SelectedStatusFilter}" />
-                    <ComboBox Width="150"
+                    <ComboBox Width="190"
                               Style="{StaticResource ProductionFilterComboStyle}"
                               ItemsSource="{Binding SourceFilterOptions}"
                               SelectedItem="{Binding SelectedSourceFilter}" />
@@ -126,13 +123,9 @@
             <DataGrid Style="{StaticResource ProductionDataGridStyle}"
                       ItemsSource="{Binding Orders}"
                       SelectedItem="{Binding SelectedOrder}"
+                      MouseDoubleClick="OrdersGrid_OnMouseDoubleClick"
                       BorderThickness="0"
                       grid:DataGridColumnLayout.SettingsKey="production.orders">
-                <DataGrid.InputBindings>
-                    <MouseBinding MouseAction="LeftDoubleClick"
-                                  Command="{Binding OpenDetailCommand}"
-                                  CommandParameter="{Binding SelectedOrder}" />
-                </DataGrid.InputBindings>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Mã LSX" grid:DataGridColumnLayout.Key="Code"
                                         Binding="{Binding Code, Mode=OneWay}" Width="130" />
@@ -144,32 +137,12 @@
                                         Binding="{Binding SourceDisplay, Mode=OneWay}" Width="110" />
                     <DataGridTextColumn Header="Hình thức" grid:DataGridColumnLayout.Key="Execution"
                                         Binding="{Binding ExecutionDisplay, Mode=OneWay}" Width="100" />
-                    <DataGridTextColumn Header="Đơn bán" grid:DataGridColumnLayout.Key="SalesOrder"
+                    <DataGridTextColumn Header="Đơn đặt" grid:DataGridColumnLayout.Key="SalesOrder"
                                         Binding="{Binding SalesOrderCode, Mode=OneWay}" Width="120" />
                     <DataGridTextColumn Header="Thợ / NV" grid:DataGridColumnLayout.Key="Worker"
                                         Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="160" />
-                    <DataGridTextColumn Header="Mẫu" grid:DataGridColumnLayout.Key="Models"
-                                        Binding="{Binding ModelSummary, Mode=OneWay}" Width="*" MinWidth="140" />
                     <DataGridTextColumn Header="SL kế hoạch" grid:DataGridColumnLayout.Key="Qty"
                                         Binding="{Binding PlannedQuantityTotal, Mode=OneWay}" Width="90" />
-                    <DataGridTemplateColumn Header="" Width="150" grid:DataGridColumnLayout.Key="Actions">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="Mở"
-                                            Style="{StaticResource ProductionGridActionButtonStyle}"
-                                            Command="{Binding DataContext.OpenDetailCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}" />
-                                    <Button Content="Xóa"
-                                            Style="{StaticResource ProductionGridActionButtonStyle}"
-                                            Command="{Binding DataContext.DeleteOrderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Visibility="{Binding CanDelete, Converter={StaticResource BoolToVis}}"
-                                            ToolTip="Hủy lệnh (bản nháp hoặc đang làm đủ điều kiện)" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
@@ -179,12 +152,6 @@
                        Text="{Binding StatusMessage}"
                        VerticalAlignment="Center"
                        Style="{StaticResource ProductionHintStyle}" />
-            <Button DockPanel.Dock="Right"
-                    Content="Mở chi tiết"
-                    Style="{StaticResource ProductionOutlineButtonStyle}"
-                    Command="{Binding OpenDetailCommand}"
-                    CommandParameter="{Binding SelectedOrder}"
-                    Margin="0" />
         </DockPanel>
     </Grid>
 </UserControl>

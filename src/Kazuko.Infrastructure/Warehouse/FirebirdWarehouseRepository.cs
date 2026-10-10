@@ -7,6 +7,27 @@ namespace Kazuko.Infrastructure.Warehouse;
 
 public sealed class FirebirdWarehouseRepository : IWarehouseRepository
 {
+    public async Task<IReadOnlyList<FinishedProductGroupOption>> GetFinishedProductGroupsAsync(
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var result = new List<FinishedProductGroupOption>();
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new FbCommand("""
+            SELECT G.ID, G.CODE, G.NAME
+            FROM FINISHED_PRODUCT_GROUPS G
+            WHERE G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+              AND G.IS_ACTIVE = TRUE
+            ORDER BY G.DISPLAY_ORDER, G.NAME
+            """, connection);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            result.Add(new FinishedProductGroupOption(reader.GetInt64(0), reader.GetString(1), reader.GetString(2)));
+        return result;
+    }
+
     public async Task<IReadOnlyList<WarehouseLocationOption>> GetLocationsAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default)
@@ -182,16 +203,18 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = new FbCommand("""
-            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(F.GOLD_PURITY, ''),
+            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(G.CODE, ''), COALESCE(G.NAME, ''), COALESCE(F.GOLD_PURITY, ''),
                    CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
                    F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
             FROM FINISHED_PRODUCTS F
             LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+            LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
             WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND F.BRANCH_ID = @BRANCH_ID
               AND F.STATUS_CODE IN ('IN_STOCK', 'RESERVED')
               AND L.INVENTORY_SCOPE = 'FINISHED_GOODS'
               AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
+              AND (@HAS_GROUP = 0 OR G.CODE = @GROUP_CODE)
               AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
               AND (@HAS_SEARCH = 0
                    OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
@@ -201,10 +224,13 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
 
         var search = (filter.SearchText ?? string.Empty).Trim();
         var purity = (filter.GoldPurity ?? string.Empty).Trim().ToUpperInvariant();
+        var group = (filter.ProductGroupCode ?? string.Empty).Trim().ToUpperInvariant();
         var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
         command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
         command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
         command.Parameters.Add("@STATUS", FbDbType.VarChar, 30).Value = status;
+        command.Parameters.Add("@HAS_GROUP", FbDbType.Integer).Value = group.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@GROUP_CODE", FbDbType.VarChar, 30).Value = group;
         command.Parameters.Add("@HAS_PURITY", FbDbType.Integer).Value = purity.Length > 0 ? 1 : 0;
         command.Parameters.Add("@PURITY", FbDbType.VarChar, 40).Value = purity;
         command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
@@ -213,17 +239,19 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            var statusCode = reader.GetString(7);
+            var statusCode = reader.GetString(9);
             result.Add(new FinishedProductStockItem(
                 reader.GetInt64(0),
                 reader.GetString(1),
                 reader.GetString(2),
                 reader.GetString(3),
+                reader.GetString(4),
+                reader.GetString(5),
                 "món",
                 statusCode is "SOLD" or "SCRAPPED" ? 0m : 1m,
-                reader.GetDecimal(4),
-                reader.IsDBNull(5) ? null : reader.GetInt64(5),
-                reader.GetString(6),
+                reader.GetDecimal(6),
+                reader.IsDBNull(7) ? null : reader.GetInt64(7),
+                reader.GetString(8),
                 statusCode));
         }
 
@@ -243,16 +271,18 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = new FbCommand("""
-            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(F.GOLD_PURITY, ''),
+            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(G.CODE, ''), COALESCE(G.NAME, ''), COALESCE(F.GOLD_PURITY, ''),
                    CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
                    F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
             FROM FINISHED_PRODUCTS F
             LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+            LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
             WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND F.BRANCH_ID = @BRANCH_ID
               AND F.STATUS_CODE = 'DISPLAYED'
               AND L.INVENTORY_SCOPE = 'SALES_FLOOR'
               AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
+              AND (@HAS_GROUP = 0 OR G.CODE = @GROUP_CODE)
               AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
               AND (@HAS_SEARCH = 0
                    OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
@@ -262,10 +292,13 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
 
         var search = (filter.SearchText ?? string.Empty).Trim();
         var purity = (filter.GoldPurity ?? string.Empty).Trim().ToUpperInvariant();
+        var group = (filter.ProductGroupCode ?? string.Empty).Trim().ToUpperInvariant();
         var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
         command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
         command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
         command.Parameters.Add("@STATUS", FbDbType.VarChar, 30).Value = status;
+        command.Parameters.Add("@HAS_GROUP", FbDbType.Integer).Value = group.Length > 0 ? 1 : 0;
+        command.Parameters.Add("@GROUP_CODE", FbDbType.VarChar, 30).Value = group;
         command.Parameters.Add("@HAS_PURITY", FbDbType.Integer).Value = purity.Length > 0 ? 1 : 0;
         command.Parameters.Add("@PURITY", FbDbType.VarChar, 40).Value = purity;
         command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
@@ -279,12 +312,14 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
                 reader.GetString(1),
                 reader.GetString(2),
                 reader.GetString(3),
+                reader.GetString(4),
+                reader.GetString(5),
                 "món",
                 1m,
-                reader.GetDecimal(4),
-                reader.IsDBNull(5) ? null : reader.GetInt64(5),
-                reader.GetString(6),
-                reader.GetString(7)));
+                reader.GetDecimal(6),
+                reader.IsDBNull(7) ? null : reader.GetInt64(7),
+                reader.GetString(8),
+                reader.GetString(9)));
         }
 
         return result;
@@ -301,12 +336,12 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = new FbCommand("""
-            SELECT O.ID, O.CODE, C.NAME, O.STATUS_CODE
+            SELECT O.ID, O.CODE, C.NAME, O.STATUS_CODE, COALESCE(O.ORDER_TYPE, '')
             FROM SALES_ORDERS O
             JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
             WHERE O.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND O.BRANCH_ID = @BRANCH_ID
-              AND O.STATUS_CODE IN ('CONFIRMED', 'DEPOSITED', 'IN_PRODUCTION', 'READY', 'PARTIALLY_DELIVERED')
+              AND O.STATUS_CODE IN ('CONFIRMED', 'DEPOSITED', 'IN_PRODUCTION', 'READY', 'PARTIALLY_DELIVERED', 'COMPLETED')
               AND O.FINISHED_GOODS_ISSUE_DOCUMENT_ID IS NULL
             ORDER BY O.ORDER_DATE DESC, O.ID DESC
             """, connection);
@@ -318,7 +353,8 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
                 reader.GetInt64(0),
                 reader.GetString(1),
                 reader.GetString(2),
-                reader.GetString(3)));
+                reader.GetString(3),
+                reader.GetString(4)));
         }
 
         return result;
@@ -338,11 +374,12 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = new FbCommand("""
-            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(F.GOLD_PURITY, ''),
+            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(G.CODE, ''), COALESCE(G.NAME, ''), COALESCE(F.GOLD_PURITY, ''),
                    CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
                    F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
             FROM FINISHED_PRODUCTS F
             LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+            LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
             WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND F.BRANCH_ID = @BRANCH_ID
               AND F.SALES_ORDER_ID = @ORDER_ID
@@ -355,9 +392,9 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         while (await reader.ReadAsync(cancellationToken))
         {
             result.Add(new FinishedProductStockItem(
-                reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                "món", 1m, reader.GetDecimal(4),
-                reader.IsDBNull(5) ? null : reader.GetInt64(5), reader.GetString(6), reader.GetString(7)));
+                reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5),
+                "món", 1m, reader.GetDecimal(6),
+                reader.IsDBNull(7) ? null : reader.GetInt64(7), reader.GetString(8), reader.GetString(9)));
         }
 
         return result;

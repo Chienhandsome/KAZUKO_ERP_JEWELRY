@@ -1,10 +1,19 @@
+using System.Reflection;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
+using Kazuko.Core.Production;
 using Kazuko.Core.Sales;
+using Kazuko.Core.Warehouse;
 using Kazuko.Modules.Sales.Services;
 
 namespace Kazuko.Modules.Sales.Tests;
+
+public class UnusedDependencyProxy : DispatchProxy
+{
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+        throw new InvalidOperationException($"Unexpected call to {targetMethod?.Name} in this sales test.");
+}
 
 internal sealed class FakeSessionAccessor : ICurrentSessionAccessor
 {
@@ -243,7 +252,10 @@ internal static class SalesTestFactory
         var receipts = new FakeReceiptPresenter();
         var vm = new SalesViewModel(
             queries, checkout, auth, new FakeCashFunds(), new FakeBanks(),
-            session, payments, new FakeCustomerEditor(), new FakePriceOverrideDialog(), receipts);
+            session, payments, new FakeCustomerEditor(), new FakePriceOverrideDialog(), receipts,
+            DispatchProxy.Create<ICraftOrderApplicationService, UnusedDependencyProxy>(),
+            DispatchProxy.Create<IWarehouseRepository, UnusedDependencyProxy>(),
+            DispatchProxy.Create<IProductionOrderEditorService, UnusedDependencyProxy>());
         return (vm, checkout, payments, receipts, queries);
     }
 }

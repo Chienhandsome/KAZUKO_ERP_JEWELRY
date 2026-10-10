@@ -1,5 +1,7 @@
 # Kế hoạch triển khai module Sản xuất
 
+> Cập nhật 2026-10-09: Luồng nghiệp vụ đã đổi thành **tạo lệnh → hoàn thành → nhập kho thành phẩm**. Hoàn thành chỉ chốt QC, đối soát NVL, công nợ thợ ngoài và trạng thái đơn đặt. Nhập kho là thao tác riêng, chọn một lệnh `COMPLETED` chưa nhập, tạo toàn bộ serial/thành phẩm và một phiếu nhập trong một transaction. Form lệnh sản xuất dùng một màn hình cuộn với các phần mở/gập; không dùng chuỗi tab để thực hiện thao tác. Các đoạn kế hoạch cũ bên dưới mô tả nhập kho lúc hoàn tất hoặc UI dạng tab chỉ là lịch sử thiết kế; xem `docs/08-PRODUCTION-INVARIANTS.md` để áp dụng quyết định mới.
+
 Tài liệu này là đặc tả triển khai cho Cursor. Đây là nguồn yêu cầu của module `Kazuko.Production`; không tự suy diễn thêm công đoạn, trạng thái hoặc cách tính giá ngoài nội dung bên dưới.
 
 ## 1. Kết quả cần đạt
@@ -7,7 +9,9 @@ Tài liệu này là đặc tả triển khai cho Cursor. Đây là nguồn yêu
 Xây dựng một module Sản xuất độc lập, hỗ trợ hai nguồn lệnh:
 
 - Sản xuất để nhập kho.
-- Sản xuất theo một đơn bán/đơn đặt hàng đã xác nhận.
+- Sản xuất theo một **đơn đặt** chế tác (`SALES_ORDERS.ORDER_TYPE = 'CUSTOM'`) đã xác nhận và đã thu cọc.
+
+Chi tiết đơn đặt + cọc + giao hàng (Bán hàng tab Đơn đặt): `docs/10-CRAFT-CUSTOM-ORDER.md`.
 
 Một lệnh sản xuất có nhiều mẫu, mỗi mẫu có số lượng lớn hơn hoặc bằng 1. Ví dụ: 5 nhẫn và 10 lắc. Thành phẩm không được quản lý theo số lượng gộp: khi hoàn tất, mỗi món đạt QC phải trở thành một dòng `FINISHED_PRODUCTS` riêng với serial duy nhất.
 
@@ -17,10 +21,11 @@ Module chỉ quản lý thông tin giao nguyên liệu, nhận lại hàng, QC v
 
 ### 2.1. Nguồn lệnh
 
-- `STOCK`: sản xuất để nhập kho, không gắn đơn bán.
-- `SALES_ORDER`: bắt buộc gắn đúng một `SALES_ORDERS.ID`.
-- Một đơn bán chỉ được gắn với tối đa một lệnh sản xuất, kể cả lệnh đã hủy. Muốn làm lại phải mở lại/khôi phục lệnh cũ, không tạo lệnh thứ hai.
-- Chỉ cho chọn đơn bán đã xác nhận, không ở trạng thái `DRAFT` hoặc `CANCELLED`.
+- `STOCK`: sản xuất để nhập kho, không gắn đơn đặt.
+- `SALES_ORDER` (UI: **Theo đơn đặt**): bắt buộc gắn đúng một `SALES_ORDERS.ID` loại `CUSTOM`.
+- Một đơn đặt chỉ được gắn với tối đa một lệnh sản xuất, kể cả lệnh đã hủy. Muốn làm lại phải mở lại/khôi phục lệnh cũ, không tạo lệnh thứ hai.
+- UI: chọn khách trên tab Thông tin lệnh; thêm mẫu + báo giá + **Đặt cọc** trên tab Mẫu sản phẩm (không dialog tạo đơn riêng). Chi tiết: `docs/10-CRAFT-CUSTOM-ORDER.md`.
+- Lưu lệnh nguồn `SALES_ORDER` bắt buộc đã đặt cọc (`SALES_ORDER_ID`). Khi lưu: đơn → `IN_PRODUCTION`. Khi hoàn tất: đơn → `READY`.
 
 ### 2.2. Hình thức thực hiện
 

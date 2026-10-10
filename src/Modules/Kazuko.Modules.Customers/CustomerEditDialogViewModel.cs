@@ -47,6 +47,9 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
     private string _pointsError = string.Empty;
     private string _creditLimitError = string.Empty;
     private string _formError = string.Empty;
+    private bool _isAddingGroup;
+    private string _newGroupName = string.Empty;
+    private string _newGroupError = string.Empty;
 
     public CustomerEditDialogViewModel(
         ICustomerRepository repository,
@@ -71,6 +74,9 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(null), () => !IsBusy);
         PickPhotoCommand = new RelayCommand(PickPhoto, () => !IsBusy && !IsLoading);
         ClearPhotoCommand = new RelayCommand(ClearPhoto, () => !IsBusy && !IsLoading && HasPhoto);
+        AddGroupCommand = new RelayCommand(BeginAddGroup, () => !IsBusy && !IsLoading);
+        CreateGroupCommand = new AsyncRelayCommand(CreateGroupAsync, () => !IsBusy && !IsLoading);
+        CancelAddGroupCommand = new RelayCommand(CancelAddGroup, () => !IsBusy && !IsLoading);
 
         _ = InitializeAsync();
     }
@@ -200,7 +206,33 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
     public CustomerGroupOption? SelectedGroup
     {
         get => _selectedGroup;
-        set => SetProperty(ref _selectedGroup, value);
+        set
+        {
+            if (SetProperty(ref _selectedGroup, value) && value is not null)
+                GroupError = string.Empty;
+        }
+    }
+
+    public bool IsAddingGroup
+    {
+        get => _isAddingGroup;
+        private set => SetProperty(ref _isAddingGroup, value);
+    }
+
+    public string NewGroupName
+    {
+        get => _newGroupName;
+        set
+        {
+            if (SetProperty(ref _newGroupName, value) && !string.IsNullOrWhiteSpace(value))
+                NewGroupError = string.Empty;
+        }
+    }
+
+    public string NewGroupError
+    {
+        get => _newGroupError;
+        private set => SetProperty(ref _newGroupError, value);
     }
 
     public DateTime? BirthDate
@@ -286,6 +318,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                 ((RelayCommand)CancelCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)PickPhotoCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)ClearPhotoCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)AddGroupCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)CancelAddGroupCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsFormEnabled));
             }
         }
@@ -301,6 +335,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                 CommandManager.InvalidateRequerySuggested();
                 ((RelayCommand)PickPhotoCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)ClearPhotoCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)AddGroupCommand).NotifyCanExecuteChanged();
+                ((RelayCommand)CancelAddGroupCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsFormEnabled));
             }
         }
@@ -312,6 +348,63 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
     public ICommand CancelCommand { get; }
     public ICommand PickPhotoCommand { get; }
     public ICommand ClearPhotoCommand { get; }
+    public ICommand AddGroupCommand { get; }
+    public ICommand CreateGroupCommand { get; }
+    public ICommand CancelAddGroupCommand { get; }
+
+    private void BeginAddGroup()
+    {
+        NewGroupName = string.Empty;
+        NewGroupError = string.Empty;
+        IsAddingGroup = true;
+    }
+
+    private void CancelAddGroup()
+    {
+        NewGroupName = string.Empty;
+        NewGroupError = string.Empty;
+        IsAddingGroup = false;
+    }
+
+    private async Task CreateGroupAsync()
+    {
+        var name = NewGroupName.Trim();
+        if (name.Length == 0)
+        {
+            NewGroupError = "Nhập tên nhóm khách hàng.";
+            return;
+        }
+
+        var session = _sessionAccessor.Current;
+        if (session is null)
+        {
+            NewGroupError = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+            return;
+        }
+
+        IsBusy = true;
+        NewGroupError = string.Empty;
+        try
+        {
+            var group = await _repository.CreateGroupAsync(name, session);
+            Groups.Add(group);
+            SelectedGroup = group;
+            IsAddingGroup = false;
+            NewGroupName = string.Empty;
+        }
+        catch (InvalidOperationException ex)
+        {
+            NewGroupError = Sanitize(ex.Message);
+        }
+        catch (Exception)
+        {
+            NewGroupError = "Không thể tạo nhóm khách hàng. Vui lòng thử lại.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     private void PickPhoto()
     {

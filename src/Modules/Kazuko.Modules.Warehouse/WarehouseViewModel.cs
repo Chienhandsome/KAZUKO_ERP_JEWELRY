@@ -3,10 +3,10 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
-using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.PriceBoard;
+using Kazuko.Core.Production;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
@@ -23,19 +23,15 @@ public sealed class WarehouseViewModel : ObservableObject
     private readonly IWarehouseGoldPriceRepository _warehouseGoldPrices;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IMaterialReceiptService _materialReceipts;
-    private readonly IMaterialIssueService _materialIssues;
-    private readonly IOutsourcedCraftService _outsourcedCraft;
-    private readonly IFinishedGoodsIssueService _finishedGoods;
     private readonly IFinishedProductTransferService _finishedProductTransfers;
-    private readonly IExternalWorkerRepository _externalWorkers;
     private readonly ISupplierRepository _suppliers;
-    private readonly ICustomerRepository _customers;
     private readonly ISupplierEditorService _supplierEditor;
-    private readonly ICustomerEditorService _customerEditor;
     private readonly IGoldTypeEditorService _goldTypeEditor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
     private readonly IGoldTypeCatalogService _goldTypes;
+    private readonly IProductionQueryRepository _productionQueries;
+    private readonly IProductionApplicationService _productionApplication;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
     private bool _suppressTabSideEffects;
@@ -50,18 +46,22 @@ public sealed class WarehouseViewModel : ObservableObject
     private string _overviewRawGoldType = "Tất cả loại vàng";
     private string _overviewRawStatus = "Tất cả trạng thái";
     private string _overviewFinishedSearchText = string.Empty;
+    private FinishedProductGroupOption? _overviewFinishedGroup;
     private string _overviewFinishedGoldType = "Tất cả loại vàng";
     private string _overviewFinishedStatus = "Tất cả trạng thái";
     private string _overviewSaleSearchText = string.Empty;
+    private FinishedProductGroupOption? _overviewSaleGroup;
     private string _overviewSaleGoldType = "Tất cả loại vàng";
     private string _overviewSaleStatus = "Tất cả trạng thái";
 
     private string _finishedSearchText = string.Empty;
+    private FinishedProductGroupOption? _selectedFinishedGroup;
     private string _selectedFinishedGoldType = "Tất cả loại vàng";
     private string _selectedFinishedStatus = "Tất cả trạng thái";
     private FinishedProductRowViewModel? _selectedFinishedProduct;
 
     private string _saleSearchText = string.Empty;
+    private FinishedProductGroupOption? _selectedSaleGroup;
     private string _selectedSaleGoldType = "Tất cả loại vàng";
     private string _selectedSaleStatus = "Tất cả trạng thái";
     private SaleItemRowViewModel? _selectedSaleItem;
@@ -115,37 +115,29 @@ public sealed class WarehouseViewModel : ObservableObject
         IWarehouseGoldPriceRepository warehouseGoldPrices,
         ICurrentSessionAccessor sessionAccessor,
         IMaterialReceiptService materialReceipts,
-        IMaterialIssueService materialIssues,
-        IOutsourcedCraftService outsourcedCraft,
-        IFinishedGoodsIssueService finishedGoods,
         IFinishedProductTransferService finishedProductTransfers,
-        IExternalWorkerRepository externalWorkers,
         ISupplierRepository suppliers,
-        ICustomerRepository customers,
         ISupplierEditorService supplierEditor,
-        ICustomerEditorService customerEditor,
         IGoldTypeEditorService goldTypeEditor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
-        IGoldTypeCatalogService goldTypes)
+        IGoldTypeCatalogService goldTypes,
+        IProductionQueryRepository productionQueries,
+        IProductionApplicationService productionApplication)
     {
         _repository = repository;
         _warehouseGoldPrices = warehouseGoldPrices;
         _sessionAccessor = sessionAccessor;
         _materialReceipts = materialReceipts;
-        _materialIssues = materialIssues;
-        _outsourcedCraft = outsourcedCraft;
-        _finishedGoods = finishedGoods;
         _finishedProductTransfers = finishedProductTransfers;
-        _externalWorkers = externalWorkers;
         _suppliers = suppliers;
-        _customers = customers;
         _supplierEditor = supplierEditor;
-        _customerEditor = customerEditor;
         _goldTypeEditor = goldTypeEditor;
         _funds = funds;
         _banks = banks;
         _goldTypes = goldTypes;
+        _productionQueries = productionQueries;
+        _productionApplication = productionApplication;
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
         MovementLocations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -159,6 +151,13 @@ public sealed class WarehouseViewModel : ObservableObject
 
         GoldTypeFilterOptions.Add("Tất cả loại vàng");
         _ = LoadGoldTypeFilterOptionsAsync();
+
+        ProductGroupFilterOptions.Add(new FinishedProductGroupOption(0, string.Empty, "Tất cả nhóm"));
+        OverviewFinishedGroup = ProductGroupFilterOptions[0];
+        OverviewSaleGroup = ProductGroupFilterOptions[0];
+        SelectedFinishedGroup = ProductGroupFilterOptions[0];
+        SelectedSaleGroup = ProductGroupFilterOptions[0];
+        _ = LoadProductGroupFilterOptionsAsync();
 
         StatusFilterOptions.Add("Tất cả trạng thái");
         StatusFilterOptions.Add("OK");
@@ -177,6 +176,7 @@ public sealed class WarehouseViewModel : ObservableObject
         DocumentTypeOptions.Add("ISSUE");
         // GX = giao NVL sản xuất (PRODUCTION_MATERIAL_ISSUE); XK = xuất kho thường (ISSUE).
         DocumentTypeOptions.Add("PRODUCTION_MATERIAL_ISSUE");
+        DocumentTypeOptions.Add("PRODUCTION_FINISHED_RECEIPT");
         DocumentTypeOptions.Add("TRANSFER");
         DocumentTypeOptions.Add("OUTSOURCED_CRAFT_ISSUE");
         DocumentTypeOptions.Add("CRAFT_RETURN_RECEIPT");
@@ -204,12 +204,9 @@ public sealed class WarehouseViewModel : ObservableObject
         OpenReceiptTabCommand = new RelayCommand(OpenMaterialReceiptDialog);
         OpenIssueTabCommand = new RelayCommand(() => OpenDocumentTab("ISSUE", WarehouseTabs.Issue));
         OpenTransferTabCommand = new RelayCommand(() => OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer));
-        OpenMaterialIssueCommand = new RelayCommand(OpenMaterialIssueDialog);
-        OpenFinishedGoodsIssueCommand = new RelayCommand(() => OpenFinishedGoodsIssueDialog(InventoryScopes.FinishedGoods));
-        OpenSalesGoodsIssueCommand = new RelayCommand(() => OpenFinishedGoodsIssueDialog(InventoryScopes.SalesFloor));
         OpenFinishedProductTransferCommand = new RelayCommand(OpenFinishedProductTransferDialog);
+        OpenProductionFinishedReceiptCommand = new RelayCommand(OpenProductionFinishedReceiptDialog);
         OpenWarehouseGoldPricesCommand = new RelayCommand(OpenWarehouseGoldPriceDialog);
-        OpenCraftTrackingCommand = new AsyncRelayCommand(OpenCraftTrackingAsync);
         ViewAllRawMaterialsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.RawMaterials));
         ViewAllFinishedProductsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.FinishedProducts));
         ViewAllSalesGoodsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.SalesGoods));
@@ -238,6 +235,7 @@ public sealed class WarehouseViewModel : ObservableObject
     public ObservableCollection<WarehouseLocationOption> MovementLocations { get; } = new();
     public ObservableCollection<string> MaterialTypeOptions { get; } = new();
     public ObservableCollection<string> GoldTypeFilterOptions { get; } = new();
+    public ObservableCollection<FinishedProductGroupOption> ProductGroupFilterOptions { get; } = new();
     public ObservableCollection<string> StatusFilterOptions { get; } = new();
     public ObservableCollection<string> FinishedStatusOptions { get; } = new();
     public ObservableCollection<string> SaleStatusOptions { get; } = new();
@@ -330,6 +328,16 @@ public sealed class WarehouseViewModel : ObservableObject
         }
     }
 
+    public FinishedProductGroupOption? OverviewFinishedGroup
+    {
+        get => _overviewFinishedGroup;
+        set
+        {
+            if (SetProperty(ref _overviewFinishedGroup, value))
+                ApplyOverviewFinishedFilters();
+        }
+    }
+
     public string OverviewFinishedStatus
     {
         get => _overviewFinishedStatus;
@@ -360,6 +368,16 @@ public sealed class WarehouseViewModel : ObservableObject
         }
     }
 
+    public FinishedProductGroupOption? OverviewSaleGroup
+    {
+        get => _overviewSaleGroup;
+        set
+        {
+            if (SetProperty(ref _overviewSaleGroup, value))
+                ApplyOverviewSaleFilters();
+        }
+    }
+
     public string OverviewSaleStatus
     {
         get => _overviewSaleStatus;
@@ -380,6 +398,12 @@ public sealed class WarehouseViewModel : ObservableObject
     {
         get => _selectedFinishedGoldType;
         set => SetProperty(ref _selectedFinishedGoldType, value);
+    }
+
+    public FinishedProductGroupOption? SelectedFinishedGroup
+    {
+        get => _selectedFinishedGroup;
+        set => SetProperty(ref _selectedFinishedGroup, value);
     }
 
     public string SelectedFinishedStatus
@@ -410,6 +434,12 @@ public sealed class WarehouseViewModel : ObservableObject
     {
         get => _selectedSaleGoldType;
         set => SetProperty(ref _selectedSaleGoldType, value);
+    }
+
+    public FinishedProductGroupOption? SelectedSaleGroup
+    {
+        get => _selectedSaleGroup;
+        set => SetProperty(ref _selectedSaleGroup, value);
     }
 
     public string SelectedSaleStatus
@@ -727,12 +757,9 @@ public sealed class WarehouseViewModel : ObservableObject
     public ICommand OpenReceiptTabCommand { get; }
     public ICommand OpenIssueTabCommand { get; }
     public ICommand OpenTransferTabCommand { get; }
-    public ICommand OpenMaterialIssueCommand { get; }
-    public ICommand OpenFinishedGoodsIssueCommand { get; }
-    public ICommand OpenSalesGoodsIssueCommand { get; }
     public ICommand OpenFinishedProductTransferCommand { get; }
+    public ICommand OpenProductionFinishedReceiptCommand { get; }
     public ICommand OpenWarehouseGoldPricesCommand { get; }
-    public ICommand OpenCraftTrackingCommand { get; }
     public ICommand ViewAllRawMaterialsCommand { get; }
     public ICommand ViewAllFinishedProductsCommand { get; }
     public ICommand ViewAllSalesGoodsCommand { get; }
@@ -758,8 +785,8 @@ public sealed class WarehouseViewModel : ObservableObject
         {
             // Dashboard KPIs/charts require full branch stock; tab filters stay client-side until explicit Search.
             var balanceFilter = new MaterialBalanceSearchFilter(string.Empty, string.Empty, 0, false);
-            var finishedFilter = new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty);
-            var saleFilter = new SaleItemSearchFilter(string.Empty, string.Empty, string.Empty);
+            var finishedFilter = new FinishedProductSearchFilter(string.Empty, string.Empty, string.Empty, string.Empty);
+            var saleFilter = new SaleItemSearchFilter(string.Empty, string.Empty, string.Empty, string.Empty);
             var documentFilter = BuildDocumentFilterForCurrentTab();
             var movementFilter = new StockMovementSearchFilter(0, 0, string.Empty);
 
@@ -899,6 +926,7 @@ public sealed class WarehouseViewModel : ObservableObject
         {
             var filter = new FinishedProductSearchFilter(
                 FinishedSearchText,
+                SelectedFinishedGroup?.Code ?? string.Empty,
                 NormalizeGoldType(SelectedFinishedGoldType),
                 NormalizeStatusCode(SelectedFinishedStatus));
             var rows = await _repository.SearchFinishedProductStockAsync(filter, session, scope.Token);
@@ -936,6 +964,7 @@ public sealed class WarehouseViewModel : ObservableObject
         {
             var filter = new SaleItemSearchFilter(
                 SaleSearchText,
+                SelectedSaleGroup?.Code ?? string.Empty,
                 NormalizeGoldType(SelectedSaleGoldType),
                 NormalizeStatusCode(SelectedSaleStatus));
             var rows = await _repository.SearchSaleItemStockAsync(filter, session, scope.Token);
@@ -1290,6 +1319,7 @@ public sealed class WarehouseViewModel : ObservableObject
         OverviewFinishedProducts.Clear();
         var search = OverviewFinishedSearchText.Trim();
         var gold = NormalizeGoldType(OverviewFinishedGoldType);
+        var group = OverviewFinishedGroup?.Code ?? string.Empty;
         var status = NormalizeStatusCode(OverviewFinishedStatus);
         var index = 1;
         foreach (var row in FinishedProducts)
@@ -1299,6 +1329,8 @@ public sealed class WarehouseViewModel : ObservableObject
                 && row.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase) == false)
                 continue;
             if (gold.Length > 0 && !row.GoldPurity.Contains(gold, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (group.Length > 0 && !row.ProductGroupCode.Equals(group, StringComparison.OrdinalIgnoreCase))
                 continue;
             if (status.Length > 0 && !row.StatusCode.Equals(status, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -1316,6 +1348,7 @@ public sealed class WarehouseViewModel : ObservableObject
         OverviewSaleItems.Clear();
         var search = OverviewSaleSearchText.Trim();
         var gold = NormalizeGoldType(OverviewSaleGoldType);
+        var group = OverviewSaleGroup?.Code ?? string.Empty;
         var status = NormalizeStatusCode(OverviewSaleStatus);
         var index = 1;
         foreach (var row in SaleItems)
@@ -1325,6 +1358,8 @@ public sealed class WarehouseViewModel : ObservableObject
                 && row.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase) == false)
                 continue;
             if (gold.Length > 0 && !row.GoldPurity.Contains(gold, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (group.Length > 0 && !row.ProductGroupCode.Equals(group, StringComparison.OrdinalIgnoreCase))
                 continue;
             if (status.Length > 0 && !row.StatusCode.Equals(status, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -1395,9 +1430,7 @@ public sealed class WarehouseViewModel : ObservableObject
             _materialReceipts,
             _repository,
             _suppliers,
-            _customers,
             _supplierEditor,
-            _customerEditor,
             _goldTypeEditor,
             _funds,
             _banks,
@@ -1409,27 +1442,6 @@ public sealed class WarehouseViewModel : ObservableObject
         if (dialog.ShowDialog() == true)
         {
             OpenDocumentTab("RECEIPT", WarehouseTabs.Receipt);
-            _ = RefreshAllAsync();
-        }
-    }
-
-    private void OpenMaterialIssueDialog()
-    {
-        var session = RequireSession();
-        if (session is null)
-        {
-            ErrorMessage = "Chưa đăng nhập.";
-            return;
-        }
-
-        var dialog = new MaterialIssueDialog(
-            new MaterialIssueDialogViewModel(_materialIssues, _repository, session))
-        {
-            Owner = Application.Current?.MainWindow
-        };
-        if (dialog.ShowDialog() == true)
-        {
-            OpenDocumentTab("ISSUE", WarehouseTabs.Issue);
             _ = RefreshAllAsync();
         }
     }
@@ -1455,6 +1467,27 @@ public sealed class WarehouseViewModel : ObservableObject
         }
     }
 
+    private void OpenProductionFinishedReceiptDialog()
+    {
+        var session = RequireSession();
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var dialog = new ProductionFinishedReceiptDialog(
+            new ProductionFinishedReceiptDialogViewModel(_productionQueries, _productionApplication, session))
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            OpenDocumentTab("PRODUCTION_FINISHED_RECEIPT", WarehouseTabs.Receipt);
+            _ = RefreshAllAsync();
+        }
+    }
+
     private void OpenWarehouseGoldPriceDialog()
     {
         var session = RequireSession();
@@ -1470,49 +1503,6 @@ public sealed class WarehouseViewModel : ObservableObject
             Owner = Application.Current?.MainWindow
         };
         dialog.ShowDialog();
-    }
-
-    private void OpenFinishedGoodsIssueDialog(string preferredScope)
-    {
-        var session = RequireSession();
-        if (session is null)
-        {
-            ErrorMessage = "Chưa đăng nhập.";
-            return;
-        }
-
-        var dialog = new FinishedGoodsIssueDialog(
-            new FinishedGoodsIssueDialogViewModel(_finishedGoods, _repository, session, preferredScope))
-        {
-            Owner = Application.Current?.MainWindow
-        };
-        if (dialog.ShowDialog() == true)
-        {
-            OpenDocumentTab("FINISHED_GOODS_ISSUE", WarehouseTabs.Issue);
-            _ = RefreshAllAsync();
-        }
-    }
-
-    private Task OpenCraftTrackingAsync()
-    {
-        try
-        {
-            var session = RequireSession()
-                ?? throw new InvalidOperationException("Chưa đăng nhập.");
-            var dialog = new ExternalWorkerDialog(
-                new ExternalWorkerDialogViewModel(_externalWorkers, _outsourcedCraft, session))
-            {
-                Owner = Application.Current?.MainWindow
-            };
-            dialog.ShowDialog();
-            _ = _finishedGoods;
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-
-        return Task.CompletedTask;
     }
 
     private void OpenDocumentTab(string documentType, int tabIndex)
@@ -1555,7 +1545,9 @@ public sealed class WarehouseViewModel : ObservableObject
         var type = SelectedDocumentType == "Tất cả" ? string.Empty : SelectedDocumentType;
         if (SelectedTabIndex == WarehouseTabs.Receipt)
         {
-            type = "RECEIPT";
+            type = SelectedDocumentType == "PRODUCTION_FINISHED_RECEIPT"
+                ? "PRODUCTION_FINISHED_RECEIPT"
+                : "RECEIPT,PRODUCTION_FINISHED_RECEIPT";
         }
         else if (SelectedTabIndex == WarehouseTabs.Issue)
         {
@@ -1597,6 +1589,7 @@ public sealed class WarehouseViewModel : ObservableObject
     private void ClearFinishedFilters()
     {
         FinishedSearchText = string.Empty;
+        SelectedFinishedGroup = ProductGroupFilterOptions.FirstOrDefault();
         SelectedFinishedGoldType = "Tất cả loại vàng";
         SelectedFinishedStatus = "Tất cả trạng thái";
         _ = SearchFinishedProductsAsync();
@@ -1605,6 +1598,7 @@ public sealed class WarehouseViewModel : ObservableObject
     private void ClearSaleFilters()
     {
         SaleSearchText = string.Empty;
+        SelectedSaleGroup = ProductGroupFilterOptions.FirstOrDefault();
         SelectedSaleGoldType = "Tất cả loại vàng";
         SelectedSaleStatus = "Tất cả trạng thái";
         _ = SearchSaleItemsAsync();
@@ -1659,6 +1653,26 @@ public sealed class WarehouseViewModel : ObservableObject
             {
                 if (!GoldTypeFilterOptions.Contains(type.Code))
                     GoldTypeFilterOptions.Add(type.Code);
+            }
+        }
+        catch
+        {
+            // Catalog chưa migrate: giữ tùy chọn mặc định.
+        }
+    }
+
+    private async Task LoadProductGroupFilterOptionsAsync()
+    {
+        try
+        {
+            var session = _sessionAccessor.Current;
+            if (session is null)
+                return;
+            var groups = await _repository.GetFinishedProductGroupsAsync(session);
+            foreach (var group in groups)
+            {
+                if (ProductGroupFilterOptions.All(x => !x.Code.Equals(group.Code, StringComparison.OrdinalIgnoreCase)))
+                    ProductGroupFilterOptions.Add(group);
             }
         }
         catch

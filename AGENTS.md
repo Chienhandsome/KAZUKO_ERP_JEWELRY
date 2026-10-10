@@ -8,6 +8,7 @@ Trước khi thay đổi code, đọc theo thứ tự:
 4. `docs/03-MODULE-UPDATE-SYSTEM.md`
 5. `docs/04-DEVELOPMENT-WORKFLOW.md`
 6. `docs/09-REPORTING.md` khi làm báo cáo / in A4
+7. `docs/10-CRAFT-CUSTOM-ORDER.md` khi làm đơn đặt chế tác / cọc / gắn lệnh SX
 
 Các quyết định trong `docs/` là chuẩn của dự án. Không đưa SQL vào View/ViewModel, không hard-code màu hoặc cỡ chữ trong màn hình nghiệp vụ, không chạy C#/XAML tùy ý lấy từ database và không tạo dependency ngược từ Core tới WPF/Infrastructure.
 

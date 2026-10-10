@@ -95,7 +95,7 @@ public sealed class SalesReceiptPreviewDialogViewModel : ObservableObject
     public ICommand OpenPdfCommand { get; }
     public ICommand CloseCommand { get; }
 
-    /// <summary>Dialog hooks WebView2 ShowPrintUI here; fallback opens PDF.</summary>
+    /// <summary>Dialog hooks PrintDocument fit-print here; fallback PrintFitted.</summary>
     public Func<Task>? PrintViaPreviewAsync { get; set; }
 
     public Func<string, Task>? ReloadPdfAsync { get; set; }
@@ -130,6 +130,22 @@ public sealed class SalesReceiptPreviewDialogViewModel : ObservableObject
         }
     }
 
+    public void PrintFitted()
+    {
+        try
+        {
+            _printService.PrintPdfFitted(PdfPath, SelectedOrientation.Value);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                ex.Message,
+                "In phiếu bán hàng",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+        }
+    }
+
     private async Task PrintAsync()
     {
         try
@@ -140,7 +156,7 @@ public sealed class SalesReceiptPreviewDialogViewModel : ObservableObject
                 return;
             }
 
-            _printService.PrintPdf(PdfPath);
+            PrintFitted();
         }
         catch (Exception ex)
         {
