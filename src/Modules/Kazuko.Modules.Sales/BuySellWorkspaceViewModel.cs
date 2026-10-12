@@ -111,7 +111,7 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedOldGoldMaterial, value) && value is not null)
             {
-                SetOldValuePercent(value.ValuePercent);
+                SetOldValuePercent(100m);
                 SetOldBuyPrice(value.SourceBuyPricePerChi);
                 RecalculateOldGoldPreview();
             }
