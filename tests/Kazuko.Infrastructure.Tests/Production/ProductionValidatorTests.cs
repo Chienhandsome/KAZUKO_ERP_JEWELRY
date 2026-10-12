@@ -222,6 +222,7 @@ public sealed class ProductionValidatorTests
             ProductionExecutionTypes.InHouse,
             null,
             DateTime.Today,
+            null,
             1,
             2,
             "A",

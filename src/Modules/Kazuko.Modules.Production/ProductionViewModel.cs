@@ -42,10 +42,11 @@ public sealed class ProductionViewModel : ObservableObject
     private bool _isLoading;
     private ProductionOrderRowViewModel? _selectedOrder;
 
+    // M1 redesign (A1, B2): 3 thẻ KPI đếm trên toàn bộ — bỏ "Chờ đối trừ",
+    // "Hoàn thành kỳ", "Thợ ngoài (đang làm)", "Nội bộ (đang làm)".
     private int _inProgressCount;
-    private int _completedPeriodCount;
-    private int _outsourcedCount;
-    private int _inHouseCount;
+    private int _completedCount;
+    private int _cancelledCount;
 
     public ProductionViewModel(
         IProductionQueryRepository queries,
@@ -80,7 +81,7 @@ public sealed class ProductionViewModel : ObservableObject
         StatusFilterOptions.Add("Bản nháp");
         StatusFilterOptions.Add("Đang làm");
         StatusFilterOptions.Add("Hoàn thành");
-        StatusFilterOptions.Add("Hủy");
+        StatusFilterOptions.Add("Đã hủy");
 
         SourceFilterOptions.Add("Tất cả nguồn");
         SourceFilterOptions.Add("Chế tác nhập kho");
@@ -93,8 +94,12 @@ public sealed class ProductionViewModel : ObservableObject
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
         CreateOrderCommand = new AsyncRelayCommand(CreateOrderAsync);
         OpenDetailCommand = new ParameterRelayCommand(
-            p => _ = OpenDetailAsync(p as ProductionOrderRowViewModel),
-            p => p is ProductionOrderRowViewModel);
+            p => _ = OpenDetailAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
+            p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is not null);
+        // C5: nút Sửa chỉ bật khi phiếu còn là bản nháp (chưa khóa sau xác nhận giao vàng).
+        EditOrderCommand = new ParameterRelayCommand(
+            p => _ = OpenDetailAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
+            p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is { IsDraft: true });
         DeleteOrderCommand = new ParameterRelayCommand(
             p => _ = DeleteOrderAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
             p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is { CanDelete: true });
@@ -180,7 +185,15 @@ public sealed class ProductionViewModel : ObservableObject
     public ProductionOrderRowViewModel? SelectedOrder
     {
         get => _selectedOrder;
-        set => SetProperty(ref _selectedOrder, value);
+        set
+        {
+            if (SetProperty(ref _selectedOrder, value))
+            {
+                (OpenDetailCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
+                (EditOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
+                (DeleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
+            }
+        }
     }
 
     public string StatusMessage
@@ -207,27 +220,22 @@ public sealed class ProductionViewModel : ObservableObject
         private set => SetProperty(ref _inProgressCount, value);
     }
 
-    public int CompletedPeriodCount
+    public int CompletedCount
     {
-        get => _completedPeriodCount;
-        private set => SetProperty(ref _completedPeriodCount, value);
+        get => _completedCount;
+        private set => SetProperty(ref _completedCount, value);
     }
 
-    public int OutsourcedCount
+    public int CancelledCount
     {
-        get => _outsourcedCount;
-        private set => SetProperty(ref _outsourcedCount, value);
-    }
-
-    public int InHouseCount
-    {
-        get => _inHouseCount;
-        private set => SetProperty(ref _inHouseCount, value);
+        get => _cancelledCount;
+        private set => SetProperty(ref _cancelledCount, value);
     }
 
     public ICommand RefreshCommand { get; }
     public ICommand CreateOrderCommand { get; }
     public ICommand OpenDetailCommand { get; }
+    public ICommand EditOrderCommand { get; }
     public ICommand DeleteOrderCommand { get; }
 
     private long RequireBranchId()
@@ -252,9 +260,8 @@ public sealed class ProductionViewModel : ObservableObject
 
             var summary = await _queries.GetSummaryAsync(branchId, FromDate, ToDate, token);
             InProgressCount = summary.InProgressCount;
-            CompletedPeriodCount = summary.CompletedInPeriodCount;
-            OutsourcedCount = summary.OutsourcedCount;
-            InHouseCount = summary.InHouseCount;
+            CompletedCount = summary.CompletedCount;
+            CancelledCount = summary.CancelledCount;
 
             var filter = BuildFilter();
             var items = await _queries.SearchOrdersAsync(branchId, filter, token);
@@ -263,7 +270,8 @@ public sealed class ProductionViewModel : ObservableObject
             foreach (var item in items)
                 Orders.Add(new ProductionOrderRowViewModel(item));
 
-            StatusMessage = $"Đã tải {Orders.Count} lệnh sản xuất.";
+            // B5: footer chỉ hiện tổng toàn bộ danh sách đã lọc (không phân trang).
+            StatusMessage = $"Tổng số phiếu: {Orders.Count}.";
         }
         catch (OperationCanceledException)
         {
@@ -286,7 +294,7 @@ public sealed class ProductionViewModel : ObservableObject
             "Bản nháp" => ProductionOrderStatuses.Draft,
             "Đang làm" => ProductionOrderStatuses.InProgress,
             "Hoàn thành" => ProductionOrderStatuses.Completed,
-            "Hủy" => ProductionOrderStatuses.Cancelled,
+            "Đã hủy" => ProductionOrderStatuses.Cancelled,
             _ => null
         };
         string? source = SelectedSourceFilter switch
@@ -319,6 +327,7 @@ public sealed class ProductionViewModel : ObservableObject
             var dialog = new ProductionOrderDialog
             {
                 Owner = Application.Current.MainWindow,
+                WindowState = WindowState.Maximized,
                 DataContext = new ProductionOrderDialogViewModel(
                     null,
                     _queries,
@@ -420,6 +429,10 @@ public sealed class ProductionOrderRowViewModel
         Id = item.Id;
         Code = item.Code;
         OrderDateDisplay = item.OrderDate.ToString("dd/MM/yyyy", ViCulture);
+        // A3: "Ngày giao" = ngày giao NVL/vàng cho thợ (từ chứng từ xuất kho NVL);
+        // trống nếu phiếu chưa giao.
+        MaterialIssueDateDisplay = item.MaterialIssueDate?.ToString("dd/MM/yyyy", ViCulture) ?? "—";
+        DueDateDisplay = item.DueDate?.ToString("dd/MM/yyyy", ViCulture) ?? "—";
         StatusDisplay = ProductionOrderStatuses.ToListDisplay(item.StatusCode);
         SourceDisplay = item.OrderSource switch
         {
@@ -434,6 +447,7 @@ public sealed class ProductionOrderRowViewModel
             _ => item.ExecutionType
         };
         SalesOrderCode = item.SalesOrderCode ?? "—";
+        CustomerName = item.CustomerName ?? "—";
         WorkerDisplayName = item.WorkerDisplayName ?? "—";
         ModelSummary = string.IsNullOrWhiteSpace(item.ModelSummary) ? "—" : item.ModelSummary;
         PlannedQuantityTotal = item.PlannedQuantityTotal;
@@ -447,10 +461,13 @@ public sealed class ProductionOrderRowViewModel
     public long Id { get; }
     public string Code { get; }
     public string OrderDateDisplay { get; }
+    public string MaterialIssueDateDisplay { get; }
+    public string DueDateDisplay { get; }
     public string StatusDisplay { get; }
     public string SourceDisplay { get; }
     public string ExecutionDisplay { get; }
     public string SalesOrderCode { get; }
+    public string CustomerName { get; }
     public string WorkerDisplayName { get; }
     public string ModelSummary { get; }
     public int PlannedQuantityTotal { get; }

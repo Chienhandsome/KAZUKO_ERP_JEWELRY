@@ -36,6 +36,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private string _executionType = ProductionExecutionTypes.InHouse;
     private long? _externalWorkerId;
     private DateTime _orderDate = DateTime.Today;
+    private DateTime? _dueDate;
+    private DateTime? _issueDate;
     private long _sourceLocationId;
     private long _finishedLocationId;
     private string? _deliveredByName;
@@ -441,7 +443,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public IReadOnlyList<ProductionNamedOption> ExecutionTypeOptions { get; } =
     [
         new(ProductionExecutionTypes.InHouse, "Nội bộ"),
-        new(ProductionExecutionTypes.Outsourced, "Thợ ngoài")
+        new(ProductionExecutionTypes.Outsourced, "Xưởng chế tác")
     ];
 
     public IReadOnlyList<ProductionNamedOption> QcResultOptions { get; } =
@@ -605,6 +607,9 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
     public int QuoteQuantityTotal => Lines.Sum(x => Math.Max(0, x.PlannedQuantity));
 
+    /// <summary>Tổng trọng lượng vàng giao dự kiến (chỉ) — dùng cho dải tổng ở footer dialog.</summary>
+    public decimal QuoteGoldWeightTotal => Lines.Sum(x => x.GoldWeightTotalChi);
+
     public string QuoteSummaryText =>
         Lines.Count == 0
             ? "Chưa có mẫu. Thêm mẫu để tính báo giá (vàng + công + đá)."
@@ -727,6 +732,29 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         set => SetProperty(ref _orderDate, value);
     }
 
+    /// <summary>Hạn hoàn thành — nhập được khi còn bản nháp (PRODUCTION_ORDERS.DUE_DATE, migration 62).</summary>
+    public DateTime? DueDate
+    {
+        get => _dueDate;
+        set => SetProperty(ref _dueDate, value);
+    }
+
+    /// <summary>
+    /// Ngày giao — derived từ ngày ghi sổ giao NVL (STOCK_DOCUMENTS.DOCUMENT_DATE qua
+    /// MATERIAL_ISSUE_DOCUMENT_ID). Trống khi còn bản nháp / chưa giao.
+    /// </summary>
+    public DateTime? IssueDate
+    {
+        get => _issueDate;
+        private set
+        {
+            if (SetProperty(ref _issueDate, value))
+                OnPropertyChanged(nameof(IssueDateDisplay));
+        }
+    }
+
+    public string IssueDateDisplay => _issueDate?.ToString("dd/MM/yyyy") ?? "—";
+
     public long SourceLocationId
     {
         get => _sourceLocationId;
@@ -816,8 +844,19 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ProductionMaterialStockOption? SelectedStockMaterial
     {
         get => _selectedStockMaterial;
-        set => SetProperty(ref _selectedStockMaterial, value);
+        set
+        {
+            if (SetProperty(ref _selectedStockMaterial, value))
+                OnPropertyChanged(nameof(IssueQuantityHint));
+        }
     }
+
+    /// <summary>Gợi ý đơn vị cho ô nhập số lượng — đá quý tính theo viên (số nguyên).</summary>
+    public string IssueQuantityHint =>
+        _selectedStockMaterial is not null
+        && string.Equals(_selectedStockMaterial.MaterialType, ProductionComponentKinds.Stone, StringComparison.OrdinalIgnoreCase)
+            ? "Số lượng (viên — nhập số nguyên)"
+            : "Số lượng";
 
     public decimal IssueQuantity
     {
@@ -1332,6 +1371,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(QuoteLaborTotal));
         OnPropertyChanged(nameof(QuoteTotal));
         OnPropertyChanged(nameof(QuoteQuantityTotal));
+        OnPropertyChanged(nameof(QuoteGoldWeightTotal));
         OnPropertyChanged(nameof(QuoteSummaryText));
         OnPropertyChanged(nameof(QuoteTotalDisplay));
         OnPropertyChanged(nameof(CanEditDeposit));
@@ -1438,6 +1478,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ExecutionType = detail.ExecutionType;
         ExternalWorkerId = detail.ExternalWorkerId;
         OrderDate = detail.OrderDate;
+        DueDate = detail.DueDate;
+        IssueDate = detail.MaterialIssueDocumentId is > 0 ? detail.MaterialIssueDocumentDate : null;
         SourceLocationId = detail.SourceLocationId;
         FinishedLocationId = detail.FinishedLocationId;
         DeliveredByName = detail.DeliveredByName;
@@ -1561,6 +1603,14 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         if (SelectedStockMaterial is null || IssueQuantity <= 0)
         {
             ErrorMessage = "Chọn NVL và nhập số lượng > 0.";
+            return;
+        }
+
+        // Đá quý tính theo viên — số lượng phải là số nguyên.
+        if (string.Equals(SelectedStockMaterial.MaterialType, ProductionComponentKinds.Stone, StringComparison.OrdinalIgnoreCase)
+            && IssueQuantity != Math.Truncate(IssueQuantity))
+        {
+            ErrorMessage = "Đá quý tính theo viên — số lượng phải là số nguyên.";
             return;
         }
 
@@ -2408,6 +2458,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 ExecutionType,
                 IsOutsourced ? ExternalWorkerId : null,
                 OrderDate,
+                DueDate,
                 SourceLocationId,
                 FinishedLocationId,
                 DeliveredByName,
@@ -2947,6 +2998,8 @@ public sealed class ProductionIssueLineEditorViewModel
         MaterialId = stock.MaterialId;
         MaterialCode = stock.Code;
         MaterialName = stock.Name;
+        MaterialType = stock.MaterialType;
+        PurityDisplay = string.IsNullOrWhiteSpace(stock.PurityCode) ? "--" : stock.PurityCode;
         UnitCode = stock.UnitCode;
         SnapshotCostHint = stock.AverageCost;
         Quantity = quantity;
@@ -2958,6 +3011,9 @@ public sealed class ProductionIssueLineEditorViewModel
         MaterialId = balance.MaterialId;
         MaterialCode = balance.MaterialCode;
         MaterialName = balance.MaterialName;
+        MaterialType = balance.MaterialType;
+        // DTO lịch sử không có PurityCode — hiển thị "--".
+        PurityDisplay = "--";
         UnitCode = balance.UnitCode;
         SnapshotCostHint = balance.UnitCostSnapshot;
         Quantity = balance.QuantityIssued;
@@ -2970,6 +3026,8 @@ public sealed class ProductionIssueLineEditorViewModel
     public long MaterialId { get; }
     public string MaterialCode { get; }
     public string MaterialName { get; }
+    public string MaterialType { get; }
+    public string PurityDisplay { get; }
     public string UnitCode { get; }
     public decimal SnapshotCostHint { get; }
     public decimal Quantity { get; set; }

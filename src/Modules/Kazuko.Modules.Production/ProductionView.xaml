@@ -21,6 +21,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -54,8 +55,8 @@
             </StackPanel>
         </Grid>
 
-        <!-- KPI cards -->
-        <UniformGrid Grid.Row="1" Rows="1" Columns="4" Margin="0,0,0,12">
+        <!-- KPI cards: M1 redesign (A1, B2) — 3 thẻ, đếm trên toàn bộ -->
+        <UniformGrid Grid.Row="1" Rows="1" Columns="3" Margin="0,0,0,12">
             <Border Style="{StaticResource ProductionMetricCardStyle}">
                 <StackPanel>
                     <TextBlock Text="Đang làm" Style="{StaticResource ProductionMetricLabelStyle}" />
@@ -64,20 +65,14 @@
             </Border>
             <Border Style="{StaticResource ProductionMetricCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Hoàn thành kỳ" Style="{StaticResource ProductionMetricLabelStyle}" />
-                    <TextBlock Text="{Binding CompletedPeriodCount}" Style="{StaticResource ProductionMetricValueStyle}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource ProductionMetricCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Thợ ngoài (đang làm)" Style="{StaticResource ProductionMetricLabelStyle}" />
-                    <TextBlock Text="{Binding OutsourcedCount}" Style="{StaticResource ProductionMetricValueStyle}" />
+                    <TextBlock Text="Hoàn thành" Style="{StaticResource ProductionMetricLabelStyle}" />
+                    <TextBlock Text="{Binding CompletedCount}" Style="{StaticResource ProductionMetricValueStyle}" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource ProductionMetricCardStyle}" Margin="0">
                 <StackPanel>
-                    <TextBlock Text="Nội bộ (đang làm)" Style="{StaticResource ProductionMetricLabelStyle}" />
-                    <TextBlock Text="{Binding InHouseCount}" Style="{StaticResource ProductionMetricValueStyle}" />
+                    <TextBlock Text="Đã hủy" Style="{StaticResource ProductionMetricLabelStyle}" />
+                    <TextBlock Text="{Binding CancelledCount}" Style="{StaticResource ProductionMetricValueStyle}" />
                 </StackPanel>
             </Border>
         </UniformGrid>
@@ -118,8 +113,29 @@
             </StackPanel>
         </Border>
 
-        <!-- Grid -->
-        <Border Grid.Row="3" Style="{StaticResource ProductionCardStyle}" Padding="0">
+        <!-- Toolbar: giữ nút Tạo lệnh ở header; thêm thao tác dòng theo pattern các module khác -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+            <Button Content="Chi tiết"
+                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                    Command="{Binding OpenDetailCommand}"
+                    CommandParameter="{Binding SelectedOrder}"
+                    Margin="0,0,8,0" MinWidth="90" />
+            <Button Content="Sửa"
+                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                    Command="{Binding EditOrderCommand}"
+                    CommandParameter="{Binding SelectedOrder}"
+                    Margin="0,0,8,0" MinWidth="90"
+                    ToolTip="Chỉ sửa được khi phiếu còn là bản nháp" />
+            <Button Content="Xóa"
+                    Style="{StaticResource ProductionGhostButtonStyle}"
+                    Command="{Binding DeleteOrderCommand}"
+                    CommandParameter="{Binding SelectedOrder}"
+                    Margin="0,0,8,0" MinWidth="90" />
+        </StackPanel>
+
+        <!-- Grid: M1 redesign — bỏ Ngày lập/Nguồn/Hình thức/SL kế hoạch (giữ ở filter);
+             thêm Ngày giao, Hạn hoàn thành, Khách hàng; Sản phẩm bind ModelSummary (C4) -->
+        <Border Grid.Row="4" Style="{StaticResource ProductionCardStyle}" Padding="0">
             <DataGrid Style="{StaticResource ProductionDataGridStyle}"
                       ItemsSource="{Binding Orders}"
                       SelectedItem="{Binding SelectedOrder}"
@@ -127,27 +143,28 @@
                       BorderThickness="0"
                       grid:DataGridColumnLayout.SettingsKey="production.orders">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Mã LSX" grid:DataGridColumnLayout.Key="Code"
-                                        Binding="{Binding Code, Mode=OneWay}" Width="130" />
-                    <DataGridTextColumn Header="Ngày lập" grid:DataGridColumnLayout.Key="OrderDate"
-                                        Binding="{Binding OrderDateDisplay, Mode=OneWay}" Width="100" />
-                    <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status"
-                                        Binding="{Binding StatusDisplay, Mode=OneWay}" Width="110" />
-                    <DataGridTextColumn Header="Nguồn" grid:DataGridColumnLayout.Key="Source"
-                                        Binding="{Binding SourceDisplay, Mode=OneWay}" Width="110" />
-                    <DataGridTextColumn Header="Hình thức" grid:DataGridColumnLayout.Key="Execution"
-                                        Binding="{Binding ExecutionDisplay, Mode=OneWay}" Width="100" />
+                    <DataGridTextColumn Header="Mã phiếu" grid:DataGridColumnLayout.Key="Code"
+                                        Binding="{Binding Code, Mode=OneWay}" Width="120" />
+                    <DataGridTextColumn Header="Ngày giao" grid:DataGridColumnLayout.Key="MaterialIssueDate"
+                                        Binding="{Binding MaterialIssueDateDisplay, Mode=OneWay}" Width="100" />
+                    <DataGridTextColumn Header="Hạn hoàn thành" grid:DataGridColumnLayout.Key="DueDate"
+                                        Binding="{Binding DueDateDisplay, Mode=OneWay}" Width="110" />
+                    <DataGridTextColumn Header="Khách hàng" grid:DataGridColumnLayout.Key="Customer"
+                                        Binding="{Binding CustomerName, Mode=OneWay}" Width="170" />
                     <DataGridTextColumn Header="Đơn đặt" grid:DataGridColumnLayout.Key="SalesOrder"
                                         Binding="{Binding SalesOrderCode, Mode=OneWay}" Width="120" />
-                    <DataGridTextColumn Header="Thợ / NV" grid:DataGridColumnLayout.Key="Worker"
-                                        Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="160" />
-                    <DataGridTextColumn Header="SL kế hoạch" grid:DataGridColumnLayout.Key="Qty"
-                                        Binding="{Binding PlannedQuantityTotal, Mode=OneWay}" Width="90" />
+                    <DataGridTextColumn Header="Sản phẩm" grid:DataGridColumnLayout.Key="Models"
+                                        Binding="{Binding ModelSummary, Mode=OneWay}" Width="*" MinWidth="150" />
+                    <DataGridTextColumn Header="Thợ sản xuất" grid:DataGridColumnLayout.Key="Worker"
+                                        Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="150" />
+                    <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status"
+                                        Binding="{Binding StatusDisplay, Mode=OneWay}" Width="100" />
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
 
-        <DockPanel Grid.Row="4" Margin="0,12,0,0" LastChildFill="False">
+        <!-- Footer (B5): chỉ còn tổng số phiếu trên toàn bộ danh sách đã lọc -->
+        <DockPanel Grid.Row="5" Margin="0,12,0,0" LastChildFill="False">
             <TextBlock DockPanel.Dock="Left"
                        Text="{Binding StatusMessage}"
                        VerticalAlignment="Center"

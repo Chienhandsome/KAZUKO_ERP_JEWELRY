@@ -40,7 +40,7 @@ public static class ProductionOrderStatuses
             Draft => "Bản nháp",
             InProgress => "Đang làm",
             Completed => "Hoàn thành",
-            Cancelled => "Hủy",
+            Cancelled => "Đã hủy",
             _ => statusCode ?? string.Empty
         };
 
@@ -50,7 +50,7 @@ public static class ProductionOrderStatuses
             Draft => "Bản nháp",
             InProgress => "Đang làm",
             Completed => "Hoàn thành",
-            Cancelled => "Hủy",
+            Cancelled => "Đã hủy",
             _ => statusCode ?? string.Empty
         };
 }
@@ -114,12 +114,16 @@ public sealed record ProductionOrderListFilter(
     DateTime? ToDate,
     bool IncludeDrafts = true);
 
+// M1 redesign (Phase 2 decisions): KPI count trên TOÀN BỘ (B2), không theo kỳ;
+// thẻ "Hoàn thành" đổi sang đếm toàn bộ; thêm "Đã hủy"; bỏ 2 thẻ thợ ngoài/nội bộ (A1).
 public sealed record ProductionOrderSummary(
     int InProgressCount,
-    int CompletedInPeriodCount,
-    int OutsourcedCount,
-    int InHouseCount);
+    int CompletedCount,
+    int CancelledCount);
 
+// M1 redesign: thêm Ngày giao (= STOCK_DOCUMENTS.DOCUMENT_DATE qua
+// MATERIAL_ISSUE_DOCUMENT_ID), Hạn hoàn thành (PRODUCTION_ORDERS.DUE_DATE, migration 62),
+// Khách hàng (qua SALES_ORDER_ID → CUSTOMERS).
 public sealed record ProductionOrderListItem(
     long Id,
     string Code,
@@ -127,7 +131,10 @@ public sealed record ProductionOrderListItem(
     string ExecutionType,
     string StatusCode,
     DateTime OrderDate,
+    DateTime? MaterialIssueDate,
+    DateTime? DueDate,
     string? SalesOrderCode,
+    string? CustomerName,
     string? WorkerDisplayName,
     string ModelSummary,
     int PlannedQuantityTotal,
@@ -246,12 +253,14 @@ public sealed record ProductionOrderDetail(
     string? ExternalWorkerName,
     string StatusCode,
     DateTime OrderDate,
+    DateTime? DueDate,
     long SourceLocationId,
     string SourceLocationName,
     long FinishedLocationId,
     string FinishedLocationName,
     long? MaterialIssueDocumentId,
     string? MaterialIssueDocumentCode,
+    DateTime? MaterialIssueDocumentDate,
     long? ReturnDocumentId,
     string? ReturnDocumentCode,
     long? FinishedReceiptDocumentId,
@@ -335,6 +344,7 @@ public sealed record ProductionOrderDraft(
     string ExecutionType,
     long? ExternalWorkerId,
     DateTime OrderDate,
+    DateTime? DueDate,
     long SourceLocationId,
     long FinishedLocationId,
     string? DeliveredByName,

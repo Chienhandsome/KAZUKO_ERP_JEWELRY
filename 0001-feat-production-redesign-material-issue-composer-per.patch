@@ -1,0 +1,267 @@
+From 02f68e4583409e77d46f5b01db631bb6089ed002 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 03:31:15 +0000
+Subject: [PATCH 1/6] feat(production): redesign material issue composer per
+ spec
+
+- Simplify add-material toolbar: material ComboBox + quantity + Add button
+- Issue table columns: Material / Purity / Quantity / Unit / Delete
+- Validate: STONE materials require integer quantity (vien)
+- Rename post button to 'Xac nhan giao vang' (locks order after confirm)
+---
+ .../ProductionOrderDialog.xaml                | 157 +++++-------------
+ .../ProductionOrderDialogViewModel.cs         |  28 +++-
+ 2 files changed, 73 insertions(+), 112 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
+index 533d1e5..2afd9bb 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
+@@ -375,112 +375,49 @@
+                     </Border>
+                     <Border DockPanel.Dock="Top" Style="{StaticResource ProductionCardStyle}" Padding="12,10" Margin="0,0,0,12"
+                             Visibility="{Binding ShowIssueComposer, Converter={StaticResource BoolToVis}}">
+-                        <StackPanel>
+-                            <DockPanel Margin="0,0,0,10">
+-                                <Button DockPanel.Dock="Right"
+-                                        Content="Thêm vào phiếu"
+-                                        Style="{StaticResource ProductionOutlineButtonStyle}"
+-                                        Command="{Binding AddMinimumMaterialsToIssueCommand}"
+-                                        MinHeight="32"
+-                                        Margin="8,0,0,0"
+-                                        ToolTip="Đổ gợi ý tối thiểu vào phiếu giao (có thể sửa trước khi ghi sổ)" />
+-                                <TextBlock Text="Cần cấp tối thiểu"
+-                                           Style="{StaticResource ProductionSectionHeaderStyle}"
+-                                           VerticalAlignment="Center"
+-                                           Margin="0" />
+-                            </DockPanel>
+-                            <TextBlock Text="{Binding MinimumMaterialsHint}"
+-                                       Style="{StaticResource ProductionHintStyle}"
+-                                       Margin="0,0,0,8"
+-                                       TextWrapping="Wrap" />
+-                            <ItemsControl ItemsSource="{Binding MinimumMaterials}"
+-                                          Visibility="{Binding HasMinimumMaterials, Converter={StaticResource BoolToVis}}">
+-                                <ItemsControl.ItemTemplate>
++                        <Grid>
++                            <Grid.ColumnDefinitions>
++                                <ColumnDefinition Width="*" MinWidth="220" />
++                                <ColumnDefinition Width="110" />
++                                <ColumnDefinition Width="Auto" />
++                                <ColumnDefinition Width="Auto" />
++                            </Grid.ColumnDefinitions>
++                            <ComboBox Grid.Column="0"
++                                      ItemsSource="{Binding StockMaterials}"
++                                      SelectedItem="{Binding SelectedStockMaterial}"
++                                      Style="{StaticResource ProductionDialogComboStyle}"
++                                      Margin="0,0,8,0"
++                                      IsEnabled="{Binding CanIssueMaterials}"
++                                      ToolTip="Chọn loại nguyên vật liệu còn tồn tại kho xuất">
++                                <ComboBox.ItemTemplate>
+                                     <DataTemplate>
+-                                        <Border Padding="8,6" Margin="0,0,0,4"
+-                                                Background="{DynamicResource SurfaceAltBrush}"
+-                                                CornerRadius="4">
+-                                            <Grid>
+-                                                <Grid.ColumnDefinitions>
+-                                                    <ColumnDefinition Width="*" />
+-                                                    <ColumnDefinition Width="Auto" />
+-                                                    <ColumnDefinition Width="Auto" />
+-                                                </Grid.ColumnDefinitions>
+-                                                <StackPanel>
+-                                                    <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}">
+-                                                        <Run Text="{Binding MaterialCode, Mode=OneWay}" />
+-                                                        <Run Text=" — " />
+-                                                        <Run Text="{Binding MaterialName, Mode=OneWay}" />
+-                                                    </TextBlock>
+-                                                    <TextBlock Style="{StaticResource ProductionHintStyle}"
+-                                                               Text="{Binding StockStatusHint, Mode=OneWay}" />
+-                                                </StackPanel>
+-                                                <TextBlock Grid.Column="1"
+-                                                           Margin="12,0"
+-                                                           VerticalAlignment="Center"
+-                                                           FontWeight="SemiBold"
+-                                                           Text="{Binding MinimumDisplay, Mode=OneWay}"
+-                                                           ToolTip="Tối thiểu cần cấp" />
+-                                                <TextBlock Grid.Column="2"
+-                                                           VerticalAlignment="Center"
+-                                                           Style="{StaticResource ProductionHintStyle}"
+-                                                           Text="{Binding OnHandDisplay, Mode=OneWay}"
+-                                                           ToolTip="Tồn hiện tại tại kho xuất" />
+-                                            </Grid>
+-                                        </Border>
++                                        <TextBlock>
++                                            <Run Text="{Binding Code, Mode=OneWay}" />
++                                            <Run Text=" — " />
++                                            <Run Text="{Binding Name, Mode=OneWay}" />
++                                            <Run Text=" (" />
++                                            <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
++                                            <Run Text=" " />
++                                            <Run Text="{Binding UnitCode, Mode=OneWay}" />
++                                            <Run Text=")" />
++                                        </TextBlock>
+                                     </DataTemplate>
+-                                </ItemsControl.ItemTemplate>
+-                            </ItemsControl>
+-                            <Grid Margin="0,12,0,0">
+-                                <Grid.ColumnDefinitions>
+-                                    <ColumnDefinition Width="*" MinWidth="220" />
+-                                    <ColumnDefinition Width="90" />
+-                                    <ColumnDefinition Width="Auto" />
+-                                    <ColumnDefinition Width="Auto" />
+-                                    <ColumnDefinition Width="Auto" />
+-                                </Grid.ColumnDefinitions>
+-                                <ComboBox Grid.Column="0"
+-                                          ItemsSource="{Binding StockMaterials}"
+-                                          SelectedItem="{Binding SelectedStockMaterial}"
+-                                          Style="{StaticResource ProductionDialogComboStyle}"
+-                                          Margin="0,0,8,0"
+-                                          IsEnabled="{Binding CanIssueMaterials}"
+-                                          ToolTip="Chọn nguyên liệu còn tồn tại kho xuất">
+-                                    <ComboBox.ItemTemplate>
+-                                        <DataTemplate>
+-                                            <TextBlock>
+-                                                <Run Text="{Binding Code, Mode=OneWay}" />
+-                                                <Run Text=" — " />
+-                                                <Run Text="{Binding Name, Mode=OneWay}" />
+-                                                <Run Text=" (" />
+-                                                <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
+-                                                <Run Text=" " />
+-                                                <Run Text="{Binding UnitCode, Mode=OneWay}" />
+-                                                <Run Text=")" />
+-                                            </TextBlock>
+-                                        </DataTemplate>
+-                                    </ComboBox.ItemTemplate>
+-                                </ComboBox>
+-                                <TextBox Grid.Column="1"
+-                                         Text="{Binding IssueQuantity, UpdateSourceTrigger=PropertyChanged}"
+-                                         Style="{StaticResource ProductionDialogFieldStyle}"
+-                                         Margin="0,0,8,0"
+-                                         IsEnabled="{Binding CanIssueMaterials}" />
+-                                <Button Grid.Column="2" Content="Thêm NVL"
+-                                        Style="{StaticResource ProductionOutlineButtonStyle}"
+-                                        Command="{Binding AddIssueLineCommand}" MinHeight="36" />
+-                                <Button Grid.Column="3" Content="Tải tồn"
+-                                        Style="{StaticResource ProductionGhostButtonStyle}"
+-                                        Command="{Binding RefreshStockMaterialsCommand}" MinHeight="36" />
+-                                <Button Grid.Column="4" Content="Ghi sổ giao NVL"
+-                                        Style="{StaticResource ProductionPrimaryButtonStyle}"
+-                                        Command="{Binding PostMaterialIssueCommand}" MinHeight="36" Margin="0" />
+-                            </Grid>
+-                            <TextBlock Text="{Binding StockMaterialsHint}"
+-                                       Style="{StaticResource ProductionHintStyle}" Margin="0,8,0,0" />
+-                            <TextBlock Text="Giá snapshot chỉ đọc — vàng lấy giá kho lúc ghi sổ."
+-                                       Style="{StaticResource ProductionHintStyle}" Margin="0,4,0,0" />
+-                        </StackPanel>
++                                </ComboBox.ItemTemplate>
++                            </ComboBox>
++                            <TextBox Grid.Column="1"
++                                     Text="{Binding IssueQuantity, UpdateSourceTrigger=PropertyChanged}"
++                                     Style="{StaticResource ProductionDialogFieldStyle}"
++                                     Margin="0,0,8,0"
++                                     IsEnabled="{Binding CanIssueMaterials}"
++                                     ToolTip="{Binding IssueQuantityHint}" />
++                            <Button Grid.Column="2" Content="Thêm"
++                                    Style="{StaticResource ProductionOutlineButtonStyle}"
++                                    Command="{Binding AddIssueLineCommand}" MinHeight="36" />
++                            <Button Grid.Column="3" Content="Xác nhận giao vàng"
++                                    Style="{StaticResource ProductionPrimaryButtonStyle}"
++                                    Command="{Binding PostMaterialIssueCommand}" MinHeight="36" Margin="8,0,0,0"
++                                    ToolTip="Ghi sổ giao NVL và khóa phiếu — không sửa được sau đó" />
++                        </Grid>
+                     </Border>
+                     <Border Style="{StaticResource ProductionCardStyle}" Padding="0">
+                         <DataGrid Style="{StaticResource ProductionEditableDataGridStyle}"
+@@ -490,16 +427,14 @@
+                                   BorderThickness="0"
+                                   grid:DataGridColumnLayout.SettingsKey="production.order.issue">
+                             <DataGrid.Columns>
+-                                <DataGridTextColumn Header="Mã" Binding="{Binding MaterialCode}" IsReadOnly="True" Width="90"
+-                                                    grid:DataGridColumnLayout.Key="Code" />
+-                                <DataGridTextColumn Header="Tên" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
++                                <DataGridTextColumn Header="Loại NVL" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
+                                                     grid:DataGridColumnLayout.Key="Name" />
+-                                <DataGridTextColumn Header="SL" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Width="80"
++                                <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding PurityDisplay}" IsReadOnly="True" Width="90"
++                                                    grid:DataGridColumnLayout.Key="Purity" />
++                                <DataGridTextColumn Header="Số lượng" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Width="100"
+                                                     grid:DataGridColumnLayout.Key="Qty" />
+-                                <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode}" IsReadOnly="True" Width="60"
++                                <DataGridTextColumn Header="Đơn vị" Binding="{Binding UnitCode}" IsReadOnly="True" Width="70"
+                                                     grid:DataGridColumnLayout.Key="Unit" />
+-                                <DataGridTextColumn Header="Gợi ý giá" Binding="{Binding DisplayCostHint}" IsReadOnly="True" Width="180"
+-                                                    grid:DataGridColumnLayout.Key="CostHint" />
+                                 <DataGridTemplateColumn Header="" Width="70" grid:DataGridColumnLayout.Key="Actions">
+                                     <DataGridTemplateColumn.CellTemplate>
+                                         <DataTemplate>
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
+index 9633474..43643df 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
+@@ -816,9 +816,20 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+     public ProductionMaterialStockOption? SelectedStockMaterial
+     {
+         get => _selectedStockMaterial;
+-        set => SetProperty(ref _selectedStockMaterial, value);
++        set
++        {
++            if (SetProperty(ref _selectedStockMaterial, value))
++                OnPropertyChanged(nameof(IssueQuantityHint));
++        }
+     }
+ 
++    /// <summary>Gợi ý đơn vị cho ô nhập số lượng — đá quý tính theo viên (số nguyên).</summary>
++    public string IssueQuantityHint =>
++        _selectedStockMaterial is not null
++        && string.Equals(_selectedStockMaterial.MaterialType, ProductionComponentKinds.Stone, StringComparison.OrdinalIgnoreCase)
++            ? "Số lượng (viên — nhập số nguyên)"
++            : "Số lượng";
++
+     public decimal IssueQuantity
+     {
+         get => _issueQuantity;
+@@ -1564,6 +1575,14 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+             return;
+         }
+ 
++        // Đá quý tính theo viên — số lượng phải là số nguyên.
++        if (string.Equals(SelectedStockMaterial.MaterialType, ProductionComponentKinds.Stone, StringComparison.OrdinalIgnoreCase)
++            && IssueQuantity != Math.Truncate(IssueQuantity))
++        {
++            ErrorMessage = "Đá quý tính theo viên — số lượng phải là số nguyên.";
++            return;
++        }
++
+         if (IssueLines.Any(x => x.MaterialId == SelectedStockMaterial.MaterialId))
+         {
+             ErrorMessage = "NVL đã có trong phiếu giao.";
+@@ -2947,6 +2966,8 @@ public sealed class ProductionIssueLineEditorViewModel
+         MaterialId = stock.MaterialId;
+         MaterialCode = stock.Code;
+         MaterialName = stock.Name;
++        MaterialType = stock.MaterialType;
++        PurityDisplay = string.IsNullOrWhiteSpace(stock.PurityCode) ? "--" : stock.PurityCode;
+         UnitCode = stock.UnitCode;
+         SnapshotCostHint = stock.AverageCost;
+         Quantity = quantity;
+@@ -2958,6 +2979,9 @@ public sealed class ProductionIssueLineEditorViewModel
+         MaterialId = balance.MaterialId;
+         MaterialCode = balance.MaterialCode;
+         MaterialName = balance.MaterialName;
++        MaterialType = balance.MaterialType;
++        // DTO lịch sử không có PurityCode — hiển thị "--".
++        PurityDisplay = "--";
+         UnitCode = balance.UnitCode;
+         SnapshotCostHint = balance.UnitCostSnapshot;
+         Quantity = balance.QuantityIssued;
+@@ -2970,6 +2994,8 @@ public sealed class ProductionIssueLineEditorViewModel
+     public long MaterialId { get; }
+     public string MaterialCode { get; }
+     public string MaterialName { get; }
++    public string MaterialType { get; }
++    public string PurityDisplay { get; }
+     public string UnitCode { get; }
+     public decimal SnapshotCostHint { get; }
+     public decimal Quantity { get; set; }
+-- 
+2.43.0
+

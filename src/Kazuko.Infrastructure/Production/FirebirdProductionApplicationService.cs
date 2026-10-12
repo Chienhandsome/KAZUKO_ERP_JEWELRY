@@ -49,15 +49,15 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             if (isCreate)
             {
                 code = await StockPostingSupport.NextDocumentCodeAsync(
-                    connection, fbTx, "PRODUCTION_ORDER", session.BranchId, "LSX", cancellationToken);
+                    connection, fbTx, "PRODUCTION_ORDER", session.BranchId, "SX", cancellationToken);
 
                 await using (var insert = new FbCommand("""
                     INSERT INTO PRODUCTION_ORDERS
                         (COMPANY_ID, BRANCH_ID, CODE, ORDER_SOURCE, SALES_ORDER_ID, EXECUTION_TYPE,
-                         EXTERNAL_WORKER_ID, STATUS_CODE, ORDER_DATE, SOURCE_LOCATION_ID, FINISHED_LOCATION_ID,
+                         EXTERNAL_WORKER_ID, STATUS_CODE, ORDER_DATE, DUE_DATE, SOURCE_LOCATION_ID, FINISHED_LOCATION_ID,
                          DELIVERED_BY_NAME, RECEIVED_BY_NAME, NOTES, ROW_VERSION, CREATED_BY, CREATED_AT)
                     VALUES
-                        (@CID, @BID, @CODE, @SOURCE, @SO, @EXEC, @EXT, 'DRAFT', @ODATE, @SRC, @FIN,
+                        (@CID, @BID, @CODE, @SOURCE, @SO, @EXEC, @EXT, 'DRAFT', @ODATE, @DUE, @SRC, @FIN,
                          @DEL, @REC, @NOTES, 0, @BY, CURRENT_TIMESTAMP)
                     RETURNING ID, ROW_VERSION
                     """, connection, fbTx))
@@ -87,6 +87,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                            EXECUTION_TYPE = @EXEC,
                            EXTERNAL_WORKER_ID = @EXT,
                            ORDER_DATE = @ODATE,
+                           DUE_DATE = @DUE,
                            SOURCE_LOCATION_ID = @SRC,
                            FINISHED_LOCATION_ID = @FIN,
                            DELIVERED_BY_NAME = @DEL,
@@ -1405,6 +1406,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         command.Parameters.Add("@EXT", FbDbType.BigInt).Value =
             draft.ExternalWorkerId is > 0 ? draft.ExternalWorkerId.Value : DBNull.Value;
         command.Parameters.Add("@ODATE", FbDbType.TimeStamp).Value = draft.OrderDate;
+        command.Parameters.Add("@DUE", FbDbType.TimeStamp).Value =
+            draft.DueDate is DateTime due ? due : DBNull.Value;
         command.Parameters.Add("@SRC", FbDbType.BigInt).Value = draft.SourceLocationId;
         command.Parameters.Add("@FIN", FbDbType.BigInt).Value = draft.FinishedLocationId;
         command.Parameters.Add("@DEL", FbDbType.VarChar, 150).Value =

@@ -63,6 +63,7 @@ public sealed class ProductionOrderEditorService : IProductionOrderEditorService
         var dialog = new ProductionOrderDialog
         {
             Owner = ResolveOwner(),
+            WindowState = WindowState.Maximized,
             DataContext = viewModel,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };

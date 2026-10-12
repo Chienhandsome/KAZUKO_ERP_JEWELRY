@@ -1,0 +1,26 @@
+From 58be75e874bdc4070db352bcad0742ea200fddff Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 03:31:19 +0000
+Subject: [PATCH 2/6] fix(production): use SX- prefix for production order
+ codes
+
+---
+ .../Production/FirebirdProductionApplicationService.cs          | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index f2de19c..e8a68bb 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -49,7 +49,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
+             if (isCreate)
+             {
+                 code = await StockPostingSupport.NextDocumentCodeAsync(
+-                    connection, fbTx, "PRODUCTION_ORDER", session.BranchId, "LSX", cancellationToken);
++                    connection, fbTx, "PRODUCTION_ORDER", session.BranchId, "SX", cancellationToken);
+ 
+                 await using (var insert = new FbCommand("""
+                     INSERT INTO PRODUCTION_ORDERS
+-- 
+2.43.0
+

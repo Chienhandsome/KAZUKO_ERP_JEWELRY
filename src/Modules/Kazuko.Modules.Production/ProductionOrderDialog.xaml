@@ -86,6 +86,14 @@
                                     <DatePicker SelectedDate="{Binding OrderDate}"
                                                 Margin="0,0,0,10" MinHeight="36"
                                                 IsEnabled="{Binding IsDraft}" />
+                                    <TextBlock Text="Ngày giao" Style="{StaticResource ProductionFieldLabelStyle}" />
+                                    <TextBox Text="{Binding IssueDateDisplay, Mode=OneWay}" IsReadOnly="True"
+                                             Style="{StaticResource ProductionDialogFieldStyle}"
+                                             ToolTip="Ngày ghi sổ giao nguyên liệu cho thợ — trống khi còn bản nháp." />
+                                    <TextBlock Text="Hạn hoàn thành" Style="{StaticResource ProductionFieldLabelStyle}" />
+                                    <DatePicker SelectedDate="{Binding DueDate}"
+                                                Margin="0,0,0,10" MinHeight="36"
+                                                IsEnabled="{Binding IsDraft}" />
                                     <TextBlock Text="Loại sản xuất" Style="{StaticResource ProductionFieldLabelStyle}" />
                                     <ComboBox ItemsSource="{Binding OrderSourceOptions}"
                                               DisplayMemberPath="DisplayName"
@@ -147,7 +155,7 @@
                                 </ItemsControl>
                             </Border>
 
-                            <TextBlock Text="Thợ ngoài" Style="{StaticResource ProductionSectionHeaderStyle}" Margin="0,8,0,10"
+                            <TextBlock Text="Xưởng chế tác" Style="{StaticResource ProductionSectionHeaderStyle}" Margin="0,8,0,10"
                                        Visibility="{Binding IsOutsourced, Converter={StaticResource BoolToVis}}" />
                             <Grid Margin="0,0,0,12"
                                   Visibility="{Binding IsOutsourced, Converter={StaticResource BoolToVis}}">
@@ -189,6 +197,12 @@
                                              IsEnabled="{Binding IsDraft}" />
                                 </StackPanel>
                             </Grid>
+
+                            <TextBlock Text="Ghi chú" Style="{StaticResource ProductionFieldLabelStyle}" />
+                            <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource ProductionDialogFieldStyle}"
+                                     MinHeight="80" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalContentAlignment="Top" IsEnabled="{Binding IsDraft}" />
 
                         </StackPanel>
                         <StackPanel Grid.Column="2">
@@ -324,6 +338,8 @@
                                                     grid:DataGridColumnLayout.Key="ModelName" />
                                 <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldTypeName, Mode=OneWay}" Width="120"
                                                     grid:DataGridColumnLayout.Key="GoldType" />
+                                <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding GoldTypeCode, Mode=OneWay}" Width="80"
+                                                    grid:DataGridColumnLayout.Key="GoldAge" />
                                 <DataGridTextColumn Header="SL" Binding="{Binding PlannedQuantity, Mode=OneWay}" Width="50"
                                                     grid:DataGridColumnLayout.Key="Qty" />
                                 <DataGridTextColumn Header="TL vàng" Binding="{Binding EstimatedWeightChi, Mode=OneWay, StringFormat=0.###}" Width="70"
@@ -336,6 +352,8 @@
                                                     grid:DataGridColumnLayout.Key="Stone" />
                                 <DataGridTextColumn Header="Thành tiền" Binding="{Binding QuoteLineTotal, Mode=OneWay, StringFormat=N0}" Width="110"
                                                     grid:DataGridColumnLayout.Key="QuoteTotal" />
+                                <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, Mode=OneWay}" Width="160" MinWidth="100"
+                                                    grid:DataGridColumnLayout.Key="LineNotes" />
                                 <DataGridTextColumn Header="Đính kèm" Binding="{Binding AttachmentSummary, Mode=OneWay}" Width="110"
                                                     grid:DataGridColumnLayout.Key="Attachments" />
                                 <DataGridTemplateColumn Header="" Width="120" grid:DataGridColumnLayout.Key="Actions">
@@ -375,112 +393,49 @@
                     </Border>
                     <Border DockPanel.Dock="Top" Style="{StaticResource ProductionCardStyle}" Padding="12,10" Margin="0,0,0,12"
                             Visibility="{Binding ShowIssueComposer, Converter={StaticResource BoolToVis}}">
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,10">
-                                <Button DockPanel.Dock="Right"
-                                        Content="Thêm vào phiếu"
-                                        Style="{StaticResource ProductionOutlineButtonStyle}"
-                                        Command="{Binding AddMinimumMaterialsToIssueCommand}"
-                                        MinHeight="32"
-                                        Margin="8,0,0,0"
-                                        ToolTip="Đổ gợi ý tối thiểu vào phiếu giao (có thể sửa trước khi ghi sổ)" />
-                                <TextBlock Text="Cần cấp tối thiểu"
-                                           Style="{StaticResource ProductionSectionHeaderStyle}"
-                                           VerticalAlignment="Center"
-                                           Margin="0" />
-                            </DockPanel>
-                            <TextBlock Text="{Binding MinimumMaterialsHint}"
-                                       Style="{StaticResource ProductionHintStyle}"
-                                       Margin="0,0,0,8"
-                                       TextWrapping="Wrap" />
-                            <ItemsControl ItemsSource="{Binding MinimumMaterials}"
-                                          Visibility="{Binding HasMinimumMaterials, Converter={StaticResource BoolToVis}}">
-                                <ItemsControl.ItemTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="220" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0"
+                                      ItemsSource="{Binding StockMaterials}"
+                                      SelectedItem="{Binding SelectedStockMaterial}"
+                                      Style="{StaticResource ProductionDialogComboStyle}"
+                                      Margin="0,0,8,0"
+                                      IsEnabled="{Binding CanIssueMaterials}"
+                                      ToolTip="Chọn loại nguyên vật liệu còn tồn tại kho xuất">
+                                <ComboBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Padding="8,6" Margin="0,0,0,4"
-                                                Background="{DynamicResource SurfaceAltBrush}"
-                                                CornerRadius="4">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel>
-                                                    <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}">
-                                                        <Run Text="{Binding MaterialCode, Mode=OneWay}" />
-                                                        <Run Text=" — " />
-                                                        <Run Text="{Binding MaterialName, Mode=OneWay}" />
-                                                    </TextBlock>
-                                                    <TextBlock Style="{StaticResource ProductionHintStyle}"
-                                                               Text="{Binding StockStatusHint, Mode=OneWay}" />
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1"
-                                                           Margin="12,0"
-                                                           VerticalAlignment="Center"
-                                                           FontWeight="SemiBold"
-                                                           Text="{Binding MinimumDisplay, Mode=OneWay}"
-                                                           ToolTip="Tối thiểu cần cấp" />
-                                                <TextBlock Grid.Column="2"
-                                                           VerticalAlignment="Center"
-                                                           Style="{StaticResource ProductionHintStyle}"
-                                                           Text="{Binding OnHandDisplay, Mode=OneWay}"
-                                                           ToolTip="Tồn hiện tại tại kho xuất" />
-                                            </Grid>
-                                        </Border>
+                                        <TextBlock>
+                                            <Run Text="{Binding Code, Mode=OneWay}" />
+                                            <Run Text=" — " />
+                                            <Run Text="{Binding Name, Mode=OneWay}" />
+                                            <Run Text=" (" />
+                                            <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
+                                            <Run Text=" " />
+                                            <Run Text="{Binding UnitCode, Mode=OneWay}" />
+                                            <Run Text=")" />
+                                        </TextBlock>
                                     </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Grid Margin="0,12,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" MinWidth="220" />
-                                    <ColumnDefinition Width="90" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <ComboBox Grid.Column="0"
-                                          ItemsSource="{Binding StockMaterials}"
-                                          SelectedItem="{Binding SelectedStockMaterial}"
-                                          Style="{StaticResource ProductionDialogComboStyle}"
-                                          Margin="0,0,8,0"
-                                          IsEnabled="{Binding CanIssueMaterials}"
-                                          ToolTip="Chọn nguyên liệu còn tồn tại kho xuất">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock>
-                                                <Run Text="{Binding Code, Mode=OneWay}" />
-                                                <Run Text=" — " />
-                                                <Run Text="{Binding Name, Mode=OneWay}" />
-                                                <Run Text=" (" />
-                                                <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
-                                                <Run Text=" " />
-                                                <Run Text="{Binding UnitCode, Mode=OneWay}" />
-                                                <Run Text=")" />
-                                            </TextBlock>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                                <TextBox Grid.Column="1"
-                                         Text="{Binding IssueQuantity, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ProductionDialogFieldStyle}"
-                                         Margin="0,0,8,0"
-                                         IsEnabled="{Binding CanIssueMaterials}" />
-                                <Button Grid.Column="2" Content="Thêm NVL"
-                                        Style="{StaticResource ProductionOutlineButtonStyle}"
-                                        Command="{Binding AddIssueLineCommand}" MinHeight="36" />
-                                <Button Grid.Column="3" Content="Tải tồn"
-                                        Style="{StaticResource ProductionGhostButtonStyle}"
-                                        Command="{Binding RefreshStockMaterialsCommand}" MinHeight="36" />
-                                <Button Grid.Column="4" Content="Ghi sổ giao NVL"
-                                        Style="{StaticResource ProductionPrimaryButtonStyle}"
-                                        Command="{Binding PostMaterialIssueCommand}" MinHeight="36" Margin="0" />
-                            </Grid>
-                            <TextBlock Text="{Binding StockMaterialsHint}"
-                                       Style="{StaticResource ProductionHintStyle}" Margin="0,8,0,0" />
-                            <TextBlock Text="Giá snapshot chỉ đọc — vàng lấy giá kho lúc ghi sổ."
-                                       Style="{StaticResource ProductionHintStyle}" Margin="0,4,0,0" />
-                        </StackPanel>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding IssueQuantity, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource ProductionDialogFieldStyle}"
+                                     Margin="0,0,8,0"
+                                     IsEnabled="{Binding CanIssueMaterials}"
+                                     ToolTip="{Binding IssueQuantityHint}" />
+                            <Button Grid.Column="2" Content="Thêm"
+                                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                                    Command="{Binding AddIssueLineCommand}" MinHeight="36" />
+                            <Button Grid.Column="3" Content="Xác nhận giao vàng"
+                                    Style="{StaticResource ProductionPrimaryButtonStyle}"
+                                    Command="{Binding PostMaterialIssueCommand}" MinHeight="36" Margin="8,0,0,0"
+                                    ToolTip="Ghi sổ giao NVL và khóa phiếu — không sửa được sau đó" />
+                        </Grid>
                     </Border>
                     <Border Style="{StaticResource ProductionCardStyle}" Padding="0">
                         <DataGrid Style="{StaticResource ProductionEditableDataGridStyle}"
@@ -490,16 +445,14 @@
                                   BorderThickness="0"
                                   grid:DataGridColumnLayout.SettingsKey="production.order.issue">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Mã" Binding="{Binding MaterialCode}" IsReadOnly="True" Width="90"
-                                                    grid:DataGridColumnLayout.Key="Code" />
-                                <DataGridTextColumn Header="Tên" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
+                                <DataGridTextColumn Header="Loại NVL" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
                                                     grid:DataGridColumnLayout.Key="Name" />
-                                <DataGridTextColumn Header="SL" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Width="80"
+                                <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding PurityDisplay}" IsReadOnly="True" Width="90"
+                                                    grid:DataGridColumnLayout.Key="Purity" />
+                                <DataGridTextColumn Header="Số lượng" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Width="100"
                                                     grid:DataGridColumnLayout.Key="Qty" />
-                                <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode}" IsReadOnly="True" Width="60"
+                                <DataGridTextColumn Header="Đơn vị" Binding="{Binding UnitCode}" IsReadOnly="True" Width="70"
                                                     grid:DataGridColumnLayout.Key="Unit" />
-                                <DataGridTextColumn Header="Gợi ý giá" Binding="{Binding DisplayCostHint}" IsReadOnly="True" Width="180"
-                                                    grid:DataGridColumnLayout.Key="CostHint" />
                                 <DataGridTemplateColumn Header="" Width="70" grid:DataGridColumnLayout.Key="Actions">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -523,11 +476,6 @@
                     <TextBlock Text="{Binding QuoteLaborTotal, StringFormat={}{0:N0} VND}"
                                FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold"
                                Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,12" />
-                    <TextBlock Text="Ghi chú" Style="{StaticResource ProductionFieldLabelStyle}" />
-                    <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource ProductionDialogFieldStyle}"
-                             MinHeight="90" TextWrapping="Wrap" AcceptsReturn="True"
-                             VerticalContentAlignment="Top" IsEnabled="{Binding IsDraft}" />
                 </StackPanel>
             </Border>
             </Grid>
@@ -757,14 +705,39 @@
 
         <Border Grid.Row="3" Margin="0,14,0,0" Padding="0,12,0,0"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Hủy lệnh" Style="{StaticResource ProductionGhostButtonStyle}"
-                        Command="{Binding CancelDraftCommand}" />
-                <Button Content="Đóng" Style="{StaticResource ProductionOutlineButtonStyle}"
-                        Command="{Binding CloseCommand}" IsCancel="True" />
-                <Button Content="Lưu bản nháp" Style="{StaticResource ProductionPrimaryButtonStyle}"
-                        Command="{Binding SaveDraftCommand}" IsDefault="True" Margin="0" />
-            </StackPanel>
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Hủy lệnh" Style="{StaticResource ProductionGhostButtonStyle}"
+                            Command="{Binding CancelDraftCommand}" />
+                    <Button Content="Đóng" Style="{StaticResource ProductionOutlineButtonStyle}"
+                            Command="{Binding CloseCommand}" IsCancel="True" />
+                    <Button Content="Lưu bản nháp" Style="{StaticResource ProductionPrimaryButtonStyle}"
+                            Command="{Binding SaveDraftCommand}" IsDefault="True" Margin="0" />
+                </StackPanel>
+                <UniformGrid DockPanel.Dock="Left" Rows="1" Columns="3" Margin="0,0,12,0">
+                    <Border Style="{StaticResource ProductionMetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Tổng trọng lượng giao (chỉ)" Style="{StaticResource ProductionMetricLabelStyle}" />
+                            <TextBlock Text="{Binding QuoteGoldWeightTotal, StringFormat={}{0:N3}}"
+                                       Style="{StaticResource ProductionMetricValueStyle}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource ProductionMetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Tổng số lượng sản phẩm" Style="{StaticResource ProductionMetricLabelStyle}" />
+                            <TextBlock Text="{Binding QuoteQuantityTotal}"
+                                       Style="{StaticResource ProductionMetricValueStyle}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource ProductionMetricCardStyle}" Margin="0">
+                        <StackPanel>
+                            <TextBlock Text="Tổng tiền công dự kiến (VND)" Style="{StaticResource ProductionMetricLabelStyle}" />
+                            <TextBlock Text="{Binding QuoteLaborTotal, StringFormat={}{0:N0}}"
+                                       Style="{StaticResource ProductionMetricValueStyle}" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+            </DockPanel>
         </Border>
     </Grid>
 </Window>

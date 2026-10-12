@@ -25,12 +25,14 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         string? ExternalWorkerName,
         string StatusCode,
         DateTime OrderDate,
+        DateTime? DueDate,
         long SourceLocationId,
         string SourceLocationName,
         long FinishedLocationId,
         string FinishedLocationName,
         long? MaterialIssueDocumentId,
         string? MaterialIssueDocumentCode,
+        DateTime? MaterialIssueDocumentDate,
         long? ReturnDocumentId,
         string? ReturnDocumentCode,
         long? FinishedReceiptDocumentId,
@@ -58,33 +60,24 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        // Period filter uses ORDER_DATE (always present). COMPLETED_AT is preferred when
-        // migration 45+ has been applied; COALESCE keeps summary working on legacy headers.
+        // M1 redesign (B2): mọi KPI đều đếm trên TOÀN BỘ, không theo kỳ Từ–Đến.
+        // Tham số kỳ vẫn giữ ở signature cho tương thích interface nhưng bị bỏ qua.
         // SUM trả về BIGINT nhưng record ProductionOrderSummary khai báo int -> CAST AS INTEGER
         // (Dapper chỉ bind constructor khi kiểu khớp chính xác, không tự Convert như bản cũ).
         // SUM = NULL khi không có dòng nào -> COALESCE về 0 (giống IsDBNull ? 0 bản cũ).
-        var hasPeriod = periodFrom is not null && periodTo is not null ? 1 : 0;
+        _ = periodFrom;
+        _ = periodTo;
         return await connection.QuerySingleAsync<ProductionOrderSummary>(
             new CommandDefinition("""
                 SELECT
                     COALESCE(CAST(SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' THEN 1 ELSE 0 END) AS INTEGER), 0) AS InProgressCount,
-                    COALESCE(CAST(SUM(CASE WHEN PO.STATUS_CODE = 'COMPLETED'
-                              AND (@HAS_PERIOD = 0
-                                   OR (PO.ORDER_DATE >= @FROM_DATE AND PO.ORDER_DATE < @TO_DATE_EXCL))
-                         THEN 1 ELSE 0 END) AS INTEGER), 0) AS CompletedInPeriodCount,
-                    COALESCE(CAST(SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' AND PO.EXECUTION_TYPE = 'OUTSOURCED' THEN 1 ELSE 0 END) AS INTEGER), 0) AS OutsourcedCount,
-                    COALESCE(CAST(SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' AND PO.EXECUTION_TYPE = 'IN_HOUSE' THEN 1 ELSE 0 END) AS INTEGER), 0) AS InHouseCount
+                    COALESCE(CAST(SUM(CASE WHEN PO.STATUS_CODE = 'COMPLETED' THEN 1 ELSE 0 END) AS INTEGER), 0) AS CompletedCount,
+                    COALESCE(CAST(SUM(CASE WHEN PO.STATUS_CODE = 'CANCELLED' THEN 1 ELSE 0 END) AS INTEGER), 0) AS CancelledCount
                 FROM PRODUCTION_ORDERS PO
                 WHERE PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                   AND PO.BRANCH_ID = @BRANCH_ID
                 """,
-                new
-                {
-                    BRANCH_ID = branchId,
-                    HAS_PERIOD = hasPeriod,
-                    FROM_DATE = (DateTime?)periodFrom,
-                    TO_DATE_EXCL = (DateTime?)periodTo?.Date.AddDays(1)
-                },
+                new { BRANCH_ID = branchId },
                 cancellationToken: cancellationToken));
     }
 
@@ -110,7 +103,10 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                 SELECT PO.ID AS Id, PO.CODE AS Code, PO.ORDER_SOURCE AS OrderSource,
                        PO.EXECUTION_TYPE AS ExecutionType, PO.STATUS_CODE AS StatusCode,
                        PO.ORDER_DATE AS OrderDate,
+                       MI.DOCUMENT_DATE AS MaterialIssueDate,
+                       PO.DUE_DATE AS DueDate,
                        SO.CODE AS SalesOrderCode,
+                       C.NAME AS CustomerName,
                        CASE
                            WHEN PO.EXECUTION_TYPE = 'OUTSOURCED' THEN EW.NAME
                            ELSE (
@@ -124,15 +120,17 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                            FROM PRODUCTION_ORDER_LINES POL
                            WHERE POL.PRODUCTION_ORDER_ID = PO.ID
                        ), '') AS ModelSummary,
-                       COALESCE((
+                       COALESCE(CAST((
                            SELECT SUM(POL.PLANNED_QUANTITY)
                            FROM PRODUCTION_ORDER_LINES POL
                            WHERE POL.PRODUCTION_ORDER_ID = PO.ID
-                       ), 0) AS PlannedQuantityTotal,
+                       ) AS INTEGER), 0) AS PlannedQuantityTotal,
                        PO.ROW_VERSION AS RowVersion
                 FROM PRODUCTION_ORDERS PO
                 LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
+                LEFT JOIN CUSTOMERS C ON C.ID = SO.CUSTOMER_ID AND C.COMPANY_ID = PO.COMPANY_ID
                 LEFT JOIN EXTERNAL_WORKERS EW ON EW.COMPANY_ID = PO.COMPANY_ID AND EW.ID = PO.EXTERNAL_WORKER_ID
+                LEFT JOIN STOCK_DOCUMENTS MI ON MI.ID = PO.MATERIAL_ISSUE_DOCUMENT_ID
                 WHERE PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                   AND PO.BRANCH_ID = @BRANCH_ID
                   AND (@INCLUDE_DRAFTS = 1 OR PO.STATUS_CODE <> 'DRAFT')
@@ -219,9 +217,11 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                        PO.EXECUTION_TYPE AS ExecutionType,
                        PO.EXTERNAL_WORKER_ID AS ExternalWorkerId, EW.NAME AS ExternalWorkerName,
                        PO.STATUS_CODE AS StatusCode, PO.ORDER_DATE AS OrderDate,
+                       PO.DUE_DATE AS DueDate,
                        PO.SOURCE_LOCATION_ID AS SourceLocationId, SL.NAME AS SourceLocationName,
                        PO.FINISHED_LOCATION_ID AS FinishedLocationId, FL.NAME AS FinishedLocationName,
                        PO.MATERIAL_ISSUE_DOCUMENT_ID AS MaterialIssueDocumentId, MI.CODE AS MaterialIssueDocumentCode,
+                       MI.DOCUMENT_DATE AS MaterialIssueDocumentDate,
                        PO.RETURN_DOCUMENT_ID AS ReturnDocumentId, RR.CODE AS ReturnDocumentCode,
                        PO.FINISHED_RECEIPT_DOCUMENT_ID AS FinishedReceiptDocumentId, FR.CODE AS FinishedReceiptDocumentCode,
                        PO.DELIVERED_BY_NAME AS DeliveredByName, PO.RECEIVED_BY_NAME AS ReceivedByName,
@@ -254,12 +254,14 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
             header.ExternalWorkerName,
             header.StatusCode,
             header.OrderDate,
+            header.DueDate,
             header.SourceLocationId,
             header.SourceLocationName,
             header.FinishedLocationId,
             header.FinishedLocationName,
             header.MaterialIssueDocumentId,
             header.MaterialIssueDocumentCode,
+            header.MaterialIssueDocumentDate,
             header.ReturnDocumentId,
             header.ReturnDocumentCode,
             header.FinishedReceiptDocumentId,
