@@ -1,0 +1,26 @@
+From 7891e1ac2d92669ac8eaf4a4ccb1868135aeff2d Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 13:33:07 +0700
+Subject: [PATCH] feat(production): remove gold purity column from material
+ issue table
+
+---
+ .../Kazuko.Modules.Production/ProductionOrderDialog.xaml        | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
+index ec83be6..6549bd1 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
+@@ -472,8 +472,6 @@
+                             <DataGrid.Columns>
+                                 <DataGridTextColumn Header="Loại NVL" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
+                                                     grid:DataGridColumnLayout.Key="Name" />
+-                                <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding PurityDisplay}" IsReadOnly="True" Width="90"
+-                                                    grid:DataGridColumnLayout.Key="Purity" />
+                                 <DataGridTextColumn Header="Số lượng" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Width="100"
+                                                     grid:DataGridColumnLayout.Key="Qty" />
+                                 <DataGridTextColumn Header="Đơn vị" Binding="{Binding UnitCode}" IsReadOnly="True" Width="70"
+-- 
+2.43.0
+

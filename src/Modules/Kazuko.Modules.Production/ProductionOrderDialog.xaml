@@ -472,8 +472,6 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Loại NVL" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
                                                     grid:DataGridColumnLayout.Key="Name" />
-                                <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding PurityDisplay}" IsReadOnly="True" Width="90"
-                                                    grid:DataGridColumnLayout.Key="Purity" />
                                 <DataGridTextColumn Header="Số lượng" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Width="100"
                                                     grid:DataGridColumnLayout.Key="Qty" />
                                 <DataGridTextColumn Header="Đơn vị" Binding="{Binding UnitCode}" IsReadOnly="True" Width="70"

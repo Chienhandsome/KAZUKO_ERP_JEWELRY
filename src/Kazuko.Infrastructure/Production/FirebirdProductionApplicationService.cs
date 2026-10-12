@@ -338,6 +338,41 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 session.UserId, session.Username, session.BranchId,
                 "STOCK_DOCUMENT", documentId.ToString(), code, cancellationToken);
 
+            // Tạo QC units (1 unit / 1 sản phẩm theo SL kế hoạch) ngay khi giao NVL.
+            // Trước đây việc này nằm ở PostWorkerReturnAsync, nhưng bước "thợ trả hàng"
+            // đã bỏ khỏi luồng nên chuyển về đây để nhập kho TP có dữ liệu.
+            await using (var linesCmd = new FbCommand("""
+                SELECT ID, PLANNED_QUANTITY, LABOR_COST_PER_UNIT
+                FROM PRODUCTION_ORDER_LINES
+                WHERE PRODUCTION_ORDER_ID = @PO
+                ORDER BY LINE_NUMBER
+                """, connection, fbTx))
+            {
+                linesCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = draft.ProductionOrderId;
+                await using var reader = await linesCmd.ExecuteReaderAsync(cancellationToken);
+                var lineRows = new List<(long Id, int Qty, decimal Labor)>();
+                while (await reader.ReadAsync(cancellationToken))
+                    lineRows.Add((reader.GetInt64(0), reader.GetInt32(1), reader.GetDecimal(2)));
+
+                foreach (var (lineId, plannedQty, labor) in lineRows)
+                {
+                    for (var unitNo = 1; unitNo <= plannedQty; unitNo++)
+                    {
+                        await using var insertUnit = new FbCommand("""
+                            INSERT INTO PRODUCTION_QC_UNITS
+                                (PRODUCTION_ORDER_ID, ORDER_LINE_ID, UNIT_NUMBER, STATUS_CODE, LABOR_COST_SNAPSHOT)
+                            VALUES
+                                (@PO, @LINE, @UNIT, 'PENDING', @LABOR)
+                            """, connection, fbTx);
+                        insertUnit.Parameters.Add("@PO", FbDbType.BigInt).Value = draft.ProductionOrderId;
+                        insertUnit.Parameters.Add("@LINE", FbDbType.BigInt).Value = lineId;
+                        insertUnit.Parameters.Add("@UNIT", FbDbType.Integer).Value = unitNo;
+                        insertUnit.Parameters.Add("@LABOR", FbDbType.Decimal).Value = labor;
+                        await insertUnit.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                }
+            }
+
             await transaction.CommitAsync(cancellationToken);
             return new ProductionMaterialIssueResult(
                 documentId, code, draft.ProductionOrderId, rowVersion);
@@ -503,39 +538,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 }
             }
 
-            var qcUnitCount = 0;
-            await using (var linesCmd = new FbCommand("""
-                SELECT ID, PLANNED_QUANTITY, LABOR_COST_PER_UNIT
-                FROM PRODUCTION_ORDER_LINES
-                WHERE PRODUCTION_ORDER_ID = @PO
-                ORDER BY LINE_NUMBER
-                """, connection, fbTx))
-            {
-                linesCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = draft.ProductionOrderId;
-                await using var reader = await linesCmd.ExecuteReaderAsync(cancellationToken);
-                var lineRows = new List<(long Id, int Qty, decimal Labor)>();
-                while (await reader.ReadAsync(cancellationToken))
-                    lineRows.Add((reader.GetInt64(0), reader.GetInt32(1), reader.GetDecimal(2)));
-
-                foreach (var (lineId, plannedQty, labor) in lineRows)
-                {
-                    for (var unitNo = 1; unitNo <= plannedQty; unitNo++)
-                    {
-                        await using var insertUnit = new FbCommand("""
-                            INSERT INTO PRODUCTION_QC_UNITS
-                                (PRODUCTION_ORDER_ID, ORDER_LINE_ID, UNIT_NUMBER, STATUS_CODE, LABOR_COST_SNAPSHOT)
-                            VALUES
-                                (@PO, @LINE, @UNIT, 'PENDING', @LABOR)
-                            """, connection, fbTx);
-                        insertUnit.Parameters.Add("@PO", FbDbType.BigInt).Value = draft.ProductionOrderId;
-                        insertUnit.Parameters.Add("@LINE", FbDbType.BigInt).Value = lineId;
-                        insertUnit.Parameters.Add("@UNIT", FbDbType.Integer).Value = unitNo;
-                        insertUnit.Parameters.Add("@LABOR", FbDbType.Decimal).Value = labor;
-                        await insertUnit.ExecuteNonQueryAsync(cancellationToken);
-                        qcUnitCount++;
-                    }
-                }
-            }
+            // QC units giờ được tạo ở PostMaterialIssueAsync (lúc giao NVL).
+            // Giữ method này cho tương thích nhưng không tạo units nữa để tránh trùng.
 
             long rowVersion;
             await using (var updateOrder = new FbCommand("""
@@ -568,7 +572,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 "STOCK_DOCUMENT", documentId.ToString(), code, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return new ProductionWorkerReturnResult(documentId, code, qcUnitCount, rowVersion);
+            return new ProductionWorkerReturnResult(documentId, code, 0, rowVersion);
         }
         catch (FbException ex) when (IsUniqueViolation(ex))
         {
