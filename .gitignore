@@ -9,6 +9,4 @@ artifacts/
 /firebird
 /data/*.fdb
 /data/*.FDB
-/.ai
-/.worktrees/
-/.ai
+
