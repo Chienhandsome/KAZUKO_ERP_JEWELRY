@@ -189,7 +189,7 @@
                          Style="{StaticResource FieldLabelStyle}"
                          HorizontalAlignment="Center"
                          Margin="0" />
-              <TextBlock Text="{Binding TotalAmount, StringFormat={}{0:N0} đ}"
+              <TextBlock Text="{Binding GrandTotal, StringFormat={}{0:N0} đ}"
                          FontSize="{DynamicResource FontSize.Display}"
                          FontWeight="Bold"
                          Foreground="{DynamicResource PrimaryBrush}"
@@ -203,6 +203,37 @@
         <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
           <StackPanel>
             <TextBlock Text="Thông tin phiếu" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+
+              <StackPanel>
+                <TextBlock Text="Ngày" Style="{StaticResource FieldLabelStyle}" />
+                <DatePicker SelectedDate="{Binding DocumentDate}"
+                            MinHeight="40"
+                            FontSize="{DynamicResource FontSize.Body}" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Số phiếu" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="Tự động"
+                         Style="{StaticResource DialogFieldStyle}"
+                         IsReadOnly="True"
+                         ToolTip="Số phiếu được sinh tự động khi ghi sổ" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="4">
+                <TextBlock Text="Nhân viên nhập" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="{Binding ReceivedByName, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource DialogFieldStyle}" />
+              </StackPanel>
+            </Grid>
 
             <Grid>
               <Grid.ColumnDefinitions>
@@ -241,11 +272,78 @@
                           Style="{StaticResource DialogComboStyle}" />
               </StackPanel>
             </Grid>
+
+            <StackPanel Margin="0,12,0,0">
+              <TextBlock Text="Diễn giải" Style="{StaticResource FieldLabelStyle}" />
+              <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                       Style="{StaticResource DialogFieldStyle}" />
+            </StackPanel>
           </StackPanel>
         </Border>
 
-        <!-- Dòng NVL -->
+        <!-- Panel Tổng cộng -->
         <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Text="Tổng cộng" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,12" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+
+              <StackPanel>
+                <TextBlock Text="Tiền hàng" Style="{StaticResource FieldLabelStyle}" />
+                <TextBlock Text="{Binding TotalAmount, StringFormat={}{0:N0} đ}"
+                           Style="{StaticResource SummaryValueStyle}" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Giảm giá" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                         Style="{StaticResource DialogFieldStyle}" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="4">
+                <TextBlock Text="Thuế" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="{Binding TaxAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                         Style="{StaticResource DialogFieldStyle}" />
+              </StackPanel>
+
+              <StackPanel Grid.Row="2">
+                <TextBlock Text="Phí vận chuyển" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="{Binding ShippingFee, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                         Style="{StaticResource DialogFieldStyle}" />
+              </StackPanel>
+
+              <StackPanel Grid.Row="2" Grid.Column="2">
+                <TextBlock Text="Tổng cộng" Style="{StaticResource FieldLabelStyle}" />
+                <TextBlock Text="{Binding GrandTotal, StringFormat={}{0:N0} đ}"
+                           Style="{StaticResource SummaryValueStyle}"
+                           Foreground="{DynamicResource PrimaryBrush}" />
+              </StackPanel>
+
+              <StackPanel Grid.Row="2" Grid.Column="4">
+                <TextBlock Text="Tiền thanh toán" Style="{StaticResource FieldLabelStyle}" />
+                <TextBlock Text="{Binding GrandTotal, StringFormat={}{0:N0} đ}"
+                           Style="{StaticResource SummaryValueStyle}" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Dòng NVL + Đối trừ (tabs) -->
+        <TabControl Margin="0,0,0,12"
+                    Background="{DynamicResource SurfaceBrush}">
+          <TabItem Header="Danh sách nguyên liệu nhập kho">
+            <Border Style="{DynamicResource CardBorderStyle}" Padding="16">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <Button DockPanel.Dock="Right"
@@ -339,97 +437,106 @@
               </DataGrid.Columns>
             </DataGrid>
           </StackPanel>
-        </Border>
+            </Border>
+          </TabItem>
 
-        <!-- Thanh toán -->
+          <TabItem Header="Đối trừ phiếu sản xuất">
+            <Border Style="{DynamicResource CardBorderStyle}" Padding="16">
+              <StackPanel>
+                <TextBlock Text="Đối chiếu số NVL lúc giao cho lệnh SX với số thực tế nhận về. Ô 'Nhận về' mặc định bằng 'Lúc giao' — người nhận cân và sửa lại nếu thiếu."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Caption}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,12" />
+
+                <Grid Margin="0,0,0,12">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock Text="Lệnh sản xuất" Style="{StaticResource FieldLabelStyle}" />
+                    <ComboBox ItemsSource="{Binding ReconcileOrders}"
+                              SelectedItem="{Binding SelectedReconcileOrder}"
+                              DisplayMemberPath="Code"
+                              Style="{StaticResource DialogComboStyle}" />
+                  </StackPanel>
+                  <Button Grid.Column="2"
+                          Content="Xác nhận đối trừ"
+                          Command="{Binding ConfirmReconcileCommand}"
+                          Style="{DynamicResource PrimaryButtonStyle}"
+                          MinHeight="40"
+                          MinWidth="140"
+                          VerticalAlignment="Bottom"
+                          ToolTip="Ghi kết quả đối trừ vào Ghi chú của phiếu" />
+                </Grid>
+
+                <DataGrid ItemsSource="{Binding ReconcileLines}"
+                          Style="{StaticResource DialogDataGridStyle}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="False"
+                          Height="220">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Mã NVL" Binding="{Binding MaterialCode, Mode=OneWay}" Width="100" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Tên NVL" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" IsReadOnly="True" />
+                    <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Lúc giao" Binding="{Binding QuantityIssued, Mode=OneWay, StringFormat=N4}" Width="110" IsReadOnly="True" />
+                    <DataGridTemplateColumn Header="Nhận về" Width="120">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBox Text="{Binding QuantityReceived, UpdateSourceTrigger=PropertyChanged, StringFormat=N4}"
+                                   Style="{StaticResource DialogFieldStyle}"
+                                   MinHeight="32" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Chênh lệch" Binding="{Binding Difference, Mode=OneWay, StringFormat=N4}" Width="110" IsReadOnly="True" />
+                  </DataGrid.Columns>
+                </DataGrid>
+              </StackPanel>
+            </Border>
+          </TabItem>
+        </TabControl>
+
+        <!-- Thanh toán: 3 phương thức cố định -->
         <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
           <StackPanel>
-            <DockPanel Margin="0,0,0,12">
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button Content="Thêm phương thức"
-                        Command="{Binding AddPaymentCommand}"
-                        Style="{DynamicResource PrimaryButtonStyle}"
-                        MinHeight="36"
-                        Margin="0,0,8,0" />
-                <Button Content="Xóa dòng TT"
-                        Command="{Binding RemovePaymentCommand}"
-                        Style="{DynamicResource NavButtonStyle}"
-                        MinHeight="36" />
+            <TextBlock Text="Thanh toán"
+                       Style="{StaticResource SectionHeaderStyle}"
+                       Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+
+              <StackPanel>
+                <TextBlock Text="Tiền mặt" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                         Style="{StaticResource PaymentGridTextBoxStyle}"
+                         MinHeight="36" />
               </StackPanel>
-              <TextBlock Text="Thanh toán"
-                         Style="{StaticResource SectionHeaderStyle}"
-                         VerticalAlignment="Center" />
-            </DockPanel>
 
-            <TextBlock Text="Nhập số tiền theo từng phương thức; ô Đã thanh toán tự cộng tổng các dòng. Tiền mặt chọn quỹ; chuyển khoản chọn tài khoản NH."
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontSize="{DynamicResource FontSize.Caption}"
-                       TextWrapping="Wrap"
-                       Margin="0,0,0,10" />
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Chuyển khoản" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                         Style="{StaticResource PaymentGridTextBoxStyle}"
+                         MinHeight="36" />
+              </StackPanel>
 
-            <DataGrid ItemsSource="{Binding Payments}"
-                      SelectedItem="{Binding SelectedPayment}"
-                      Style="{StaticResource PaymentGridStyle}"
-                      Height="140">
-              <DataGrid.Columns>
-                <DataGridTemplateColumn Header="Phương thức" Width="150">
-                  <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate>
-                      <ComboBox ItemsSource="{Binding DataContext.MethodOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                SelectedValue="{Binding PaymentMethod, UpdateSourceTrigger=PropertyChanged}"
-                                SelectedValuePath="Code"
-                                DisplayMemberPath="Label"
-                                Style="{StaticResource PaymentGridComboStyle}" />
-                    </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <DataGridTemplateColumn Header="Số tiền" Width="130">
-                  <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate>
-                      <TextBox Text="{Binding AmountVnd, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                               Style="{StaticResource PaymentGridTextBoxStyle}" />
-                    </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <DataGridTemplateColumn Header="Quỹ tiền mặt" Width="180">
-                  <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate>
-                      <ComboBox ItemsSource="{Binding DataContext.Funds, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                SelectedValue="{Binding CashFundId, UpdateSourceTrigger=PropertyChanged}"
-                                SelectedValuePath="Id"
-                                DisplayMemberPath="DisplayName"
-                                Style="{StaticResource PaymentGridComboStyle}"
-                                IsEnabled="{Binding RequiresCashFund}" />
-                    </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <DataGridTemplateColumn Header="Tài khoản NH" Width="200">
-                  <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate>
-                      <ComboBox ItemsSource="{Binding DataContext.Banks, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                SelectedValue="{Binding BankAccountId, UpdateSourceTrigger=PropertyChanged}"
-                                SelectedValuePath="Id"
-                                DisplayMemberPath="DisplayName"
-                                Style="{StaticResource PaymentGridComboStyle}"
-                                IsEnabled="{Binding RequiresBankAccount}" />
-                    </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <DataGridTemplateColumn Header="Tham chiếu" Width="*">
-                  <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate>
-                      <TextBox Text="{Binding ReferenceNumber, UpdateSourceTrigger=PropertyChanged}"
-                               Style="{StaticResource PaymentGridTextBoxStyle}"
-                               ToolTip="Số chứng từ / mã giao dịch (tuỳ chọn)" />
-                    </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-              </DataGrid.Columns>
-            </DataGrid>
+              <StackPanel Grid.Column="4">
+                <TextBlock Text="Thẻ" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                         Style="{StaticResource PaymentGridTextBoxStyle}"
+                         MinHeight="36"
+                         ToolTip="Nhập số tiền hoặc quét thẻ" />
+              </StackPanel>
+            </Grid>
 
             <Border Background="{DynamicResource SurfaceAltBrush}"
                     CornerRadius="8"
@@ -446,7 +553,7 @@
 
                 <StackPanel>
                   <TextBlock Text="Tổng tiền" Style="{StaticResource FieldLabelStyle}" />
-                  <TextBlock Text="{Binding TotalAmount, StringFormat={}{0:N0} đ}"
+                  <TextBlock Text="{Binding GrandTotal, StringFormat={}{0:N0} đ}"
                              Style="{StaticResource SummaryValueStyle}" />
                 </StackPanel>
 

@@ -1,0 +1,347 @@
+From 74446725ba178fbae880c43d1d51562fcec9ee18 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 14:42:19 +0700
+Subject: [PATCH] feat(warehouse): simplify payment to 3 fixed fields
+ (cash/transfer/card)
+
+---
+ .../MaterialReceiptDialog.xaml                | 117 ++++----------
+ .../MaterialReceiptDialogViewModel.cs         | 146 +++++-------------
+ 2 files changed, 75 insertions(+), 188 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml
+index b3a4b2c..b0725d1 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml
+@@ -499,95 +499,44 @@
+           </TabItem>
+         </TabControl>
+ 
+-        <!-- Thanh toán -->
++        <!-- Thanh toán: 3 phương thức cố định -->
+         <Border Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+           <StackPanel>
+-            <DockPanel Margin="0,0,0,12">
+-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+-                <Button Content="Thêm phương thức"
+-                        Command="{Binding AddPaymentCommand}"
+-                        Style="{DynamicResource PrimaryButtonStyle}"
+-                        MinHeight="36"
+-                        Margin="0,0,8,0" />
+-                <Button Content="Xóa dòng TT"
+-                        Command="{Binding RemovePaymentCommand}"
+-                        Style="{DynamicResource NavButtonStyle}"
+-                        MinHeight="36" />
++            <TextBlock Text="Thanh toán"
++                       Style="{StaticResource SectionHeaderStyle}"
++                       Margin="0,0,0,12" />
++
++            <Grid Margin="0,0,0,12">
++              <Grid.ColumnDefinitions>
++                <ColumnDefinition Width="*" />
++                <ColumnDefinition Width="12" />
++                <ColumnDefinition Width="*" />
++                <ColumnDefinition Width="12" />
++                <ColumnDefinition Width="*" />
++              </Grid.ColumnDefinitions>
++
++              <StackPanel>
++                <TextBlock Text="Tiền mặt" Style="{StaticResource FieldLabelStyle}" />
++                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
++                         Style="{StaticResource PaymentGridTextBoxStyle}"
++                         MinHeight="36" />
+               </StackPanel>
+-              <TextBlock Text="Thanh toán"
+-                         Style="{StaticResource SectionHeaderStyle}"
+-                         VerticalAlignment="Center" />
+-            </DockPanel>
+ 
+-            <TextBlock Text="Nhập số tiền theo từng phương thức; ô Đã thanh toán tự cộng tổng các dòng. Tiền mặt chọn quỹ; chuyển khoản chọn tài khoản NH."
+-                       Foreground="{DynamicResource TextSecondaryBrush}"
+-                       FontSize="{DynamicResource FontSize.Caption}"
+-                       TextWrapping="Wrap"
+-                       Margin="0,0,0,10" />
++              <StackPanel Grid.Column="2">
++                <TextBlock Text="Chuyển khoản" Style="{StaticResource FieldLabelStyle}" />
++                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
++                         Style="{StaticResource PaymentGridTextBoxStyle}"
++                         MinHeight="36" />
++              </StackPanel>
+ 
+-            <DataGrid ItemsSource="{Binding Payments}"
+-                      SelectedItem="{Binding SelectedPayment}"
+-                      Style="{StaticResource PaymentGridStyle}"
+-                      Height="140">
+-              <DataGrid.Columns>
+-                <DataGridTemplateColumn Header="Phương thức" Width="150">
+-                  <DataGridTemplateColumn.CellTemplate>
+-                    <DataTemplate>
+-                      <ComboBox ItemsSource="{Binding DataContext.MethodOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+-                                SelectedValue="{Binding PaymentMethod, UpdateSourceTrigger=PropertyChanged}"
+-                                SelectedValuePath="Code"
+-                                DisplayMemberPath="Label"
+-                                Style="{StaticResource PaymentGridComboStyle}" />
+-                    </DataTemplate>
+-                  </DataGridTemplateColumn.CellTemplate>
+-                </DataGridTemplateColumn>
+-
+-                <DataGridTemplateColumn Header="Số tiền" Width="130">
+-                  <DataGridTemplateColumn.CellTemplate>
+-                    <DataTemplate>
+-                      <TextBox Text="{Binding AmountVnd, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+-                               Style="{StaticResource PaymentGridTextBoxStyle}" />
+-                    </DataTemplate>
+-                  </DataGridTemplateColumn.CellTemplate>
+-                </DataGridTemplateColumn>
+-
+-                <DataGridTemplateColumn Header="Quỹ tiền mặt" Width="180">
+-                  <DataGridTemplateColumn.CellTemplate>
+-                    <DataTemplate>
+-                      <ComboBox ItemsSource="{Binding DataContext.Funds, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+-                                SelectedValue="{Binding CashFundId, UpdateSourceTrigger=PropertyChanged}"
+-                                SelectedValuePath="Id"
+-                                DisplayMemberPath="DisplayName"
+-                                Style="{StaticResource PaymentGridComboStyle}"
+-                                IsEnabled="{Binding RequiresCashFund}" />
+-                    </DataTemplate>
+-                  </DataGridTemplateColumn.CellTemplate>
+-                </DataGridTemplateColumn>
+-
+-                <DataGridTemplateColumn Header="Tài khoản NH" Width="200">
+-                  <DataGridTemplateColumn.CellTemplate>
+-                    <DataTemplate>
+-                      <ComboBox ItemsSource="{Binding DataContext.Banks, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+-                                SelectedValue="{Binding BankAccountId, UpdateSourceTrigger=PropertyChanged}"
+-                                SelectedValuePath="Id"
+-                                DisplayMemberPath="DisplayName"
+-                                Style="{StaticResource PaymentGridComboStyle}"
+-                                IsEnabled="{Binding RequiresBankAccount}" />
+-                    </DataTemplate>
+-                  </DataGridTemplateColumn.CellTemplate>
+-                </DataGridTemplateColumn>
+-
+-                <DataGridTemplateColumn Header="Tham chiếu" Width="*">
+-                  <DataGridTemplateColumn.CellTemplate>
+-                    <DataTemplate>
+-                      <TextBox Text="{Binding ReferenceNumber, UpdateSourceTrigger=PropertyChanged}"
+-                               Style="{StaticResource PaymentGridTextBoxStyle}"
+-                               ToolTip="Số chứng từ / mã giao dịch (tuỳ chọn)" />
+-                    </DataTemplate>
+-                  </DataGridTemplateColumn.CellTemplate>
+-                </DataGridTemplateColumn>
+-              </DataGrid.Columns>
+-            </DataGrid>
++              <StackPanel Grid.Column="4">
++                <TextBlock Text="Thẻ" Style="{StaticResource FieldLabelStyle}" />
++                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
++                         Style="{StaticResource PaymentGridTextBoxStyle}"
++                         MinHeight="36"
++                         ToolTip="Nhập số tiền hoặc quét thẻ" />
++              </StackPanel>
++            </Grid>
+ 
+             <Border Background="{DynamicResource SurfaceAltBrush}"
+                     CornerRadius="8"
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialogViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialogViewModel.cs
+index 2a1e187..539977c 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialogViewModel.cs
+@@ -66,8 +66,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
+ 
+         AddLineCommand = new RelayCommand(AddLine);
+         RemoveLineCommand = new RelayCommand(RemoveSelectedLine, () => SelectedLine is not null);
+-        AddPaymentCommand = new RelayCommand(AddPayment);
+-        RemovePaymentCommand = new RelayCommand(RemoveSelectedPayment, () => SelectedPayment is not null);
+         CreateSupplierCommand = new RelayCommand(CreateSupplier);
+         CreateGoldTypeCommand = new AsyncRelayCommand(CreateGoldTypeAsync);
+         SaveCommand = new AsyncRelayCommand(SaveAsync);
+@@ -84,7 +82,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
+     public ObservableCollection<BankAccountOption> Banks { get; } = new();
+     public ObservableCollection<ReceiptPaymentMethodOption> MethodOptions { get; } = new();
+     public ObservableCollection<ReceiptLineRow> Lines { get; } = new();
+-    public ObservableCollection<PaymentRow> Payments { get; } = new();
+ 
+     public SupplierListItem? SelectedSupplier
+     {
+@@ -141,10 +138,42 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
+     }
+ 
+     public ReceiptLineRow? SelectedLine { get; set; }
+-    public PaymentRow? SelectedPayment { get; set; }
+ 
+-    /// <summary>Tổng số tiền các dòng phương thức thanh toán (không nhập tay).</summary>
+-    public decimal PaidAmount => Payments.Sum(x => x.AmountVnd);
++    private decimal _cashAmount;
++    public decimal CashAmount
++    {
++        get => _cashAmount;
++        set
++        {
++            if (SetProperty(ref _cashAmount, value))
++                OnPropertyChanged(nameof(PaidAmount));
++        }
++    }
++
++    private decimal _transferAmount;
++    public decimal TransferAmount
++    {
++        get => _transferAmount;
++        set
++        {
++            if (SetProperty(ref _transferAmount, value))
++                OnPropertyChanged(nameof(PaidAmount));
++        }
++    }
++
++    private decimal _cardAmount;
++    public decimal CardAmount
++    {
++        get => _cardAmount;
++        set
++        {
++            if (SetProperty(ref _cardAmount, value))
++                OnPropertyChanged(nameof(PaidAmount));
++        }
++    }
++
++    /// <summary>Tổng số tiền thanh toán (Tiền mặt + Chuyển khoản + Thẻ).</summary>
++    public decimal PaidAmount => CashAmount + TransferAmount + CardAmount;
+ 
+     public string Notes
+     {
+@@ -232,8 +261,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
+ 
+     public ICommand AddLineCommand { get; }
+     public ICommand RemoveLineCommand { get; }
+-    public ICommand AddPaymentCommand { get; }
+-    public ICommand RemovePaymentCommand { get; }
+     public ICommand CreateSupplierCommand { get; }
+     public ICommand CreateGoldTypeCommand { get; }
+     public ICommand SaveCommand { get; }
+@@ -309,39 +336,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
+         NotifyTotalsChanged();
+     }
+ 
+-    private void AddPayment()
+-    {
+-        var row = new PaymentRow
+-        {
+-            PaymentMethod = PaymentMethods.Cash,
+-            AmountVnd = 0,
+-            CashFundId = Funds.FirstOrDefault(x => x.IsDefault)?.Id ?? Funds.FirstOrDefault()?.Id
+-        };
+-        row.PropertyChanged += OnPaymentRowPropertyChanged;
+-        Payments.Add(row);
+-        NotifyPaidChanged();
+-    }
+-
+-    private void RemoveSelectedPayment()
+-    {
+-        if (SelectedPayment is null)
+-            return;
+-        SelectedPayment.PropertyChanged -= OnPaymentRowPropertyChanged;
+-        Payments.Remove(SelectedPayment);
+-        NotifyPaidChanged();
+-    }
+-
+-    private void OnPaymentRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
+-    {
+-        if (e.PropertyName == nameof(PaymentRow.AmountVnd))
+-            NotifyPaidChanged();
+-    }
+-
+-    private void NotifyPaidChanged()
+-    {
+-        OnPropertyChanged(nameof(PaidAmount));
+-        NotifyTotalsChanged();
+-    }
+ 
+     private void CreateSupplier()
+     {
+@@ -463,12 +457,13 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
+             if (SelectedLocation is null)
+                 throw new InvalidOperationException("Chọn kho nhận.");
+ 
+-            var payments = Payments.Select(p => new PaymentAllocationDraft(
+-                p.PaymentMethod,
+-                p.AmountVnd,
+-                p.CashFundId,
+-                p.BankAccountId,
+-                p.ReferenceNumber)).ToList();
++            var payments = new List<PaymentAllocationDraft>();
++            if (CashAmount > 0)
++                payments.Add(new PaymentAllocationDraft(PaymentMethods.Cash, CashAmount, null, null, null));
++            if (TransferAmount > 0)
++                payments.Add(new PaymentAllocationDraft(PaymentMethods.BankTransfer, TransferAmount, null, null, null));
++            if (CardAmount > 0)
++                payments.Add(new PaymentAllocationDraft(PaymentMethods.Card, CardAmount, null, null, null));
+ 
+             var draft = new MaterialReceiptDraft(
+                 DocumentDate,
+@@ -528,63 +523,6 @@ public sealed class ReceiptLineRow
+ 
+ public sealed record ReceiptPaymentMethodOption(string Code, string Label);
+ 
+-public sealed class PaymentRow : ObservableObject
+-{
+-    private string _paymentMethod = PaymentMethods.Cash;
+-    private decimal _amountVnd;
+-    private long? _cashFundId;
+-    private long? _bankAccountId;
+-    private string? _referenceNumber;
+-
+-    public string PaymentMethod
+-    {
+-        get => _paymentMethod;
+-        set
+-        {
+-            if (!SetProperty(ref _paymentMethod, value))
+-                return;
+-
+-            OnPropertyChanged(nameof(RequiresCashFund));
+-            OnPropertyChanged(nameof(RequiresBankAccount));
+-
+-            if (RequiresCashFund)
+-                BankAccountId = null;
+-            else if (RequiresBankAccount)
+-                CashFundId = null;
+-        }
+-    }
+-
+-    public decimal AmountVnd
+-    {
+-        get => _amountVnd;
+-        set => SetProperty(ref _amountVnd, value);
+-    }
+-
+-    public long? CashFundId
+-    {
+-        get => _cashFundId;
+-        set => SetProperty(ref _cashFundId, value);
+-    }
+-
+-    public long? BankAccountId
+-    {
+-        get => _bankAccountId;
+-        set => SetProperty(ref _bankAccountId, value);
+-    }
+-
+-    public string? ReferenceNumber
+-    {
+-        get => _referenceNumber;
+-        set => SetProperty(ref _referenceNumber, value);
+-    }
+-
+-    public bool RequiresCashFund =>
+-        string.Equals(PaymentMethod, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase);
+-
+-    public bool RequiresBankAccount =>
+-        string.Equals(PaymentMethod, PaymentMethods.BankTransfer, StringComparison.OrdinalIgnoreCase);
+-}
+-
+ /// <summary>
+ /// Một dòng đối trừ: so sánh SL lúc giao vs SL thực tế nhận về.
+ /// </summary>
+-- 
+2.43.0
+

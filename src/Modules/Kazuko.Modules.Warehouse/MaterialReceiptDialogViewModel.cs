@@ -7,6 +7,7 @@ using Kazuko.Core.Finance;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.PriceBoard;
+using Kazuko.Core.Production;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
@@ -21,6 +22,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private readonly IGoldTypeEditorService _goldTypeEditor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
+    private readonly IProductionQueryRepository _productionQueries;
     private readonly AuthenticatedSession _session;
     private SupplierListItem? _selectedSupplier;
     private WarehouseLocationOption? _selectedLocation;
@@ -31,6 +33,12 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private string _notes = string.Empty;
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
+    private DateTime _documentDate = DateTime.Today;
+    private string _description = string.Empty;
+    private string _receivedByName = string.Empty;
+    private decimal _discountAmount;
+    private decimal _taxAmount;
+    private decimal _shippingFee;
 
     public MaterialReceiptDialogViewModel(
         IMaterialReceiptService receiptService,
@@ -40,6 +48,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         IGoldTypeEditorService goldTypeEditor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
+        IProductionQueryRepository productionQueries,
         AuthenticatedSession session)
     {
         _receiptService = receiptService;
@@ -49,6 +58,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _goldTypeEditor = goldTypeEditor;
         _funds = funds;
         _banks = banks;
+        _productionQueries = productionQueries;
         _session = session;
 
         MethodOptions.Add(new ReceiptPaymentMethodOption(PaymentMethods.Cash, "Tiền mặt"));
@@ -56,13 +66,13 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
 
         AddLineCommand = new RelayCommand(AddLine);
         RemoveLineCommand = new RelayCommand(RemoveSelectedLine, () => SelectedLine is not null);
-        AddPaymentCommand = new RelayCommand(AddPayment);
-        RemovePaymentCommand = new RelayCommand(RemoveSelectedPayment, () => SelectedPayment is not null);
         CreateSupplierCommand = new RelayCommand(CreateSupplier);
         CreateGoldTypeCommand = new AsyncRelayCommand(CreateGoldTypeAsync);
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         CancelCommand = new RelayCommand(() => DialogResult = false);
+        ConfirmReconcileCommand = new RelayCommand(ConfirmReconcile, () => SelectedReconcileOrder is not null && ReconcileLines.Count > 0);
         _ = LoadLookupsAsync();
+        _ = LoadReconcileOrdersAsync();
     }
 
     public ObservableCollection<WarehouseLocationOption> Locations { get; } = new();
@@ -72,7 +82,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public ObservableCollection<BankAccountOption> Banks { get; } = new();
     public ObservableCollection<ReceiptPaymentMethodOption> MethodOptions { get; } = new();
     public ObservableCollection<ReceiptLineRow> Lines { get; } = new();
-    public ObservableCollection<PaymentRow> Payments { get; } = new();
 
     public SupplierListItem? SelectedSupplier
     {
@@ -129,10 +138,42 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     }
 
     public ReceiptLineRow? SelectedLine { get; set; }
-    public PaymentRow? SelectedPayment { get; set; }
 
-    /// <summary>Tổng số tiền các dòng phương thức thanh toán (không nhập tay).</summary>
-    public decimal PaidAmount => Payments.Sum(x => x.AmountVnd);
+    private decimal _cashAmount;
+    public decimal CashAmount
+    {
+        get => _cashAmount;
+        set
+        {
+            if (SetProperty(ref _cashAmount, value))
+                OnPropertyChanged(nameof(PaidAmount));
+        }
+    }
+
+    private decimal _transferAmount;
+    public decimal TransferAmount
+    {
+        get => _transferAmount;
+        set
+        {
+            if (SetProperty(ref _transferAmount, value))
+                OnPropertyChanged(nameof(PaidAmount));
+        }
+    }
+
+    private decimal _cardAmount;
+    public decimal CardAmount
+    {
+        get => _cardAmount;
+        set
+        {
+            if (SetProperty(ref _cardAmount, value))
+                OnPropertyChanged(nameof(PaidAmount));
+        }
+    }
+
+    /// <summary>Tổng số tiền thanh toán (Tiền mặt + Chuyển khoản + Thẻ).</summary>
+    public decimal PaidAmount => CashAmount + TransferAmount + CardAmount;
 
     public string Notes
     {
@@ -153,16 +194,94 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     }
 
     public decimal TotalAmount => Lines.Sum(x => x.AmountVnd);
-    public decimal DebtAmount => Math.Max(0, TotalAmount - PaidAmount);
+    public decimal DebtAmount => Math.Max(0, GrandTotal - PaidAmount);
+
+    /// <summary>Ngày chứng từ (mặc định hôm nay).</summary>
+    public DateTime DocumentDate
+    {
+        get => _documentDate;
+        set => SetProperty(ref _documentDate, value);
+    }
+
+    /// <summary>Diễn giải chứng từ.</summary>
+    public string Description
+    {
+        get => _description;
+        set => SetProperty(ref _description, value);
+    }
+
+    /// <summary>Nhân viên nhập kho (nhập tay).</summary>
+    public string ReceivedByName
+    {
+        get => _receivedByName;
+        set => SetProperty(ref _receivedByName, value);
+    }
+
+    /// <summary>Giảm giá (VND, nhập tay).</summary>
+    public decimal DiscountAmount
+    {
+        get => _discountAmount;
+        set
+        {
+            if (SetProperty(ref _discountAmount, value))
+                NotifyTotalsChanged();
+        }
+    }
+
+    /// <summary>Thuế (VND, nhập tay).</summary>
+    public decimal TaxAmount
+    {
+        get => _taxAmount;
+        set
+        {
+            if (SetProperty(ref _taxAmount, value))
+                NotifyTotalsChanged();
+        }
+    }
+
+    /// <summary>Phí vận chuyển (VND, nhập tay).</summary>
+    public decimal ShippingFee
+    {
+        get => _shippingFee;
+        set
+        {
+            if (SetProperty(ref _shippingFee, value))
+                NotifyTotalsChanged();
+        }
+    }
+
+    /// <summary>Tổng cộng = Tiền hàng - Giảm giá + Thuế + Phí vận chuyển.</summary>
+    public decimal GrandTotal => Math.Max(0, TotalAmount - DiscountAmount + TaxAmount + ShippingFee);
+
+    private void NotifyTotalsChanged()
+    {
+        OnPropertyChanged(nameof(GrandTotal));
+        OnPropertyChanged(nameof(DebtAmount));
+    }
 
     public ICommand AddLineCommand { get; }
     public ICommand RemoveLineCommand { get; }
-    public ICommand AddPaymentCommand { get; }
-    public ICommand RemovePaymentCommand { get; }
     public ICommand CreateSupplierCommand { get; }
     public ICommand CreateGoldTypeCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
+    public ICommand ConfirmReconcileCommand { get; }
+
+    // === Tab Đối trừ phiếu sản xuất ===
+    public ObservableCollection<ProductionOrderListItem> ReconcileOrders { get; } = new();
+
+    private ProductionOrderListItem? _selectedReconcileOrder;
+    public ProductionOrderListItem? SelectedReconcileOrder
+    {
+        get => _selectedReconcileOrder;
+        set
+        {
+            if (SetProperty(ref _selectedReconcileOrder, value))
+                _ = LoadReconcileLinesAsync();
+        }
+    }
+
+    public ObservableCollection<ReconcileRow> ReconcileLines { get; } = new();
 
     private async Task LoadLookupsAsync()
     {
@@ -204,7 +323,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             LineUnitPrice,
             LineExchangeRate));
         OnPropertyChanged(nameof(TotalAmount));
-        OnPropertyChanged(nameof(DebtAmount));
+        NotifyTotalsChanged();
         ErrorMessage = string.Empty;
     }
 
@@ -214,42 +333,9 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             return;
         Lines.Remove(SelectedLine);
         OnPropertyChanged(nameof(TotalAmount));
-        OnPropertyChanged(nameof(DebtAmount));
+        NotifyTotalsChanged();
     }
 
-    private void AddPayment()
-    {
-        var row = new PaymentRow
-        {
-            PaymentMethod = PaymentMethods.Cash,
-            AmountVnd = 0,
-            CashFundId = Funds.FirstOrDefault(x => x.IsDefault)?.Id ?? Funds.FirstOrDefault()?.Id
-        };
-        row.PropertyChanged += OnPaymentRowPropertyChanged;
-        Payments.Add(row);
-        NotifyPaidChanged();
-    }
-
-    private void RemoveSelectedPayment()
-    {
-        if (SelectedPayment is null)
-            return;
-        SelectedPayment.PropertyChanged -= OnPaymentRowPropertyChanged;
-        Payments.Remove(SelectedPayment);
-        NotifyPaidChanged();
-    }
-
-    private void OnPaymentRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(PaymentRow.AmountVnd))
-            NotifyPaidChanged();
-    }
-
-    private void NotifyPaidChanged()
-    {
-        OnPropertyChanged(nameof(PaidAmount));
-        OnPropertyChanged(nameof(DebtAmount));
-    }
 
     private void CreateSupplier()
     {
@@ -297,6 +383,72 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             || string.Equals(x.PurityCode, code, StringComparison.OrdinalIgnoreCase));
     }
 
+    private async Task LoadReconcileOrdersAsync()
+    {
+        try
+        {
+            var filter = new ProductionOrderListFilter(null, null, null, null, null, null);
+            var orders = await _productionQueries.SearchOrdersAsync(_session.BranchId, filter);
+            foreach (var order in orders.Where(o =>
+                string.Equals(o.StatusCode, ProductionOrderStatuses.InProgress, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(o.StatusCode, ProductionOrderStatuses.Completed, StringComparison.OrdinalIgnoreCase)))
+            {
+                ReconcileOrders.Add(order);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task LoadReconcileLinesAsync()
+    {
+        ReconcileLines.Clear();
+        ((RelayCommand)ConfirmReconcileCommand).NotifyCanExecuteChanged();
+        if (SelectedReconcileOrder is null)
+            return;
+
+        try
+        {
+            var detail = await _productionQueries.GetOrderDetailAsync(
+                SelectedReconcileOrder.Id, _session.BranchId);
+            if (detail?.MaterialBalances is null)
+                return;
+
+            foreach (var balance in detail.MaterialBalances)
+            {
+                ReconcileLines.Add(new ReconcileRow(
+                    balance.MaterialCode,
+                    balance.MaterialName,
+                    balance.UnitCode,
+                    balance.QuantityIssued));
+            }
+            ((RelayCommand)ConfirmReconcileCommand).NotifyCanExecuteChanged();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private void ConfirmReconcile()
+    {
+        if (SelectedReconcileOrder is null || ReconcileLines.Count == 0)
+            return;
+
+        var lines = ReconcileLines
+            .Select(r => $"{r.MaterialCode}: giao {r.QuantityIssued:N4} {r.UnitCode}, nhận {r.QuantityReceived:N4}, chênh lệch {r.Difference:N4}")
+            .ToList();
+        var summary = $"Đối trừ {SelectedReconcileOrder.Code}:\n" + string.Join("\n", lines);
+
+        Notes = string.IsNullOrWhiteSpace(Notes)
+            ? summary
+            : Notes + "\n\n" + summary;
+        OnPropertyChanged(nameof(Notes));
+        ErrorMessage = string.Empty;
+    }
+
     private async Task SaveAsync()
     {
         try
@@ -305,15 +457,16 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             if (SelectedLocation is null)
                 throw new InvalidOperationException("Chọn kho nhận.");
 
-            var payments = Payments.Select(p => new PaymentAllocationDraft(
-                p.PaymentMethod,
-                p.AmountVnd,
-                p.CashFundId,
-                p.BankAccountId,
-                p.ReferenceNumber)).ToList();
+            var payments = new List<PaymentAllocationDraft>();
+            if (CashAmount > 0)
+                payments.Add(new PaymentAllocationDraft(PaymentMethods.Cash, CashAmount, null, null, null));
+            if (TransferAmount > 0)
+                payments.Add(new PaymentAllocationDraft(PaymentMethods.BankTransfer, TransferAmount, null, null, null));
+            if (CardAmount > 0)
+                payments.Add(new PaymentAllocationDraft(PaymentMethods.Card, CardAmount, null, null, null));
 
             var draft = new MaterialReceiptDraft(
-                DateTime.Now,
+                DocumentDate,
                 SelectedLocation.Id,
                 StockSourceTypes.Supplier,
                 SelectedSupplier?.Id,
@@ -370,59 +523,38 @@ public sealed class ReceiptLineRow
 
 public sealed record ReceiptPaymentMethodOption(string Code, string Label);
 
-public sealed class PaymentRow : ObservableObject
+/// <summary>
+/// Một dòng đối trừ: so sánh SL lúc giao vs SL thực tế nhận về.
+/// </summary>
+public sealed class ReconcileRow : ObservableObject
 {
-    private string _paymentMethod = PaymentMethods.Cash;
-    private decimal _amountVnd;
-    private long? _cashFundId;
-    private long? _bankAccountId;
-    private string? _referenceNumber;
+    private decimal _quantityReceived;
 
-    public string PaymentMethod
+    public ReconcileRow(string materialCode, string materialName, string unitCode, decimal quantityIssued)
     {
-        get => _paymentMethod;
+        MaterialCode = materialCode;
+        MaterialName = materialName;
+        UnitCode = unitCode;
+        QuantityIssued = quantityIssued;
+        _quantityReceived = quantityIssued; // Mặc định nhận về = lúc giao
+    }
+
+    public string MaterialCode { get; }
+    public string MaterialName { get; }
+    public string UnitCode { get; }
+    public decimal QuantityIssued { get; }
+
+    /// <summary>SL thực tế nhận về (người nhận cân và nhập, mặc định = lúc giao).</summary>
+    public decimal QuantityReceived
+    {
+        get => _quantityReceived;
         set
         {
-            if (!SetProperty(ref _paymentMethod, value))
-                return;
-
-            OnPropertyChanged(nameof(RequiresCashFund));
-            OnPropertyChanged(nameof(RequiresBankAccount));
-
-            if (RequiresCashFund)
-                BankAccountId = null;
-            else if (RequiresBankAccount)
-                CashFundId = null;
+            if (SetProperty(ref _quantityReceived, value))
+                OnPropertyChanged(nameof(Difference));
         }
     }
 
-    public decimal AmountVnd
-    {
-        get => _amountVnd;
-        set => SetProperty(ref _amountVnd, value);
-    }
-
-    public long? CashFundId
-    {
-        get => _cashFundId;
-        set => SetProperty(ref _cashFundId, value);
-    }
-
-    public long? BankAccountId
-    {
-        get => _bankAccountId;
-        set => SetProperty(ref _bankAccountId, value);
-    }
-
-    public string? ReferenceNumber
-    {
-        get => _referenceNumber;
-        set => SetProperty(ref _referenceNumber, value);
-    }
-
-    public bool RequiresCashFund =>
-        string.Equals(PaymentMethod, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase);
-
-    public bool RequiresBankAccount =>
-        string.Equals(PaymentMethod, PaymentMethods.BankTransfer, StringComparison.OrdinalIgnoreCase);
+    /// <summary>Chênh lệch = nhận về - lúc giao (âm = thiếu).</summary>
+    public decimal Difference => QuantityReceived - QuantityIssued;
 }
