@@ -7,6 +7,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FirebirdSql.Data.FirebirdClient" Version="10.3.4" />
+    <PackageReference Include="Dapper" Version="2.1.89" />
     <PackageReference Include="FastReport.OpenSource" Version="2025.2.0" />
   </ItemGroup>
   <ItemGroup>
