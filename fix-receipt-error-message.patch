@@ -1,0 +1,27 @@
+From f49afb155df8701483d40d4878965559ceea65a7 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 14:03:19 +0700
+Subject: [PATCH] fix(production): show actual constraint in duplicate receipt
+ error
+
+---
+ .../Production/FirebirdProductionApplicationService.cs         | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index d53e2a0..c8e7ce8 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -1195,7 +1195,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
+         catch (FbException ex) when (IsUniqueViolation(ex))
+         {
+             await transaction.RollbackAsync(cancellationToken);
+-            throw new InvalidOperationException("Lệnh đã có phiếu nhập thành phẩm.", ex);
++            throw new InvalidOperationException(
++                $"Lỗi trùng dữ liệu khi nhập kho: {ex.Message}", ex);
+         }
+         catch
+         {
+-- 
+2.43.0
+

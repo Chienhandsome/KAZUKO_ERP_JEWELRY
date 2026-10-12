@@ -1195,7 +1195,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         catch (FbException ex) when (IsUniqueViolation(ex))
         {
             await transaction.RollbackAsync(cancellationToken);
-            throw new InvalidOperationException("Lệnh đã có phiếu nhập thành phẩm.", ex);
+            throw new InvalidOperationException(
+                $"Lỗi trùng dữ liệu khi nhập kho: {ex.Message}", ex);
         }
         catch
         {
