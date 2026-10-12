@@ -55,10 +55,10 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                     INSERT INTO PRODUCTION_ORDERS
                         (COMPANY_ID, BRANCH_ID, CODE, ORDER_SOURCE, SALES_ORDER_ID, EXECUTION_TYPE,
                          EXTERNAL_WORKER_ID, STATUS_CODE, ORDER_DATE, DUE_DATE, SOURCE_LOCATION_ID, FINISHED_LOCATION_ID,
-                         DELIVERED_BY_NAME, RECEIVED_BY_NAME, NOTES, ROW_VERSION, CREATED_BY, CREATED_AT)
+                         NOTES, ROW_VERSION, CREATED_BY, CREATED_AT)
                     VALUES
                         (@CID, @BID, @CODE, @SOURCE, @SO, @EXEC, @EXT, 'DRAFT', @ODATE, @DUE, @SRC, @FIN,
-                         @DEL, @REC, @NOTES, 0, @BY, CURRENT_TIMESTAMP)
+                         @NOTES, 0, @BY, CURRENT_TIMESTAMP)
                     RETURNING ID, ROW_VERSION
                     """, connection, fbTx))
                 {
@@ -90,8 +90,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                            DUE_DATE = @DUE,
                            SOURCE_LOCATION_ID = @SRC,
                            FINISHED_LOCATION_ID = @FIN,
-                           DELIVERED_BY_NAME = @DEL,
-                           RECEIVED_BY_NAME = @REC,
                            NOTES = @NOTES,
                            UPDATED_BY = @BY,
                            UPDATED_AT = CURRENT_TIMESTAMP,
@@ -314,8 +312,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 UPDATE PRODUCTION_ORDERS
                    SET STATUS_CODE = 'IN_PROGRESS',
                        MATERIAL_ISSUE_DOCUMENT_ID = @DOC,
-                       DELIVERED_BY_NAME = COALESCE(@DEL, DELIVERED_BY_NAME),
-                       RECEIVED_BY_NAME = COALESCE(@REC, RECEIVED_BY_NAME),
                        UPDATED_BY = @BY,
                        UPDATED_AT = CURRENT_TIMESTAMP,
                        ROW_VERSION = ROW_VERSION + 1
@@ -327,10 +323,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 """, connection, fbTx))
             {
                 updateOrder.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
-                updateOrder.Parameters.Add("@DEL", FbDbType.VarChar, 150).Value =
-                    string.IsNullOrWhiteSpace(draft.DeliveredByName) ? DBNull.Value : draft.DeliveredByName.Trim();
-                updateOrder.Parameters.Add("@REC", FbDbType.VarChar, 150).Value =
-                    string.IsNullOrWhiteSpace(draft.ReceivedByName) ? DBNull.Value : draft.ReceivedByName.Trim();
                 updateOrder.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;
                 updateOrder.Parameters.Add("@ID", FbDbType.BigInt).Value = draft.ProductionOrderId;
@@ -549,8 +541,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             await using (var updateOrder = new FbCommand("""
                 UPDATE PRODUCTION_ORDERS
                    SET RETURN_DOCUMENT_ID = @DOC,
-                       DELIVERED_BY_NAME = COALESCE(@DEL, DELIVERED_BY_NAME),
-                       RECEIVED_BY_NAME = COALESCE(@REC, RECEIVED_BY_NAME),
                        UPDATED_BY = @BY,
                        UPDATED_AT = CURRENT_TIMESTAMP,
                        ROW_VERSION = ROW_VERSION + 1
@@ -562,10 +552,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 """, connection, fbTx))
             {
                 updateOrder.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
-                updateOrder.Parameters.Add("@DEL", FbDbType.VarChar, 150).Value =
-                    string.IsNullOrWhiteSpace(draft.DeliveredByName) ? DBNull.Value : draft.DeliveredByName.Trim();
-                updateOrder.Parameters.Add("@REC", FbDbType.VarChar, 150).Value =
-                    string.IsNullOrWhiteSpace(draft.ReceivedByName) ? DBNull.Value : draft.ReceivedByName.Trim();
                 updateOrder.Parameters.Add("@BY", FbDbType.BigInt).Value =
                     session.UserId > 0 ? session.UserId : DBNull.Value;
                 updateOrder.Parameters.Add("@ID", FbDbType.BigInt).Value = draft.ProductionOrderId;
@@ -933,28 +919,15 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             if (order.RowVersion != expectedRowVersion)
                 throw new InvalidOperationException("Lệnh đã được cập nhật bởi người khác. Vui lòng tải lại.");
 
-            var balances = await LoadMaterialBalancesLockedAsync(connection, fbTx, productionOrderId, cancellationToken);
-            var units = await LoadQcUnitsForCompleteAsync(connection, fbTx, productionOrderId, cancellationToken);
-            var planned = await LoadPlannedQuantityTotalAsync(connection, fbTx, productionOrderId, cancellationToken);
             var errors = ProductionCompletionValidator.Validate(
                 order.StatusCode,
-                order.MaterialIssueDocumentId is > 0,
-                order.ReturnDocumentId is > 0,
-                units.Select(u => new ProductionQcUnitDto(u.Id, u.OrderLineId, u.UnitNumber,
-                    u.StatusCode, u.ModelName, u.ActualGoldWeight, u.ActualWeightUnitCode,
-                    u.GoldPurityCode, u.LaborCostSnapshot, u.DefectNotes, u.LastQcAt,
-                    u.FinishedProductId, u.RowVersion)).ToList(),
-                planned,
-                balances.Select(b => new ProductionMaterialBalanceDto(b.Id, b.IssueDocumentId,
-                    b.IssueLineId, b.MaterialId, b.MaterialCode, b.MaterialName, b.MaterialType,
-                    b.UnitCode, b.QuantityIssued, b.QuantityInProduct, b.QuantityReturned,
-                    b.QuantityScrap, b.QuantityLoss, b.UnitCostSnapshot, b.WarehouseGoldPriceId,
-                    b.WarehouseGoldPricePerChi)).ToList());
+                order.MaterialIssueDocumentId is > 0);
             if (errors.Count > 0)
                 throw new InvalidOperationException(string.Join(" ", errors));
             await EnsureAllocationWithinInProductAsync(connection, fbTx, productionOrderId, cancellationToken);
 
-            var labor = units.Sum(unit => unit.LaborCostSnapshot);
+            var units = await LoadQcUnitsForCompleteAsync(connection, fbTx, productionOrderId, cancellationToken);
+            var labor = await LoadLaborTotalAsync(connection, fbTx, productionOrderId, cancellationToken);
             long? payableDebtId = null;
             if (order.ExecutionType == ProductionExecutionTypes.Outsourced && labor > 0)
             {
@@ -1057,26 +1030,9 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             if (!string.Equals(order.StatusCode, ProductionOrderStatuses.Completed, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Chỉ nhập kho lệnh sản xuất đã hoàn thành.");
 
-            var balances = await LoadMaterialBalancesLockedAsync(connection, fbTx, productionOrderId, cancellationToken);
-            var qcUnits = await LoadQcUnitsForCompleteAsync(connection, fbTx, productionOrderId, cancellationToken);
-            var plannedTotal = await LoadPlannedQuantityTotalAsync(connection, fbTx, productionOrderId, cancellationToken);
-            var balanceDtos = balances.Select(b => new ProductionMaterialBalanceDto(
-                b.Id, b.IssueDocumentId, b.IssueLineId, b.MaterialId, b.MaterialCode, b.MaterialName,
-                b.MaterialType, b.UnitCode, b.QuantityIssued, b.QuantityInProduct, b.QuantityReturned,
-                b.QuantityScrap, b.QuantityLoss, b.UnitCostSnapshot, b.WarehouseGoldPriceId,
-                b.WarehouseGoldPricePerChi)).ToList();
-            var unitDtos = qcUnits.Select(u => new ProductionQcUnitDto(
-                u.Id, u.OrderLineId, u.UnitNumber, u.StatusCode, u.ModelName,
-                u.ActualGoldWeight, u.ActualWeightUnitCode, u.GoldPurityCode, u.LaborCostSnapshot,
-                u.DefectNotes, u.LastQcAt, u.FinishedProductId, u.RowVersion)).ToList();
-
             var errors = ProductionCompletionValidator.Validate(
                 ProductionOrderStatuses.InProgress,
-                order.MaterialIssueDocumentId is > 0,
-                order.ReturnDocumentId is > 0,
-                unitDtos,
-                plannedTotal,
-                balanceDtos);
+                order.MaterialIssueDocumentId is > 0);
             if (errors.Count > 0)
                 throw new InvalidOperationException(string.Join(" ", errors));
 
@@ -1119,6 +1075,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
 
             var lineNo = 0;
             decimal totalLabor = 0;
+            var qcUnits = await LoadQcUnitsForCompleteAsync(connection, fbTx, productionOrderId, cancellationToken);
             foreach (var unit in qcUnits)
             {
                 lineNo++;
@@ -1410,10 +1367,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             draft.DueDate is DateTime due ? due : DBNull.Value;
         command.Parameters.Add("@SRC", FbDbType.BigInt).Value = draft.SourceLocationId;
         command.Parameters.Add("@FIN", FbDbType.BigInt).Value = draft.FinishedLocationId;
-        command.Parameters.Add("@DEL", FbDbType.VarChar, 150).Value =
-            string.IsNullOrWhiteSpace(draft.DeliveredByName) ? DBNull.Value : draft.DeliveredByName.Trim();
-        command.Parameters.Add("@REC", FbDbType.VarChar, 150).Value =
-            string.IsNullOrWhiteSpace(draft.ReceivedByName) ? DBNull.Value : draft.ReceivedByName.Trim();
         command.Parameters.Add("@NOTES", FbDbType.VarChar, 1000).Value =
             string.IsNullOrWhiteSpace(draft.Notes) ? DBNull.Value : draft.Notes.Trim();
         command.Parameters.Add("@BY", FbDbType.BigInt).Value =
@@ -2127,6 +2080,21 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             """, connection, transaction);
         command.Parameters.Add("@PO", FbDbType.BigInt).Value = orderId;
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+    }
+
+    private static async Task<decimal> LoadLaborTotalAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long orderId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new FbCommand("""
+            SELECT COALESCE(SUM(PLANNED_QUANTITY * LABOR_COST_PER_UNIT), 0)
+            FROM PRODUCTION_ORDER_LINES
+            WHERE PRODUCTION_ORDER_ID = @PO
+            """, connection, transaction);
+        command.Parameters.Add("@PO", FbDbType.BigInt).Value = orderId;
+        return Convert.ToDecimal(await command.ExecuteScalarAsync(cancellationToken));
     }
 
     private static async Task<IReadOnlyList<UnitComponentRow>> LoadUnitComponentsAsync(

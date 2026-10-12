@@ -159,6 +159,18 @@
                                         Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="150" />
                     <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status"
                                         Binding="{Binding StatusDisplay, Mode=OneWay}" Width="100" />
+                    <DataGridTemplateColumn Header="" grid:DataGridColumnLayout.Key="Complete" Width="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Hoàn thành"
+                                        Command="{Binding DataContext.CompleteOrderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource ProductionPrimaryButtonStyle}"
+                                        MinHeight="28" Padding="8,2"
+                                        Visibility="{Binding IsInProgress, Converter={StaticResource BoolToVis}}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>

@@ -37,8 +37,6 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         string? ReturnDocumentCode,
         long? FinishedReceiptDocumentId,
         string? FinishedReceiptDocumentCode,
-        string? DeliveredByName,
-        string? ReceivedByName,
         string? Notes,
         long RowVersion);
 
@@ -224,7 +222,6 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                        MI.DOCUMENT_DATE AS MaterialIssueDocumentDate,
                        PO.RETURN_DOCUMENT_ID AS ReturnDocumentId, RR.CODE AS ReturnDocumentCode,
                        PO.FINISHED_RECEIPT_DOCUMENT_ID AS FinishedReceiptDocumentId, FR.CODE AS FinishedReceiptDocumentCode,
-                       PO.DELIVERED_BY_NAME AS DeliveredByName, PO.RECEIVED_BY_NAME AS ReceivedByName,
                        PO.NOTES AS Notes, PO.ROW_VERSION AS RowVersion
                 FROM PRODUCTION_ORDERS PO
                 LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
@@ -266,8 +263,6 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
             header.ReturnDocumentCode,
             header.FinishedReceiptDocumentId,
             header.FinishedReceiptDocumentCode,
-            header.DeliveredByName,
-            header.ReceivedByName,
             header.Notes,
             header.RowVersion,
             await LoadLinesAsync(connection, orderId, cancellationToken),

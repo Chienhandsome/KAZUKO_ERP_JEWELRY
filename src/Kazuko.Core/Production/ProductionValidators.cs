@@ -320,11 +320,7 @@ public static class ProductionCompletionValidator
 {
     public static IReadOnlyList<string> Validate(
         string orderStatus,
-        bool hasMaterialIssue,
-        bool hasWorkerReturn,
-        IReadOnlyList<ProductionQcUnitDto> units,
-        int plannedQuantityTotal,
-        IReadOnlyList<ProductionMaterialBalanceDto> balances)
+        bool hasMaterialIssue)
     {
         var errors = new List<string>();
         var status = (orderStatus ?? string.Empty).Trim().ToUpperInvariant();
@@ -336,25 +332,6 @@ public static class ProductionCompletionValidator
             errors.Add("Chỉ hoàn tất lệnh đang làm.");
         if (!hasMaterialIssue)
             errors.Add("Chưa ghi sổ giao nguyên liệu.");
-        if (!hasWorkerReturn)
-            errors.Add("Chưa ghi nhận nhận hàng chính.");
-        if (units.Count != plannedQuantityTotal)
-            errors.Add("Số đơn vị QC không khớp tổng số lượng đặt làm.");
-        if (units.Any(u => !string.Equals(u.StatusCode, ProductionQcUnitStatuses.Passed, StringComparison.OrdinalIgnoreCase)))
-            errors.Add("Mọi món phải đạt QC trước khi hoàn tất.");
-
-        foreach (var balance in balances)
-        {
-            if (!ProductionMaterialBalanceValidator.IsBalanced(
-                    balance.QuantityIssued,
-                    balance.QuantityInProduct,
-                    balance.QuantityReturned,
-                    balance.QuantityScrap,
-                    balance.QuantityLoss))
-            {
-                errors.Add($"Đối soát NVL '{balance.MaterialCode}' chưa cân bằng.");
-            }
-        }
 
         return errors;
     }

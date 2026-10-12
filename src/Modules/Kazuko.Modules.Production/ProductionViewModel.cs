@@ -103,6 +103,9 @@ public sealed class ProductionViewModel : ObservableObject
         DeleteOrderCommand = new ParameterRelayCommand(
             p => _ = DeleteOrderAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
             p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is { CanDelete: true });
+        CompleteOrderCommand = new ParameterRelayCommand(
+            p => _ = CompleteOrderAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
+            p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is { IsInProgress: true });
 
         _ = LoadAsync();
     }
@@ -192,6 +195,7 @@ public sealed class ProductionViewModel : ObservableObject
                 (OpenDetailCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
                 (EditOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
                 (DeleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
+                (CompleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
             }
         }
     }
@@ -237,6 +241,7 @@ public sealed class ProductionViewModel : ObservableObject
     public ICommand OpenDetailCommand { get; }
     public ICommand EditOrderCommand { get; }
     public ICommand DeleteOrderCommand { get; }
+    public ICommand CompleteOrderCommand { get; }
 
     private long RequireBranchId()
     {
@@ -411,6 +416,34 @@ public sealed class ProductionViewModel : ObservableObject
             ErrorMessage = string.Empty;
             await _application.CancelAsync(row.Id, row.RowVersion, null, session);
             StatusMessage = $"Đã hủy lệnh {row.Code}.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task CompleteOrderAsync(ProductionOrderRowViewModel? row)
+    {
+        if (row is null || !row.IsInProgress)
+            return;
+
+        var session = _sessionAccessor.Current
+            ?? throw new InvalidOperationException("Phiên đăng nhập đã hết hạn.");
+
+        if (MessageBox.Show(
+                $"Hoàn tất lệnh {row.Code}? Thành phẩm sẽ được nhập kho ở bước riêng. Công nợ tiền công thợ ngoài sẽ được ghi nhận.",
+                "Xác nhận",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            ErrorMessage = string.Empty;
+            var result = await _application.CompleteAsync(row.Id, row.RowVersion, session);
+            StatusMessage = $"Đã hoàn tất {result.Code} ({result.FinishedProductCount} món). Chọn lệnh này tại Kho → Nhập thành phẩm để ghi tồn kho.";
             await LoadAsync();
         }
         catch (Exception ex)

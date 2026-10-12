@@ -141,31 +141,6 @@ public sealed class ProductionValidatorTests
     }
 
     [Fact]
-    public void Completion_RequiresAllUnitsPassed()
-    {
-        var units = new[]
-        {
-            new ProductionQcUnitDto(1, 1, 1, ProductionQcUnitStatuses.Passed, "Nhẫn", 1, "CHI", "9999", 100, null, null, null, 0),
-            new ProductionQcUnitDto(2, 1, 2, ProductionQcUnitStatuses.Pending, "Nhẫn", null, null, null, 100, null, null, null, 0)
-        };
-
-        var balances = new[]
-        {
-            new ProductionMaterialBalanceDto(1, 1, 1, 1, "V01", "Vàng", "GOLD", "CHI", 1, 1, 0, 0, 0, 1, null, null)
-        };
-
-        var errors = ProductionCompletionValidator.Validate(
-            ProductionOrderStatuses.InProgress,
-            true,
-            true,
-            units,
-            plannedQuantityTotal: 2,
-            balances);
-
-        Assert.Contains(errors, e => e.Contains("đạt QC", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Fact]
     public void Draft_RejectsAttachmentLinkedToMissingLine()
     {
         var draft = ValidStockDraft() with

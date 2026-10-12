@@ -138,21 +138,67 @@
                                     BorderThickness="1" CornerRadius="8" Padding="12"
                                     Margin="0,0,0,12"
                                     Visibility="{Binding IsInHouse, Converter={StaticResource BoolToVis}}">
-                                <ItemsControl ItemsSource="{Binding Employees}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <CheckBox Content="{Binding DisplayName}" IsChecked="{Binding IsSelected}"
-                                                      Style="{StaticResource ProductionCheckBoxStyle}"
-                                                      Margin="0,0,16,4"
-                                                      IsEnabled="{Binding DataContext.IsDraft, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox ItemsSource="{Binding Employees}"
+                                                  SelectedItem="{Binding SelectedEmployeeToAdd}"
+                                                  Style="{StaticResource ProductionDialogComboStyle}"
+                                                  IsEnabled="{Binding IsDraft}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock>
+                                                        <Run Text="{Binding FullName}" />
+                                                        <Run Text=" (" />
+                                                        <Run Text="{Binding Code}" />
+                                                        <Run Text=")" />
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <Button Grid.Column="2" Content="Thêm"
+                                                Command="{Binding AddEmployeeCommand}"
+                                                Style="{StaticResource ProductionPrimaryButtonStyle}"
+                                                MinHeight="36"
+                                                IsEnabled="{Binding IsDraft}" />
+                                    </Grid>
+                                    <DataGrid ItemsSource="{Binding SelectedEmployees}"
+                                              Style="{StaticResource ProductionEditableDataGridStyle}"
+                                              AutoGenerateColumns="False" IsReadOnly="True"
+                                              MinHeight="96" MaxHeight="220"
+                                              grid:DataGridColumnLayout.SettingsKey="production.order.workers">
+                                        <DataGrid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Xóa"
+                                                          Command="{Binding PlacementTarget.DataContext.RemoveEmployeeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            </ContextMenu>
+                                        </DataGrid.ContextMenu>
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Mã NV" Binding="{Binding Code}" Width="120"
+                                                                grid:DataGridColumnLayout.Key="Code" />
+                                            <DataGridTextColumn Header="Tên nhân viên" Binding="{Binding FullName}" Width="*"
+                                                                grid:DataGridColumnLayout.Key="FullName" />
+                                            <DataGridTemplateColumn Header="" Width="80"
+                                                                    grid:DataGridColumnLayout.Key="Actions">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Content="Xóa"
+                                                                Command="{Binding DataContext.RemoveEmployeeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource ProductionGhostButtonStyle}"
+                                                                MinHeight="28" Padding="8,2"
+                                                                IsEnabled="{Binding DataContext.IsDraft, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
                             </Border>
 
                             <TextBlock Text="Xưởng chế tác" Style="{StaticResource ProductionSectionHeaderStyle}" Margin="0,8,0,10"
@@ -175,27 +221,6 @@
                                         MinHeight="36"
                                         IsEnabled="{Binding IsDraft}"
                                         ToolTip="Mở nhanh danh mục thêm/sửa thợ ngoài" />
-                            </Grid>
-
-                            <TextBlock Text="Giao nhận" Style="{StaticResource ProductionSectionHeaderStyle}" Margin="0,4,0,10" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="Người giao" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                    <TextBox Text="{Binding DeliveredByName, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource ProductionDialogFieldStyle}"
-                                             IsEnabled="{Binding IsDraft}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Người nhận" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                    <TextBox Text="{Binding ReceivedByName, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource ProductionDialogFieldStyle}"
-                                             IsEnabled="{Binding IsDraft}" />
-                                </StackPanel>
                             </Grid>
 
                             <TextBlock Text="Ghi chú" Style="{StaticResource ProductionFieldLabelStyle}" />
@@ -480,226 +505,6 @@
             </Border>
             </Grid>
 
-            <Expander Header="5   Nhận và đối soát" IsExpanded="False" Style="{StaticResource ProductionSectionExpanderStyle}">
-                <DockPanel Margin="0,12,0,0">
-                    <Border DockPanel.Dock="Top" Style="{StaticResource ProductionEmptyStateStyle}"
-                            Visibility="{Binding ShowReturnBlocked, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="{Binding ReturnTabEmptyMessage}" Style="{StaticResource ProductionHintStyle}" />
-                    </Border>
-                    <Border DockPanel.Dock="Top" Style="{StaticResource ProductionCardStyle}" Padding="12,10" Margin="0,0,0,12"
-                            Visibility="{Binding ShowReturnReady, Converter={StaticResource BoolToVis}}">
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="Ghi nhận nhận hàng"
-                                    Style="{StaticResource ProductionPrimaryButtonStyle}"
-                                    Command="{Binding PostWorkerReturnCommand}" MinHeight="36" Margin="0"
-                                    Visibility="{Binding CanPostReturn, Converter={StaticResource BoolToVis}}" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Cân bằng: đã giao = vào TP + trả lại + phế liệu + hao hụt."
-                                           Style="{StaticResource ProductionHintStyle}" />
-                                <TextBlock Text="{Binding ReturnBalanceSummary}" Margin="0,4,0,0"
-                                           FontSize="{DynamicResource FontSize.Body}" FontWeight="SemiBold">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsReturnFullyBalanced}" Value="True">
-                                                    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-                    <Border Style="{StaticResource ProductionCardStyle}" Padding="0"
-                            Visibility="{Binding ShowReturnReady, Converter={StaticResource BoolToVis}}">
-                        <DataGrid Style="{StaticResource ProductionEditableDataGridStyle}"
-                                  ItemsSource="{Binding ReturnLines}"
-                                  Height="220"
-                                  IsReadOnly="{Binding CanPostReturn, Converter={StaticResource InverseBool}}"
-                                  BorderThickness="0"
-                                  grid:DataGridColumnLayout.SettingsKey="production.order.return">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Mã" Binding="{Binding MaterialCode}" IsReadOnly="True" Width="90"
-                                                    grid:DataGridColumnLayout.Key="Code" />
-                                <DataGridTextColumn Header="Tên" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
-                                                    grid:DataGridColumnLayout.Key="Name" />
-                                <DataGridTextColumn Header="Đã giao" Binding="{Binding QuantityIssued}" IsReadOnly="True" Width="80"
-                                                    grid:DataGridColumnLayout.Key="Issued" />
-                                <DataGridTextColumn Header="Vào TP" Binding="{Binding QuantityInProduct, UpdateSourceTrigger=PropertyChanged}" Width="80"
-                                                    grid:DataGridColumnLayout.Key="InProduct" />
-                                <DataGridTextColumn Header="Trả lại" Binding="{Binding QuantityReturned, UpdateSourceTrigger=PropertyChanged}" Width="80"
-                                                    grid:DataGridColumnLayout.Key="Returned" />
-                                <DataGridTextColumn Header="Phế liệu" Binding="{Binding QuantityScrap, UpdateSourceTrigger=PropertyChanged}" Width="80"
-                                                    grid:DataGridColumnLayout.Key="Scrap" />
-                                <DataGridTextColumn Header="Hao hụt" Binding="{Binding QuantityLoss, UpdateSourceTrigger=PropertyChanged}" Width="80"
-                                                    grid:DataGridColumnLayout.Key="Loss" />
-                                <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode}" IsReadOnly="True" Width="60"
-                                                    grid:DataGridColumnLayout.Key="Unit" />
-                                <DataGridTextColumn Header="Cân bằng" Binding="{Binding BalanceStatus, Mode=OneWay}" IsReadOnly="True" Width="80"
-                                                    grid:DataGridColumnLayout.Key="Balance" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Border>
-                </DockPanel>
-            </Expander>
-
-            <Expander Header="6   QC từng món" IsExpanded="False" Style="{StaticResource ProductionSectionExpanderStyle}">
-                <Grid Margin="0,12,0,0" Height="560">
-                    <Border Style="{StaticResource ProductionEmptyStateStyle}"
-                            Visibility="{Binding ShowQcBlocked, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="{Binding QcTabEmptyMessage}" Style="{StaticResource ProductionHintStyle}" />
-                    </Border>
-                    <Grid Visibility="{Binding ShowQcReady, Converter={StaticResource BoolToVis}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="336" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource ProductionCardStyle}" Padding="8">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="Đơn vị QC" Style="{StaticResource ProductionSectionHeaderStyle}" />
-                                <ListBox Style="{StaticResource ProductionListBoxStyle}"
-                                         ItemsSource="{Binding QcUnits}"
-                                         SelectedItem="{Binding SelectedQcUnit}"
-                                         DisplayMemberPath="DisplayName"
-                                         BorderThickness="0" Background="Transparent" />
-                            </DockPanel>
-                        </Border>
-                        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
-                            <Border Style="{StaticResource ProductionCardStyle}">
-                                <StackPanel>
-                                    <Border Style="{StaticResource ProductionChecklistPanelStyle}">
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding QcChecklistTitle}"
-                                                       Style="{StaticResource ProductionChecklistTitleStyle}" />
-                                            <ItemsControl ItemsSource="{Binding QcChecklistItems}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                                            <TextBlock Text="{Binding StatusIcon}"
-                                                                       Style="{StaticResource ProductionChecklistIconStyle}" />
-                                                            <TextBlock Text="{Binding Label}"
-                                                                       Style="{StaticResource ProductionChecklistItemStyle}" />
-                                                        </StackPanel>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Border>
-                                    <TextBlock Text="Kết quả QC" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                    <ComboBox ItemsSource="{Binding QcResultOptions}"
-                                              DisplayMemberPath="DisplayName"
-                                              SelectedItem="{Binding SelectedQcResultOption}"
-                                              Style="{StaticResource ProductionDialogComboStyle}"
-                                              IsEnabled="{Binding CanEditSelectedQc}" />
-                                    <TextBlock Text="Trọng lượng vàng" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                        <TextBox Text="{Binding QcGoldWeightText, UpdateSourceTrigger=PropertyChanged}" Width="120"
-                                                 Style="{StaticResource ProductionDialogFieldStyle}" Margin="0,0,8,0"
-                                                 IsEnabled="{Binding CanEditSelectedQc}"
-                                                 ToolTip="Ví dụ: 0,25 hoặc 1.5" />
-                                        <TextBlock Text="chỉ" VerticalAlignment="Center" Margin="0,0,8,0"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-                                        <ComboBox ItemsSource="{Binding GoldTypeOptions}"
-                                                  SelectedItem="{Binding SelectedQcGoldType}"
-                                                  DisplayMemberPath="DisplayName"
-                                                  Width="160"
-                                                  Style="{StaticResource ProductionDialogComboStyle}"
-                                                  ToolTip="Tuổi / loại vàng"
-                                                  IsEnabled="{Binding CanEditSelectedQc}" />
-                                    </StackPanel>
-                                    <TextBlock Text="Lý do lỗi / ghi chú làm lại" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                    <TextBox Text="{Binding QcDefectNotes, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource ProductionDialogFieldStyle}"
-                                             MinHeight="64" TextWrapping="Wrap" AcceptsReturn="True"
-                                             VerticalContentAlignment="Top"
-                                             IsEnabled="{Binding CanEditSelectedQc}" />
-                                    <TextBlock Text="Cấu thành (số lượng dùng > 0)" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                    <DataGrid Style="{StaticResource ProductionEditableDataGridStyle}"
-                                              ItemsSource="{Binding QcComponents}"
-                                              MinHeight="120" Margin="0,0,0,12"
-                                              IsReadOnly="{Binding CanEditSelectedQc, Converter={StaticResource InverseBool}}"
-                                              grid:DataGridColumnLayout.SettingsKey="production.order.qc.components">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="NVL" Binding="{Binding DisplayName}" IsReadOnly="True" Width="*"
-                                                                grid:DataGridColumnLayout.Key="Name" />
-                                            <DataGridTextColumn Header="Loại" Binding="{Binding ComponentKind, UpdateSourceTrigger=PropertyChanged}" Width="90"
-                                                                grid:DataGridColumnLayout.Key="Kind" />
-                                            <DataGridTextColumn Header="SL dùng"
-                                                                Binding="{Binding QuantityUsedText, UpdateSourceTrigger=PropertyChanged}"
-                                                                Width="100"
-                                                                grid:DataGridColumnLayout.Key="Qty" />
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                    <TextBlock Text="Lý do điều chỉnh (bắt buộc khi điều chỉnh món đã Đạt)"
-                                               Style="{StaticResource ProductionFieldLabelStyle}"
-                                               Visibility="{Binding IsQcAdjustmentMode, Converter={StaticResource BoolToVis}}" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                        <Button Content="Điều chỉnh QC" Style="{StaticResource ProductionOutlineButtonStyle}"
-                                                Command="{Binding StartQcAdjustmentCommand}" MinHeight="36"
-                                                Visibility="{Binding CanStartQcAdjustment, Converter={StaticResource BoolToVis}}" />
-                                        <Button Content="Hủy điều chỉnh" Style="{StaticResource ProductionGhostButtonStyle}"
-                                                Command="{Binding CancelQcAdjustmentCommand}" MinHeight="36"
-                                                Visibility="{Binding IsQcAdjustmentMode, Converter={StaticResource BoolToVis}}" />
-                                        <Button Content="Thêm ảnh QC" Style="{StaticResource ProductionOutlineButtonStyle}"
-                                                Command="{Binding AddQcImageCommand}" MinHeight="36" />
-                                        <Button Content="Lưu QC" Style="{StaticResource ProductionPrimaryButtonStyle}"
-                                                Command="{Binding RecordQcCommand}" MinHeight="36" />
-                                        <Button Content="Nhận lại sau làm lại" Style="{StaticResource ProductionGhostButtonStyle}"
-                                                Command="{Binding RecordReworkCommand}" MinHeight="36" Margin="0" />
-                                    </StackPanel>
-                                    <ItemsControl ItemsSource="{Binding QcImages}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Style="{StaticResource ProductionAttachmentCardStyle}">
-                                                    <TextBlock Text="{Binding OriginalFileName}"
-                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
-                        </ScrollViewer>
-                    </Grid>
-                </Grid>
-            </Expander>
-
-            <Expander Header="7   Hoàn thành lệnh" IsExpanded="False" Style="{StaticResource ProductionSectionExpanderStyle}">
-                <Grid Margin="0,12,0,0">
-                    <StackPanel>
-                        <Border Style="{StaticResource ProductionEmptyStateStyle}"
-                                Visibility="{Binding ShowCompleteReady, Converter={StaticResource InverseBoolToVis}}">
-                            <TextBlock Text="{Binding CompleteTabBlockedMessage}" Style="{StaticResource ProductionHintStyle}" />
-                        </Border>
-                        <Border Style="{StaticResource ProductionCardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Hoàn tất lệnh" Style="{StaticResource ProductionSectionHeaderStyle}" />
-                                <TextBlock Text="{Binding CompletionPreview}" TextWrapping="Wrap"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="{DynamicResource FontSize.Body}"
-                                           Margin="0,0,0,16" />
-                                <WrapPanel>
-                                    <Button Content="Hoàn tất lệnh" Style="{StaticResource ProductionPrimaryButtonStyle}"
-                                            Command="{Binding CompleteOrderCommand}" Margin="0,0,8,8" />
-                                    <Button Content="In phiếu giao" Style="{StaticResource ProductionOutlineButtonStyle}"
-                                            Command="{Binding PrintMaterialIssueCommand}" Margin="0,0,8,8" />
-                                    <Button Content="In nhận hàng" Style="{StaticResource ProductionOutlineButtonStyle}"
-                                            Command="{Binding PrintReturnCommand}" Margin="0,0,8,8" />
-                                    <Button Content="In QC" Style="{StaticResource ProductionOutlineButtonStyle}"
-                                            Command="{Binding PrintQcCommand}" Margin="0,0,8,8" />
-                                    <Button Content="In nhập TP" Style="{StaticResource ProductionOutlineButtonStyle}"
-                                            Command="{Binding PrintFinishedCommand}" Margin="0,0,8,8" />
-                                    <Button Content="In quyết toán" Style="{StaticResource ProductionGhostButtonStyle}"
-                                            Command="{Binding PrintSettlementCommand}" Margin="0,0,0,8" />
-                                </WrapPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Grid>
-            </Expander>
             </StackPanel>
         </ScrollViewer>
 
