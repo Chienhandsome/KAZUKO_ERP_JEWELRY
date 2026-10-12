@@ -7,6 +7,4 @@ artifacts/
 *.cache
 *.kazuko-module.staging
 /firebird
-/data/*.fdb
-/data/*.FDB
 
