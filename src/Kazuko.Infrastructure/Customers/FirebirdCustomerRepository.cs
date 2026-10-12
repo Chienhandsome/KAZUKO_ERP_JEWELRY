@@ -1,39 +1,34 @@
-using FirebirdSql.Data.FirebirdClient;
+using Dapper;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Infrastructure.Data;
+using System.Data;
 
 namespace Kazuko.Infrastructure.Customers;
 
+// Dapper phase 2: SQL giữ nguyên 100% so với bản ADO.NET tay, chỉ thay boilerplate
+// (FbCommand + reader loop + map theo vị trí cột) bằng Dapper.
+// Dapper map cột -> constructor param theo TÊN (case-insensitive) nên mỗi SELECT
+// đều có alias khớp tên property của record (vd. C.ID AS Id).
 public sealed class FirebirdCustomerRepository : ICustomerRepository
 {
     public async Task<IReadOnlyList<CustomerGroupOption>> GetGroupsAsync(
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
-        var result = new List<CustomerGroupOption>();
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
-            SELECT ID, CODE, NAME, IS_ACTIVE, IS_DEFAULT
-            FROM CUSTOMER_GROUPS
-            WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-              AND (@ACTIVE_ONLY = 0 OR IS_ACTIVE = TRUE)
-            ORDER BY IS_DEFAULT DESC, IS_ACTIVE DESC, MIN_POINTS, NAME
-            """, connection);
-        command.Parameters.Add("@ACTIVE_ONLY", FbDbType.Integer).Value = activeOnly ? 1 : 0;
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            result.Add(new CustomerGroupOption(
-                reader.GetInt64(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetBoolean(3),
-                reader.GetBoolean(4)));
-        }
-
-        return result;
+        var rows = await connection.QueryAsync<CustomerGroupOption>(
+            new CommandDefinition("""
+                SELECT ID AS Id, CODE AS Code, NAME AS Name, IS_ACTIVE AS IsActive, IS_DEFAULT AS IsDefault
+                FROM CUSTOMER_GROUPS
+                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND (@ACTIVE_ONLY = 0 OR IS_ACTIVE = TRUE)
+                ORDER BY IS_DEFAULT DESC, IS_ACTIVE DESC, MIN_POINTS, NAME
+                """,
+                new { ACTIVE_ONLY = activeOnly ? 1 : 0 },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
     }
 
     public async Task<CustomerGroupOption> CreateGroupAsync(
@@ -51,50 +46,47 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var fbTransaction = (FbTransaction)transaction;
 
         try
         {
-            await using (var duplicate = new FbCommand("""
-                SELECT FIRST 1 ID
-                FROM CUSTOMER_GROUPS
-                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-                  AND UPPER(TRIM(NAME)) = UPPER(@NAME)
-                """, connection, fbTransaction))
-            {
-                duplicate.Parameters.Add("@NAME", FbDbType.VarChar, 100).Value = normalizedName;
-                if (await duplicate.ExecuteScalarAsync(cancellationToken) is not null)
-                    throw new InvalidOperationException("Tên nhóm khách hàng đã tồn tại.");
-            }
+            var duplicateId = await connection.QuerySingleOrDefaultAsync<long?>(
+                new CommandDefinition("""
+                    SELECT FIRST 1 ID
+                    FROM CUSTOMER_GROUPS
+                    WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND UPPER(TRIM(NAME)) = UPPER(@NAME)
+                    """,
+                    new { NAME = normalizedName },
+                    transaction,
+                    cancellationToken: cancellationToken));
+            if (duplicateId is not null)
+                throw new InvalidOperationException("Tên nhóm khách hàng đã tồn tại.");
 
             var temporaryCode = $"TMP_{Guid.NewGuid():N}"[..30];
-            long id;
-            await using (var insert = new FbCommand("""
-                INSERT INTO CUSTOMER_GROUPS
-                    (COMPANY_ID, CODE, NAME, MIN_POINTS, DISCOUNT_RATE, IS_DEFAULT, IS_ACTIVE)
-                VALUES
-                    ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
-                     @CODE, @NAME, 0, 0, FALSE, TRUE)
-                RETURNING ID
-                """, connection, fbTransaction))
-            {
-                insert.Parameters.Add("@CODE", FbDbType.VarChar, 30).Value = temporaryCode;
-                insert.Parameters.Add("@NAME", FbDbType.VarChar, 100).Value = normalizedName;
-                id = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
-            }
+            var id = await connection.ExecuteScalarAsync<long>(
+                new CommandDefinition("""
+                    INSERT INTO CUSTOMER_GROUPS
+                        (COMPANY_ID, CODE, NAME, MIN_POINTS, DISCOUNT_RATE, IS_DEFAULT, IS_ACTIVE)
+                    VALUES
+                        ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
+                         @CODE, @NAME, 0, 0, FALSE, TRUE)
+                    RETURNING ID
+                    """,
+                    new { CODE = temporaryCode, NAME = normalizedName },
+                    transaction,
+                    cancellationToken: cancellationToken));
 
             var code = $"NKH{id:000000}";
-            await using (var updateCode = new FbCommand("""
-                UPDATE CUSTOMER_GROUPS
-                SET CODE = @CODE
-                WHERE ID = @ID
-                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-                """, connection, fbTransaction))
-            {
-                updateCode.Parameters.Add("@CODE", FbDbType.VarChar, 30).Value = code;
-                updateCode.Parameters.Add("@ID", FbDbType.BigInt).Value = id;
-                await updateCode.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await connection.ExecuteAsync(
+                new CommandDefinition("""
+                    UPDATE CUSTOMER_GROUPS
+                    SET CODE = @CODE
+                    WHERE ID = @ID
+                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                    """,
+                    new { CODE = code, ID = id },
+                    transaction,
+                    cancellationToken: cancellationToken));
 
             await transaction.CommitAsync(cancellationToken);
 
@@ -112,7 +104,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         }
         catch
         {
-            await transaction.RollbackAsync(cancellationToken);
+            try { await transaction.RollbackAsync(cancellationToken); } catch { /* swallow */ }
             throw;
         }
     }
@@ -121,131 +113,92 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         CustomerSearchFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var result = new List<CustomerListItem>();
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
-            SELECT C.ID, C.CODE, C.NAME, COALESCE(C.PHONE, ''), COALESCE(C.EMAIL, ''), G.NAME,
-                   COALESCE(C.REGION, ''),
-                   COALESCE((SELECT SUM(O.GRAND_TOTAL) FROM SALES_ORDERS O
-                             WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')), 0),
-                   COALESCE((SELECT SUM(O.GRAND_TOTAL - COALESCE((
-                                SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
-                                FROM ORDER_PAYMENTS P
-                                WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
-                                - COALESCE((
-                                SELECT SUM(X.AMOUNT_VND)
-                                FROM SALES_CHECKOUT_OFFSETS X
-                                WHERE X.SALES_ORDER_ID = O.ID), 0))
-                             FROM SALES_ORDERS O
-                             WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')), 0),
-                   (SELECT MAX(O.ORDER_DATE) FROM SALES_ORDERS O
-                    WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')),
-                   C.IS_ACTIVE,
-                   COALESCE(C.ADDRESS, ''), COALESCE(C.GENDER, ''), COALESCE(C.OCCUPATION, ''),
-                   COALESCE(C.MEMBERSHIP_RANK, ''), COALESCE(C.TAX_CODE, ''), COALESCE(C.NOTES, ''),
-                   C.OPENING_POINTS, COALESCE(C.CREDIT_LIMIT, 0),
-                   C.BIRTH_OR_ESTABLISHED_DATE, C.JOIN_DATE, C.CUSTOMER_GROUP_ID,
-                   C.PHOTO_PATH
-            FROM CUSTOMERS C
-            JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
-            WHERE C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-              AND (@HAS_ACTIVE = 0 OR C.IS_ACTIVE = @ACTIVE_VALUE)
-              AND (@HAS_SEARCH = 0
-                   OR CAST(C.CODE AS VARCHAR(30) CHARACTER SET UTF8) CONTAINING @SEARCH
-                   OR C.NAME CONTAINING @SEARCH
-                   OR COALESCE(C.PHONE, '') CONTAINING @SEARCH
-                   OR COALESCE(C.EMAIL, '') CONTAINING @SEARCH
-                   OR CAST(COALESCE(C.TAX_CODE, '') AS VARCHAR(30) CHARACTER SET UTF8) CONTAINING @SEARCH)
-              AND (@GROUP_ID = 0 OR C.CUSTOMER_GROUP_ID = @GROUP_ID)
-              AND (@HAS_REGION = 0 OR COALESCE(C.REGION, '') CONTAINING @REGION)
-            ORDER BY C.NAME, C.CODE
-            """, connection);
-
         var search = filter.SearchText.Trim();
         var region = filter.Region.Trim();
-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
-        command.Parameters.Add("@GROUP_ID", FbDbType.BigInt).Value = filter.GroupId;
-        command.Parameters.Add("@HAS_REGION", FbDbType.Integer).Value = region.Length > 0 ? 1 : 0;
-        command.Parameters.Add("@REGION", FbDbType.VarChar, 100).Value = region;
-        command.Parameters.Add("@HAS_ACTIVE", FbDbType.Integer).Value = filter.IsActive.HasValue ? 1 : 0;
-        command.Parameters.Add("@ACTIVE_VALUE", FbDbType.Boolean).Value = filter.IsActive ?? true;
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            result.Add(new CustomerListItem(
-                reader.GetInt64(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetString(4),
-                reader.GetString(5),
-                reader.GetString(6),
-                reader.GetDecimal(7),
-                reader.GetDecimal(8),
-                reader.IsDBNull(9) ? null : reader.GetDateTime(9),
-                reader.GetBoolean(10),
-                reader.GetString(11),
-                reader.GetString(12),
-                reader.GetString(13),
-                reader.GetString(14),
-                reader.GetString(15),
-                reader.GetString(16),
-                reader.GetInt32(17),
-                reader.GetDecimal(18),
-                reader.IsDBNull(19) ? null : reader.GetDateTime(19),
-                reader.IsDBNull(20) ? null : reader.GetDateTime(20),
-                reader.GetInt64(21),
-                reader.IsDBNull(22) ? null : reader.GetString(22)));
-        }
-
-        return result;
+        var rows = await connection.QueryAsync<CustomerListItem>(
+            new CommandDefinition("""
+                SELECT C.ID AS Id, C.CODE AS Code, C.NAME AS Name,
+                       COALESCE(C.PHONE, '') AS Phone, COALESCE(C.EMAIL, '') AS Email,
+                       G.NAME AS CustomerGroupName,
+                       COALESCE(C.REGION, '') AS Region,
+                       COALESCE((SELECT SUM(O.GRAND_TOTAL) FROM SALES_ORDERS O
+                                 WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')), 0) AS TotalSales,
+                       COALESCE((SELECT SUM(O.GRAND_TOTAL - COALESCE((
+                                    SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                                    FROM ORDER_PAYMENTS P
+                                    WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+                                    - COALESCE((
+                                    SELECT SUM(X.AMOUNT_VND)
+                                    FROM SALES_CHECKOUT_OFFSETS X
+                                    WHERE X.SALES_ORDER_ID = O.ID), 0))
+                                 FROM SALES_ORDERS O
+                                 WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')), 0) AS CurrentDebt,
+                       (SELECT MAX(O.ORDER_DATE) FROM SALES_ORDERS O
+                        WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')) AS LastPurchaseDate,
+                       C.IS_ACTIVE AS IsActive,
+                       COALESCE(C.ADDRESS, '') AS Address, COALESCE(C.GENDER, '') AS Gender,
+                       COALESCE(C.OCCUPATION, '') AS Occupation,
+                       COALESCE(C.MEMBERSHIP_RANK, '') AS MembershipRank,
+                       COALESCE(C.TAX_CODE, '') AS TaxCode, COALESCE(C.NOTES, '') AS Notes,
+                       C.OPENING_POINTS AS OpeningPoints, COALESCE(C.CREDIT_LIMIT, 0) AS CreditLimit,
+                       C.BIRTH_OR_ESTABLISHED_DATE AS BirthOrEstablishedDate,
+                       C.JOIN_DATE AS JoinDate, C.CUSTOMER_GROUP_ID AS CustomerGroupId,
+                       C.PHOTO_PATH AS PhotoPath
+                FROM CUSTOMERS C
+                JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
+                WHERE C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND (@HAS_ACTIVE = 0 OR C.IS_ACTIVE = @ACTIVE_VALUE)
+                  AND (@HAS_SEARCH = 0
+                       OR CAST(C.CODE AS VARCHAR(30) CHARACTER SET UTF8) CONTAINING @SEARCH
+                       OR C.NAME CONTAINING @SEARCH
+                       OR COALESCE(C.PHONE, '') CONTAINING @SEARCH
+                       OR COALESCE(C.EMAIL, '') CONTAINING @SEARCH
+                       OR CAST(COALESCE(C.TAX_CODE, '') AS VARCHAR(30) CHARACTER SET UTF8) CONTAINING @SEARCH)
+                  AND (@GROUP_ID = 0 OR C.CUSTOMER_GROUP_ID = @GROUP_ID)
+                  AND (@HAS_REGION = 0 OR COALESCE(C.REGION, '') CONTAINING @REGION)
+                ORDER BY C.NAME, C.CODE
+                """,
+                new
+                {
+                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
+                    SEARCH = search,
+                    GROUP_ID = filter.GroupId,
+                    HAS_REGION = region.Length > 0 ? 1 : 0,
+                    REGION = region,
+                    HAS_ACTIVE = filter.IsActive.HasValue ? 1 : 0,
+                    ACTIVE_VALUE = filter.IsActive ?? true
+                },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
     }
 
     public async Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
-            SELECT C.ID, C.CODE, C.NAME, C.CUSTOMER_GROUP_ID, G.NAME,
-                   COALESCE(C.ADDRESS, ''), COALESCE(C.PHONE, ''), COALESCE(C.EMAIL, ''),
-                   C.BIRTH_OR_ESTABLISHED_DATE, C.OPENING_POINTS, COALESCE(C.TAX_CODE, ''),
-                   COALESCE(C.NOTES, ''), COALESCE(C.GENDER, ''), COALESCE(C.REGION, ''),
-                   COALESCE(C.OCCUPATION, ''), COALESCE(C.MEMBERSHIP_RANK, ''),
-                   C.JOIN_DATE, COALESCE(C.CREDIT_LIMIT, 0), C.IS_ACTIVE, C.PHOTO_PATH
-            FROM CUSTOMERS C
-            JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
-            WHERE C.ID = @ID
-              AND C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-            """, connection);
-        command.Parameters.AddWithValue("@ID", id);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-            return null;
-
-        return new CustomerDetail(
-            reader.GetInt64(0),
-            reader.GetString(1),
-            reader.GetString(2),
-            reader.GetInt64(3),
-            reader.GetString(4),
-            reader.GetString(5),
-            reader.GetString(6),
-            reader.GetString(7),
-            reader.IsDBNull(8) ? null : reader.GetDateTime(8),
-            reader.GetInt32(9),
-            reader.GetString(10),
-            reader.GetString(11),
-            reader.GetString(12),
-            reader.GetString(13),
-            reader.GetString(14),
-            reader.GetString(15),
-            reader.IsDBNull(16) ? null : reader.GetDateTime(16),
-            reader.GetDecimal(17),
-            reader.GetBoolean(18),
-            reader.IsDBNull(19) ? null : reader.GetString(19));
+        return await connection.QuerySingleOrDefaultAsync<CustomerDetail>(
+            new CommandDefinition("""
+                SELECT C.ID AS Id, C.CODE AS Code, C.NAME AS Name,
+                       C.CUSTOMER_GROUP_ID AS CustomerGroupId, G.NAME AS CustomerGroupName,
+                       COALESCE(C.ADDRESS, '') AS Address, COALESCE(C.PHONE, '') AS Phone,
+                       COALESCE(C.EMAIL, '') AS Email,
+                       C.BIRTH_OR_ESTABLISHED_DATE AS BirthOrEstablishedDate,
+                       C.OPENING_POINTS AS OpeningPoints, COALESCE(C.TAX_CODE, '') AS TaxCode,
+                       COALESCE(C.NOTES, '') AS Notes, COALESCE(C.GENDER, '') AS Gender,
+                       COALESCE(C.REGION, '') AS Region,
+                       COALESCE(C.OCCUPATION, '') AS Occupation,
+                       COALESCE(C.MEMBERSHIP_RANK, '') AS MembershipRank,
+                       C.JOIN_DATE AS JoinDate, COALESCE(C.CREDIT_LIMIT, 0) AS CreditLimit,
+                       C.IS_ACTIVE AS IsActive, C.PHOTO_PATH AS PhotoPath
+                FROM CUSTOMERS C
+                JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
+                WHERE C.ID = @ID
+                  AND C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new { ID = id },
+                cancellationToken: cancellationToken));
     }
 
     public async Task<string> FindDuplicateWarningAsync(
@@ -259,33 +212,33 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         var phone = request.Phone.Trim();
         if (phone.Length > 0)
         {
-            await using var phoneCommand = new FbCommand("""
-                SELECT FIRST 1 CODE, NAME FROM CUSTOMERS
-                WHERE ID <> @ID
-                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-                  AND PHONE = @VALUE
-                """, connection);
-            phoneCommand.Parameters.AddWithValue("@ID", request.Id ?? 0);
-            phoneCommand.Parameters.AddWithValue("@VALUE", phone);
-            await using var reader = await phoneCommand.ExecuteReaderAsync(cancellationToken);
-            if (await reader.ReadAsync(cancellationToken))
-                messages.Add($"Số điện thoại đã được dùng bởi {reader.GetString(0)} - {reader.GetString(1)}.");
+            var match = await connection.QueryFirstOrDefaultAsync<DuplicateMatch>(
+                new CommandDefinition("""
+                    SELECT FIRST 1 CODE AS Code, NAME AS Name FROM CUSTOMERS
+                    WHERE ID <> @ID
+                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND PHONE = @VALUE
+                    """,
+                    new { ID = request.Id ?? 0, VALUE = phone },
+                    cancellationToken: cancellationToken));
+            if (match is not null)
+                messages.Add($"Số điện thoại đã được dùng bởi {match.Code} - {match.Name}.");
         }
 
         var taxCode = request.TaxCode.Trim();
         if (taxCode.Length > 0)
         {
-            await using var taxCommand = new FbCommand("""
-                SELECT FIRST 1 CODE, NAME FROM CUSTOMERS
-                WHERE ID <> @ID
-                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-                  AND UPPER(TAX_CODE) = UPPER(@VALUE)
-                """, connection);
-            taxCommand.Parameters.AddWithValue("@ID", request.Id ?? 0);
-            taxCommand.Parameters.AddWithValue("@VALUE", taxCode);
-            await using var reader = await taxCommand.ExecuteReaderAsync(cancellationToken);
-            if (await reader.ReadAsync(cancellationToken))
-                messages.Add($"CMND/CCCD hoặc mã số thuế đã được dùng bởi {reader.GetString(0)} - {reader.GetString(1)}.");
+            var match = await connection.QueryFirstOrDefaultAsync<DuplicateMatch>(
+                new CommandDefinition("""
+                    SELECT FIRST 1 CODE AS Code, NAME AS Name FROM CUSTOMERS
+                    WHERE ID <> @ID
+                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND UPPER(TAX_CODE) = UPPER(@VALUE)
+                    """,
+                    new { ID = request.Id ?? 0, VALUE = taxCode },
+                    cancellationToken: cancellationToken));
+            if (match is not null)
+                messages.Add($"CMND/CCCD hoặc mã số thuế đã được dùng bởi {match.Code} - {match.Name}.");
         }
 
         return string.Join(Environment.NewLine, messages);
@@ -308,10 +261,10 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         try
         {
             var oldGroupId = normalized.Id is > 0
-                ? await GetCustomerGroupIdAsync(connection, (FbTransaction)transaction, normalized.Id.Value, cancellationToken)
+                ? await GetCustomerGroupIdAsync(connection, transaction, normalized.Id.Value, cancellationToken)
                 : 0L;
 
-            await EnsureGroupIsActiveAsync(connection, (FbTransaction)transaction, normalized.CustomerGroupId, cancellationToken);
+            await EnsureGroupIsActiveAsync(connection, transaction, normalized.CustomerGroupId, cancellationToken);
 
             long id;
             string code;
@@ -319,54 +272,62 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
 
             if (isCreate)
             {
-                await using var insert = new FbCommand("""
-                    INSERT INTO CUSTOMERS
-                        (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
-                         NAME, ADDRESS, PHONE, EMAIL, BIRTH_OR_ESTABLISHED_DATE, OPENING_POINTS,
-                         TAX_CODE, NOTES, GENDER, REGION, OCCUPATION, MEMBERSHIP_RANK,
-                         JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH, CREATED_BY, UPDATED_BY, UPDATED_AT)
-                    VALUES
-                        ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
-                         @TEMP_CODE, 'INDIVIDUAL', @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
-                         @POINTS, @TAX_CODE, @NOTES, @GENDER, @REGION, @OCCUPATION, @MEMBERSHIP_RANK,
-                         @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
-                    RETURNING ID
-                    """, connection, (FbTransaction)transaction);
-                AddSaveParameters(insert, normalized, session);
-                insert.Parameters.AddWithValue("@TEMP_CODE", $"TMP_{Guid.NewGuid():N}"[..30]);
-                id = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
+                var insertParameters = SaveParameters(normalized, session);
+                insertParameters.Add("@TEMP_CODE", $"TMP_{Guid.NewGuid():N}"[..30]);
+                id = await connection.ExecuteScalarAsync<long>(
+                    new CommandDefinition("""
+                        INSERT INTO CUSTOMERS
+                            (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
+                             NAME, ADDRESS, PHONE, EMAIL, BIRTH_OR_ESTABLISHED_DATE, OPENING_POINTS,
+                             TAX_CODE, NOTES, GENDER, REGION, OCCUPATION, MEMBERSHIP_RANK,
+                             JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH, CREATED_BY, UPDATED_BY, UPDATED_AT)
+                        VALUES
+                            ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
+                             @TEMP_CODE, 'INDIVIDUAL', @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
+                             @POINTS, @TAX_CODE, @NOTES, @GENDER, @REGION, @OCCUPATION, @MEMBERSHIP_RANK,
+                             @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
+                        RETURNING ID
+                        """,
+                        insertParameters,
+                        transaction,
+                        cancellationToken: cancellationToken));
                 code = $"KH{id:000000}";
 
-                await using var updateCode = new FbCommand("""
-                    UPDATE CUSTOMERS SET CODE=@CODE
-                    WHERE ID=@ID
-                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-                    """, connection, (FbTransaction)transaction);
-                updateCode.Parameters.AddWithValue("@CODE", code);
-                updateCode.Parameters.AddWithValue("@ID", id);
-                await updateCode.ExecuteNonQueryAsync(cancellationToken);
+                await connection.ExecuteAsync(
+                    new CommandDefinition("""
+                        UPDATE CUSTOMERS SET CODE=@CODE
+                        WHERE ID=@ID
+                          AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                        """,
+                        new { CODE = code, ID = id },
+                        transaction,
+                        cancellationToken: cancellationToken));
             }
             else
             {
                 id = normalized.Id!.Value;
-                await using var update = new FbCommand("""
-                    UPDATE CUSTOMERS SET CUSTOMER_GROUP_ID=@GROUP_ID, NAME=@NAME,
-                        ADDRESS=@ADDRESS, PHONE=@PHONE, EMAIL=@EMAIL,
-                        BIRTH_OR_ESTABLISHED_DATE=@DATE_VALUE, OPENING_POINTS=@POINTS,
-                        TAX_CODE=@TAX_CODE, NOTES=@NOTES, GENDER=@GENDER, REGION=@REGION,
-                        OCCUPATION=@OCCUPATION, MEMBERSHIP_RANK=@MEMBERSHIP_RANK,
-                        JOIN_DATE=@JOIN_DATE, CREDIT_LIMIT=@CREDIT_LIMIT, IS_ACTIVE=@IS_ACTIVE,
-                        PHOTO_PATH=@PHOTO_PATH,
-                        UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
-                    WHERE ID=@ID
-                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-                    """, connection, (FbTransaction)transaction);
-                AddSaveParameters(update, normalized, session);
-                update.Parameters.AddWithValue("@ID", id);
-                if (await update.ExecuteNonQueryAsync(cancellationToken) == 0)
+                var updateParameters = SaveParameters(normalized, session);
+                updateParameters.Add("@ID", id);
+                var affected = await connection.ExecuteAsync(
+                    new CommandDefinition("""
+                        UPDATE CUSTOMERS SET CUSTOMER_GROUP_ID=@GROUP_ID, NAME=@NAME,
+                            ADDRESS=@ADDRESS, PHONE=@PHONE, EMAIL=@EMAIL,
+                            BIRTH_OR_ESTABLISHED_DATE=@DATE_VALUE, OPENING_POINTS=@POINTS,
+                            TAX_CODE=@TAX_CODE, NOTES=@NOTES, GENDER=@GENDER, REGION=@REGION,
+                            OCCUPATION=@OCCUPATION, MEMBERSHIP_RANK=@MEMBERSHIP_RANK,
+                            JOIN_DATE=@JOIN_DATE, CREDIT_LIMIT=@CREDIT_LIMIT, IS_ACTIVE=@IS_ACTIVE,
+                            PHOTO_PATH=@PHOTO_PATH,
+                            UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
+                        WHERE ID=@ID
+                          AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                        """,
+                        updateParameters,
+                        transaction,
+                        cancellationToken: cancellationToken));
+                if (affected == 0)
                     throw new InvalidOperationException("Khách hàng không còn tồn tại.");
 
-                code = await GetCodeAsync(connection, (FbTransaction)transaction, id, cancellationToken);
+                code = await GetCodeAsync(connection, transaction, id, cancellationToken);
             }
 
             await transaction.CommitAsync(cancellationToken);
@@ -424,16 +385,21 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         ArgumentNullException.ThrowIfNull(session);
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
-            UPDATE CUSTOMERS
-            SET IS_ACTIVE=@ACTIVE, UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
-            WHERE ID=@ID
-              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-            """, connection);
-        command.Parameters.AddWithValue("@ACTIVE", isActive);
-        command.Parameters.AddWithValue("@USER_ID", session.UserId > 0 ? session.UserId : DBNull.Value);
-        command.Parameters.AddWithValue("@ID", id);
-        if (await command.ExecuteNonQueryAsync(cancellationToken) == 0)
+        var affected = await connection.ExecuteAsync(
+            new CommandDefinition("""
+                UPDATE CUSTOMERS
+                SET IS_ACTIVE=@ACTIVE, UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
+                WHERE ID=@ID
+                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new
+                {
+                    ACTIVE = isActive,
+                    USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value,
+                    ID = id
+                },
+                cancellationToken: cancellationToken));
+        if (affected == 0)
             throw new InvalidOperationException("Khách hàng không còn tồn tại.");
 
         await AuditLogWriter.WriteAsync(
@@ -444,6 +410,94 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             "CUSTOMERS",
             id.ToString(),
             cancellationToken: cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(
+        long customerId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        if (customerId <= 0)
+            return Array.Empty<CustomerPurchaseHistoryItem>();
+
+        var take = limit <= 0 ? 100 : Math.Min(limit, 500);
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<CustomerPurchaseHistoryItem>(
+            new CommandDefinition("""
+                SELECT FIRST @LIMIT
+                       O.ID AS OrderId, O.ORDER_DATE AS OrderDate, O.CODE AS InvoiceCode,
+                       O.GRAND_TOTAL AS TotalAmount,
+                       COALESCE((
+                           SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                           FROM ORDER_PAYMENTS P
+                           WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+                       + COALESCE((
+                           SELECT SUM(X.AMOUNT_VND)
+                           FROM SALES_CHECKOUT_OFFSETS X
+                           WHERE X.SALES_ORDER_ID = O.ID), 0) AS PaidAmount
+                FROM SALES_ORDERS O
+                WHERE O.CUSTOMER_ID = @CID
+                  AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+                ORDER BY O.ORDER_DATE DESC, O.ID DESC
+                """,
+                new { LIMIT = take, CID = customerId },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    public async Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(
+        long customerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (customerId <= 0)
+            return new CustomerDebtSnapshot(0, 0, 0, 0);
+
+        const int overdueDays = 30;
+        var overdueCutoff = DateTime.Today.AddDays(-overdueDays);
+        decimal incurred = 0;
+        decimal paid = 0;
+        decimal overdue = 0;
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<DebtOrderRow>(
+            new CommandDefinition("""
+                SELECT O.ORDER_DATE AS OrderDate, O.GRAND_TOTAL AS GrandTotal,
+                       COALESCE((
+                           SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                           FROM ORDER_PAYMENTS P
+                           WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
+                       + COALESCE((
+                           SELECT SUM(X.AMOUNT_VND)
+                           FROM SALES_CHECKOUT_OFFSETS X
+                           WHERE X.SALES_ORDER_ID = O.ID), 0) AS PaidAmount
+                FROM SALES_ORDERS O
+                WHERE O.CUSTOMER_ID = @CID
+                  AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+                """,
+                new { CID = customerId },
+                cancellationToken: cancellationToken));
+
+        foreach (var row in rows)
+        {
+            var total = row.GrandTotal;
+            var orderPaid = row.PaidAmount;
+            incurred += total;
+            paid += orderPaid;
+
+            var remaining = total - orderPaid;
+            if (remaining < 0)
+                remaining = 0;
+            if (remaining > 0 && row.OrderDate.Date < overdueCutoff)
+                overdue += remaining;
+        }
+
+        var current = incurred - paid;
+        if (current < 0)
+            current = 0;
+
+        return new CustomerDebtSnapshot(incurred, paid, current, overdue);
     }
 
     private static CustomerSaveRequest Normalize(CustomerSaveRequest request) =>
@@ -484,175 +538,89 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         return at > 0 && at < email.Length - 1 && email.IndexOf('@', at + 1) < 0;
     }
 
-    private static void AddSaveParameters(FbCommand command, CustomerSaveRequest item, AuthenticatedSession session)
+    private static DynamicParameters SaveParameters(CustomerSaveRequest item, AuthenticatedSession session)
     {
-        command.Parameters.AddWithValue("@BRANCH_ID", session.BranchId > 0 ? session.BranchId : DBNull.Value);
-        command.Parameters.AddWithValue("@GROUP_ID", item.CustomerGroupId);
-        command.Parameters.AddWithValue("@NAME", item.Name);
-        command.Parameters.AddWithValue("@ADDRESS", item.Address);
-        command.Parameters.AddWithValue("@PHONE", item.Phone);
-        command.Parameters.AddWithValue("@EMAIL", item.Email);
-        command.Parameters.AddWithValue("@DATE_VALUE", item.BirthOrEstablishedDate ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@POINTS", item.OpeningPoints);
-        command.Parameters.AddWithValue("@TAX_CODE", item.TaxCode);
-        command.Parameters.AddWithValue("@NOTES", item.Notes);
-        command.Parameters.AddWithValue("@GENDER", NullIfEmpty(item.Gender));
-        command.Parameters.AddWithValue("@REGION", NullIfEmpty(item.Region));
-        command.Parameters.AddWithValue("@OCCUPATION", NullIfEmpty(item.Occupation));
-        command.Parameters.AddWithValue("@MEMBERSHIP_RANK", NullIfEmpty(item.MembershipRank));
-        command.Parameters.AddWithValue("@JOIN_DATE", item.JoinDate ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@CREDIT_LIMIT", item.CreditLimit);
-        command.Parameters.AddWithValue("@IS_ACTIVE", item.IsActive);
-        command.Parameters.AddWithValue("@PHOTO_PATH", (object?)item.PhotoPath ?? DBNull.Value);
-        command.Parameters.AddWithValue("@USER_ID", session.UserId > 0 ? session.UserId : DBNull.Value);
+        var parameters = new DynamicParameters();
+        parameters.Add("@BRANCH_ID", session.BranchId > 0 ? (object)session.BranchId : DBNull.Value);
+        parameters.Add("@GROUP_ID", item.CustomerGroupId);
+        parameters.Add("@NAME", item.Name);
+        parameters.Add("@ADDRESS", item.Address);
+        parameters.Add("@PHONE", item.Phone);
+        parameters.Add("@EMAIL", item.Email);
+        parameters.Add("@DATE_VALUE", item.BirthOrEstablishedDate ?? (object)DBNull.Value);
+        parameters.Add("@POINTS", item.OpeningPoints);
+        parameters.Add("@TAX_CODE", item.TaxCode);
+        parameters.Add("@NOTES", item.Notes);
+        parameters.Add("@GENDER", NullIfEmpty(item.Gender));
+        parameters.Add("@REGION", NullIfEmpty(item.Region));
+        parameters.Add("@OCCUPATION", NullIfEmpty(item.Occupation));
+        parameters.Add("@MEMBERSHIP_RANK", NullIfEmpty(item.MembershipRank));
+        parameters.Add("@JOIN_DATE", item.JoinDate ?? (object)DBNull.Value);
+        parameters.Add("@CREDIT_LIMIT", item.CreditLimit);
+        parameters.Add("@IS_ACTIVE", item.IsActive);
+        parameters.Add("@PHOTO_PATH", (object?)item.PhotoPath ?? DBNull.Value);
+        parameters.Add("@USER_ID", session.UserId > 0 ? (object)session.UserId : DBNull.Value);
+        return parameters;
     }
 
     private static object NullIfEmpty(string value) =>
         string.IsNullOrWhiteSpace(value) ? DBNull.Value : value;
 
     private static async Task<long> GetCustomerGroupIdAsync(
-        FbConnection connection,
-        FbTransaction transaction,
+        IDbConnection connection,
+        IDbTransaction transaction,
         long customerId,
         CancellationToken cancellationToken)
     {
-        await using var command = new FbCommand("""
-            SELECT CUSTOMER_GROUP_ID FROM CUSTOMERS
-            WHERE ID=@ID
-              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-            """, connection, transaction);
-        command.Parameters.AddWithValue("@ID", customerId);
-        return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken) ?? 0);
+        return await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition("""
+                SELECT CUSTOMER_GROUP_ID FROM CUSTOMERS
+                WHERE ID=@ID
+                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new { ID = customerId },
+                transaction,
+                cancellationToken: cancellationToken));
     }
 
     private static async Task<string> GetCodeAsync(
-        FbConnection connection,
-        FbTransaction transaction,
+        IDbConnection connection,
+        IDbTransaction transaction,
         long customerId,
         CancellationToken cancellationToken)
     {
-        await using var command = new FbCommand("""
-            SELECT CODE FROM CUSTOMERS
-            WHERE ID=@ID
-              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-            """, connection, transaction);
-        command.Parameters.AddWithValue("@ID", customerId);
-        return Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? string.Empty;
-    }
-
-    public async Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(
-        long customerId,
-        int limit,
-        CancellationToken cancellationToken = default)
-    {
-        if (customerId <= 0)
-            return Array.Empty<CustomerPurchaseHistoryItem>();
-
-        var take = limit <= 0 ? 100 : Math.Min(limit, 500);
-        var result = new List<CustomerPurchaseHistoryItem>();
-        await using var connection = FirebirdDatabase.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
-            SELECT FIRST @LIMIT
-                   O.ID, O.ORDER_DATE, O.CODE, O.GRAND_TOTAL,
-                   COALESCE((
-                       SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
-                       FROM ORDER_PAYMENTS P
-                       WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
-                   + COALESCE((
-                       SELECT SUM(X.AMOUNT_VND)
-                       FROM SALES_CHECKOUT_OFFSETS X
-                       WHERE X.SALES_ORDER_ID = O.ID), 0)
-            FROM SALES_ORDERS O
-            WHERE O.CUSTOMER_ID = @CID
-              AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
-            ORDER BY O.ORDER_DATE DESC, O.ID DESC
-            """, connection);
-        command.Parameters.Add("@LIMIT", FbDbType.Integer).Value = take;
-        command.Parameters.Add("@CID", FbDbType.BigInt).Value = customerId;
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            result.Add(new CustomerPurchaseHistoryItem(
-                reader.GetInt64(0),
-                reader.GetDateTime(1),
-                reader.GetString(2),
-                reader.GetDecimal(3),
-                reader.GetDecimal(4)));
-        }
-
-        return result;
-    }
-
-    public async Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(
-        long customerId,
-        CancellationToken cancellationToken = default)
-    {
-        if (customerId <= 0)
-            return new CustomerDebtSnapshot(0, 0, 0, 0);
-
-        const int overdueDays = 30;
-        var overdueCutoff = DateTime.Today.AddDays(-overdueDays);
-        decimal incurred = 0;
-        decimal paid = 0;
-        decimal overdue = 0;
-
-        await using var connection = FirebirdDatabase.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
-            SELECT O.ORDER_DATE, O.GRAND_TOTAL,
-                   COALESCE((
-                       SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
-                       FROM ORDER_PAYMENTS P
-                       WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0)
-                   + COALESCE((
-                       SELECT SUM(X.AMOUNT_VND)
-                       FROM SALES_CHECKOUT_OFFSETS X
-                       WHERE X.SALES_ORDER_ID = O.ID), 0)
-            FROM SALES_ORDERS O
-            WHERE O.CUSTOMER_ID = @CID
-              AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
-            """, connection);
-        command.Parameters.Add("@CID", FbDbType.BigInt).Value = customerId;
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            var orderDate = reader.GetDateTime(0);
-            var total = reader.GetDecimal(1);
-            var orderPaid = reader.GetDecimal(2);
-            incurred += total;
-            paid += orderPaid;
-
-            var remaining = total - orderPaid;
-            if (remaining < 0)
-                remaining = 0;
-            if (remaining > 0 && orderDate.Date < overdueCutoff)
-                overdue += remaining;
-        }
-
-        var current = incurred - paid;
-        if (current < 0)
-            current = 0;
-
-        return new CustomerDebtSnapshot(incurred, paid, current, overdue);
+        return await connection.ExecuteScalarAsync<string>(
+            new CommandDefinition("""
+                SELECT CODE FROM CUSTOMERS
+                WHERE ID=@ID
+                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new { ID = customerId },
+                transaction,
+                cancellationToken: cancellationToken)) ?? string.Empty;
     }
 
     private static async Task EnsureGroupIsActiveAsync(
-        FbConnection connection,
-        FbTransaction transaction,
+        IDbConnection connection,
+        IDbTransaction transaction,
         long groupId,
         CancellationToken cancellationToken)
     {
-        await using var command = new FbCommand("""
-            SELECT COUNT(*) FROM CUSTOMER_GROUPS
-            WHERE ID=@ID
-              AND IS_ACTIVE=TRUE
-              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-            """, connection, transaction);
-        command.Parameters.AddWithValue("@ID", groupId);
-        if (Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 0)
+        var count = await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition("""
+                SELECT COUNT(*) FROM CUSTOMER_GROUPS
+                WHERE ID=@ID
+                  AND IS_ACTIVE=TRUE
+                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new { ID = groupId },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (count == 0)
             throw new InvalidOperationException("Nhóm khách hàng đã chọn không hoạt động.");
     }
+
+    private sealed record DuplicateMatch(string Code, string Name);
+
+    private sealed record DebtOrderRow(DateTime OrderDate, decimal GrandTotal, decimal PaidAmount);
 }

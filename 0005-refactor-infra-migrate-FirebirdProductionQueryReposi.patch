@@ -1,0 +1,1150 @@
+From 991028f43289a641e6bb5cbb25ab8e85e3f1b6aa Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 02:26:00 +0000
+Subject: [PATCH 05/10] refactor(infra): migrate
+ FirebirdProductionQueryRepository to Dapper
+
+---
+ .../FirebirdProductionQueryRepository.cs      | 944 ++++++++----------
+ 1 file changed, 433 insertions(+), 511 deletions(-)
+
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs
+index 63fa015..cb595d7 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs
+@@ -1,10 +1,52 @@
++using Dapper;
+ using FirebirdSql.Data.FirebirdClient;
+ using Kazuko.Core.Production;
+ using Kazuko.Infrastructure.Data;
++
+ namespace Kazuko.Infrastructure.Production;
+ 
++// Dapper migration (Phase 2): SQL giữ nguyên 100% so với bản ADO.NET tay, chỉ thay boilerplate
++// (FbCommand + reader loop + map theo vị trí cột) bằng Dapper.
++// Dapper map cột -> constructor param theo TÊN (case-insensitive) nên mỗi SELECT
++// đều có alias khớp tên property của record (vd. PO.ID AS Id).
++// `using FirebirdSql.Data.FirebirdClient` vẫn cần: helper methods giữ FbConnection
++// và catch FbException khi migration 46 chưa được áp dụng.
+ public sealed class FirebirdProductionQueryRepository : IProductionQueryRepository
+ {
++    // Header 24 cột của GetOrderDetailAsync: Dapper map theo tên cột -> ctor param.
++    private sealed record ProductionOrderHeaderRow(
++        long Id,
++        string Code,
++        string OrderSource,
++        long? SalesOrderId,
++        string? SalesOrderCode,
++        string ExecutionType,
++        long? ExternalWorkerId,
++        string? ExternalWorkerName,
++        string StatusCode,
++        DateTime OrderDate,
++        long SourceLocationId,
++        string SourceLocationName,
++        long FinishedLocationId,
++        string FinishedLocationName,
++        long? MaterialIssueDocumentId,
++        string? MaterialIssueDocumentCode,
++        long? ReturnDocumentId,
++        string? ReturnDocumentCode,
++        long? FinishedReceiptDocumentId,
++        string? FinishedReceiptDocumentCode,
++        string? DeliveredByName,
++        string? ReceivedByName,
++        string? Notes,
++        long RowVersion);
++
++    // Row trung gian của GetMaterialBalanceAllocationsAsync:
++    // QuantityRemaining được tính ở C# (giữ nguyên logic bản cũ).
++    private sealed record ProductionMaterialBalanceAllocationRow(
++        long MaterialBalanceId,
++        decimal QuantityInProduct,
++        decimal QuantityUsedByPassed);
++
+     public async Task<ProductionOrderSummary> GetSummaryAsync(
+         long branchId,
+         DateTime? periodFrom,
+@@ -18,35 +60,31 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         await connection.OpenAsync(cancellationToken);
+         // Period filter uses ORDER_DATE (always present). COMPLETED_AT is preferred when
+         // migration 45+ has been applied; COALESCE keeps summary working on legacy headers.
+-        await using var command = new FbCommand("""
+-            SELECT
+-                SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' THEN 1 ELSE 0 END),
+-                SUM(CASE WHEN PO.STATUS_CODE = 'COMPLETED'
+-                          AND (@HAS_PERIOD = 0
+-                               OR (PO.ORDER_DATE >= @FROM_DATE AND PO.ORDER_DATE < @TO_DATE_EXCL))
+-                     THEN 1 ELSE 0 END),
+-                SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' AND PO.EXECUTION_TYPE = 'OUTSOURCED' THEN 1 ELSE 0 END),
+-                SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' AND PO.EXECUTION_TYPE = 'IN_HOUSE' THEN 1 ELSE 0 END)
+-            FROM PRODUCTION_ORDERS PO
+-            WHERE PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND PO.BRANCH_ID = @BRANCH_ID
+-            """, connection);
+-
++        // SUM trả về BIGINT -> Dapper convert sang int (như Convert.ToInt32 bản cũ);
++        // SUM = NULL khi không có dòng nào -> Dapper map thành 0 (default int).
+         var hasPeriod = periodFrom is not null && periodTo is not null ? 1 : 0;
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+-        command.Parameters.Add("@HAS_PERIOD", FbDbType.Integer).Value = hasPeriod;
+-        command.Parameters.Add("@FROM_DATE", FbDbType.TimeStamp).Value =
+-            periodFrom ?? (object)DBNull.Value;
+-        command.Parameters.Add("@TO_DATE_EXCL", FbDbType.TimeStamp).Value =
+-            periodTo?.Date.AddDays(1) ?? (object)DBNull.Value;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        await reader.ReadAsync(cancellationToken);
+-        return new ProductionOrderSummary(
+-            reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0)),
+-            reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetValue(1)),
+-            reader.IsDBNull(2) ? 0 : Convert.ToInt32(reader.GetValue(2)),
+-            reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetValue(3)));
++        return await connection.QuerySingleAsync<ProductionOrderSummary>(
++            new CommandDefinition("""
++                SELECT
++                    SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' THEN 1 ELSE 0 END) AS InProgressCount,
++                    SUM(CASE WHEN PO.STATUS_CODE = 'COMPLETED'
++                              AND (@HAS_PERIOD = 0
++                                   OR (PO.ORDER_DATE >= @FROM_DATE AND PO.ORDER_DATE < @TO_DATE_EXCL))
++                         THEN 1 ELSE 0 END) AS CompletedInPeriodCount,
++                    SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' AND PO.EXECUTION_TYPE = 'OUTSOURCED' THEN 1 ELSE 0 END) AS OutsourcedCount,
++                    SUM(CASE WHEN PO.STATUS_CODE = 'IN_PROGRESS' AND PO.EXECUTION_TYPE = 'IN_HOUSE' THEN 1 ELSE 0 END) AS InHouseCount
++                FROM PRODUCTION_ORDERS PO
++                WHERE PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND PO.BRANCH_ID = @BRANCH_ID
++                """,
++                new
++                {
++                    BRANCH_ID = branchId,
++                    HAS_PERIOD = hasPeriod,
++                    FROM_DATE = (DateTime?)periodFrom,
++                    TO_DATE_EXCL = (DateTime?)periodTo?.Date.AddDays(1)
++                },
++                cancellationToken: cancellationToken));
+     }
+ 
+     public async Task<IReadOnlyList<ProductionOrderListItem>> SearchOrdersAsync(
+@@ -58,97 +96,84 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         if (branchId <= 0)
+             throw new InvalidOperationException("Thiếu chi nhánh.");
+ 
+-        var result = new List<ProductionOrderListItem>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT PO.ID, PO.CODE, PO.ORDER_SOURCE, PO.EXECUTION_TYPE, PO.STATUS_CODE, PO.ORDER_DATE,
+-                   SO.CODE,
+-                   CASE
+-                       WHEN PO.EXECUTION_TYPE = 'OUTSOURCED' THEN EW.NAME
+-                       ELSE (
+-                           SELECT LIST(TRIM(E.FULL_NAME), ', ')
+-                           FROM PRODUCTION_ORDER_WORKERS POW
+-                           JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
+-                           WHERE POW.PRODUCTION_ORDER_ID = PO.ID)
+-                   END,
+-                   COALESCE((
+-                       SELECT SUBSTRING(LIST(TRIM(POL.MODEL_NAME), '; ') FROM 1 FOR 200)
+-                       FROM PRODUCTION_ORDER_LINES POL
+-                       WHERE POL.PRODUCTION_ORDER_ID = PO.ID
+-                   ), ''),
+-                   COALESCE((
+-                       SELECT SUM(POL.PLANNED_QUANTITY)
+-                       FROM PRODUCTION_ORDER_LINES POL
+-                       WHERE POL.PRODUCTION_ORDER_ID = PO.ID
+-                   ), 0),
+-                   PO.ROW_VERSION
+-            FROM PRODUCTION_ORDERS PO
+-            LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
+-            LEFT JOIN EXTERNAL_WORKERS EW ON EW.COMPANY_ID = PO.COMPANY_ID AND EW.ID = PO.EXTERNAL_WORKER_ID
+-            WHERE PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND PO.BRANCH_ID = @BRANCH_ID
+-              AND (@INCLUDE_DRAFTS = 1 OR PO.STATUS_CODE <> 'DRAFT')
+-              AND (@HAS_STATUS = 0 OR PO.STATUS_CODE = @STATUS_CODE)
+-              AND (@HAS_SOURCE = 0 OR PO.ORDER_SOURCE = @ORDER_SOURCE)
+-              AND (@HAS_EXEC = 0 OR PO.EXECUTION_TYPE = @EXECUTION_TYPE)
+-              AND (@HAS_FROM = 0 OR PO.ORDER_DATE >= @FROM_DATE)
+-              AND (@HAS_TO = 0 OR PO.ORDER_DATE < @TO_DATE_EXCL)
+-              AND (@HAS_SEARCH = 0
+-                   OR PO.CODE CONTAINING @SEARCH
+-                   OR COALESCE(SO.CODE, '') CONTAINING @SEARCH
+-                   OR COALESCE(EW.NAME, '') CONTAINING @SEARCH
+-                   OR EXISTS (
+-                       SELECT 1 FROM PRODUCTION_ORDER_LINES POL
+-                       WHERE POL.PRODUCTION_ORDER_ID = PO.ID
+-                         AND (POL.MODEL_NAME CONTAINING @SEARCH OR COALESCE(POL.MODEL_CODE, '') CONTAINING @SEARCH))
+-                   OR EXISTS (
+-                       SELECT 1 FROM PRODUCTION_ORDER_WORKERS POW
+-                       JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
+-                       WHERE POW.PRODUCTION_ORDER_ID = PO.ID
+-                         AND (E.FULL_NAME CONTAINING @SEARCH OR E.CODE CONTAINING @SEARCH)))
+-            ORDER BY PO.ORDER_DATE DESC, PO.ID DESC
+-            """, connection);
+ 
+         var search = filter.SearchText?.Trim() ?? string.Empty;
+         var status = filter.StatusCode?.Trim() ?? string.Empty;
+         var source = filter.OrderSource?.Trim() ?? string.Empty;
+         var execution = filter.ExecutionType?.Trim() ?? string.Empty;
+ 
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+-        command.Parameters.Add("@INCLUDE_DRAFTS", FbDbType.Integer).Value = filter.IncludeDrafts ? 1 : 0;
+-        command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@STATUS_CODE", FbDbType.VarChar, 20).Value = status;
+-        command.Parameters.Add("@HAS_SOURCE", FbDbType.Integer).Value = source.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@ORDER_SOURCE", FbDbType.VarChar, 20).Value = source;
+-        command.Parameters.Add("@HAS_EXEC", FbDbType.Integer).Value = execution.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@EXECUTION_TYPE", FbDbType.VarChar, 20).Value = execution;
+-        command.Parameters.Add("@HAS_FROM", FbDbType.Integer).Value = filter.FromDate is not null ? 1 : 0;
+-        command.Parameters.Add("@FROM_DATE", FbDbType.TimeStamp).Value = filter.FromDate ?? (object)DBNull.Value;
+-        command.Parameters.Add("@HAS_TO", FbDbType.Integer).Value = filter.ToDate is not null ? 1 : 0;
+-        command.Parameters.Add("@TO_DATE_EXCL", FbDbType.TimeStamp).Value =
+-            filter.ToDate?.Date.AddDays(1) ?? (object)DBNull.Value;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new ProductionOrderListItem(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetDateTime(5),
+-                reader.IsDBNull(6) ? null : reader.GetString(6),
+-                reader.IsDBNull(7) ? null : reader.GetString(7),
+-                reader.GetString(8),
+-                Convert.ToInt32(reader.GetValue(9)),
+-                reader.GetInt64(10)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<ProductionOrderListItem>(
++            new CommandDefinition("""
++                SELECT PO.ID AS Id, PO.CODE AS Code, PO.ORDER_SOURCE AS OrderSource,
++                       PO.EXECUTION_TYPE AS ExecutionType, PO.STATUS_CODE AS StatusCode,
++                       PO.ORDER_DATE AS OrderDate,
++                       SO.CODE AS SalesOrderCode,
++                       CASE
++                           WHEN PO.EXECUTION_TYPE = 'OUTSOURCED' THEN EW.NAME
++                           ELSE (
++                               SELECT LIST(TRIM(E.FULL_NAME), ', ')
++                               FROM PRODUCTION_ORDER_WORKERS POW
++                               JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
++                               WHERE POW.PRODUCTION_ORDER_ID = PO.ID)
++                       END AS WorkerDisplayName,
++                       COALESCE((
++                           SELECT SUBSTRING(LIST(TRIM(POL.MODEL_NAME), '; ') FROM 1 FOR 200)
++                           FROM PRODUCTION_ORDER_LINES POL
++                           WHERE POL.PRODUCTION_ORDER_ID = PO.ID
++                       ), '') AS ModelSummary,
++                       COALESCE((
++                           SELECT SUM(POL.PLANNED_QUANTITY)
++                           FROM PRODUCTION_ORDER_LINES POL
++                           WHERE POL.PRODUCTION_ORDER_ID = PO.ID
++                       ), 0) AS PlannedQuantityTotal,
++                       PO.ROW_VERSION AS RowVersion
++                FROM PRODUCTION_ORDERS PO
++                LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
++                LEFT JOIN EXTERNAL_WORKERS EW ON EW.COMPANY_ID = PO.COMPANY_ID AND EW.ID = PO.EXTERNAL_WORKER_ID
++                WHERE PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND PO.BRANCH_ID = @BRANCH_ID
++                  AND (@INCLUDE_DRAFTS = 1 OR PO.STATUS_CODE <> 'DRAFT')
++                  AND (@HAS_STATUS = 0 OR PO.STATUS_CODE = @STATUS_CODE)
++                  AND (@HAS_SOURCE = 0 OR PO.ORDER_SOURCE = @ORDER_SOURCE)
++                  AND (@HAS_EXEC = 0 OR PO.EXECUTION_TYPE = @EXECUTION_TYPE)
++                  AND (@HAS_FROM = 0 OR PO.ORDER_DATE >= @FROM_DATE)
++                  AND (@HAS_TO = 0 OR PO.ORDER_DATE < @TO_DATE_EXCL)
++                  AND (@HAS_SEARCH = 0
++                       OR PO.CODE CONTAINING @SEARCH
++                       OR COALESCE(SO.CODE, '') CONTAINING @SEARCH
++                       OR COALESCE(EW.NAME, '') CONTAINING @SEARCH
++                       OR EXISTS (
++                           SELECT 1 FROM PRODUCTION_ORDER_LINES POL
++                           WHERE POL.PRODUCTION_ORDER_ID = PO.ID
++                             AND (POL.MODEL_NAME CONTAINING @SEARCH OR COALESCE(POL.MODEL_CODE, '') CONTAINING @SEARCH))
++                       OR EXISTS (
++                           SELECT 1 FROM PRODUCTION_ORDER_WORKERS POW
++                           JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
++                           WHERE POW.PRODUCTION_ORDER_ID = PO.ID
++                             AND (E.FULL_NAME CONTAINING @SEARCH OR E.CODE CONTAINING @SEARCH)))
++                ORDER BY PO.ORDER_DATE DESC, PO.ID DESC
++                """,
++                new
++                {
++                    BRANCH_ID = branchId,
++                    INCLUDE_DRAFTS = filter.IncludeDrafts ? 1 : 0,
++                    HAS_STATUS = status.Length > 0 ? 1 : 0,
++                    STATUS_CODE = status,
++                    HAS_SOURCE = source.Length > 0 ? 1 : 0,
++                    ORDER_SOURCE = source,
++                    HAS_EXEC = execution.Length > 0 ? 1 : 0,
++                    EXECUTION_TYPE = execution,
++                    HAS_FROM = filter.FromDate is not null ? 1 : 0,
++                    FROM_DATE = (DateTime?)filter.FromDate,
++                    HAS_TO = filter.ToDate is not null ? 1 : 0,
++                    TO_DATE_EXCL = (DateTime?)filter.ToDate?.Date.AddDays(1),
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<ProductionFinishedReceiptOrderOption>> GetCompletedUnreceivedOrdersAsync(
+@@ -158,23 +183,21 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         if (branchId <= 0)
+             return [];
+ 
+-        var result = new List<ProductionFinishedReceiptOrderOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT ID, CODE
+-            FROM PRODUCTION_ORDERS
+-            WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND BRANCH_ID = @BRANCH_ID
+-              AND STATUS_CODE = 'COMPLETED'
+-              AND FINISHED_RECEIPT_DOCUMENT_ID IS NULL
+-            ORDER BY COMPLETED_AT DESC, ID DESC
+-            """, connection);
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-            result.Add(new ProductionFinishedReceiptOrderOption(reader.GetInt64(0), reader.GetString(1)));
+-        return result;
++        var rows = await connection.QueryAsync<ProductionFinishedReceiptOrderOption>(
++            new CommandDefinition("""
++                SELECT ID AS Id, CODE AS Code
++                FROM PRODUCTION_ORDERS
++                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND BRANCH_ID = @BRANCH_ID
++                  AND STATUS_CODE = 'COMPLETED'
++                  AND FINISHED_RECEIPT_DOCUMENT_ID IS NULL
++                ORDER BY COMPLETED_AT DESC, ID DESC
++                """,
++                new { BRANCH_ID = branchId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<ProductionOrderDetail?> GetOrderDetailAsync(
+@@ -188,67 +211,67 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+ 
+-        await using var headerCmd = new FbCommand("""
+-            SELECT PO.ID, PO.CODE, PO.ORDER_SOURCE, PO.SALES_ORDER_ID, SO.CODE,
+-                   PO.EXECUTION_TYPE, PO.EXTERNAL_WORKER_ID, EW.NAME,
+-                   PO.STATUS_CODE, PO.ORDER_DATE,
+-                   PO.SOURCE_LOCATION_ID, SL.NAME,
+-                   PO.FINISHED_LOCATION_ID, FL.NAME,
+-                   PO.MATERIAL_ISSUE_DOCUMENT_ID, MI.CODE,
+-                   PO.RETURN_DOCUMENT_ID, RR.CODE,
+-                   PO.FINISHED_RECEIPT_DOCUMENT_ID, FR.CODE,
+-                   PO.DELIVERED_BY_NAME, PO.RECEIVED_BY_NAME, PO.NOTES, PO.ROW_VERSION
+-            FROM PRODUCTION_ORDERS PO
+-            LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
+-            LEFT JOIN EXTERNAL_WORKERS EW ON EW.COMPANY_ID = PO.COMPANY_ID AND EW.ID = PO.EXTERNAL_WORKER_ID
+-            LEFT JOIN LOCATIONS SL ON SL.ID = PO.SOURCE_LOCATION_ID
+-            LEFT JOIN LOCATIONS FL ON FL.ID = PO.FINISHED_LOCATION_ID
+-            LEFT JOIN STOCK_DOCUMENTS MI ON MI.ID = PO.MATERIAL_ISSUE_DOCUMENT_ID
+-            LEFT JOIN STOCK_DOCUMENTS RR ON RR.ID = PO.RETURN_DOCUMENT_ID
+-            LEFT JOIN STOCK_DOCUMENTS FR ON FR.ID = PO.FINISHED_RECEIPT_DOCUMENT_ID
+-            WHERE PO.ID = @ID
+-              AND PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND PO.BRANCH_ID = @BRANCH_ID
+-            """, connection);
+-        headerCmd.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
+-        headerCmd.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+-
+-        await using var headerReader = await headerCmd.ExecuteReaderAsync(cancellationToken);
+-        if (!await headerReader.ReadAsync(cancellationToken))
++        var header = await connection.QuerySingleOrDefaultAsync<ProductionOrderHeaderRow>(
++            new CommandDefinition("""
++                SELECT PO.ID AS Id, PO.CODE AS Code, PO.ORDER_SOURCE AS OrderSource,
++                       PO.SALES_ORDER_ID AS SalesOrderId, SO.CODE AS SalesOrderCode,
++                       PO.EXECUTION_TYPE AS ExecutionType,
++                       PO.EXTERNAL_WORKER_ID AS ExternalWorkerId, EW.NAME AS ExternalWorkerName,
++                       PO.STATUS_CODE AS StatusCode, PO.ORDER_DATE AS OrderDate,
++                       PO.SOURCE_LOCATION_ID AS SourceLocationId, SL.NAME AS SourceLocationName,
++                       PO.FINISHED_LOCATION_ID AS FinishedLocationId, FL.NAME AS FinishedLocationName,
++                       PO.MATERIAL_ISSUE_DOCUMENT_ID AS MaterialIssueDocumentId, MI.CODE AS MaterialIssueDocumentCode,
++                       PO.RETURN_DOCUMENT_ID AS ReturnDocumentId, RR.CODE AS ReturnDocumentCode,
++                       PO.FINISHED_RECEIPT_DOCUMENT_ID AS FinishedReceiptDocumentId, FR.CODE AS FinishedReceiptDocumentCode,
++                       PO.DELIVERED_BY_NAME AS DeliveredByName, PO.RECEIVED_BY_NAME AS ReceivedByName,
++                       PO.NOTES AS Notes, PO.ROW_VERSION AS RowVersion
++                FROM PRODUCTION_ORDERS PO
++                LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
++                LEFT JOIN EXTERNAL_WORKERS EW ON EW.COMPANY_ID = PO.COMPANY_ID AND EW.ID = PO.EXTERNAL_WORKER_ID
++                LEFT JOIN LOCATIONS SL ON SL.ID = PO.SOURCE_LOCATION_ID
++                LEFT JOIN LOCATIONS FL ON FL.ID = PO.FINISHED_LOCATION_ID
++                LEFT JOIN STOCK_DOCUMENTS MI ON MI.ID = PO.MATERIAL_ISSUE_DOCUMENT_ID
++                LEFT JOIN STOCK_DOCUMENTS RR ON RR.ID = PO.RETURN_DOCUMENT_ID
++                LEFT JOIN STOCK_DOCUMENTS FR ON FR.ID = PO.FINISHED_RECEIPT_DOCUMENT_ID
++                WHERE PO.ID = @ID
++                  AND PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND PO.BRANCH_ID = @BRANCH_ID
++                """,
++                new { ID = orderId, BRANCH_ID = branchId },
++                cancellationToken: cancellationToken));
++        if (header is null)
+             return null;
+ 
+-        var detail = new ProductionOrderDetail(
+-            headerReader.GetInt64(0),
+-            headerReader.GetString(1),
+-            headerReader.GetString(2),
+-            headerReader.IsDBNull(3) ? null : headerReader.GetInt64(3),
+-            headerReader.IsDBNull(4) ? null : headerReader.GetString(4),
+-            headerReader.GetString(5),
+-            headerReader.IsDBNull(6) ? null : headerReader.GetInt64(6),
+-            headerReader.IsDBNull(7) ? null : headerReader.GetString(7),
+-            headerReader.GetString(8),
+-            headerReader.GetDateTime(9),
+-            headerReader.GetInt64(10),
+-            headerReader.GetString(11),
+-            headerReader.GetInt64(12),
+-            headerReader.GetString(13),
+-            headerReader.IsDBNull(14) ? null : headerReader.GetInt64(14),
+-            headerReader.IsDBNull(15) ? null : headerReader.GetString(15),
+-            headerReader.IsDBNull(16) ? null : headerReader.GetInt64(16),
+-            headerReader.IsDBNull(17) ? null : headerReader.GetString(17),
+-            headerReader.IsDBNull(18) ? null : headerReader.GetInt64(18),
+-            headerReader.IsDBNull(19) ? null : headerReader.GetString(19),
+-            headerReader.IsDBNull(20) ? null : headerReader.GetString(20),
+-            headerReader.IsDBNull(21) ? null : headerReader.GetString(21),
+-            headerReader.IsDBNull(22) ? null : headerReader.GetString(22),
+-            headerReader.GetInt64(23),
++        return new ProductionOrderDetail(
++            header.Id,
++            header.Code,
++            header.OrderSource,
++            header.SalesOrderId,
++            header.SalesOrderCode,
++            header.ExecutionType,
++            header.ExternalWorkerId,
++            header.ExternalWorkerName,
++            header.StatusCode,
++            header.OrderDate,
++            header.SourceLocationId,
++            header.SourceLocationName,
++            header.FinishedLocationId,
++            header.FinishedLocationName,
++            header.MaterialIssueDocumentId,
++            header.MaterialIssueDocumentCode,
++            header.ReturnDocumentId,
++            header.ReturnDocumentCode,
++            header.FinishedReceiptDocumentId,
++            header.FinishedReceiptDocumentCode,
++            header.DeliveredByName,
++            header.ReceivedByName,
++            header.Notes,
++            header.RowVersion,
+             await LoadLinesAsync(connection, orderId, cancellationToken),
+             await LoadWorkersAsync(connection, orderId, cancellationToken),
+             await LoadAttachmentsAsync(connection, orderId, cancellationToken),
+             await LoadMaterialBalancesAsync(connection, orderId, cancellationToken),
+             await LoadQcUnitsAsync(connection, orderId, cancellationToken));
+-
+-        return detail;
+     }
+ 
+     public async Task<IReadOnlyList<ProductionSalesOrderOption>> SearchEligibleSalesOrdersAsync(
+@@ -259,115 +282,96 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         if (branchId <= 0)
+             return Array.Empty<ProductionSalesOrderOption>();
+ 
+-        var result = new List<ProductionSalesOrderOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT O.ID, O.CODE, C.NAME, O.STATUS_CODE, O.ORDER_DATE
+-            FROM SALES_ORDERS O
+-            JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
+-            WHERE O.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND O.BRANCH_ID = @BRANCH_ID
+-              AND O.ORDER_TYPE = 'CUSTOM'
+-              AND O.STATUS_CODE IN ('DEPOSITED', 'CONFIRMED')
+-              AND NOT EXISTS (
+-                  SELECT 1 FROM PRODUCTION_ORDERS PO
+-                  WHERE PO.SALES_ORDER_ID = O.ID)
+-              AND (@HAS_SEARCH = 0
+-                   OR O.CODE CONTAINING @SEARCH
+-                   OR C.NAME CONTAINING @SEARCH)
+-            ORDER BY O.ORDER_DATE DESC, O.ID DESC
+-            ROWS 100
+-            """, connection);
+ 
+         var search = searchText?.Trim() ?? string.Empty;
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new ProductionSalesOrderOption(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetDateTime(4)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<ProductionSalesOrderOption>(
++            new CommandDefinition("""
++                SELECT O.ID AS Id, O.CODE AS Code, C.NAME AS CustomerName,
++                       O.STATUS_CODE AS StatusCode, O.ORDER_DATE AS OrderDate
++                FROM SALES_ORDERS O
++                JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
++                WHERE O.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND O.BRANCH_ID = @BRANCH_ID
++                  AND O.ORDER_TYPE = 'CUSTOM'
++                  AND O.STATUS_CODE IN ('DEPOSITED', 'CONFIRMED')
++                  AND NOT EXISTS (
++                      SELECT 1 FROM PRODUCTION_ORDERS PO
++                      WHERE PO.SALES_ORDER_ID = O.ID)
++                  AND (@HAS_SEARCH = 0
++                       OR O.CODE CONTAINING @SEARCH
++                       OR C.NAME CONTAINING @SEARCH)
++                ORDER BY O.ORDER_DATE DESC, O.ID DESC
++                ROWS 100
++                """,
++                new
++                {
++                    BRANCH_ID = branchId,
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<ProductionEmployeeOption>> SearchWorkingEmployeesAsync(
+         string? searchText,
+         CancellationToken cancellationToken = default)
+     {
+-        var result = new List<ProductionEmployeeOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT E.ID, E.CODE, E.FULL_NAME
+-            FROM HR_EMPLOYEES E
+-            WHERE E.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND E.STATUS_CODE = 'WORKING'
+-              AND E.IS_ACTIVE = TRUE
+-              AND (@HAS_SEARCH = 0
+-                   OR E.CODE CONTAINING @SEARCH
+-                   OR E.FULL_NAME CONTAINING @SEARCH)
+-            ORDER BY E.FULL_NAME, E.CODE
+-            ROWS 200
+-            """, connection);
+ 
+         var search = searchText?.Trim() ?? string.Empty;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new ProductionEmployeeOption(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<ProductionEmployeeOption>(
++            new CommandDefinition("""
++                SELECT E.ID AS Id, E.CODE AS Code, E.FULL_NAME AS FullName
++                FROM HR_EMPLOYEES E
++                WHERE E.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND E.STATUS_CODE = 'WORKING'
++                  AND E.IS_ACTIVE = TRUE
++                  AND (@HAS_SEARCH = 0
++                       OR E.CODE CONTAINING @SEARCH
++                       OR E.FULL_NAME CONTAINING @SEARCH)
++                ORDER BY E.FULL_NAME, E.CODE
++                ROWS 200
++                """,
++                new
++                {
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<ProductionExternalWorkerOption>> SearchActiveExternalWorkersAsync(
+         string? searchText,
+         CancellationToken cancellationToken = default)
+     {
+-        var result = new List<ProductionExternalWorkerOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT W.ID, W.CODE, W.NAME
+-            FROM EXTERNAL_WORKERS W
+-            WHERE W.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND W.IS_ACTIVE = TRUE
+-              AND (@HAS_SEARCH = 0
+-                   OR W.CODE CONTAINING @SEARCH
+-                   OR W.NAME CONTAINING @SEARCH)
+-            ORDER BY W.NAME, W.CODE
+-            ROWS 200
+-            """, connection);
+ 
+         var search = searchText?.Trim() ?? string.Empty;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new ProductionExternalWorkerOption(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<ProductionExternalWorkerOption>(
++            new CommandDefinition("""
++                SELECT W.ID AS Id, W.CODE AS Code, W.NAME AS Name
++                FROM EXTERNAL_WORKERS W
++                WHERE W.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND W.IS_ACTIVE = TRUE
++                  AND (@HAS_SEARCH = 0
++                       OR W.CODE CONTAINING @SEARCH
++                       OR W.NAME CONTAINING @SEARCH)
++                ORDER BY W.NAME, W.CODE
++                ROWS 200
++                """,
++                new
++                {
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<ProductionLocationOption>> GetLocationsAsync(
+@@ -377,29 +381,19 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         if (branchId <= 0)
+             return Array.Empty<ProductionLocationOption>();
+ 
+-        var result = new List<ProductionLocationOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT L.ID, L.CODE, L.NAME, L.INVENTORY_SCOPE
+-            FROM LOCATIONS L
+-            WHERE L.BRANCH_ID = @BRANCH_ID
+-              AND L.IS_ACTIVE = TRUE
+-            ORDER BY L.NAME, L.CODE
+-            """, connection);
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new ProductionLocationOption(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<ProductionLocationOption>(
++            new CommandDefinition("""
++                SELECT L.ID AS Id, L.CODE AS Code, L.NAME AS Name, L.INVENTORY_SCOPE AS InventoryScope
++                FROM LOCATIONS L
++                WHERE L.BRANCH_ID = @BRANCH_ID
++                  AND L.IS_ACTIVE = TRUE
++                ORDER BY L.NAME, L.CODE
++                """,
++                new { BRANCH_ID = branchId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<ProductionMaterialStockOption>> SearchMaterialStockAsync(
+@@ -411,48 +405,39 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         if (branchId <= 0 || locationId <= 0)
+             return Array.Empty<ProductionMaterialStockOption>();
+ 
+-        var result = new List<ProductionMaterialStockOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT M.ID, M.CODE, M.NAME, M.MATERIAL_TYPE, M.UNIT_CODE, M.PURITY_CODE,
+-                   B.QUANTITY, COALESCE(B.AVERAGE_COST, 0), B.LOCATION_ID
+-            FROM STOCK_BALANCES B
+-            JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
+-            JOIN LOCATIONS L ON L.ID = B.LOCATION_ID
+-            WHERE M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND L.BRANCH_ID = @BRANCH_ID
+-              AND B.LOCATION_ID = @LOCATION_ID
+-              AND B.QUANTITY > 0
+-              AND (@HAS_SEARCH = 0
+-                   OR M.CODE CONTAINING @SEARCH
+-                   OR M.NAME CONTAINING @SEARCH)
+-            ORDER BY M.NAME, M.CODE
+-            ROWS 200
+-            """, connection);
+ 
+         var search = searchText?.Trim() ?? string.Empty;
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = branchId;
+-        command.Parameters.Add("@LOCATION_ID", FbDbType.BigInt).Value = locationId;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new ProductionMaterialStockOption(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.IsDBNull(5) ? null : reader.GetString(5),
+-                reader.GetDecimal(6),
+-                reader.GetDecimal(7),
+-                reader.GetInt64(8)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<ProductionMaterialStockOption>(
++            new CommandDefinition("""
++                SELECT M.ID AS MaterialId, M.CODE AS Code, M.NAME AS Name,
++                       M.MATERIAL_TYPE AS MaterialType, M.UNIT_CODE AS UnitCode,
++                       M.PURITY_CODE AS PurityCode,
++                       B.QUANTITY AS QuantityOnHand, COALESCE(B.AVERAGE_COST, 0) AS AverageCost,
++                       B.LOCATION_ID AS LocationId
++                FROM STOCK_BALANCES B
++                JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
++                JOIN LOCATIONS L ON L.ID = B.LOCATION_ID
++                WHERE M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND L.BRANCH_ID = @BRANCH_ID
++                  AND B.LOCATION_ID = @LOCATION_ID
++                  AND B.QUANTITY > 0
++                  AND (@HAS_SEARCH = 0
++                       OR M.CODE CONTAINING @SEARCH
++                       OR M.NAME CONTAINING @SEARCH)
++                ORDER BY M.NAME, M.CODE
++                ROWS 200
++                """,
++                new
++                {
++                    BRANCH_ID = branchId,
++                    LOCATION_ID = locationId,
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     private static async Task<IReadOnlyList<ProductionOrderLineDto>> LoadLinesAsync(
+@@ -460,38 +445,23 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         long orderId,
+         CancellationToken cancellationToken)
+     {
+-        var lines = new List<ProductionOrderLineDto>();
+-        await using var command = new FbCommand("""
+-            SELECT ID, LINE_NUMBER, MODEL_CODE, MODEL_NAME, GOLD_TYPE_CODE, GOLD_TYPE_NAME,
+-                   PLANNED_QUANTITY, LABOR_COST_PER_UNIT,
+-                   COALESCE(ESTIMATED_WEIGHT_CHI, 0), COALESCE(GOLD_UNIT_PRICE_PER_CHI, 0),
+-                   COALESCE(STONE_AMOUNT_PER_UNIT_VND, 0),
+-                   DESCRIPTION, NOTES
+-            FROM PRODUCTION_ORDER_LINES
+-            WHERE PRODUCTION_ORDER_ID = @ID
+-            ORDER BY LINE_NUMBER
+-            """, connection);
+-        command.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            lines.Add(new ProductionOrderLineDto(
+-                reader.GetInt64(0),
+-                reader.GetInt32(1),
+-                reader.IsDBNull(2) ? null : reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5),
+-                reader.GetInt32(6),
+-                reader.GetDecimal(7),
+-                reader.GetDecimal(8),
+-                reader.GetDecimal(9),
+-                reader.GetDecimal(10),
+-                reader.IsDBNull(11) ? null : reader.GetString(11),
+-                reader.IsDBNull(12) ? null : reader.GetString(12)));
+-        }
+-
+-        return lines;
++        var rows = await connection.QueryAsync<ProductionOrderLineDto>(
++            new CommandDefinition("""
++                SELECT ID AS Id, LINE_NUMBER AS LineNumber, MODEL_CODE AS ModelCode,
++                       MODEL_NAME AS ModelName, GOLD_TYPE_CODE AS GoldTypeCode,
++                       GOLD_TYPE_NAME AS GoldTypeName,
++                       PLANNED_QUANTITY AS PlannedQuantity, LABOR_COST_PER_UNIT AS LaborCostPerUnit,
++                       COALESCE(ESTIMATED_WEIGHT_CHI, 0) AS EstimatedWeightChi,
++                       COALESCE(GOLD_UNIT_PRICE_PER_CHI, 0) AS GoldUnitPricePerChi,
++                       COALESCE(STONE_AMOUNT_PER_UNIT_VND, 0) AS StoneAmountPerUnitVnd,
++                       DESCRIPTION AS Description, NOTES AS Notes
++                FROM PRODUCTION_ORDER_LINES
++                WHERE PRODUCTION_ORDER_ID = @ID
++                ORDER BY LINE_NUMBER
++                """,
++                new { ID = orderId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     private static async Task<IReadOnlyList<ProductionOrderWorkerDto>> LoadWorkersAsync(
+@@ -499,25 +469,17 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         long orderId,
+         CancellationToken cancellationToken)
+     {
+-        var workers = new List<ProductionOrderWorkerDto>();
+-        await using var command = new FbCommand("""
+-            SELECT E.ID, E.CODE, E.FULL_NAME
+-            FROM PRODUCTION_ORDER_WORKERS POW
+-            JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
+-            WHERE POW.PRODUCTION_ORDER_ID = @ID
+-            ORDER BY E.FULL_NAME
+-            """, connection);
+-        command.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            workers.Add(new ProductionOrderWorkerDto(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2)));
+-        }
+-
+-        return workers;
++        var rows = await connection.QueryAsync<ProductionOrderWorkerDto>(
++            new CommandDefinition("""
++                SELECT E.ID AS EmployeeId, E.CODE AS EmployeeCode, E.FULL_NAME AS FullName
++                FROM PRODUCTION_ORDER_WORKERS POW
++                JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
++                WHERE POW.PRODUCTION_ORDER_ID = @ID
++                ORDER BY E.FULL_NAME
++                """,
++                new { ID = orderId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     private static async Task<IReadOnlyList<ProductionAttachmentDto>> LoadAttachmentsAsync(
+@@ -525,29 +487,18 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         long orderId,
+         CancellationToken cancellationToken)
+     {
+-        var attachments = new List<ProductionAttachmentDto>();
+-        await using var command = new FbCommand("""
+-            SELECT ID, ATTACHMENT_KIND, STORED_PATH, ORIGINAL_FILE_NAME, MIME_TYPE, CAPTION, DISPLAY_ORDER, LINE_NUMBER
+-            FROM PRODUCTION_ATTACHMENTS
+-            WHERE PRODUCTION_ORDER_ID = @ID
+-            ORDER BY COALESCE(LINE_NUMBER, 0), DISPLAY_ORDER, ID
+-            """, connection);
+-        command.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            attachments.Add(new ProductionAttachmentDto(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.IsDBNull(4) ? null : reader.GetString(4),
+-                reader.IsDBNull(5) ? null : reader.GetString(5),
+-                reader.GetInt32(6),
+-                reader.IsDBNull(7) ? null : reader.GetInt32(7)));
+-        }
+-
+-        return attachments;
++        var rows = await connection.QueryAsync<ProductionAttachmentDto>(
++            new CommandDefinition("""
++                SELECT ID AS Id, ATTACHMENT_KIND AS AttachmentKind, STORED_PATH AS StoredPath,
++                       ORIGINAL_FILE_NAME AS OriginalFileName, MIME_TYPE AS MimeType,
++                       CAPTION AS Caption, DISPLAY_ORDER AS DisplayOrder, LINE_NUMBER AS LineNumber
++                FROM PRODUCTION_ATTACHMENTS
++                WHERE PRODUCTION_ORDER_ID = @ID
++                ORDER BY COALESCE(LINE_NUMBER, 0), DISPLAY_ORDER, ID
++                """,
++                new { ID = orderId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     private static async Task<IReadOnlyList<ProductionMaterialBalanceDto>> LoadMaterialBalancesAsync(
+@@ -555,40 +506,36 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         long orderId,
+         CancellationToken cancellationToken)
+     {
+-        var items = new List<ProductionMaterialBalanceDto>();
+-        await using var command = new FbCommand("""
+-            SELECT B.ID, B.ISSUE_DOCUMENT_ID, B.ISSUE_LINE_ID, B.MATERIAL_ID,
+-                   M.CODE, M.NAME, M.MATERIAL_TYPE, B.UNIT_CODE,
+-                   B.QUANTITY_ISSUED, B.QUANTITY_IN_PRODUCT, B.QUANTITY_RETURNED,
+-                   B.QUANTITY_SCRAP, B.QUANTITY_LOSS, B.UNIT_COST_SNAPSHOT,
+-                   B.WAREHOUSE_GOLD_PRICE_ID, B.WAREHOUSE_GOLD_PRICE_PER_CHI
+-            FROM PRODUCTION_MATERIAL_BALANCES B
+-            JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
+-            WHERE B.PRODUCTION_ORDER_ID = @ID
+-            ORDER BY B.ID
+-            """, connection);
+-        command.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
+         try
+         {
+-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-            while (await reader.ReadAsync(cancellationToken))
+-            {
+-                items.Add(new ProductionMaterialBalanceDto(
+-                    reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3),
+-                    reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7),
+-                    reader.GetDecimal(8), reader.GetDecimal(9), reader.GetDecimal(10),
+-                    reader.GetDecimal(11), reader.GetDecimal(12), reader.GetDecimal(13),
+-                    reader.IsDBNull(14) ? null : reader.GetInt64(14),
+-                    reader.IsDBNull(15) ? null : reader.GetDecimal(15)));
+-            }
++            var rows = await connection.QueryAsync<ProductionMaterialBalanceDto>(
++                new CommandDefinition("""
++                    SELECT B.ID AS Id, B.ISSUE_DOCUMENT_ID AS IssueDocumentId,
++                           B.ISSUE_LINE_ID AS IssueLineId, B.MATERIAL_ID AS MaterialId,
++                           M.CODE AS MaterialCode, M.NAME AS MaterialName,
++                           M.MATERIAL_TYPE AS MaterialType, B.UNIT_CODE AS UnitCode,
++                           B.QUANTITY_ISSUED AS QuantityIssued,
++                           B.QUANTITY_IN_PRODUCT AS QuantityInProduct,
++                           B.QUANTITY_RETURNED AS QuantityReturned,
++                           B.QUANTITY_SCRAP AS QuantityScrap,
++                           B.QUANTITY_LOSS AS QuantityLoss,
++                           B.UNIT_COST_SNAPSHOT AS UnitCostSnapshot,
++                           B.WAREHOUSE_GOLD_PRICE_ID AS WarehouseGoldPriceId,
++                           B.WAREHOUSE_GOLD_PRICE_PER_CHI AS WarehouseGoldPricePerChi
++                    FROM PRODUCTION_MATERIAL_BALANCES B
++                    JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
++                    WHERE B.PRODUCTION_ORDER_ID = @ID
++                    ORDER BY B.ID
++                    """,
++                    new { ID = orderId },
++                    cancellationToken: cancellationToken));
++            return rows.AsList();
+         }
+         catch (FbException)
+         {
+             // Migration 46 not applied yet — return empty balances.
+             return Array.Empty<ProductionMaterialBalanceDto>();
+         }
+-
+-        return items;
+     }
+ 
+     public async Task<IReadOnlyList<ProductionUnitComponentDto>> GetQcUnitComponentsAsync(
+@@ -598,43 +545,31 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         if (qcUnitId <= 0)
+             return Array.Empty<ProductionUnitComponentDto>();
+ 
+-        var items = new List<ProductionUnitComponentDto>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT ID, QC_UNIT_ID, MATERIAL_BALANCE_ID, MATERIAL_ID, COMPONENT_KIND,
+-                   QUANTITY_USED, UNIT_CODE, UNIT_COST_SNAPSHOT, AMOUNT_VND,
+-                   WAREHOUSE_GOLD_PRICE_ID, GOLD_PRICE_PER_CHI_SNAPSHOT
+-            FROM PRODUCTION_UNIT_COMPONENTS
+-            WHERE QC_UNIT_ID = @ID
+-            ORDER BY ID
+-            """, connection);
+-        command.Parameters.Add("@ID", FbDbType.BigInt).Value = qcUnitId;
+         try
+         {
+-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-            while (await reader.ReadAsync(cancellationToken))
+-            {
+-                items.Add(new ProductionUnitComponentDto(
+-                    reader.GetInt64(0),
+-                    reader.GetInt64(1),
+-                    reader.GetInt64(2),
+-                    reader.GetInt64(3),
+-                    reader.GetString(4),
+-                    reader.GetDecimal(5),
+-                    reader.GetString(6),
+-                    reader.GetDecimal(7),
+-                    reader.GetDecimal(8),
+-                    reader.IsDBNull(9) ? null : reader.GetInt64(9),
+-                    reader.IsDBNull(10) ? null : reader.GetDecimal(10)));
+-            }
++            var rows = await connection.QueryAsync<ProductionUnitComponentDto>(
++                new CommandDefinition("""
++                    SELECT ID AS Id, QC_UNIT_ID AS QcUnitId,
++                           MATERIAL_BALANCE_ID AS MaterialBalanceId, MATERIAL_ID AS MaterialId,
++                           COMPONENT_KIND AS ComponentKind,
++                           QUANTITY_USED AS QuantityUsed, UNIT_CODE AS UnitCode,
++                           UNIT_COST_SNAPSHOT AS UnitCostSnapshot, AMOUNT_VND AS AmountVnd,
++                           WAREHOUSE_GOLD_PRICE_ID AS WarehouseGoldPriceId,
++                           GOLD_PRICE_PER_CHI_SNAPSHOT AS GoldPricePerChiSnapshot
++                    FROM PRODUCTION_UNIT_COMPONENTS
++                    WHERE QC_UNIT_ID = @ID
++                    ORDER BY ID
++                    """,
++                    new { ID = qcUnitId },
++                    cancellationToken: cancellationToken));
++            return rows.AsList();
+         }
+         catch (FbException)
+         {
+             return Array.Empty<ProductionUnitComponentDto>();
+         }
+-
+-        return items;
+     }
+ 
+     public async Task<IReadOnlyList<ProductionMaterialBalanceAllocationDto>> GetMaterialBalanceAllocationsAsync(
+@@ -645,45 +580,43 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         if (productionOrderId <= 0)
+             return Array.Empty<ProductionMaterialBalanceAllocationDto>();
+ 
+-        var items = new List<ProductionMaterialBalanceAllocationDto>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT B.ID,
+-                   B.QUANTITY_IN_PRODUCT,
+-                   COALESCE((
+-                       SELECT SUM(C.QUANTITY_USED)
+-                       FROM PRODUCTION_UNIT_COMPONENTS C
+-                       JOIN PRODUCTION_QC_UNITS U ON U.ID = C.QC_UNIT_ID
+-                       WHERE C.MATERIAL_BALANCE_ID = B.ID
+-                         AND U.STATUS_CODE = 'PASSED'
+-                         AND (@EXCLUDE = 0 OR U.ID <> @EXCLUDE)), 0)
+-            FROM PRODUCTION_MATERIAL_BALANCES B
+-            WHERE B.PRODUCTION_ORDER_ID = @PO
+-            ORDER BY B.ID
+-            """, connection);
+-        command.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
+-        command.Parameters.Add("@EXCLUDE", FbDbType.BigInt).Value = excludeQcUnitId ?? 0;
+         try
+         {
+-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-            while (await reader.ReadAsync(cancellationToken))
+-            {
+-                var inProduct = reader.GetDecimal(1);
+-                var used = reader.GetDecimal(2);
+-                items.Add(new ProductionMaterialBalanceAllocationDto(
+-                    reader.GetInt64(0),
+-                    inProduct,
+-                    used,
+-                    inProduct - used));
+-            }
++            var rows = await connection.QueryAsync<ProductionMaterialBalanceAllocationRow>(
++                new CommandDefinition("""
++                    SELECT B.ID AS MaterialBalanceId,
++                           B.QUANTITY_IN_PRODUCT AS QuantityInProduct,
++                           COALESCE((
++                               SELECT SUM(C.QUANTITY_USED)
++                               FROM PRODUCTION_UNIT_COMPONENTS C
++                               JOIN PRODUCTION_QC_UNITS U ON U.ID = C.QC_UNIT_ID
++                               WHERE C.MATERIAL_BALANCE_ID = B.ID
++                                 AND U.STATUS_CODE = 'PASSED'
++                                 AND (@EXCLUDE = 0 OR U.ID <> @EXCLUDE)), 0) AS QuantityUsedByPassed
++                    FROM PRODUCTION_MATERIAL_BALANCES B
++                    WHERE B.PRODUCTION_ORDER_ID = @PO
++                    ORDER BY B.ID
++                    """,
++                    new
++                    {
++                        PO = productionOrderId,
++                        EXCLUDE = excludeQcUnitId ?? 0
++                    },
++                    cancellationToken: cancellationToken));
++            return rows
++                .Select(r => new ProductionMaterialBalanceAllocationDto(
++                    r.MaterialBalanceId,
++                    r.QuantityInProduct,
++                    r.QuantityUsedByPassed,
++                    r.QuantityInProduct - r.QuantityUsedByPassed))
++                .ToList();
+         }
+         catch (FbException)
+         {
+             return Array.Empty<ProductionMaterialBalanceAllocationDto>();
+         }
+-
+-        return items;
+     }
+ 
+     private static async Task<IReadOnlyList<ProductionQcUnitDto>> LoadQcUnitsAsync(
+@@ -691,41 +624,30 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         long orderId,
+         CancellationToken cancellationToken)
+     {
+-        var items = new List<ProductionQcUnitDto>();
+-        await using var command = new FbCommand("""
+-            SELECT U.ID, U.ORDER_LINE_ID, U.UNIT_NUMBER, U.STATUS_CODE, L.MODEL_NAME,
+-                   U.ACTUAL_GOLD_WEIGHT, U.ACTUAL_WEIGHT_UNIT_CODE, U.GOLD_PURITY_CODE,
+-                   U.LABOR_COST_SNAPSHOT, U.DEFECT_NOTES, U.LAST_QC_AT,
+-                   U.FINISHED_PRODUCT_ID, U.ROW_VERSION
+-            FROM PRODUCTION_QC_UNITS U
+-            JOIN PRODUCTION_ORDER_LINES L ON L.ID = U.ORDER_LINE_ID
+-            WHERE U.PRODUCTION_ORDER_ID = @ID
+-            ORDER BY L.LINE_NUMBER, U.UNIT_NUMBER
+-            """, connection);
+-        command.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
+         try
+         {
+-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-            while (await reader.ReadAsync(cancellationToken))
+-            {
+-                items.Add(new ProductionQcUnitDto(
+-                    reader.GetInt64(0), reader.GetInt64(1), reader.GetInt32(2), reader.GetString(3),
+-                    reader.GetString(4),
+-                    reader.IsDBNull(5) ? null : reader.GetDecimal(5),
+-                    reader.IsDBNull(6) ? null : reader.GetString(6),
+-                    reader.IsDBNull(7) ? null : reader.GetString(7),
+-                    reader.GetDecimal(8),
+-                    reader.IsDBNull(9) ? null : reader.GetString(9),
+-                    reader.IsDBNull(10) ? null : reader.GetDateTime(10),
+-                    reader.IsDBNull(11) ? null : reader.GetInt64(11),
+-                    reader.GetInt64(12)));
+-            }
++            var rows = await connection.QueryAsync<ProductionQcUnitDto>(
++                new CommandDefinition("""
++                    SELECT U.ID AS Id, U.ORDER_LINE_ID AS OrderLineId, U.UNIT_NUMBER AS UnitNumber,
++                           U.STATUS_CODE AS StatusCode, L.MODEL_NAME AS ModelName,
++                           U.ACTUAL_GOLD_WEIGHT AS ActualGoldWeight,
++                           U.ACTUAL_WEIGHT_UNIT_CODE AS ActualWeightUnitCode,
++                           U.GOLD_PURITY_CODE AS GoldPurityCode,
++                           U.LABOR_COST_SNAPSHOT AS LaborCostSnapshot,
++                           U.DEFECT_NOTES AS DefectNotes, U.LAST_QC_AT AS LastQcAt,
++                           U.FINISHED_PRODUCT_ID AS FinishedProductId, U.ROW_VERSION AS RowVersion
++                    FROM PRODUCTION_QC_UNITS U
++                    JOIN PRODUCTION_ORDER_LINES L ON L.ID = U.ORDER_LINE_ID
++                    WHERE U.PRODUCTION_ORDER_ID = @ID
++                    ORDER BY L.LINE_NUMBER, U.UNIT_NUMBER
++                    """,
++                    new { ID = orderId },
++                    cancellationToken: cancellationToken));
++            return rows.AsList();
+         }
+         catch (FbException)
+         {
+             return Array.Empty<ProductionQcUnitDto>();
+         }
+-
+-        return items;
+     }
+ }
+-- 
+2.43.0
+

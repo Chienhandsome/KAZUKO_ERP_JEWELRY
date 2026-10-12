@@ -1,0 +1,169 @@
+From b705c597d7f18efcba8d7b5631b7c48a11ca12ca Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 02:25:07 +0000
+Subject: [PATCH 03/10] refactor(infra): migrate
+ FirebirdReceivableDebtRepository to Dapper
+
+---
+ .../FirebirdReceivableDebtRepository.cs       | 124 ++++++++++--------
+ 1 file changed, 67 insertions(+), 57 deletions(-)
+
+diff --git a/src/Kazuko.Infrastructure/Finance/FirebirdReceivableDebtRepository.cs b/src/Kazuko.Infrastructure/Finance/FirebirdReceivableDebtRepository.cs
+index 84722e0..83ee3f8 100644
+--- a/src/Kazuko.Infrastructure/Finance/FirebirdReceivableDebtRepository.cs
++++ b/src/Kazuko.Infrastructure/Finance/FirebirdReceivableDebtRepository.cs
+@@ -1,3 +1,4 @@
++using Dapper;
+ using FirebirdSql.Data.FirebirdClient;
+ using Kazuko.Core.Authentication;
+ using Kazuko.Core.Finance;
+@@ -10,6 +11,12 @@ public sealed class FirebirdReceivableDebtRepository : IReceivableDebtRepository
+ {
+     private readonly FirebirdFinancialSettlementService _settlements = new();
+ 
++    private sealed record DebtLockRow(
++        string PartyType,
++        long PartyId,
++        decimal RemainingAmount,
++        string StatusCode);
++
+     public async Task CollectAsync(
+         ReceivableDebtCollectRequest request,
+         AuthenticatedSession session,
+@@ -36,29 +43,29 @@ public sealed class FirebirdReceivableDebtRepository : IReceivableDebtRepository
+         {
+             var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+ 
+-            string partyType;
+-            long partyId;
+-            decimal remaining;
+-            string status;
+-            await using (var debtCmd = new FbCommand("""
+-                SELECT PARTY_TYPE, COALESCE(CUSTOMER_ID, EXTERNAL_WORKER_ID),
+-                       REMAINING_AMOUNT_VND, STATUS_CODE
+-                FROM RECEIVABLE_DEBTS
+-                WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
+-                WITH LOCK
+-                """, connection, fbTx))
+-            {
+-                debtCmd.Parameters.Add("@ID", FbDbType.BigInt).Value = request.DebtId;
+-                debtCmd.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+-                debtCmd.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+-                await using var reader = await debtCmd.ExecuteReaderAsync(cancellationToken);
+-                if (!await reader.ReadAsync(cancellationToken))
+-                    throw new InvalidOperationException("Không tìm thấy khoản phải thu.");
+-                partyType = reader.GetString(0);
+-                partyId = reader.GetInt64(1);
+-                remaining = reader.GetDecimal(2);
+-                status = reader.GetString(3);
+-            }
++            var debt = await connection.QuerySingleOrDefaultAsync<DebtLockRow>(
++                new CommandDefinition("""
++                    SELECT PARTY_TYPE AS PartyType, COALESCE(CUSTOMER_ID, EXTERNAL_WORKER_ID) AS PartyId,
++                           REMAINING_AMOUNT_VND AS RemainingAmount, STATUS_CODE AS StatusCode
++                    FROM RECEIVABLE_DEBTS
++                    WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
++                    WITH LOCK
++                    """,
++                    new
++                    {
++                        ID = request.DebtId,
++                        CID = companyId,
++                        BID = session.BranchId
++                    },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            if (debt is null)
++                throw new InvalidOperationException("Không tìm thấy khoản phải thu.");
++
++            var partyType = debt.PartyType;
++            var partyId = debt.PartyId;
++            var remaining = debt.RemainingAmount;
++            var status = debt.StatusCode;
+ 
+             if (status is ReceivableDebtStatuses.Paid or ReceivableDebtStatuses.Cancelled)
+                 throw new InvalidOperationException("Khoản phải thu đã đóng.");
+@@ -79,43 +86,46 @@ public sealed class FirebirdReceivableDebtRepository : IReceivableDebtRepository
+                 session.UserId,
+                 cancellationToken);
+ 
+-            await using (var insertCol = new FbCommand("""
+-                INSERT INTO RECEIVABLE_DEBT_COLLECTIONS
+-                    (DEBT_ID, COLLECTION_DATE, AMOUNT_VND, SETTLEMENT_ID, NOTES, CREATED_BY, CREATED_AT)
+-                VALUES
+-                    (@DEBT, CURRENT_TIMESTAMP, @AMT, @SID, @NOTES, @BY, CURRENT_TIMESTAMP)
+-                """, connection, fbTx))
+-            {
+-                insertCol.Parameters.Add("@DEBT", FbDbType.BigInt).Value = request.DebtId;
+-                insertCol.Parameters.Add("@AMT", FbDbType.Decimal).Value = amount;
+-                insertCol.Parameters.Add("@SID", FbDbType.BigInt).Value = settlement.SettlementId;
+-                insertCol.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
+-                    (object?)request.Notes ?? DBNull.Value;
+-                insertCol.Parameters.Add("@BY", FbDbType.BigInt).Value =
+-                    session.UserId > 0 ? session.UserId : DBNull.Value;
+-                await insertCol.ExecuteNonQueryAsync(cancellationToken);
+-            }
++            await connection.ExecuteAsync(
++                new CommandDefinition("""
++                    INSERT INTO RECEIVABLE_DEBT_COLLECTIONS
++                        (DEBT_ID, COLLECTION_DATE, AMOUNT_VND, SETTLEMENT_ID, NOTES, CREATED_BY, CREATED_AT)
++                    VALUES
++                        (@DEBT, CURRENT_TIMESTAMP, @AMT, @SID, @NOTES, @BY, CURRENT_TIMESTAMP)
++                    """,
++                    new
++                    {
++                        DEBT = request.DebtId,
++                        AMT = amount,
++                        SID = settlement.SettlementId,
++                        NOTES = (object?)request.Notes ?? DBNull.Value,
++                        BY = (object)(session.UserId > 0 ? session.UserId : DBNull.Value)
++                    },
++                    transaction,
++                    cancellationToken: cancellationToken));
+ 
+             var newRemaining = remaining - amount;
+             var newStatus = newRemaining == 0 ? ReceivableDebtStatuses.Paid : ReceivableDebtStatuses.Partial;
+-            await using (var update = new FbCommand("""
+-                UPDATE RECEIVABLE_DEBTS
+-                   SET COLLECTED_AMOUNT_VND = COLLECTED_AMOUNT_VND + @AMT,
+-                       REMAINING_AMOUNT_VND = @REM,
+-                       STATUS_CODE = @STATUS,
+-                       UPDATED_BY = @BY,
+-                       UPDATED_AT = CURRENT_TIMESTAMP
+-                 WHERE ID = @ID
+-                """, connection, fbTx))
+-            {
+-                update.Parameters.Add("@AMT", FbDbType.Decimal).Value = amount;
+-                update.Parameters.Add("@REM", FbDbType.Decimal).Value = newRemaining;
+-                update.Parameters.Add("@STATUS", FbDbType.VarChar, 20).Value = newStatus;
+-                update.Parameters.Add("@BY", FbDbType.BigInt).Value =
+-                    session.UserId > 0 ? session.UserId : DBNull.Value;
+-                update.Parameters.Add("@ID", FbDbType.BigInt).Value = request.DebtId;
+-                await update.ExecuteNonQueryAsync(cancellationToken);
+-            }
++            await connection.ExecuteAsync(
++                new CommandDefinition("""
++                    UPDATE RECEIVABLE_DEBTS
++                       SET COLLECTED_AMOUNT_VND = COLLECTED_AMOUNT_VND + @AMT,
++                           REMAINING_AMOUNT_VND = @REM,
++                           STATUS_CODE = @STATUS,
++                           UPDATED_BY = @BY,
++                           UPDATED_AT = CURRENT_TIMESTAMP
++                     WHERE ID = @ID
++                    """,
++                    new
++                    {
++                        AMT = amount,
++                        REM = newRemaining,
++                        STATUS = newStatus,
++                        BY = (object)(session.UserId > 0 ? session.UserId : DBNull.Value),
++                        ID = request.DebtId
++                    },
++                    transaction,
++                    cancellationToken: cancellationToken));
+ 
+             await AuditLogWriter.WriteAsync(
+                 connection, fbTx, "RECEIVABLE_DEBT_COLLECTED",
+-- 
+2.43.0
+

@@ -1,0 +1,1041 @@
+From a28aef3b861a07c0a761a3ed9b02c2ba0d617c80 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 02:27:21 +0000
+Subject: [PATCH 10/10] refactor(infra): migrate FirebirdWarehouseRepository to
+ Dapper
+
+---
+ .../Warehouse/FirebirdWarehouseRepository.cs  | 904 ++++++++----------
+ 1 file changed, 393 insertions(+), 511 deletions(-)
+
+diff --git a/src/Kazuko.Infrastructure/Warehouse/FirebirdWarehouseRepository.cs b/src/Kazuko.Infrastructure/Warehouse/FirebirdWarehouseRepository.cs
+index d2c6c23..56fc38b 100644
+--- a/src/Kazuko.Infrastructure/Warehouse/FirebirdWarehouseRepository.cs
++++ b/src/Kazuko.Infrastructure/Warehouse/FirebirdWarehouseRepository.cs
+@@ -1,10 +1,22 @@
+-using FirebirdSql.Data.FirebirdClient;
++using Dapper;
+ using Kazuko.Core.Authentication;
+ using Kazuko.Core.Warehouse;
+ using Kazuko.Infrastructure.Data;
+ 
+ namespace Kazuko.Infrastructure.Warehouse;
+ 
++// Dapper migration: SQL giữ nguyên 100% so với bản ADO.NET tay, chỉ thêm alias cột
++// để Dapper map theo TÊN (case-insensitive) vào constructor param của record đích.
++// Boilerplate (FbCommand + reader loop + map theo vị trí cột) được thay bằng
++// QueryAsync / QuerySingleOrDefaultAsync với CommandDefinition.
++//
++// Lưu ý riêng module kho (logic tồn kho vàng nhạy cảm):
++// - IsLowStock: logic C# cũ (quantity <= minimum) được đưa vào SQL bằng
++//   CASE WHEN ... THEN TRUE ELSE FALSE để Dapper map BOOLEAN -> bool.
++// - FinishedProductStockItem / SaleItemStockItem: UnitCode "món" và Quantity
++//   (0m khi SOLD/SCRAPPED, ngược lại 1m) vốn hard-code ở C# được thể hiện bằng
++//   hằng/CASE trong SELECT để giữ nguyên ngữ nghĩa khi map qua constructor.
++// - LineCount (tổng 2 COUNT(*)) được CAST AS INTEGER vì record khai báo int.
+ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+ {
+     public async Task<IReadOnlyList<FinishedProductGroupOption>> GetFinishedProductGroupsAsync(
+@@ -12,20 +24,17 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         CancellationToken cancellationToken = default)
+     {
+         ArgumentNullException.ThrowIfNull(session);
+-        var result = new List<FinishedProductGroupOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT G.ID, G.CODE, G.NAME
+-            FROM FINISHED_PRODUCT_GROUPS G
+-            WHERE G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND G.IS_ACTIVE = TRUE
+-            ORDER BY G.DISPLAY_ORDER, G.NAME
+-            """, connection);
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-            result.Add(new FinishedProductGroupOption(reader.GetInt64(0), reader.GetString(1), reader.GetString(2)));
+-        return result;
++        var rows = await connection.QueryAsync<FinishedProductGroupOption>(
++            new CommandDefinition("""
++                SELECT G.ID AS Id, G.CODE AS Code, G.NAME AS Name
++                FROM FINISHED_PRODUCT_GROUPS G
++                WHERE G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND G.IS_ACTIVE = TRUE
++                ORDER BY G.DISPLAY_ORDER, G.NAME
++                """, cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<WarehouseLocationOption>> GetLocationsAsync(
+@@ -35,31 +44,21 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<WarehouseLocationOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT ID, BRANCH_ID, CODE, NAME, LOCATION_TYPE, INVENTORY_SCOPE
+-            FROM LOCATIONS
+-            WHERE BRANCH_ID = @BRANCH_ID
+-              AND IS_ACTIVE = TRUE
+-              AND LOCATION_TYPE IN ('WAREHOUSE', 'COUNTER')
+-            ORDER BY CASE WHEN LOCATION_TYPE = 'WAREHOUSE' THEN 0 ELSE 1 END, NAME
+-            """, connection);
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new WarehouseLocationOption(
+-                reader.GetInt64(0),
+-                reader.GetInt64(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<WarehouseLocationOption>(
++            new CommandDefinition("""
++                SELECT ID AS Id, BRANCH_ID AS BranchId, CODE AS Code, NAME AS Name,
++                       LOCATION_TYPE AS LocationType, INVENTORY_SCOPE AS InventoryScope
++                FROM LOCATIONS
++                WHERE BRANCH_ID = @BRANCH_ID
++                  AND IS_ACTIVE = TRUE
++                  AND LOCATION_TYPE IN ('WAREHOUSE', 'COUNTER')
++                ORDER BY CASE WHEN LOCATION_TYPE = 'WAREHOUSE' THEN 0 ELSE 1 END, NAME
++                """,
++                new { BRANCH_ID = session.BranchId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<MaterialOption>> SearchMaterialsAsync(
+@@ -71,57 +70,44 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<MaterialOption>();
+-        await using var connection = FirebirdDatabase.CreateConnection();
+-        await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT M.ID, M.CODE, M.NAME, M.MATERIAL_TYPE, COALESCE(M.PURITY_CODE, ''), M.UNIT_CODE, M.IS_ACTIVE,
+-                   COALESCE(G.BUY_PRICE_PER_CHI, 0),
+-                   M.STONE_KIND, M.STONE_SHAPE, M.CARAT_PER_PIECE, M.SIZE_MM
+-            FROM MATERIALS M
+-            LEFT JOIN GOLD_PRICES G ON G.ID = COALESCE(
+-                M.OLD_GOLD_PRICE_ID,
+-                (SELECT FIRST 1 P.ID FROM GOLD_PRICES P
+-                  WHERE P.GOLD_TYPE_ID = M.GOLD_TYPE_ID AND P.IS_ACTIVE = TRUE),
+-                (SELECT FIRST 1 P2.ID FROM GOLD_PRICES P2
+-                  WHERE P2.COMPANY_ID = M.COMPANY_ID
+-                    AND UPPER(TRIM(P2.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
+-                    AND P2.IS_ACTIVE = TRUE))
+-            WHERE M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND M.IS_ACTIVE = TRUE
+-              AND (@HAS_TYPE = 0 OR M.MATERIAL_TYPE = @TYPE)
+-              AND (@HAS_SEARCH = 0
+-                   OR CAST(M.CODE AS VARCHAR(100) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR M.NAME CONTAINING @SEARCH)
+-            ORDER BY M.MATERIAL_TYPE, M.NAME, M.CODE
+-            """, connection);
+-
+         var search = (searchText ?? string.Empty).Trim();
+         var type = (materialType ?? string.Empty).Trim().ToUpperInvariant();
+-        command.Parameters.Add("@HAS_TYPE", FbDbType.Integer).Value = type.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@TYPE", FbDbType.VarChar, 20).Value = type;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new MaterialOption(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5),
+-                reader.GetBoolean(6),
+-                reader.GetDecimal(7),
+-                reader.IsDBNull(8) ? null : reader.GetString(8),
+-                reader.IsDBNull(9) ? null : reader.GetString(9),
+-                reader.IsDBNull(10) ? null : reader.GetDecimal(10),
+-                reader.IsDBNull(11) ? null : reader.GetDecimal(11)));
+-        }
+-
+-        return result;
++
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++        var rows = await connection.QueryAsync<MaterialOption>(
++            new CommandDefinition("""
++                SELECT M.ID AS Id, M.CODE AS Code, M.NAME AS Name, M.MATERIAL_TYPE AS MaterialType,
++                       COALESCE(M.PURITY_CODE, '') AS PurityCode, M.UNIT_CODE AS UnitCode, M.IS_ACTIVE AS IsActive,
++                       COALESCE(G.BUY_PRICE_PER_CHI, 0) AS ReferenceBuyPricePerChi,
++                       M.STONE_KIND AS StoneKind, M.STONE_SHAPE AS StoneShape,
++                       M.CARAT_PER_PIECE AS CaratPerPiece, M.SIZE_MM AS SizeMm
++                FROM MATERIALS M
++                LEFT JOIN GOLD_PRICES G ON G.ID = COALESCE(
++                    M.OLD_GOLD_PRICE_ID,
++                    (SELECT FIRST 1 P.ID FROM GOLD_PRICES P
++                      WHERE P.GOLD_TYPE_ID = M.GOLD_TYPE_ID AND P.IS_ACTIVE = TRUE),
++                    (SELECT FIRST 1 P2.ID FROM GOLD_PRICES P2
++                      WHERE P2.COMPANY_ID = M.COMPANY_ID
++                        AND UPPER(TRIM(P2.CODE)) = UPPER(TRIM(COALESCE(M.PURITY_CODE, '')))
++                        AND P2.IS_ACTIVE = TRUE))
++                WHERE M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND M.IS_ACTIVE = TRUE
++                  AND (@HAS_TYPE = 0 OR M.MATERIAL_TYPE = @TYPE)
++                  AND (@HAS_SEARCH = 0
++                       OR CAST(M.CODE AS VARCHAR(100) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR M.NAME CONTAINING @SEARCH)
++                ORDER BY M.MATERIAL_TYPE, M.NAME, M.CODE
++                """,
++                new
++                {
++                    HAS_TYPE = type.Length > 0 ? 1 : 0,
++                    TYPE = type,
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<MaterialBalanceItem>> SearchMaterialBalancesAsync(
+@@ -133,61 +119,46 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<MaterialBalanceItem>();
+-        await using var connection = FirebirdDatabase.CreateConnection();
+-        await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT M.ID, M.CODE, M.NAME, M.MATERIAL_TYPE, COALESCE(M.PURITY_CODE, ''), M.UNIT_CODE,
+-                   L.ID, L.CODE, L.NAME, B.QUANTITY, B.AVERAGE_COST,
+-                   B.QUANTITY * B.AVERAGE_COST, M.MIN_STOCK
+-            FROM STOCK_BALANCES B
+-            JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
+-            JOIN LOCATIONS L ON L.ID = B.LOCATION_ID
+-            WHERE L.BRANCH_ID = @BRANCH_ID
+-              AND M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND (@HAS_LOCATION = 0 OR L.ID = @LOCATION_ID)
+-              AND (@HAS_TYPE = 0 OR M.MATERIAL_TYPE = @TYPE)
+-              AND (@LOW_ONLY = 0 OR B.QUANTITY <= M.MIN_STOCK)
+-              AND (@HAS_SEARCH = 0
+-                   OR CAST(M.CODE AS VARCHAR(100) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR M.NAME CONTAINING @SEARCH)
+-            ORDER BY L.NAME, M.MATERIAL_TYPE, M.NAME
+-            """, connection);
+-
+         var search = (filter.SearchText ?? string.Empty).Trim();
+         var type = (filter.MaterialType ?? string.Empty).Trim().ToUpperInvariant();
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        command.Parameters.Add("@HAS_LOCATION", FbDbType.Integer).Value = filter.LocationId > 0 ? 1 : 0;
+-        command.Parameters.Add("@LOCATION_ID", FbDbType.BigInt).Value = filter.LocationId;
+-        command.Parameters.Add("@HAS_TYPE", FbDbType.Integer).Value = type.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@TYPE", FbDbType.VarChar, 20).Value = type;
+-        command.Parameters.Add("@LOW_ONLY", FbDbType.Integer).Value = filter.LowStockOnly ? 1 : 0;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            var quantity = reader.GetDecimal(9);
+-            var minimum = reader.GetDecimal(12);
+-            result.Add(new MaterialBalanceItem(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5),
+-                reader.GetInt64(6),
+-                reader.GetString(7),
+-                reader.GetString(8),
+-                quantity,
+-                reader.GetDecimal(10),
+-                reader.GetDecimal(11),
+-                minimum,
+-                quantity <= minimum));
+-        }
+-
+-        return result;
++
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++        var rows = await connection.QueryAsync<MaterialBalanceItem>(
++            new CommandDefinition("""
++                SELECT M.ID AS MaterialId, M.CODE AS MaterialCode, M.NAME AS MaterialName,
++                       M.MATERIAL_TYPE AS MaterialType, COALESCE(M.PURITY_CODE, '') AS PurityCode,
++                       M.UNIT_CODE AS UnitCode,
++                       L.ID AS LocationId, L.CODE AS LocationCode, L.NAME AS LocationName,
++                       B.QUANTITY AS Quantity, B.AVERAGE_COST AS AverageCost,
++                       B.QUANTITY * B.AVERAGE_COST AS StockValue, M.MIN_STOCK AS MinimumStock,
++                       CASE WHEN B.QUANTITY <= M.MIN_STOCK THEN TRUE ELSE FALSE END AS IsLowStock
++                FROM STOCK_BALANCES B
++                JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
++                JOIN LOCATIONS L ON L.ID = B.LOCATION_ID
++                WHERE L.BRANCH_ID = @BRANCH_ID
++                  AND M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND (@HAS_LOCATION = 0 OR L.ID = @LOCATION_ID)
++                  AND (@HAS_TYPE = 0 OR M.MATERIAL_TYPE = @TYPE)
++                  AND (@LOW_ONLY = 0 OR B.QUANTITY <= M.MIN_STOCK)
++                  AND (@HAS_SEARCH = 0
++                       OR CAST(M.CODE AS VARCHAR(100) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR M.NAME CONTAINING @SEARCH)
++                ORDER BY L.NAME, M.MATERIAL_TYPE, M.NAME
++                """,
++                new
++                {
++                    BRANCH_ID = session.BranchId,
++                    HAS_LOCATION = filter.LocationId > 0 ? 1 : 0,
++                    LOCATION_ID = filter.LocationId,
++                    HAS_TYPE = type.Length > 0 ? 1 : 0,
++                    TYPE = type,
++                    LOW_ONLY = filter.LowStockOnly ? 1 : 0,
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<FinishedProductStockItem>> SearchFinishedProductStockAsync(
+@@ -199,63 +170,54 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<FinishedProductStockItem>();
+-        await using var connection = FirebirdDatabase.CreateConnection();
+-        await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(G.CODE, ''), COALESCE(G.NAME, ''), COALESCE(F.GOLD_PURITY, ''),
+-                   CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
+-                   F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
+-            FROM FINISHED_PRODUCTS F
+-            LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+-            LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
+-            WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND F.BRANCH_ID = @BRANCH_ID
+-              AND F.STATUS_CODE IN ('IN_STOCK', 'RESERVED')
+-              AND L.INVENTORY_SCOPE = 'FINISHED_GOODS'
+-              AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
+-              AND (@HAS_GROUP = 0 OR G.CODE = @GROUP_CODE)
+-              AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
+-              AND (@HAS_SEARCH = 0
+-                   OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR F.PRODUCT_NAME CONTAINING @SEARCH)
+-            ORDER BY F.PRODUCT_NAME, F.CODE
+-            """, connection);
+-
+         var search = (filter.SearchText ?? string.Empty).Trim();
+         var purity = (filter.GoldPurity ?? string.Empty).Trim().ToUpperInvariant();
+         var group = (filter.ProductGroupCode ?? string.Empty).Trim().ToUpperInvariant();
+         var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@STATUS", FbDbType.VarChar, 30).Value = status;
+-        command.Parameters.Add("@HAS_GROUP", FbDbType.Integer).Value = group.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@GROUP_CODE", FbDbType.VarChar, 30).Value = group;
+-        command.Parameters.Add("@HAS_PURITY", FbDbType.Integer).Value = purity.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@PURITY", FbDbType.VarChar, 40).Value = purity;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            var statusCode = reader.GetString(9);
+-            result.Add(new FinishedProductStockItem(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5),
+-                "món",
+-                statusCode is "SOLD" or "SCRAPPED" ? 0m : 1m,
+-                reader.GetDecimal(6),
+-                reader.IsDBNull(7) ? null : reader.GetInt64(7),
+-                reader.GetString(8),
+-                statusCode));
+-        }
+-
+-        return result;
++
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++        var rows = await connection.QueryAsync<FinishedProductStockItem>(
++            new CommandDefinition("""
++                SELECT F.ID AS Id, F.CODE AS Code, F.PRODUCT_NAME AS ProductName,
++                       COALESCE(G.CODE, '') AS ProductGroupCode, COALESCE(G.NAME, '') AS ProductGroupName,
++                       COALESCE(F.GOLD_PURITY, '') AS GoldPurity,
++                       CAST('món' AS VARCHAR(20) CHARACTER SET UTF8) AS UnitCode,
++                       CASE WHEN F.STATUS_CODE IN ('SOLD', 'SCRAPPED')
++                            THEN CAST(0 AS DECIMAL(18, 2))
++                            ELSE CAST(1 AS DECIMAL(18, 2)) END AS Quantity,
++                       CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END AS StockValue,
++                       F.LOCATION_ID AS LocationId, COALESCE(L.NAME, '') AS LocationName,
++                       F.STATUS_CODE AS StatusCode
++                FROM FINISHED_PRODUCTS F
++                LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
++                LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
++                WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND F.BRANCH_ID = @BRANCH_ID
++                  AND F.STATUS_CODE IN ('IN_STOCK', 'RESERVED')
++                  AND L.INVENTORY_SCOPE = 'FINISHED_GOODS'
++                  AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
++                  AND (@HAS_GROUP = 0 OR G.CODE = @GROUP_CODE)
++                  AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
++                  AND (@HAS_SEARCH = 0
++                       OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR F.PRODUCT_NAME CONTAINING @SEARCH)
++                ORDER BY F.PRODUCT_NAME, F.CODE
++                """,
++                new
++                {
++                    BRANCH_ID = session.BranchId,
++                    HAS_STATUS = status.Length > 0 ? 1 : 0,
++                    STATUS = status,
++                    HAS_GROUP = group.Length > 0 ? 1 : 0,
++                    GROUP_CODE = group,
++                    HAS_PURITY = purity.Length > 0 ? 1 : 0,
++                    PURITY = purity,
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<SaleItemStockItem>> SearchSaleItemStockAsync(
+@@ -267,62 +229,52 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<SaleItemStockItem>();
+-        await using var connection = FirebirdDatabase.CreateConnection();
+-        await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(G.CODE, ''), COALESCE(G.NAME, ''), COALESCE(F.GOLD_PURITY, ''),
+-                   CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
+-                   F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
+-            FROM FINISHED_PRODUCTS F
+-            LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+-            LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
+-            WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND F.BRANCH_ID = @BRANCH_ID
+-              AND F.STATUS_CODE = 'DISPLAYED'
+-              AND L.INVENTORY_SCOPE = 'SALES_FLOOR'
+-              AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
+-              AND (@HAS_GROUP = 0 OR G.CODE = @GROUP_CODE)
+-              AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
+-              AND (@HAS_SEARCH = 0
+-                   OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR F.PRODUCT_NAME CONTAINING @SEARCH)
+-            ORDER BY F.PRODUCT_NAME, F.CODE
+-            """, connection);
+-
+         var search = (filter.SearchText ?? string.Empty).Trim();
+         var purity = (filter.GoldPurity ?? string.Empty).Trim().ToUpperInvariant();
+         var group = (filter.ProductGroupCode ?? string.Empty).Trim().ToUpperInvariant();
+         var status = (filter.StatusCode ?? string.Empty).Trim().ToUpperInvariant();
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@STATUS", FbDbType.VarChar, 30).Value = status;
+-        command.Parameters.Add("@HAS_GROUP", FbDbType.Integer).Value = group.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@GROUP_CODE", FbDbType.VarChar, 30).Value = group;
+-        command.Parameters.Add("@HAS_PURITY", FbDbType.Integer).Value = purity.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@PURITY", FbDbType.VarChar, 40).Value = purity;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new SaleItemStockItem(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5),
+-                "món",
+-                1m,
+-                reader.GetDecimal(6),
+-                reader.IsDBNull(7) ? null : reader.GetInt64(7),
+-                reader.GetString(8),
+-                reader.GetString(9)));
+-        }
+-
+-        return result;
++
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++        var rows = await connection.QueryAsync<SaleItemStockItem>(
++            new CommandDefinition("""
++                SELECT F.ID AS Id, F.CODE AS Code, F.PRODUCT_NAME AS ProductName,
++                       COALESCE(G.CODE, '') AS ProductGroupCode, COALESCE(G.NAME, '') AS ProductGroupName,
++                       COALESCE(F.GOLD_PURITY, '') AS GoldPurity,
++                       CAST('món' AS VARCHAR(20) CHARACTER SET UTF8) AS UnitCode,
++                       CAST(1 AS DECIMAL(18, 2)) AS Quantity,
++                       CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END AS StockValue,
++                       F.LOCATION_ID AS LocationId, COALESCE(L.NAME, '') AS LocationName,
++                       F.STATUS_CODE AS StatusCode
++                FROM FINISHED_PRODUCTS F
++                LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
++                LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
++                WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND F.BRANCH_ID = @BRANCH_ID
++                  AND F.STATUS_CODE = 'DISPLAYED'
++                  AND L.INVENTORY_SCOPE = 'SALES_FLOOR'
++                  AND (@HAS_STATUS = 0 OR F.STATUS_CODE = @STATUS)
++                  AND (@HAS_GROUP = 0 OR G.CODE = @GROUP_CODE)
++                  AND (@HAS_PURITY = 0 OR UPPER(COALESCE(F.GOLD_PURITY, '')) = @PURITY)
++                  AND (@HAS_SEARCH = 0
++                       OR CAST(F.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR F.PRODUCT_NAME CONTAINING @SEARCH)
++                ORDER BY F.PRODUCT_NAME, F.CODE
++                """,
++                new
++                {
++                    BRANCH_ID = session.BranchId,
++                    HAS_STATUS = status.Length > 0 ? 1 : 0,
++                    STATUS = status,
++                    HAS_GROUP = group.Length > 0 ? 1 : 0,
++                    GROUP_CODE = group,
++                    HAS_PURITY = purity.Length > 0 ? 1 : 0,
++                    PURITY = purity,
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<WarehouseSalesOrderOption>> SearchIssueSalesOrdersAsync(
+@@ -332,32 +284,23 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<WarehouseSalesOrderOption>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT O.ID, O.CODE, C.NAME, O.STATUS_CODE, COALESCE(O.ORDER_TYPE, '')
+-            FROM SALES_ORDERS O
+-            JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
+-            WHERE O.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND O.BRANCH_ID = @BRANCH_ID
+-              AND O.STATUS_CODE IN ('CONFIRMED', 'DEPOSITED', 'IN_PRODUCTION', 'READY', 'PARTIALLY_DELIVERED', 'COMPLETED')
+-              AND O.FINISHED_GOODS_ISSUE_DOCUMENT_ID IS NULL
+-            ORDER BY O.ORDER_DATE DESC, O.ID DESC
+-            """, connection);
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new WarehouseSalesOrderOption(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<WarehouseSalesOrderOption>(
++            new CommandDefinition("""
++                SELECT O.ID AS Id, O.CODE AS Code, C.NAME AS CustomerName,
++                       O.STATUS_CODE AS StatusCode, COALESCE(O.ORDER_TYPE, '') AS OrderType
++                FROM SALES_ORDERS O
++                JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
++                WHERE O.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND O.BRANCH_ID = @BRANCH_ID
++                  AND O.STATUS_CODE IN ('CONFIRMED', 'DEPOSITED', 'IN_PRODUCTION', 'READY', 'PARTIALLY_DELIVERED', 'COMPLETED')
++                  AND O.FINISHED_GOODS_ISSUE_DOCUMENT_ID IS NULL
++                ORDER BY O.ORDER_DATE DESC, O.ID DESC
++                """,
++                new { BRANCH_ID = session.BranchId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<FinishedProductStockItem>> SearchIssueCandidatesAsync(
+@@ -370,34 +313,32 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         if (salesOrderId <= 0)
+             return Array.Empty<FinishedProductStockItem>();
+ 
+-        var result = new List<FinishedProductStockItem>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT F.ID, F.CODE, F.PRODUCT_NAME, COALESCE(G.CODE, ''), COALESCE(G.NAME, ''), COALESCE(F.GOLD_PURITY, ''),
+-                   CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END,
+-                   F.LOCATION_ID, COALESCE(L.NAME, ''), F.STATUS_CODE
+-            FROM FINISHED_PRODUCTS F
+-            LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
+-            LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
+-            WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND F.BRANCH_ID = @BRANCH_ID
+-              AND F.SALES_ORDER_ID = @ORDER_ID
+-              AND F.STATUS_CODE IN ('IN_STOCK', 'RESERVED', 'DISPLAYED')
+-            ORDER BY F.PRODUCT_NAME, F.CODE
+-            """, connection);
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        command.Parameters.Add("@ORDER_ID", FbDbType.BigInt).Value = salesOrderId;
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new FinishedProductStockItem(
+-                reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5),
+-                "món", 1m, reader.GetDecimal(6),
+-                reader.IsDBNull(7) ? null : reader.GetInt64(7), reader.GetString(8), reader.GetString(9)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<FinishedProductStockItem>(
++            new CommandDefinition("""
++                SELECT F.ID AS Id, F.CODE AS Code, F.PRODUCT_NAME AS ProductName,
++                       COALESCE(G.CODE, '') AS ProductGroupCode, COALESCE(G.NAME, '') AS ProductGroupName,
++                       COALESCE(F.GOLD_PURITY, '') AS GoldPurity,
++                       CAST('món' AS VARCHAR(20) CHARACTER SET UTF8) AS UnitCode,
++                       CASE WHEN F.STATUS_CODE IN ('SOLD', 'SCRAPPED')
++                            THEN CAST(0 AS DECIMAL(18, 2))
++                            ELSE CAST(1 AS DECIMAL(18, 2)) END AS Quantity,
++                       CASE WHEN F.RETAIL_PRICE > 0 THEN F.RETAIL_PRICE ELSE F.TOTAL_COST END AS StockValue,
++                       F.LOCATION_ID AS LocationId, COALESCE(L.NAME, '') AS LocationName,
++                       F.STATUS_CODE AS StatusCode
++                FROM FINISHED_PRODUCTS F
++                LEFT JOIN LOCATIONS L ON L.ID = F.LOCATION_ID
++                LEFT JOIN FINISHED_PRODUCT_GROUPS G ON G.ID = F.FINISHED_PRODUCT_GROUP_ID AND G.COMPANY_ID = F.COMPANY_ID
++                WHERE F.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND F.BRANCH_ID = @BRANCH_ID
++                  AND F.SALES_ORDER_ID = @ORDER_ID
++                  AND F.STATUS_CODE IN ('IN_STOCK', 'RESERVED', 'DISPLAYED')
++                ORDER BY F.PRODUCT_NAME, F.CODE
++                """,
++                new { BRANCH_ID = session.BranchId, ORDER_ID = salesOrderId },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<IReadOnlyList<StockDocumentSummary>> SearchDocumentsAsync(
+@@ -425,77 +366,61 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+                 ? "D.DOCUMENT_TYPE = @TYPE0"
+                 : "D.DOCUMENT_TYPE IN (" + string.Join(", ", types.Select((_, i) => "@TYPE" + i)) + ")";
+ 
+-        var result = new List<StockDocumentSummary>();
++        var parameters = new DynamicParameters();
++        parameters.Add("BRANCH_ID", session.BranchId);
++        for (var i = 0; i < types.Length; i++)
++            parameters.Add("TYPE" + i, types[i]);
++        parameters.Add("HAS_STATUS", status.Length > 0 ? 1 : 0);
++        parameters.Add("STATUS", status);
++        parameters.Add("HAS_FROM", filter.FromDate.HasValue ? 1 : 0);
++        parameters.Add("FROM_DATE", filter.FromDate?.Date ?? DateTime.Today);
++        parameters.Add("HAS_TO", filter.ToDate.HasValue ? 1 : 0);
++        parameters.Add("TO_DATE", filter.ToDate?.Date ?? DateTime.Today);
++        parameters.Add("HAS_SEARCH", search.Length > 0 ? 1 : 0);
++        parameters.Add("SEARCH", search);
++
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand($"""
+-            SELECT D.ID, D.CODE, D.DOCUMENT_DATE, D.DOCUMENT_TYPE, D.STATUS_CODE,
+-                   COALESCE(S.NAME, ''), COALESCE(T.NAME, ''), COALESCE(D.REFERENCE_NO, ''),
+-                   COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, ''), D.SUPPLIER_ID,
+-                   (SELECT COUNT(*) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID)
+-                     + (SELECT COUNT(*) FROM FINISHED_PRODUCT_DOCUMENT_LINES FX WHERE FX.DOCUMENT_ID = D.ID),
+-                   COALESCE((SELECT SUM(X.QUANTITY) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID), 0)
+-                     + (SELECT COUNT(*) FROM FINISHED_PRODUCT_DOCUMENT_LINES FX WHERE FX.DOCUMENT_ID = D.ID),
+-                   COALESCE((SELECT SUM(X.LINE_AMOUNT) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID), 0)
+-                     + COALESCE((SELECT SUM(FX.UNIT_COST) FROM FINISHED_PRODUCT_DOCUMENT_LINES FX WHERE FX.DOCUMENT_ID = D.ID), 0),
+-                   COALESCE(CU.DISPLAY_NAME, ''), D.CREATED_AT,
+-                   COALESCE(PU.DISPLAY_NAME, ''), D.POSTED_AT
+-            FROM STOCK_DOCUMENTS D
+-            LEFT JOIN LOCATIONS S ON S.ID = D.SOURCE_LOCATION_ID
+-            LEFT JOIN LOCATIONS T ON T.ID = D.DESTINATION_LOCATION_ID
+-            LEFT JOIN SUPPLIERS SUP ON SUP.ID = D.SUPPLIER_ID
+-            LEFT JOIN CUSTOMERS CUS ON CUS.ID = D.CUSTOMER_ID
+-            LEFT JOIN USERS CU ON CU.ID = D.CREATED_BY
+-            LEFT JOIN USERS PU ON PU.ID = D.POSTED_BY
+-            WHERE D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND D.BRANCH_ID = @BRANCH_ID
+-              AND ({typeClause})
+-              AND (@HAS_STATUS = 0 OR D.STATUS_CODE = @STATUS)
+-              AND (@HAS_FROM = 0 OR D.DOCUMENT_DATE >= @FROM_DATE)
+-              AND (@HAS_TO = 0 OR D.DOCUMENT_DATE <= @TO_DATE)
+-              AND (@HAS_SEARCH = 0
+-                   OR CAST(D.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR CAST(COALESCE(D.REFERENCE_NO, '') AS VARCHAR(200) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, '') CONTAINING @SEARCH)
+-            ORDER BY D.DOCUMENT_DATE DESC, D.ID DESC
+-            """, connection);
+-
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        for (var i = 0; i < types.Length; i++)
+-            command.Parameters.Add("@TYPE" + i, FbDbType.VarChar, 30).Value = types[i];
+-        command.Parameters.Add("@HAS_STATUS", FbDbType.Integer).Value = status.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@STATUS", FbDbType.VarChar, 20).Value = status;
+-        command.Parameters.Add("@HAS_FROM", FbDbType.Integer).Value = filter.FromDate.HasValue ? 1 : 0;
+-        command.Parameters.Add("@FROM_DATE", FbDbType.Date).Value = filter.FromDate?.Date ?? DateTime.Today;
+-        command.Parameters.Add("@HAS_TO", FbDbType.Integer).Value = filter.ToDate.HasValue ? 1 : 0;
+-        command.Parameters.Add("@TO_DATE", FbDbType.Date).Value = filter.ToDate?.Date ?? DateTime.Today;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new StockDocumentSummary(
+-                reader.GetInt64(0),
+-                reader.GetString(1),
+-                reader.GetDateTime(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5),
+-                reader.GetString(6),
+-                reader.GetString(7),
+-                reader.GetString(8),
+-                reader.IsDBNull(9) ? null : reader.GetInt64(9),
+-                reader.GetInt32(10),
+-                reader.GetDecimal(11),
+-                reader.GetDecimal(12),
+-                reader.GetString(13),
+-                reader.GetDateTime(14),
+-                reader.GetString(15),
+-                reader.IsDBNull(16) ? null : reader.GetDateTime(16)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<StockDocumentSummary>(
++            new CommandDefinition($"""
++                SELECT D.ID AS Id, D.CODE AS Code, D.DOCUMENT_DATE AS DocumentDate,
++                       D.DOCUMENT_TYPE AS DocumentType, D.STATUS_CODE AS StatusCode,
++                       COALESCE(S.NAME, '') AS SourceLocationName,
++                       COALESCE(T.NAME, '') AS DestinationLocationName,
++                       COALESCE(D.REFERENCE_NO, '') AS ReferenceNo,
++                       COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, '') AS CounterpartyName,
++                       D.SUPPLIER_ID AS SupplierId,
++                       CAST((SELECT COUNT(*) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID)
++                         + (SELECT COUNT(*) FROM FINISHED_PRODUCT_DOCUMENT_LINES FX WHERE FX.DOCUMENT_ID = D.ID)
++                         AS INTEGER) AS LineCount,
++                       COALESCE((SELECT SUM(X.QUANTITY) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID), 0)
++                         + (SELECT COUNT(*) FROM FINISHED_PRODUCT_DOCUMENT_LINES FX WHERE FX.DOCUMENT_ID = D.ID)
++                         AS TotalQuantity,
++                       COALESCE((SELECT SUM(X.LINE_AMOUNT) FROM STOCK_DOCUMENT_LINES X WHERE X.DOCUMENT_ID = D.ID), 0)
++                         + COALESCE((SELECT SUM(FX.UNIT_COST) FROM FINISHED_PRODUCT_DOCUMENT_LINES FX WHERE FX.DOCUMENT_ID = D.ID), 0)
++                         AS TotalAmount,
++                       COALESCE(CU.DISPLAY_NAME, '') AS CreatedByName, D.CREATED_AT AS CreatedAt,
++                       COALESCE(PU.DISPLAY_NAME, '') AS PostedByName, D.POSTED_AT AS PostedAt
++                FROM STOCK_DOCUMENTS D
++                LEFT JOIN LOCATIONS S ON S.ID = D.SOURCE_LOCATION_ID
++                LEFT JOIN LOCATIONS T ON T.ID = D.DESTINATION_LOCATION_ID
++                LEFT JOIN SUPPLIERS SUP ON SUP.ID = D.SUPPLIER_ID
++                LEFT JOIN CUSTOMERS CUS ON CUS.ID = D.CUSTOMER_ID
++                LEFT JOIN USERS CU ON CU.ID = D.CREATED_BY
++                LEFT JOIN USERS PU ON PU.ID = D.POSTED_BY
++                WHERE D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND D.BRANCH_ID = @BRANCH_ID
++                  AND ({typeClause})
++                  AND (@HAS_STATUS = 0 OR D.STATUS_CODE = @STATUS)
++                  AND (@HAS_FROM = 0 OR D.DOCUMENT_DATE >= @FROM_DATE)
++                  AND (@HAS_TO = 0 OR D.DOCUMENT_DATE <= @TO_DATE)
++                  AND (@HAS_SEARCH = 0
++                       OR CAST(D.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR CAST(COALESCE(D.REFERENCE_NO, '') AS VARCHAR(200) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, '') CONTAINING @SEARCH)
++                ORDER BY D.DOCUMENT_DATE DESC, D.ID DESC
++                """, parameters, cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     public async Task<StockDocumentDetail?> GetDocumentAsync(
+@@ -508,50 +433,31 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+ 
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT D.ID, D.CODE, D.DOCUMENT_DATE, D.DOCUMENT_TYPE, D.STATUS_CODE,
+-                   D.SOURCE_LOCATION_ID, D.DESTINATION_LOCATION_ID, D.PRODUCTION_ORDER_ID, D.SUPPLIER_ID,
+-                   COALESCE(D.PURPOSE_CODE, ''), COALESCE(D.REFERENCE_NO, ''),
+-                   COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, ''), COALESCE(D.NOTES, ''),
+-                   COALESCE(CU.DISPLAY_NAME, ''), D.CREATED_AT,
+-                   COALESCE(PU.DISPLAY_NAME, ''), D.POSTED_AT, COALESCE(D.CANCELLATION_REASON, ''),
+-                   COALESCE(D.SOURCE_TYPE, '')
+-            FROM STOCK_DOCUMENTS D
+-            LEFT JOIN SUPPLIERS SUP ON SUP.ID = D.SUPPLIER_ID
+-            LEFT JOIN CUSTOMERS CUS ON CUS.ID = D.CUSTOMER_ID
+-            LEFT JOIN USERS CU ON CU.ID = D.CREATED_BY
+-            LEFT JOIN USERS PU ON PU.ID = D.POSTED_BY
+-            WHERE D.ID = @ID
+-              AND D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND D.BRANCH_ID = @BRANCH_ID
+-            """, connection);
+-        command.Parameters.Add("@ID", FbDbType.BigInt).Value = documentId;
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        if (!await reader.ReadAsync(cancellationToken))
+-            return null;
+-
+-        return new StockDocumentDetail(
+-            reader.GetInt64(0),
+-            reader.GetString(1),
+-            reader.GetDateTime(2),
+-            reader.GetString(3),
+-            reader.GetString(4),
+-            reader.IsDBNull(5) ? null : reader.GetInt64(5),
+-            reader.IsDBNull(6) ? null : reader.GetInt64(6),
+-            reader.IsDBNull(7) ? null : reader.GetInt64(7),
+-            reader.IsDBNull(8) ? null : reader.GetInt64(8),
+-            reader.GetString(9),
+-            reader.GetString(10),
+-            reader.GetString(11),
+-            reader.GetString(12),
+-            reader.GetString(13),
+-            reader.GetDateTime(14),
+-            reader.GetString(15),
+-            reader.IsDBNull(16) ? null : reader.GetDateTime(16),
+-            reader.GetString(17),
+-            reader.GetString(18));
++        return await connection.QuerySingleOrDefaultAsync<StockDocumentDetail>(
++            new CommandDefinition("""
++                SELECT D.ID AS Id, D.CODE AS Code, D.DOCUMENT_DATE AS DocumentDate,
++                       D.DOCUMENT_TYPE AS DocumentType, D.STATUS_CODE AS StatusCode,
++                       D.SOURCE_LOCATION_ID AS SourceLocationId,
++                       D.DESTINATION_LOCATION_ID AS DestinationLocationId,
++                       D.PRODUCTION_ORDER_ID AS ProductionOrderId, D.SUPPLIER_ID AS SupplierId,
++                       COALESCE(D.PURPOSE_CODE, '') AS PurposeCode, COALESCE(D.REFERENCE_NO, '') AS ReferenceNo,
++                       COALESCE(NULLIF(D.COUNTERPARTY_NAME, ''), SUP.NAME, CUS.NAME, '') AS CounterpartyName,
++                       COALESCE(D.NOTES, '') AS Notes,
++                       COALESCE(CU.DISPLAY_NAME, '') AS CreatedByName, D.CREATED_AT AS CreatedAt,
++                       COALESCE(PU.DISPLAY_NAME, '') AS PostedByName, D.POSTED_AT AS PostedAt,
++                       COALESCE(D.CANCELLATION_REASON, '') AS CancellationReason,
++                       COALESCE(D.SOURCE_TYPE, '') AS SourceType
++                FROM STOCK_DOCUMENTS D
++                LEFT JOIN SUPPLIERS SUP ON SUP.ID = D.SUPPLIER_ID
++                LEFT JOIN CUSTOMERS CUS ON CUS.ID = D.CUSTOMER_ID
++                LEFT JOIN USERS CU ON CU.ID = D.CREATED_BY
++                LEFT JOIN USERS PU ON PU.ID = D.POSTED_BY
++                WHERE D.ID = @ID
++                  AND D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND D.BRANCH_ID = @BRANCH_ID
++                """,
++                new { ID = documentId, BRANCH_ID = session.BranchId },
++                cancellationToken: cancellationToken));
+     }
+ 
+     public async Task<IReadOnlyList<StockDocumentLine>> GetDocumentLinesAsync(
+@@ -562,63 +468,52 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<StockDocumentLine>();
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using (var command = new FbCommand("""
+-            SELECT L.ID, L.LINE_NUMBER, L.MATERIAL_ID, L.PRODUCTION_MATERIAL_PLAN_ID,
+-                   M.CODE, M.NAME, M.MATERIAL_TYPE, COALESCE(M.PURITY_CODE, ''), M.UNIT_CODE,
+-                   L.QUANTITY, L.UNIT_COST, L.LINE_AMOUNT,
+-                   COALESCE(L.LOT_NO, ''), COALESCE(L.NOTES, '')
+-            FROM STOCK_DOCUMENT_LINES L
+-            JOIN STOCK_DOCUMENTS D ON D.ID = L.DOCUMENT_ID
+-            JOIN MATERIALS M ON M.ID = L.MATERIAL_ID
+-            WHERE L.DOCUMENT_ID = @ID
+-              AND D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND D.BRANCH_ID = @BRANCH_ID
+-            ORDER BY L.LINE_NUMBER
+-            """, connection))
+-        {
+-            command.Parameters.Add("@ID", FbDbType.BigInt).Value = documentId;
+-            command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-            while (await reader.ReadAsync(cancellationToken))
+-            {
+-                result.Add(new StockDocumentLine(
+-                    reader.GetInt64(0), reader.GetInt32(1), reader.GetInt64(2),
+-                    reader.IsDBNull(3) ? null : reader.GetInt64(3),
+-                    reader.GetString(4), reader.GetString(5), reader.GetString(6),
+-                    reader.GetString(7), reader.GetString(8), reader.GetDecimal(9),
+-                    reader.GetDecimal(10), reader.GetDecimal(11), reader.GetString(12), reader.GetString(13)));
+-            }
+-        }
+-
+-        await using (var command = new FbCommand("""
+-            SELECT L.ID, L.LINE_NUMBER, F.CODE, F.PRODUCT_NAME,
+-                   COALESCE(F.GOLD_PURITY, ''), L.UNIT_COST, COALESCE(L.NOTES, '')
+-            FROM FINISHED_PRODUCT_DOCUMENT_LINES L
+-            JOIN STOCK_DOCUMENTS D ON D.ID = L.DOCUMENT_ID
+-            JOIN FINISHED_PRODUCTS F ON F.ID = L.FINISHED_PRODUCT_ID
+-            WHERE L.DOCUMENT_ID = @ID
+-              AND D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND D.BRANCH_ID = @BRANCH_ID
+-            ORDER BY L.LINE_NUMBER
+-            """, connection))
+-        {
+-            command.Parameters.Add("@ID", FbDbType.BigInt).Value = documentId;
+-            command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-            while (await reader.ReadAsync(cancellationToken))
+-            {
+-                result.Add(new StockDocumentLine(
+-                    reader.GetInt64(0), reader.GetInt32(1), 0, null,
+-                    reader.GetString(2), reader.GetString(3), "FINISHED_PRODUCT",
+-                    reader.GetString(4), "món", 1m,
+-                    reader.GetDecimal(5), reader.GetDecimal(5), string.Empty, reader.GetString(6)));
+-            }
+-        }
+-
+-        return result.OrderBy(x => x.LineNumber).ToList();
++
++        var materialLines = await connection.QueryAsync<StockDocumentLine>(
++            new CommandDefinition("""
++                SELECT L.ID AS Id, L.LINE_NUMBER AS LineNumber, L.MATERIAL_ID AS MaterialId,
++                       L.PRODUCTION_MATERIAL_PLAN_ID AS ProductionMaterialPlanId,
++                       M.CODE AS MaterialCode, M.NAME AS MaterialName, M.MATERIAL_TYPE AS MaterialType,
++                       COALESCE(M.PURITY_CODE, '') AS PurityCode, M.UNIT_CODE AS UnitCode,
++                       L.QUANTITY AS Quantity, L.UNIT_COST AS UnitCost, L.LINE_AMOUNT AS LineAmount,
++                       COALESCE(L.LOT_NO, '') AS LotNo, COALESCE(L.NOTES, '') AS Notes
++                FROM STOCK_DOCUMENT_LINES L
++                JOIN STOCK_DOCUMENTS D ON D.ID = L.DOCUMENT_ID
++                JOIN MATERIALS M ON M.ID = L.MATERIAL_ID
++                WHERE L.DOCUMENT_ID = @ID
++                  AND D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND D.BRANCH_ID = @BRANCH_ID
++                ORDER BY L.LINE_NUMBER
++                """,
++                new { ID = documentId, BRANCH_ID = session.BranchId },
++                cancellationToken: cancellationToken));
++
++        var finishedProductLines = await connection.QueryAsync<StockDocumentLine>(
++            new CommandDefinition("""
++                SELECT L.ID AS Id, L.LINE_NUMBER AS LineNumber,
++                       CAST(0 AS BIGINT) AS MaterialId,
++                       CAST(NULL AS BIGINT) AS ProductionMaterialPlanId,
++                       F.CODE AS MaterialCode, F.PRODUCT_NAME AS MaterialName,
++                       'FINISHED_PRODUCT' AS MaterialType,
++                       COALESCE(F.GOLD_PURITY, '') AS PurityCode,
++                       CAST('món' AS VARCHAR(20) CHARACTER SET UTF8) AS UnitCode,
++                       CAST(1 AS DECIMAL(18, 2)) AS Quantity,
++                       L.UNIT_COST AS UnitCost, L.UNIT_COST AS LineAmount,
++                       '' AS LotNo, COALESCE(L.NOTES, '') AS Notes
++                FROM FINISHED_PRODUCT_DOCUMENT_LINES L
++                JOIN STOCK_DOCUMENTS D ON D.ID = L.DOCUMENT_ID
++                JOIN FINISHED_PRODUCTS F ON F.ID = L.FINISHED_PRODUCT_ID
++                WHERE L.DOCUMENT_ID = @ID
++                  AND D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND D.BRANCH_ID = @BRANCH_ID
++                ORDER BY L.LINE_NUMBER
++                """,
++                new { ID = documentId, BRANCH_ID = session.BranchId },
++                cancellationToken: cancellationToken));
++
++        return materialLines.Concat(finishedProductLines).OrderBy(x => x.LineNumber).ToList();
+     }
+ 
+     public async Task<IReadOnlyList<StockMovementItem>> SearchMovementsAsync(
+@@ -630,58 +525,45 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
+         ArgumentNullException.ThrowIfNull(session);
+         EnsureBranch(session);
+ 
+-        var result = new List<StockMovementItem>();
++        var search = (filter.SearchText ?? string.Empty).Trim();
++
+         await using var connection = FirebirdDatabase.CreateConnection();
+         await connection.OpenAsync(cancellationToken);
+-        await using var command = new FbCommand("""
+-            SELECT X.ID, X.OCCURRED_AT, D.CODE, D.DOCUMENT_TYPE, M.CODE, M.NAME,
+-                   L.NAME, X.MOVEMENT_TYPE, X.QUANTITY_CHANGE, X.UNIT_COST,
+-                   X.VALUE_CHANGE, COALESCE(U.DISPLAY_NAME, '')
+-            FROM STOCK_MOVEMENTS X
+-            JOIN STOCK_DOCUMENTS D ON D.ID = X.DOCUMENT_ID
+-            JOIN MATERIALS M ON M.ID = X.MATERIAL_ID
+-            JOIN LOCATIONS L ON L.ID = X.LOCATION_ID
+-            LEFT JOIN USERS U ON U.ID = X.CREATED_BY
+-            WHERE D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND D.BRANCH_ID = @BRANCH_ID
+-              AND M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+-              AND (@HAS_MATERIAL = 0 OR X.MATERIAL_ID = @MATERIAL_ID)
+-              AND (@HAS_LOCATION = 0 OR X.LOCATION_ID = @LOCATION_ID)
+-              AND (@HAS_SEARCH = 0
+-                   OR CAST(D.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR CAST(M.CODE AS VARCHAR(100) CHARACTER SET UTF8) CONTAINING @SEARCH
+-                   OR M.NAME CONTAINING @SEARCH)
+-            ORDER BY X.OCCURRED_AT DESC, X.ID DESC
+-            """, connection);
+-
+-        var search = (filter.SearchText ?? string.Empty).Trim();
+-        command.Parameters.Add("@BRANCH_ID", FbDbType.BigInt).Value = session.BranchId;
+-        command.Parameters.Add("@HAS_MATERIAL", FbDbType.Integer).Value = filter.MaterialId > 0 ? 1 : 0;
+-        command.Parameters.Add("@MATERIAL_ID", FbDbType.BigInt).Value = filter.MaterialId;
+-        command.Parameters.Add("@HAS_LOCATION", FbDbType.Integer).Value = filter.LocationId > 0 ? 1 : 0;
+-        command.Parameters.Add("@LOCATION_ID", FbDbType.BigInt).Value = filter.LocationId;
+-        command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
+-        command.Parameters.Add("@SEARCH", FbDbType.VarChar, 255).Value = search;
+-
+-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+-        while (await reader.ReadAsync(cancellationToken))
+-        {
+-            result.Add(new StockMovementItem(
+-                reader.GetInt64(0),
+-                reader.GetDateTime(1),
+-                reader.GetString(2),
+-                reader.GetString(3),
+-                reader.GetString(4),
+-                reader.GetString(5),
+-                reader.GetString(6),
+-                reader.GetString(7),
+-                reader.GetDecimal(8),
+-                reader.GetDecimal(9),
+-                reader.GetDecimal(10),
+-                reader.GetString(11)));
+-        }
+-
+-        return result;
++        var rows = await connection.QueryAsync<StockMovementItem>(
++            new CommandDefinition("""
++                SELECT X.ID AS Id, X.OCCURRED_AT AS OccurredAt, D.CODE AS DocumentCode,
++                       D.DOCUMENT_TYPE AS DocumentType, M.CODE AS MaterialCode, M.NAME AS MaterialName,
++                       L.NAME AS LocationName, X.MOVEMENT_TYPE AS MovementType,
++                       X.QUANTITY_CHANGE AS QuantityChange, X.UNIT_COST AS UnitCost,
++                       X.VALUE_CHANGE AS ValueChange, COALESCE(U.DISPLAY_NAME, '') AS CreatedByName
++                FROM STOCK_MOVEMENTS X
++                JOIN STOCK_DOCUMENTS D ON D.ID = X.DOCUMENT_ID
++                JOIN MATERIALS M ON M.ID = X.MATERIAL_ID
++                JOIN LOCATIONS L ON L.ID = X.LOCATION_ID
++                LEFT JOIN USERS U ON U.ID = X.CREATED_BY
++                WHERE D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND D.BRANCH_ID = @BRANCH_ID
++                  AND M.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND (@HAS_MATERIAL = 0 OR X.MATERIAL_ID = @MATERIAL_ID)
++                  AND (@HAS_LOCATION = 0 OR X.LOCATION_ID = @LOCATION_ID)
++                  AND (@HAS_SEARCH = 0
++                       OR CAST(D.CODE AS VARCHAR(80) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR CAST(M.CODE AS VARCHAR(100) CHARACTER SET UTF8) CONTAINING @SEARCH
++                       OR M.NAME CONTAINING @SEARCH)
++                ORDER BY X.OCCURRED_AT DESC, X.ID DESC
++                """,
++                new
++                {
++                    BRANCH_ID = session.BranchId,
++                    HAS_MATERIAL = filter.MaterialId > 0 ? 1 : 0,
++                    MATERIAL_ID = filter.MaterialId,
++                    HAS_LOCATION = filter.LocationId > 0 ? 1 : 0,
++                    LOCATION_ID = filter.LocationId,
++                    HAS_SEARCH = search.Length > 0 ? 1 : 0,
++                    SEARCH = search
++                },
++                cancellationToken: cancellationToken));
++        return rows.AsList();
+     }
+ 
+     private static void EnsureBranch(AuthenticatedSession session)
+-- 
+2.43.0
+
