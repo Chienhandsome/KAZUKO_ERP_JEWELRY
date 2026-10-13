@@ -1353,11 +1353,13 @@
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" MinHeight="220" />
+                                <RowDefinition Height="*" MinHeight="180" />
+                                <RowDefinition Height="*" MinHeight="160" />
                             </Grid.RowDefinitions>
                             <WrapPanel Grid.Row="0" Margin="0,0,0,10">
                                 <TextBox Width="240" Style="{StaticResource FilterFieldStyle}"
-                                         Text="{Binding DocumentSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding DocumentSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Tìm số phiếu, tham chiếu, đối tác" />
                                 <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding DocumentStatusOptions}"
                                           SelectedItem="{Binding SelectedDocumentStatus}" />
@@ -1366,7 +1368,7 @@
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
-                            <Grid Grid.Row="1">
+                            <Grid Grid.Row="1" Margin="0,0,0,10">
                                 <DataGrid ItemsSource="{Binding Documents}"
                                           SelectedItem="{Binding SelectedDocument}"
                                           Style="{StaticResource WarehouseDataGridStyle}"
@@ -1391,6 +1393,65 @@
                                            FontSize="{DynamicResource FontSize.Body}"
                                            Visibility="{Binding IsDocumentsEmpty, Converter={StaticResource BoolToVis}}" />
                             </Grid>
+                            <Border Grid.Row="2" Style="{DynamicResource CardBorderStyle}" Padding="10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                  Visibility="{Binding HasDocumentDetail, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel>
+                                            <TextBlock Text="Chi tiết phiếu (chỉ đọc)"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="{DynamicResource FontSize.Body}"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       Margin="0,0,0,8" />
+                                            <TextBlock Text="Số phiếu" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Ngày" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailDate, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Loại" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailType, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Trạng thái" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailStatus, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Kho nguồn" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding SelectedDocument.SourceLocationName, Mode=OneWay, TargetNullValue=—}"
+                                                     Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Đối tác" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailCounterparty, Mode=OneWay, TargetNullValue=—}" Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Người tạo" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailCreatedBy, Mode=OneWay, TargetNullValue=—}" Style="{StaticResource DetailValueStyle}" />
+                                            <TextBlock Text="Ghi chú" Style="{StaticResource DetailLabelStyle}" />
+                                            <TextBox Text="{Binding DetailNotes, Mode=OneWay, TargetNullValue=—}"
+                                                     Style="{StaticResource DetailValueStyle}"
+                                                     TextWrapping="Wrap"
+                                                     MinHeight="48"
+                                                     VerticalContentAlignment="Top" />
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                    <TextBlock Grid.Column="0" Text="Chọn một phiếu để xem chi tiết."
+                                               VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="{DynamicResource FontSize.Body}"
+                                               Visibility="{Binding HasDocumentDetail, Converter={StaticResource InverseBoolToVis}}" />
+                                    <DataGrid Grid.Column="2" ItemsSource="{Binding DocumentLines}"
+                                              Style="{StaticResource WarehouseDataGridStyle}"
+                                              ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
+                                              grid:DataGridColumnLayout.SettingsKey="warehouse-issue-lines"
+                                              Visibility="{Binding HasDocumentDetail, Converter={StaticResource BoolToVis}}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="#" grid:DataGridColumnLayout.Key="LineNumber" Binding="{Binding LineNumber, Mode=OneWay}" Width="40" />
+                                            <DataGridTextColumn Header="Mã" grid:DataGridColumnLayout.Key="MaterialCode" Binding="{Binding MaterialCode, Mode=OneWay}" Width="110" />
+                                            <DataGridTextColumn Header="Tên" grid:DataGridColumnLayout.Key="MaterialName" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" MinWidth="120" />
+                                            <DataGridTextColumn Header="SL" grid:DataGridColumnLayout.Key="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="80" />
+                                            <DataGridTextColumn Header="ĐVT" grid:DataGridColumnLayout.Key="Unit" Binding="{Binding UnitCode, Mode=OneWay}" Width="60" />
+                                            <DataGridTextColumn Header="Thành tiền" grid:DataGridColumnLayout.Key="LineAmount" Binding="{Binding LineAmountText, Mode=OneWay}" Width="100" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
                         </Grid>
                     </TabItem>
 
