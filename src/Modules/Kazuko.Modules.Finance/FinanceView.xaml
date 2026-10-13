@@ -1,0 +1,29 @@
+<UserControl x:Class="Kazuko.Modules.Finance.FinanceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Kazuko.Modules.Finance"
+             MinWidth="960" MinHeight="560"
+             Background="{DynamicResource AppBackgroundBrush}">
+  <DockPanel Margin="16,12,16,16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="TÀI CHÍNH"
+               FontSize="{DynamicResource FontSize.Heading}"
+               FontWeight="SemiBold"
+               Foreground="{DynamicResource TextPrimaryBrush}"
+               Margin="0,0,0,12" />
+
+    <TabControl SelectedIndex="{Binding SelectedTabIndex}"
+                Background="{DynamicResource AppBackgroundBrush}"
+                BorderThickness="0">
+      <TabItem Header="Tổng quan" MinHeight="36" Padding="20,8">
+        <local:FinanceOverviewView DataContext="{Binding Overview}" />
+      </TabItem>
+      <TabItem Header="Thu" MinHeight="36" Padding="20,8">
+        <local:VoucherListView DataContext="{Binding Income}" />
+      </TabItem>
+      <TabItem Header="Chi" MinHeight="36" Padding="20,8">
+        <local:VoucherListView DataContext="{Binding Expense}" />
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

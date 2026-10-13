@@ -1,0 +1,140 @@
+<UserControl x:Class="Kazuko.Modules.Finance.VoucherListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Kazuko.Modules.Finance"
+             Background="{DynamicResource AppBackgroundBrush}">
+  <UserControl.Resources>
+    <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
+    <local:NullOrEmptyToVisibilityConverter x:Key="EmptyToVis" />
+    <local:BoolToVisibilityConverter x:Key="BoolToVis" />
+    <local:VoucherTypeToTextConverter x:Key="VoucherTypeToText" />
+    <local:PaymentMethodToTextConverter x:Key="PaymentMethodToText" />
+    <local:VoucherStatusToTextConverter x:Key="VoucherStatusToText" />
+
+    <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
+    <Style x:Key="DetailValueStyle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="1.25*" />
+      <ColumnDefinition Width="0.75*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- Danh sách phiếu -->
+    <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,6,0">
+      <DockPanel>
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+          <TextBlock Text="{Binding Title}" Style="{StaticResource SectionHeaderStyle}" VerticalAlignment="Center" />
+          <Button DockPanel.Dock="Right" Content="{Binding AddButtonText}"
+                  Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding AddCommand}"
+                  MinHeight="36" Padding="16,0" />
+        </DockPanel>
+
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8" VerticalAlignment="Center">
+          <TextBlock Text="Từ ngày" VerticalAlignment="Center" Style="{StaticResource FieldLabelStyle}" Margin="0,0,4,8" />
+          <DatePicker SelectedDate="{Binding FromDate}" MinHeight="36" Margin="0,0,8,8" VerticalContentAlignment="Center" />
+          <TextBlock Text="Đến ngày" VerticalAlignment="Center" Style="{StaticResource FieldLabelStyle}" Margin="0,0,4,8" />
+          <DatePicker SelectedDate="{Binding ToDate}" MinHeight="36" Margin="0,0,8,8" VerticalContentAlignment="Center" />
+          <TextBox Text="{Binding Keyword, UpdateSourceTrigger=PropertyChanged}" MinWidth="160" MinHeight="36"
+                   Margin="0,0,8,8" VerticalContentAlignment="Center" Padding="8,4" />
+          <Button Content="Tìm kiếm" Style="{DynamicResource PrimaryButtonStyle}"
+                  Command="{Binding SearchCommand}" MinHeight="36" MinWidth="100" Margin="0,0,8,8" />
+          <Button Content="Làm mới" Style="{DynamicResource NavButtonStyle}"
+                  Command="{Binding RefreshCommand}" MinHeight="36" MinWidth="90" Margin="0,0,0,8" />
+        </WrapPanel>
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding ErrorMessage}"
+                   Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyToVis}}" />
+
+        <DataGrid ItemsSource="{Binding Vouchers}" SelectedItem="{Binding SelectedVoucher}"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" VerticalScrollBarVisibility="Auto">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="STT" Binding="{Binding Index}" Width="45" />
+            <DataGridTextColumn Header="Ngày" Binding="{Binding DateText}" Width="90" />
+            <DataGridTextColumn Header="Số phiếu" Binding="{Binding Code}" Width="110" />
+            <DataGridTextColumn Header="Nội dung" Binding="{Binding Content}" Width="*" />
+            <DataGridTextColumn Header="Số tiền (VND)" Binding="{Binding AmountText}" Width="140">
+              <DataGridTextColumn.ElementStyle>
+                <Style TargetType="TextBlock">
+                  <Setter Property="HorizontalAlignment" Value="Right" />
+                  <Setter Property="FontWeight" Value="SemiBold" />
+                </Style>
+              </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+          </DataGrid.Columns>
+        </DataGrid>
+      </DockPanel>
+    </Border>
+
+    <!-- Pane chi tiết -->
+    <Border Grid.Column="1" Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="6,0,0,0">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <TextBlock Text="Chi tiết phiếu" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,12" />
+
+          <TextBlock Text="Chọn một phiếu bên trái để xem chi tiết."
+                     Style="{StaticResource FieldLabelStyle}" FontStyle="Italic" TextWrapping="Wrap"
+                     Visibility="{Binding SelectedDetail, Converter={StaticResource EmptyToVis}}" />
+
+          <StackPanel Visibility="{Binding SelectedDetail, Converter={StaticResource NotEmptyToVis}}">
+            <TextBlock Text="Số phiếu" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.Code}" Style="{StaticResource DetailValueStyle}" FontWeight="SemiBold" />
+
+            <TextBlock Text="Ngày" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.VoucherDate, StringFormat=dd/MM/yyyy}" Style="{StaticResource DetailValueStyle}" />
+
+            <TextBlock Text="Loại" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.VoucherType, Converter={StaticResource VoucherTypeToText}}" Style="{StaticResource DetailValueStyle}" />
+
+            <TextBlock Text="Hình thức" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.PaymentMethod, Converter={StaticResource PaymentMethodToText}}" Style="{StaticResource DetailValueStyle}" />
+
+            <TextBlock Text="Số tiền (VND)" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.AmountVnd, StringFormat=N0}" Style="{StaticResource DetailValueStyle}"
+                       FontWeight="Bold" FontSize="{DynamicResource FontSize.Subtitle}" />
+
+            <TextBlock Text="Đối tượng" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.PartyName, TargetNullValue=—}" Style="{StaticResource DetailValueStyle}" />
+
+            <TextBlock Text="Diễn giải" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.Notes, TargetNullValue=—}" Style="{StaticResource DetailValueStyle}" />
+
+            <TextBlock Text="Tham chiếu" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.ReferenceNumber, TargetNullValue=—}" Style="{StaticResource DetailValueStyle}" />
+
+            <TextBlock Text="Người tạo" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.CreatedByName}" Style="{StaticResource DetailValueStyle}" />
+
+            <TextBlock Text="Trạng thái" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding SelectedDetail.StatusCode, Converter={StaticResource VoucherStatusToText}}"
+                       Style="{StaticResource DetailValueStyle}" FontWeight="SemiBold" />
+
+            <Button Content="Hủy phiếu" Command="{Binding CancelCommand}"
+                    Style="{DynamicResource NavButtonStyle}" Foreground="{DynamicResource DangerBrush}"
+                    MinHeight="40" Margin="0,8,0,0"
+                    Visibility="{Binding DetailCancellable, Converter={StaticResource BoolToVis}}" />
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+  </Grid>
+</UserControl>

@@ -34,6 +34,7 @@ using Kazuko.Modules.Authentication;
 using Kazuko.Modules.Customers;
 using Kazuko.Modules.Dashboard;
 using Kazuko.Modules.Debt;
+using Kazuko.Modules.Finance;
 using Kazuko.Modules.HumanResources;
 using Kazuko.Modules.PriceBoard;
 using Kazuko.Modules.Production;
@@ -100,6 +101,8 @@ public partial class App : Application
         IReceivableDebtRepository receivableDebts = new FirebirdReceivableDebtRepository();
         IDocumentReversalService documentReversals = new FirebirdDocumentReversalService();
         IPartyCreditService partyCredits = new FirebirdPartyCreditService();
+        IFinanceDashboardRepository financeDashboard = new FirebirdFinanceDashboardRepository();
+        IFinanceVoucherService financeVouchers = new FirebirdFinanceVoucherService();
         IProductionQueryRepository productionQueries = new FirebirdProductionQueryRepository();
         IProductionAttachmentStore productionAttachments = new LocalProductionAttachmentStore();
         IProductionApplicationService productionApplication =
@@ -150,6 +153,8 @@ public partial class App : Application
         _services.AddSingleton(receivableDebts);
         _services.AddSingleton(documentReversals);
         _services.AddSingleton(partyCredits);
+        _services.AddSingleton(financeDashboard);
+        _services.AddSingleton(financeVouchers);
         _services.AddSingleton(productionQueries);
         _services.AddSingleton(productionApplication);
         _services.AddSingleton(productionAttachments);
@@ -175,6 +180,7 @@ public partial class App : Application
             new PriceBoardModule(),
             new WarehouseModule(),
             new DebtModule(),
+            new FinanceModule(),
             new HumanResourcesModule(),
             new ReportsModule()
         ];

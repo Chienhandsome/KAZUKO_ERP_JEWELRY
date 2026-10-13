@@ -1,0 +1,44 @@
+From fa97cf3770893f8b3d05e028d8a738ddfb0f6212 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 15:52:45 +0700
+Subject: [PATCH] fix(finance): add Finance module project to solution
+
+---
+ KAZUKO_ERP_JEWELRY.sln | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/KAZUKO_ERP_JEWELRY.sln b/KAZUKO_ERP_JEWELRY.sln
+index 0676443..f0ea73c 100644
+--- a/KAZUKO_ERP_JEWELRY.sln
++++ b/KAZUKO_ERP_JEWELRY.sln
+@@ -34,6 +34,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Debt", "src\
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Production", "src\Modules\Kazuko.Modules.Production\Kazuko.Modules.Production.csproj", "{E2F3A4B5-C6D7-4890-E123-456789ABCDEF}"
+ EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Finance", "src\Modules\Kazuko.Modules.Finance\Kazuko.Modules.Finance.csproj", "{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}"
++EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Sales", "src\Modules\Kazuko.Modules.Sales\Kazuko.Modules.Sales.csproj", "{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}"
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Reports", "src\Modules\Kazuko.Modules.Reports\Kazuko.Modules.Reports.csproj", "{B5C6D7E8-F901-4123-A456-7890ABCDEF12}"
+@@ -104,6 +106,10 @@ Global
+ 		{E2F3A4B5-C6D7-4890-E123-456789ABCDEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+ 		{E2F3A4B5-C6D7-4890-E123-456789ABCDEF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+ 		{E2F3A4B5-C6D7-4890-E123-456789ABCDEF}.Release|Any CPU.Build.0 = Release|Any CPU
++		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}.Release|Any CPU.Build.0 = Release|Any CPU
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+@@ -125,6 +131,7 @@ Global
+ 		{C84D7EAE-9DCF-4724-B219-B49ABBD50D57} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{D1E2F3A4-B5C6-4789-D012-3456789ABCDE} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{E2F3A4B5-C6D7-4890-E123-456789ABCDEF} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
++		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{B5C6D7E8-F901-4123-A456-7890ABCDEF12} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{AFD91FE8-1922-41E1-932D-C316FB90F95C} = {5E41D1CA-7884-4AB4-A722-B9D1FFFBDED4}
+-- 
+2.43.0
+
