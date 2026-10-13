@@ -7,6 +7,8 @@ namespace Kazuko.Modules.Finance;
 
 public sealed class FinanceModule : IKazukoModule
 {
+    private const string AssetRoot = "/Kazuko.Modules.Finance;component/Assets/icons/";
+
     public string Id => "Kazuko.Finance";
     public Version Version => new(1, 0, 0);
 
@@ -32,7 +34,7 @@ public sealed class FinanceModule : IKazukoModule
             {
                 DataContext = new FinanceViewModel(dashboard, vouchers, payables, receivables, session)
             },
-            null,
+            AssetRoot + "TC.png",
             "Thu chi tiền, phiếu thu/chi\nvà tổng quan tài chính",
             ShowInSidebar: true,
             ShowOnHome: true,

@@ -10,31 +10,29 @@
         ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}">
   <Window.Resources>
-    <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/FinanceResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
 
-    <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
-      <Setter Property="Margin" Value="0,0,0,4" />
-    </Style>
+      <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
 
-    <Style x:Key="DialogFieldStyle" TargetType="TextBox">
-      <Setter Property="MinHeight" Value="40" />
-      <Setter Property="Padding" Value="12,6" />
-      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
+      <Style x:Key="DialogFieldStyle" TargetType="TextBox" BasedOn="{StaticResource FinanceRoundedTextBoxStyle}">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+      </Style>
+    </ResourceDictionary>
   </Window.Resources>
 
   <DockPanel Margin="20">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-      <Button Content="Hủy" Style="{DynamicResource NavButtonStyle}" Command="{Binding CancelCommand}"
+      <Button Content="Hủy"
+              Style="{StaticResource FinanceOutlineButtonStyle}"
+              Command="{Binding CancelCommand}"
               MinHeight="40" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
-      <Button Content="Lưu" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding SaveCommand}"
+      <Button Content="Lưu"
+              Style="{StaticResource FinancePrimaryButtonStyle}"
+              Command="{Binding SaveCommand}"
               MinHeight="40" MinWidth="120" IsDefault="True" />
     </StackPanel>
 
@@ -42,10 +40,11 @@
       <StackPanel>
         <TextBlock Text="{Binding Title}"
                    FontSize="{DynamicResource FontSize.Heading}"
-                   Foreground="{DynamicResource TextPrimaryBrush}"
-                   FontWeight="SemiBold" />
+                   Foreground="{DynamicResource PrimaryBrush}"
+                   FontWeight="Bold" />
         <TextBlock Text="Phiếu được ghi sổ ngay sau khi lưu."
                    Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="{DynamicResource FontSize.Body}"
                    Margin="0,4,0,12"
                    TextWrapping="Wrap" />
         <TextBlock Text="{Binding ErrorMessage}"
@@ -54,34 +53,34 @@
                    Margin="0,0,0,8"
                    Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyToVis}}" />
 
-        <TextBlock Text="Loại" Style="{StaticResource FieldLabelStyle}" />
+        <TextBlock Text="Loại" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding VoucherTypeName, Mode=OneWay}" Style="{StaticResource DialogFieldStyle}"
-                 IsReadOnly="True" Margin="0,0,0,12" />
+                 IsReadOnly="True" Background="{DynamicResource SurfaceAltBrush}" />
 
-        <TextBlock Text="Ngày" Style="{StaticResource FieldLabelStyle}" />
+        <TextBlock Text="Ngày" Style="{StaticResource FinanceFieldLabelStyle}" />
         <DatePicker SelectedDate="{Binding VoucherDate}" MinHeight="40" Margin="0,0,0,12"
                     VerticalContentAlignment="Center" />
 
-        <TextBlock Text="Số tiền (VND)" Style="{StaticResource FieldLabelStyle}" />
+        <TextBlock Text="Số tiền (VND)" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource DialogFieldStyle}" Margin="0,0,0,12" />
+                 Style="{StaticResource DialogFieldStyle}" />
 
-        <TextBlock Text="Phương thức" Style="{StaticResource FieldLabelStyle}" />
+        <TextBlock Text="Phương thức" Style="{StaticResource FinanceFieldLabelStyle}" />
         <ComboBox ItemsSource="{Binding PaymentMethodOptions}" SelectedItem="{Binding SelectedPaymentMethod}"
-                  MinHeight="40" Margin="0,0,0,12" VerticalContentAlignment="Center"
-                  FontSize="{DynamicResource FontSize.Body}" />
+                  Style="{StaticResource FinanceFilterComboStyle}"
+                  MinHeight="40" Margin="0,0,0,12" />
 
-        <TextBlock Text="Đối tượng" Style="{StaticResource FieldLabelStyle}" />
+        <TextBlock Text="Đối tượng" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding PartyName, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource DialogFieldStyle}" Margin="0,0,0,12" />
+                 Style="{StaticResource DialogFieldStyle}" />
 
-        <TextBlock Text="Diễn giải" Style="{StaticResource FieldLabelStyle}" />
+        <TextBlock Text="Diễn giải" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource DialogFieldStyle}" Margin="0,0,0,12"
+                 Style="{StaticResource DialogFieldStyle}"
                  MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True"
                  VerticalContentAlignment="Top" Padding="12,8" />
 
-        <TextBlock Text="Tham chiếu (không bắt buộc)" Style="{StaticResource FieldLabelStyle}" />
+        <TextBlock Text="Tham chiếu (không bắt buộc)" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding ReferenceNumber, UpdateSourceTrigger=PropertyChanged}"
                  Style="{StaticResource DialogFieldStyle}" Margin="0,0,0,4" />
       </StackPanel>

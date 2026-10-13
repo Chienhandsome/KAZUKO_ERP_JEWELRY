@@ -674,11 +674,15 @@
                                                         <TextBlock Text="Trang sức hoàn thiện, sản phẩm chế tác" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                        <Button Content="+ Nhập thành phẩm"
+                                                                Style="{StaticResource RoundedPrimaryButtonStyle}"
                                                                 Command="{Binding OpenProductionFinishedReceiptCommand}"
+                                                                MinWidth="150"
                                                                 ToolTip="Nhập toàn bộ thành phẩm của một lệnh sản xuất đã hoàn thành" />
-                                                        <Button Content="Xuất kho bán hàng" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                        <Button Content="Xuất kho bán hàng"
+                                                                Style="{StaticResource RoundedPrimaryButtonStyle}"
                                                                 Command="{Binding OpenFinishedProductTransferCommand}"
+                                                                MinWidth="150"
                                                                 ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
                                                     </StackPanel>
                                                 </Grid>
@@ -911,8 +915,10 @@
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearBalanceFiltersCommand}" MinWidth="90" />
                                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                    <Button Content="+ Nhập NVL"
+                                            Style="{StaticResource RoundedPrimaryButtonStyle}"
                                             Command="{Binding OpenReceiptTabCommand}"
+                                            MinWidth="120"
                                             ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
                                 </StackPanel>
                             </WrapPanel>
@@ -1049,10 +1055,14 @@
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearFinishedFiltersCommand}" MinWidth="90" />
                                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button Content="+ Nhập thành phẩm" Style="{StaticResource PrimaryActionButtonStyle}"
-                                            Command="{Binding OpenProductionFinishedReceiptCommand}" />
-                                    <Button Content="Xuất kho bán hàng" Style="{StaticResource PrimaryActionButtonStyle}"
+                                    <Button Content="+ Nhập thành phẩm"
+                                            Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                            Command="{Binding OpenProductionFinishedReceiptCommand}"
+                                            MinWidth="150" />
+                                    <Button Content="Xuất kho bán hàng"
+                                            Style="{StaticResource RoundedPrimaryButtonStyle}"
                                             Command="{Binding OpenFinishedProductTransferCommand}"
+                                            MinWidth="150"
                                             ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng" />
                                 </StackPanel>
                             </WrapPanel>
@@ -1401,9 +1411,10 @@
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
                                 <Button Content="+ Xuất kho bán hàng"
-                                        Style="{StaticResource PrimaryActionButtonStyle}"
+                                        Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding OpenFinishedProductTransferCommand}"
                                         ToolTip="Lập phiếu chuyển thành phẩm sang Kho bán hàng"
+                                        MinWidth="170"
                                         Margin="12,0,0,0" />
                             </WrapPanel>
                             <Grid Grid.Row="1">
