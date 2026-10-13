@@ -1,0 +1,26 @@
+From ea32a0eb5f9c42b6a1cdf5fd97e2e9763f115f5b Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Mon, 12 Oct 2026 15:54:14 +0700
+Subject: [PATCH] fix(finance): remove duplicate Style on empty-state TextBlock
+
+---
+ src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml b/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml
+index a18be38..b8d919b 100644
+--- a/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml
++++ b/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml
+@@ -153,8 +153,7 @@
+                 </DataTemplate>
+               </ItemsControl.ItemTemplate>
+             </ItemsControl>
+-            <TextBlock Text="Chưa có dữ liệu chi phí tháng này"
+-                       Style="{StaticResource FieldLabelStyle}" FontStyle="Italic">
++            <TextBlock Text="Chưa có dữ liệu chi phí tháng này">
+               <TextBlock.Style>
+                 <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabelStyle}">
+                   <Setter Property="Visibility" Value="Collapsed" />
+-- 
+2.43.0
+

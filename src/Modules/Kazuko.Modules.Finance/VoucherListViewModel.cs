@@ -146,6 +146,7 @@ public sealed class VoucherListViewModel : ObservableObject
                 var isIncome = item.VoucherType == FinancialVoucherTypes.In;
                 Vouchers.Add(new RecentVoucherRow
                 {
+                    Id = item.Id,
                     Index = index++,
                     VoucherDate = item.VoucherDate,
                     Code = item.Code,

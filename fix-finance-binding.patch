@@ -1,0 +1,35 @@
+From 0f2a4c0caf717e191b8141b1d71492bcf5a3bd92 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Tue, 13 Oct 2026 10:44:36 +0700
+Subject: [PATCH] fix(finance): set OneWay binding mode on read-only Run text
+ properties
+
+---
+ src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml b/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml
+index b8d919b..500cb0c 100644
+--- a/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml
++++ b/src/Modules/Kazuko.Modules.Finance/FinanceOverviewView.xaml
+@@ -54,7 +54,7 @@
+             <TextBlock Text="Tổng thu trong tháng" Style="{StaticResource FieldLabelStyle}" />
+             <TextBlock Text="{Binding TotalIncomeMonthText, StringFormat={}{0} đ}" Style="{StaticResource KpiValueStyle}" Foreground="{DynamicResource SuccessBrush}" />
+             <TextBlock Foreground="{Binding IncomeGrowthBrushKey, Converter={StaticResource BrushKeyToBrush}}">
+-              <Run Text="▲ " /><Run Text="{Binding IncomeGrowthText}" /><Run Text=" so với tháng trước" />
++              <Run Text="▲ " /><Run Text="{Binding IncomeGrowthText, Mode=OneWay}" /><Run Text=" so với tháng trước" />
+             </TextBlock>
+           </StackPanel>
+         </Border>
+@@ -64,7 +64,7 @@
+             <TextBlock Text="Tổng chi trong tháng" Style="{StaticResource FieldLabelStyle}" />
+             <TextBlock Text="{Binding TotalExpenseMonthText, StringFormat={}{0} đ}" Style="{StaticResource KpiValueStyle}" Foreground="{DynamicResource DangerBrush}" />
+             <TextBlock Foreground="{Binding ExpenseGrowthBrushKey, Converter={StaticResource BrushKeyToBrush}}">
+-              <Run Text="▲ " /><Run Text="{Binding ExpenseGrowthText}" /><Run Text=" so với tháng trước" />
++              <Run Text="▲ " /><Run Text="{Binding ExpenseGrowthText, Mode=OneWay}" /><Run Text=" so với tháng trước" />
+             </TextBlock>
+           </StackPanel>
+         </Border>
+-- 
+2.43.0
+

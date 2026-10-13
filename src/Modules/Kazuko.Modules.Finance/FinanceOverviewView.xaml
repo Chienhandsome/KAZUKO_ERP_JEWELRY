@@ -54,7 +54,7 @@
             <TextBlock Text="Tổng thu trong tháng" Style="{StaticResource FieldLabelStyle}" />
             <TextBlock Text="{Binding TotalIncomeMonthText, StringFormat={}{0} đ}" Style="{StaticResource KpiValueStyle}" Foreground="{DynamicResource SuccessBrush}" />
             <TextBlock Foreground="{Binding IncomeGrowthBrushKey, Converter={StaticResource BrushKeyToBrush}}">
-              <Run Text="▲ " /><Run Text="{Binding IncomeGrowthText}" /><Run Text=" so với tháng trước" />
+              <Run Text="▲ " /><Run Text="{Binding IncomeGrowthText, Mode=OneWay}" /><Run Text=" so với tháng trước" />
             </TextBlock>
           </StackPanel>
         </Border>
@@ -64,7 +64,7 @@
             <TextBlock Text="Tổng chi trong tháng" Style="{StaticResource FieldLabelStyle}" />
             <TextBlock Text="{Binding TotalExpenseMonthText, StringFormat={}{0} đ}" Style="{StaticResource KpiValueStyle}" Foreground="{DynamicResource DangerBrush}" />
             <TextBlock Foreground="{Binding ExpenseGrowthBrushKey, Converter={StaticResource BrushKeyToBrush}}">
-              <Run Text="▲ " /><Run Text="{Binding ExpenseGrowthText}" /><Run Text=" so với tháng trước" />
+              <Run Text="▲ " /><Run Text="{Binding ExpenseGrowthText, Mode=OneWay}" /><Run Text=" so với tháng trước" />
             </TextBlock>
           </StackPanel>
         </Border>
@@ -153,8 +153,7 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <TextBlock Text="Chưa có dữ liệu chi phí tháng này"
-                       Style="{StaticResource FieldLabelStyle}" FontStyle="Italic">
+            <TextBlock Text="Chưa có dữ liệu chi phí tháng này">
               <TextBlock.Style>
                 <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabelStyle}">
                   <Setter Property="Visibility" Value="Collapsed" />

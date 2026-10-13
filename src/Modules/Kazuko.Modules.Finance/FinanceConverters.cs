@@ -47,7 +47,7 @@ public sealed class NullOrEmptyToVisibilityConverter : IValueConverter
 public sealed class VoucherTypeToTextConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value as string switch
+        (value as string) switch
         {
             FinancialVoucherTypes.In => "Thu",
             FinancialVoucherTypes.Out => "Chi",
