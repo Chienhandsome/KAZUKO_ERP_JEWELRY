@@ -56,3 +56,19 @@ public sealed class NullOrEmptyToVisibilityConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+/// <summary>
+/// Chuyển AlternationIndex (0-based) của DataGridRow thành STT (1-based) cho cột "Món".
+/// </summary>
+public sealed class AlternationIndexToSttConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is int index)
+            return (index + 1).ToString(CultureInfo.CurrentCulture);
+        return "—";
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

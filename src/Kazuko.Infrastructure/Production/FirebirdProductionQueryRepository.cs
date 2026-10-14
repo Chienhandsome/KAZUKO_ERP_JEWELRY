@@ -647,6 +647,41 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         }
     }
 
+    public async Task<decimal> GetIssuedGoldWeightAsync(
+        long productionOrderId,
+        long branchId,
+        CancellationToken cancellationToken = default)
+    {
+        if (productionOrderId <= 0 || branchId <= 0)
+            return 0;
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            // Vàng đã giao = tổng QuantityIssued của các material vàng (MATERIAL_TYPE = 'GOLD')
+            // trong PRODUCTION_MATERIAL_BALANCES của lệnh. Đơn vị chuẩn của vàng là chỉ.
+            return await connection.QuerySingleAsync<decimal>(
+                new CommandDefinition("""
+                    SELECT COALESCE(SUM(B.QUANTITY_ISSUED), 0)
+                    FROM PRODUCTION_MATERIAL_BALANCES B
+                    JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
+                    JOIN PRODUCTION_ORDERS PO ON PO.ID = B.PRODUCTION_ORDER_ID
+                    WHERE B.PRODUCTION_ORDER_ID = @PO
+                      AND PO.BRANCH_ID = @BID
+                      AND PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND M.MATERIAL_TYPE = 'GOLD'
+                    """,
+                    new { PO = productionOrderId, BID = branchId },
+                    cancellationToken: cancellationToken));
+        }
+        catch (FbException)
+        {
+            // Migration 46 not applied yet — no material balances.
+            return 0;
+        }
+    }
+
     private static async Task<IReadOnlyList<ProductionQcUnitDto>> LoadQcUnitsAsync(
         FbConnection connection,
         long orderId,

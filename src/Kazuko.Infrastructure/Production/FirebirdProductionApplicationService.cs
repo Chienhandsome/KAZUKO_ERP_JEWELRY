@@ -1205,6 +1205,293 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         }
     }
 
+    public async Task<ManualFinishedReceiptResult> PostManualFinishedReceiptAsync(
+        PostManualFinishedReceiptRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+        if (request.ReceiptDate == default)
+            throw new InvalidOperationException("Thiếu ngày nhập kho.");
+        if (request.LocationId <= 0)
+            throw new InvalidOperationException("Thiếu kho nhập thành phẩm.");
+        if (request.Items is null || request.Items.Count == 0)
+            throw new InvalidOperationException("Chưa có sản phẩm nào để nhập kho.");
+        if (request.ProductionOrderId is not null && request.ProductionOrderId <= 0)
+            throw new InvalidOperationException("Lệnh sản xuất không hợp lệ.");
+
+        foreach (var item in request.Items)
+            ValidateManualFinishedProductItem(item);
+
+        var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in request.Items)
+        {
+            var providedCode = (item.ProductCode ?? string.Empty).Trim();
+            if (providedCode.Length > 0 && !seenCodes.Add(providedCode))
+                throw new InvalidOperationException($"Mã thành phẩm '{providedCode}' bị trùng trong phiếu.");
+        }
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTx = (FbTransaction)transaction;
+
+        try
+        {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+            await EnsureFinishedLocationAsync(
+                connection, fbTx, request.LocationId, session.BranchId, cancellationToken);
+
+            string? orderCode = null;
+            if (request.ProductionOrderId is > 0)
+                orderCode = await LoadProductionOrderCodeAsync(
+                    connection, fbTx, companyId, session.BranchId,
+                    request.ProductionOrderId.Value, cancellationToken);
+
+            var docCode = await StockPostingSupport.NextDocumentCodeAsync(
+                connection, fbTx, ProductionStockDocumentTypes.FinishedReceipt,
+                session.BranchId, "NTP", cancellationToken);
+
+            long documentId;
+            await using (var insertDoc = new FbCommand("""
+                INSERT INTO STOCK_DOCUMENTS
+                    (COMPANY_ID, BRANCH_ID, CODE, DOCUMENT_TYPE, DOCUMENT_DATE,
+                     DESTINATION_LOCATION_ID, PRODUCTION_ORDER_ID, PURPOSE_CODE,
+                     NOTES, STATUS_CODE, CREATED_BY, CREATED_AT, POSTED_BY, POSTED_AT)
+                VALUES
+                    (@CID, @BID, @CODE, @DTYPE, @DDATE,
+                     @DEST, @PO, @PURPOSE,
+                     @NOTES, 'POSTED', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
+                RETURNING ID
+                """, connection, fbTx))
+            {
+                insertDoc.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                insertDoc.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+                insertDoc.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = docCode;
+                insertDoc.Parameters.Add("@DTYPE", FbDbType.VarChar, 40).Value =
+                    ProductionStockDocumentTypes.FinishedReceipt;
+                insertDoc.Parameters.Add("@DDATE", FbDbType.TimeStamp).Value = request.ReceiptDate;
+                insertDoc.Parameters.Add("@DEST", FbDbType.BigInt).Value = request.LocationId;
+                insertDoc.Parameters.Add("@PO", FbDbType.BigInt).Value =
+                    request.ProductionOrderId is > 0 ? request.ProductionOrderId.Value : DBNull.Value;
+                insertDoc.Parameters.Add("@PURPOSE", FbDbType.VarChar, 40).Value =
+                    ProductionStockPurposes.FinishedReceipt;
+                insertDoc.Parameters.Add("@NOTES", FbDbType.VarChar, 1000).Value =
+                    string.IsNullOrWhiteSpace(request.Notes)
+                        ? (orderCode is null
+                            ? "Nhập kho thành phẩm (nhập tay)"
+                            : $"Nhập kho thành phẩm (nhập tay) lệnh {orderCode}")
+                        : request.Notes.Trim();
+                insertDoc.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                    session.UserId > 0 ? session.UserId : DBNull.Value;
+                documentId = Convert.ToInt64(await insertDoc.ExecuteScalarAsync(cancellationToken));
+            }
+
+            var lineNo = 0;
+            foreach (var item in request.Items)
+            {
+                lineNo++;
+
+                var code = (item.ProductCode ?? string.Empty).Trim();
+                if (code.Length == 0)
+                    code = await StockPostingSupport.NextDocumentCodeAsync(
+                        connection, fbTx, "FINISHED_PRODUCT_MANUAL", session.BranchId,
+                        ResolveManualProductCodePrefix(item.ProductGroup), cancellationToken);
+                var barcode = (item.BarcodeValue ?? string.Empty).Trim();
+                if (barcode.Length == 0)
+                    barcode = code;
+
+                var costPrice = item.CostPrice ?? 0;
+                var laborCost = item.CraftLaborCost ?? 0;
+                var materialCost = Math.Max(0, costPrice - laborCost);
+                var groupId = await ResolveFinishedProductGroupIdAsync(
+                    connection, fbTx, companyId, item.ProductGroup, cancellationToken);
+
+                long productId;
+                await using (var insertFp = new FbCommand("""
+                    INSERT INTO FINISHED_PRODUCTS
+                        (COMPANY_ID, BRANCH_ID, PRODUCTION_ORDER_ID, SALES_ORDER_ID, PRODUCTION_QC_UNIT_ID,
+                         CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT,
+                         MATERIAL_COST, LABOR_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST,
+                         LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT,
+                         FINISHED_PRODUCT_GROUP_ID)
+                    VALUES
+                        (@CID, @BID, @PO, NULL, NULL,
+                         @CODE, @BARCODE, @QR, @NAME, @PURITY, @TW, @GW,
+                         @MAT, @LABOR, 0, @TOTAL,
+                         @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP,
+                         @GROUP)
+                    RETURNING ID
+                    """, connection, fbTx))
+                {
+                    insertFp.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                    insertFp.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+                    insertFp.Parameters.Add("@PO", FbDbType.BigInt).Value =
+                        request.ProductionOrderId is > 0 ? request.ProductionOrderId.Value : DBNull.Value;
+                    insertFp.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
+                    insertFp.Parameters.Add("@BARCODE", FbDbType.VarChar, 80).Value = barcode;
+                    insertFp.Parameters.Add("@QR", FbDbType.VarChar, 80).Value = barcode;
+                    insertFp.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = item.ProductName.Trim();
+                    insertFp.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+                        string.IsNullOrWhiteSpace(item.GoldPurityCode) ? DBNull.Value : item.GoldPurityCode.Trim();
+                    insertFp.Parameters.Add("@TW", FbDbType.Decimal).Value = item.TotalWeight;
+                    insertFp.Parameters.Add("@GW", FbDbType.Decimal).Value = item.GoldWeight;
+                    insertFp.Parameters.Add("@MAT", FbDbType.Decimal).Value = materialCost;
+                    insertFp.Parameters.Add("@LABOR", FbDbType.Decimal).Value = laborCost;
+                    insertFp.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = costPrice;
+                    insertFp.Parameters.Add("@LOC", FbDbType.BigInt).Value = request.LocationId;
+                    insertFp.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                        session.UserId > 0 ? session.UserId : DBNull.Value;
+                    insertFp.Parameters.Add("@GROUP", FbDbType.BigInt).Value =
+                        groupId is > 0 ? groupId.Value : DBNull.Value;
+                    productId = Convert.ToInt64(await insertFp.ExecuteScalarAsync(cancellationToken));
+                }
+
+                await FirebirdFinishedProductTransferService.InsertDocumentLineAsync(
+                    connection, fbTx, documentId, lineNo, productId,
+                    null, request.LocationId, "NEW", "IN_STOCK", costPrice, cancellationToken,
+                    null, null, 0, item.GoldWeight, laborCost, 0);
+
+                await FirebirdFinishedProductTransferService.InsertMovementAsync(
+                    connection, fbTx, companyId, session.BranchId, productId,
+                    "IN", ProductionStockDocumentTypes.FinishedReceipt, documentId, 1, costPrice,
+                    request.LocationId, null, request.LocationId,
+                    "NEW", "IN_STOCK", session.UserId, cancellationToken);
+            }
+
+            await AuditLogWriter.WriteAsync(
+                connection, fbTx, "MANUAL_FINISHED_RECEIPT_POSTED",
+                session.UserId, session.Username, session.BranchId,
+                "STOCK_DOCUMENT", documentId.ToString(), docCode, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return new ManualFinishedReceiptResult(documentId, docCode, request.Items.Count);
+        }
+        catch (FbException ex) when (IsUniqueViolation(ex))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException("Mã thành phẩm bị trùng. Vui lòng kiểm tra lại danh sách.", ex);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<long> RecordWorkerGoldDebtAsync(
+        RecordWorkerGoldDebtRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+        if (request.ProductionOrderId <= 0)
+            throw new InvalidOperationException("Thiếu lệnh sản xuất để đối chiếu vàng.");
+        if (request.WorkerId <= 0 || string.IsNullOrWhiteSpace(request.WorkerName))
+            throw new InvalidOperationException("Thiếu thông tin thợ nợ vàng.");
+        if (request.WeightChi <= 0)
+            throw new InvalidOperationException("Số vàng nợ phải lớn hơn 0 mới được ghi công nợ.");
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTx = (FbTransaction)transaction;
+
+        try
+        {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+            var orderCode = await LoadProductionOrderCodeAsync(
+                connection, fbTx, companyId, session.BranchId,
+                request.ProductionOrderId, cancellationToken);
+
+            await using (var workerCmd = new FbCommand(
+                "SELECT COUNT(*) FROM PRODUCTION_ORDER_WORKERS WHERE PRODUCTION_ORDER_ID = @PO AND EMPLOYEE_ID = @EID",
+                connection, fbTx))
+            {
+                workerCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = request.ProductionOrderId;
+                workerCmd.Parameters.Add("@EID", FbDbType.BigInt).Value = request.WorkerId;
+                if (Convert.ToInt32(await workerCmd.ExecuteScalarAsync(cancellationToken)) < 1)
+                    throw new InvalidOperationException("Thợ không thuộc lệnh sản xuất này.");
+            }
+
+            await using (var dupCmd = new FbCommand(
+                "SELECT COUNT(*) FROM WORKER_GOLD_DEBTS WHERE COMPANY_ID = @CID AND PRODUCTION_ORDER_ID = @PO",
+                connection, fbTx))
+            {
+                dupCmd.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                dupCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = request.ProductionOrderId;
+                if (Convert.ToInt32(await dupCmd.ExecuteScalarAsync(cancellationToken)) > 0)
+                    throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng.");
+            }
+
+            var code = await StockPostingSupport.NextDocumentCodeAsync(
+                connection, fbTx, "WORKER_GOLD_DEBT", session.BranchId, "NV", cancellationToken);
+
+            long debtId;
+            await using (var insert = new FbCommand("""
+                INSERT INTO WORKER_GOLD_DEBTS
+                    (COMPANY_ID, BRANCH_ID, CODE, WORKER_TYPE, WORKER_ID, WORKER_NAME,
+                     GOLD_PURITY_CODE, WEIGHT_CHI, WEIGHT_ISSUED_CHI, WEIGHT_RECEIVED_CHI, WEIGHT_LOSS_CHI,
+                     PRODUCTION_ORDER_ID, PRODUCTION_ORDER_CODE, STATUS_CODE, NOTES,
+                     CREATED_BY, CREATED_AT)
+                VALUES
+                    (@CID, @BID, @CODE, 'EMPLOYEE', @WID, @WNAME,
+                     @PURITY, @W, @ISSUED, @RECEIVED, @LOSS,
+                     @PO, @POCODE, 'OPEN', @NOTES,
+                     @BY, CURRENT_TIMESTAMP)
+                RETURNING ID
+                """, connection, fbTx))
+            {
+                insert.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                insert.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+                insert.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
+                insert.Parameters.Add("@WID", FbDbType.BigInt).Value = request.WorkerId;
+                insert.Parameters.Add("@WNAME", FbDbType.VarChar, 200).Value = request.WorkerName.Trim();
+                insert.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+                    string.IsNullOrWhiteSpace(request.GoldPurityCode) ? DBNull.Value : request.GoldPurityCode.Trim();
+                insert.Parameters.Add("@W", FbDbType.Decimal).Value = request.WeightChi;
+                insert.Parameters.Add("@ISSUED", FbDbType.Decimal).Value = request.WeightIssuedChi;
+                insert.Parameters.Add("@RECEIVED", FbDbType.Decimal).Value = request.WeightReceivedChi;
+                insert.Parameters.Add("@LOSS", FbDbType.Decimal).Value = request.WeightLossChi;
+                insert.Parameters.Add("@PO", FbDbType.BigInt).Value = request.ProductionOrderId;
+                insert.Parameters.Add("@POCODE", FbDbType.VarChar, 40).Value = orderCode;
+                insert.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
+                    string.IsNullOrWhiteSpace(request.Notes) ? DBNull.Value : request.Notes.Trim();
+                insert.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                    session.UserId > 0 ? session.UserId : DBNull.Value;
+                debtId = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
+            }
+
+            await AuditLogWriter.WriteAsync(
+                connection, fbTx, "WORKER_GOLD_DEBT_RECORDED",
+                session.UserId, session.Username, session.BranchId,
+                "WORKER_GOLD_DEBT", debtId.ToString(), code, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return debtId;
+        }
+        catch (FbException ex) when (IsMissingTableViolation(ex, "WORKER_GOLD_DEBTS"))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException(
+                "Chưa có bảng WORKER_GOLD_DEBTS. Đóng app và chạy migration 64 (`0064__worker_gold_debts.sql`).", ex);
+        }
+        catch (FbException ex) when (IsUniqueViolation(ex))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng.", ex);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     public async Task<ProductionCancelResult> CancelAsync(
         long productionOrderId,
         long expectedRowVersion,
@@ -2188,6 +2475,103 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             productionOrderId, order.Code, order.FinishedReceiptDocumentId.Value, docCode,
             productCount, debtId, labor, order.RowVersion);
     }
+
+    private static void ValidateManualFinishedProductItem(ManualFinishedProductItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        if (string.IsNullOrWhiteSpace(item.ProductName))
+            throw new InvalidOperationException("Tên sản phẩm không được để trống.");
+        if (item.TotalWeight < 0 || item.GoldWeight < 0 || item.StoneWeight < 0)
+            throw new InvalidOperationException($"Trọng lượng của '{item.ProductName}' không được âm.");
+
+        var moneyFields = new (string Label, decimal? Value)[]
+        {
+            ("Giá vốn", item.CostPrice),
+            ("Giá bán", item.SalePrice),
+            ("Công chế tác", item.CraftLaborCost),
+            ("Công bán", item.SaleLaborCost),
+            ("Công nhập", item.PurchaseLaborCost)
+        };
+        foreach (var (label, value) in moneyFields)
+        {
+            if (value < 0)
+                throw new InvalidOperationException($"{label} của '{item.ProductName}' không được âm.");
+        }
+    }
+
+    private static string ResolveManualProductCodePrefix(string? productGroup)
+    {
+        var name = (productGroup ?? string.Empty).Trim().ToUpperInvariant();
+        if (name.StartsWith("NHẪN", StringComparison.Ordinal) || name.StartsWith("NHAN", StringComparison.Ordinal))
+            return "N";
+        if (name.StartsWith("LẮC", StringComparison.Ordinal) || name.StartsWith("LAC", StringComparison.Ordinal))
+            return "L";
+        if (name.StartsWith("DÂY", StringComparison.Ordinal) || name.StartsWith("DAY", StringComparison.Ordinal))
+            return "D";
+        if (name.StartsWith("BÔNG", StringComparison.Ordinal) || name.StartsWith("BONG", StringComparison.Ordinal))
+            return "B";
+        if (name.StartsWith("VÒNG", StringComparison.Ordinal) || name.StartsWith("VONG", StringComparison.Ordinal))
+            return "V";
+        if (name.Length > 0 && name[0] is >= 'A' and <= 'Z')
+            return name[0].ToString();
+        return "SP";
+    }
+
+    private static async Task<long?> ResolveFinishedProductGroupIdAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        string? productGroup,
+        CancellationToken cancellationToken)
+    {
+        var name = (productGroup ?? string.Empty).Trim();
+        if (name.Length == 0)
+            return null;
+
+        try
+        {
+            await using var command = new FbCommand("""
+                SELECT FIRST 1 ID
+                FROM FINISHED_PRODUCT_GROUPS
+                WHERE COMPANY_ID = @CID AND IS_ACTIVE = TRUE
+                  AND (UPPER(TRIM(NAME)) = @NAME OR UPPER(TRIM(CODE)) = @NAME)
+                """, connection, transaction);
+            command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+            command.Parameters.Add("@NAME", FbDbType.VarChar, 100).Value = name.ToUpperInvariant();
+            var scalar = await command.ExecuteScalarAsync(cancellationToken);
+            return scalar is null or DBNull ? null : Convert.ToInt64(scalar);
+        }
+        catch (FbException)
+        {
+            // Catalog nhóm thành phẩm chưa có (migration 61) — bỏ qua, không chặn nhập kho.
+            return null;
+        }
+    }
+
+    private static async Task<string> LoadProductionOrderCodeAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        long productionOrderId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new FbCommand("""
+            SELECT CODE FROM PRODUCTION_ORDERS
+            WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
+            """, connection, transaction);
+        command.Parameters.Add("@ID", FbDbType.BigInt).Value = productionOrderId;
+        command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+        command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+        var scalar = await command.ExecuteScalarAsync(cancellationToken);
+        if (scalar is null or DBNull)
+            throw new InvalidOperationException("Không tìm thấy lệnh sản xuất.");
+        return Convert.ToString(scalar) ?? string.Empty;
+    }
+
+    private static bool IsMissingTableViolation(FbException ex, string tableName) =>
+        (ex.Message?.Contains("Table unknown", StringComparison.OrdinalIgnoreCase) ?? false)
+        && (ex.Message?.Contains(tableName, StringComparison.OrdinalIgnoreCase) ?? false);
 
     private static bool IsUniqueViolation(FbException ex) =>
         ex.ErrorCode == 335544665

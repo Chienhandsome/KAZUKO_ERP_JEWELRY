@@ -448,6 +448,55 @@ public sealed record ProductionCancelResult(
     string StatusCode,
     long RowVersion);
 
+/// <summary>
+/// Một sản phẩm nhập kho thủ công (luồng nhập tay, không qua QC).
+/// ProductCode/BarcodeValue có thể để trống — backend sẽ tự sinh.
+/// </summary>
+public sealed record ManualFinishedProductItem(
+    string ProductCode,
+    string BarcodeValue,
+    string ProductName,
+    string? ProductGroup,
+    string? GoldPurityCode,
+    string? GoldAge,
+    string WeightUnitCode,
+    decimal TotalWeight,
+    decimal StoneWeight,
+    decimal GoldWeight,
+    decimal? CostPrice,
+    decimal? SalePrice,
+    decimal? CraftLaborCost,
+    decimal? SaleLaborCost,
+    decimal? PurchaseLaborCost,
+    string? SupplierName,
+    string? ModelCode,
+    string? SymbolCode,
+    string? Notes);
+
+public sealed record PostManualFinishedReceiptRequest(
+    DateTime ReceiptDate,
+    long LocationId,
+    long? ProductionOrderId,
+    IReadOnlyList<ManualFinishedProductItem> Items,
+    string? Notes);
+
+public sealed record ManualFinishedReceiptResult(
+    long DocumentId,
+    string DocumentCode,
+    int ProductCount);
+
+public sealed record RecordWorkerGoldDebtRequest(
+    long WorkerId,
+    string WorkerName,
+    string? GoldPurityCode,
+    decimal WeightChi,
+    decimal WeightIssuedChi,
+    decimal WeightReceivedChi,
+    decimal WeightLossChi,
+    long ProductionOrderId,
+    string ProductionOrderCode,
+    string? Notes);
+
 public interface IProductionQueryRepository
 {
     Task<ProductionOrderSummary> GetSummaryAsync(
@@ -469,7 +518,6 @@ public interface IProductionQueryRepository
     Task<IReadOnlyList<ProductionFinishedReceiptOrderOption>> GetCompletedUnreceivedOrdersAsync(
         long branchId,
         CancellationToken cancellationToken = default);
-
     Task<IReadOnlyList<ProductionSalesOrderOption>> SearchEligibleSalesOrdersAsync(
         long branchId,
         string? searchText,
@@ -500,6 +548,15 @@ public interface IProductionQueryRepository
     Task<IReadOnlyList<ProductionMaterialBalanceAllocationDto>> GetMaterialBalanceAllocationsAsync(
         long productionOrderId,
         long? excludeQcUnitId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tổng QuantityIssued (chỉ) của các material vàng trong material balances của lệnh.
+    /// Dùng cho section đối chiếu vàng của dialog nhập kho thành phẩm.
+    /// </summary>
+    Task<decimal> GetIssuedGoldWeightAsync(
+        long productionOrderId,
+        long branchId,
         CancellationToken cancellationToken = default);
 }
 
@@ -542,6 +599,23 @@ public interface IProductionApplicationService
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Nhập kho thành phẩm luồng thủ công: tạo phiếu NTP + FINISHED_PRODUCTS cho từng item
+    /// (không qua QC). ProductionOrderId nullable — cho phép nhập kho không gắn lệnh.
+    /// </summary>
+    Task<ManualFinishedReceiptResult> PostManualFinishedReceiptAsync(
+        PostManualFinishedReceiptRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ghi công nợ vàng của thợ sau đối chiếu (vàng giao − vàng nhận − hao hụt).
+    /// Trả về ID bản ghi WORKER_GOLD_DEBTS. Một lệnh chỉ được ghi một lần.
+    /// </summary>
+    Task<long> RecordWorkerGoldDebtAsync(
+        RecordWorkerGoldDebtRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
     Task<ProductionCancelResult> CancelAsync(
         long productionOrderId,
         long expectedRowVersion,

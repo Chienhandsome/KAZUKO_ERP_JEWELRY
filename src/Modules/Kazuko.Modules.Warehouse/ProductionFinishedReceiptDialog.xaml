@@ -6,6 +6,11 @@
         MinWidth="1020" MinHeight="640" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}">
+  <Window.InputBindings>
+    <KeyBinding Key="F1" Command="{Binding AddCommand}" />
+    <KeyBinding Key="F2" Command="{Binding EditCommand}" />
+    <KeyBinding Key="Delete" Command="{Binding DeleteCommand}" />
+  </Window.InputBindings>
   <Window.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
@@ -15,6 +20,7 @@
       <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
       <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
       <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+      <conv:AlternationIndexToSttConverter x:Key="SttConverter" />
     </ResourceDictionary>
   </Window.Resources>
 
@@ -22,7 +28,8 @@
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" MinHeight="160" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" MinHeight="120" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
@@ -203,8 +210,217 @@
       </Border>
     </Grid>
 
+    <!-- Form nhập tay từng sản phẩm -->
+    <Border Grid.Row="2" Style="{DynamicResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+      <StackPanel>
+        <DockPanel Margin="0,0,0,12">
+          <TextBlock DockPanel.Dock="Left"
+                     Text="Nhập sản phẩm"
+                     Style="{StaticResource WhSectionHeaderStyle}"
+                     Foreground="{DynamicResource PrimaryBrush}"
+                     FontWeight="SemiBold"
+                     VerticalAlignment="Center" />
+          <TextBlock DockPanel.Dock="Right"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="{DynamicResource FontSize.Caption}">
+            <Run Text="Mã TP tiếp theo: " />
+            <Run Text="{Binding PreviewProductCode, Mode=OneWay}" FontWeight="SemiBold"
+                 Foreground="{DynamicResource PrimaryBrush}" />
+          </TextBlock>
+        </DockPanel>
+
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <!-- Dòng 1 -->
+          <StackPanel Grid.Row="0" Grid.Column="0">
+            <TextBlock Text="Kho nhập *" Style="{StaticResource WhFieldLabelStyle}" />
+            <ComboBox ItemsSource="{Binding Locations}"
+                      SelectedItem="{Binding SelectedLocation}"
+                      DisplayMemberPath="DisplayName"
+                      Style="{StaticResource WhComboStyle}"
+                      MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="2">
+            <TextBlock Text="Nhóm hàng" Style="{StaticResource WhFieldLabelStyle}" />
+            <ComboBox ItemsSource="{Binding ProductGroups}"
+                      SelectedItem="{Binding SelectedProductGroup}"
+                      DisplayMemberPath="Name"
+                      Style="{StaticResource WhComboStyle}"
+                      MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="4">
+            <TextBlock Text="Tên sản phẩm *" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding ProductName, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="6">
+            <TextBlock Text="Nhà cung cấp" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding SupplierName, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+
+          <!-- Dòng 2 -->
+          <StackPanel Grid.Row="2" Grid.Column="0">
+            <TextBlock Text="Loại vàng" Style="{StaticResource WhFieldLabelStyle}" />
+            <ComboBox ItemsSource="{Binding GoldPurityChoices}"
+                      SelectedItem="{Binding GoldPurityCode, UpdateSourceTrigger=PropertyChanged}"
+                      IsEditable="True"
+                      Style="{StaticResource WhComboStyle}"
+                      MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="2" Grid.Column="2">
+            <TextBlock Text="Tuổi vàng" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding GoldAge, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="2" Grid.Column="4">
+            <TextBlock Text="Đơn vị" Style="{StaticResource WhFieldLabelStyle}" />
+            <ComboBox ItemsSource="{Binding WeightUnitChoices}"
+                      SelectedItem="{Binding WeightUnitCode, UpdateSourceTrigger=PropertyChanged}"
+                      Style="{StaticResource WhComboStyle}"
+                      MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="2" Grid.Column="6">
+            <TextBlock Text="Số lượng" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40"
+                     ToolTip="Số lượng = N sẽ thêm N dòng, mỗi dòng 1 mã TP riêng." />
+          </StackPanel>
+
+          <!-- Dòng 3 -->
+          <StackPanel Grid.Row="4" Grid.Column="0">
+            <TextBlock Text="TL tổng" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding TotalWeightText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="4" Grid.Column="2">
+            <TextBlock Text="TL đá" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding StoneWeightText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="4" Grid.Column="4">
+            <TextBlock Text="TL vàng *" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding GoldWeightText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40"
+                     ToolTip="Tự tính = TL tổng − TL đá, có thể sửa tay." />
+          </StackPanel>
+          <StackPanel Grid.Row="4" Grid.Column="6">
+            <TextBlock Text="Mã hiệu" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding ModelCode, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+
+          <!-- Dòng 4 -->
+          <StackPanel Grid.Row="6" Grid.Column="0">
+            <TextBlock Text="Ký hiệu" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding SymbolCode, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="6" Grid.Column="2">
+            <TextBlock Text="Giá vốn" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding CostPriceText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="6" Grid.Column="4">
+            <TextBlock Text="Giá bán" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding SalePriceText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="6" Grid.Column="6">
+            <TextBlock Text="Công chế tác" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding CraftLaborCostText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+
+          <!-- Dòng 5 -->
+          <StackPanel Grid.Row="8" Grid.Column="0">
+            <TextBlock Text="Công bán" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding SaleLaborCostText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="8" Grid.Column="2">
+            <TextBlock Text="Công nhập" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding PurchaseLaborCostText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Row="8" Grid.Column="4" Grid.ColumnSpan="3">
+            <TextBlock Text="Ghi chú" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBox Text="{Binding FormNotes, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource WhRoundedTextBoxStyle}"
+                     MinHeight="40" />
+          </StackPanel>
+
+          <!-- Nút -->
+          <StackPanel Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="7"
+                      Orientation="Horizontal">
+            <Button Content="{Binding AddButtonContent}"
+                    Command="{Binding AddCommand}"
+                    Style="{StaticResource WhPrimaryButtonStyle}"
+                    MinWidth="130"
+                    MinHeight="40"
+                    Margin="0,0,8,0" />
+            <Button Content="Sửa (F2)"
+                    Command="{Binding EditCommand}"
+                    Style="{StaticResource WhOutlineButtonStyle}"
+                    MinWidth="110"
+                    MinHeight="40"
+                    Margin="0,0,8,0" />
+            <Button Content="Xóa (Delete)"
+                    Command="{Binding DeleteCommand}"
+                    Style="{StaticResource WhOutlineButtonStyle}"
+                    MinWidth="120"
+                    MinHeight="40"
+                    Margin="0,0,8,0" />
+            <Button Content="Hủy sửa"
+                    Command="{Binding CancelEditCommand}"
+                    Style="{StaticResource WhOutlineButtonStyle}"
+                    MinWidth="100"
+                    MinHeight="40"
+                    Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
     <!-- Danh sách thành phẩm -->
-    <Border Grid.Row="2" Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,0,12">
+    <Border Grid.Row="3" Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,0,12">
       <DockPanel LastChildFill="True">
         <TextBlock DockPanel.Dock="Top"
                    Text="Danh sách thành phẩm — mỗi dòng 1 món"
@@ -213,13 +429,16 @@
                    FontWeight="SemiBold"
                    Margin="0,0,0,8" />
         <TextBlock DockPanel.Dock="Bottom"
-                   Text="Mã TP / Mã vạch do hệ thống tự sinh khi nhập kho. TL đá và Nhóm hàng chưa có dữ liệu."
+                   Text="Bấm Thêm (F1) để đưa sản phẩm vào bảng. Số lượng = N sẽ thêm N dòng, mỗi dòng 1 mã TP riêng."
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    FontSize="{DynamicResource FontSize.Caption}"
                    Margin="0,8,0,0" />
 
         <DataGrid ItemsSource="{Binding Products}"
-                  Style="{StaticResource WhEditableDataGridStyle}">
+                  SelectedItem="{Binding SelectedProduct}"
+                  AlternationCount="1000000"
+                  Style="{StaticResource WhEditableDataGridStyle}"
+                  IsReadOnly="True">
           <DataGrid.ColumnHeaderStyle>
             <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource WhDataGridColumnHeaderStyle}">
               <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
@@ -227,103 +446,155 @@
             </Style>
           </DataGrid.ColumnHeaderStyle>
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Món" Binding="{Binding UnitNumber, Mode=OneWay}" Width="55" IsReadOnly="True" />
-            <DataGridTextColumn Header="Mã TP" Binding="{Binding ProductCodeDisplay, Mode=OneWay}" Width="95" IsReadOnly="True" />
-            <DataGridTextColumn Header="Mã vạch/QR" Binding="{Binding BarcodeDisplay, Mode=OneWay}" Width="110" IsReadOnly="True" />
-            <DataGridTextColumn Header="Sản phẩm" Binding="{Binding ModelName, Mode=OneWay}" Width="*" MinWidth="140" IsReadOnly="True" />
-            <DataGridTextColumn Header="Nhóm hàng" Binding="{Binding ProductGroupDisplay, Mode=OneWay}" Width="95" IsReadOnly="True" />
-            <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldPurityCode, Mode=OneWay}" Width="80" IsReadOnly="True" />
-            <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding GoldAgeDisplay, Mode=OneWay}" Width="80" IsReadOnly="True" />
-            <DataGridTextColumn Header="ĐVT" Binding="{Binding WeightUnitCode, Mode=OneWay}" Width="60" IsReadOnly="True" />
-            <DataGridTextColumn Header="TL tổng" Binding="{Binding ActualGoldWeight, Mode=OneWay, StringFormat=0.###}"
-                                Width="85" IsReadOnly="True" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
-            <DataGridTextColumn Header="TL đá" Binding="{Binding StoneWeightDisplay, Mode=OneWay}"
-                                Width="75" IsReadOnly="True" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
-            <DataGridTextColumn Header="TL vàng" Binding="{Binding ActualGoldWeight, Mode=OneWay, StringFormat=0.###}"
-                                Width="85" IsReadOnly="True" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
-            <DataGridTemplateColumn Header="Công chế tác" Width="115">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <TextBox Text="{Binding CraftLaborCost, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                           Style="{StaticResource WhMoneyBoxStyle}" />
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="Công bán" Width="110">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <TextBox Text="{Binding SaleLaborCost, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                           Style="{StaticResource WhMoneyBoxStyle}" />
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="Công nhập" Width="110">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <TextBox Text="{Binding PurchaseLaborCost, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                           Style="{StaticResource WhMoneyBoxStyle}" />
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Giá vốn" Binding="{Binding CostPriceDisplay, Mode=OneWay}" Width="120"
-                                IsReadOnly="True" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
-            <DataGridTemplateColumn Header="Giá bán" Width="120">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <TextBox Text="{Binding SalePrice, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                           Style="{StaticResource WhMoneyBoxStyle}" />
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Món" Width="55"
+                                Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex, Converter={StaticResource SttConverter}}" />
+            <DataGridTextColumn Header="Mã TP" Binding="{Binding ProductCode}" Width="95" />
+            <DataGridTextColumn Header="Mã vạch/QR" Binding="{Binding BarcodeValue}" Width="110" />
+            <DataGridTextColumn Header="Sản phẩm" Binding="{Binding ProductName}" Width="*" MinWidth="140" />
+            <DataGridTextColumn Header="Nhóm hàng" Binding="{Binding ProductGroup, TargetNullValue=—}" Width="95" />
+            <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldPurityCode, TargetNullValue=—}" Width="80" />
+            <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding GoldAge, TargetNullValue=—}" Width="80" />
+            <DataGridTextColumn Header="ĐVT" Binding="{Binding WeightUnitCode}" Width="60" />
+            <DataGridTextColumn Header="TL tổng" Binding="{Binding TotalWeight, StringFormat=0.###}"
+                                Width="85" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
+            <DataGridTextColumn Header="TL đá" Binding="{Binding StoneWeight, StringFormat=0.###}"
+                                Width="75" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
+            <DataGridTextColumn Header="TL vàng" Binding="{Binding GoldWeight, StringFormat=0.###}"
+                                Width="85" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
+            <DataGridTextColumn Header="Công chế tác" Binding="{Binding CraftLaborCost, StringFormat=N0, TargetNullValue=—}"
+                                Width="115" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
+            <DataGridTextColumn Header="Công bán" Binding="{Binding SaleLaborCost, StringFormat=N0, TargetNullValue=—}"
+                                Width="110" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
+            <DataGridTextColumn Header="Công nhập" Binding="{Binding PurchaseLaborCost, StringFormat=N0, TargetNullValue=—}"
+                                Width="110" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
+            <DataGridTextColumn Header="Giá vốn" Binding="{Binding CostPrice, StringFormat=N0, TargetNullValue=—}" Width="120"
+                                ElementStyle="{StaticResource WhRightAlignTextStyle}" />
+            <DataGridTextColumn Header="Giá bán" Binding="{Binding SalePrice, StringFormat=N0, TargetNullValue=—}" Width="120"
+                                ElementStyle="{StaticResource WhRightAlignTextStyle}" />
           </DataGrid.Columns>
         </DataGrid>
       </DockPanel>
     </Border>
 
-    <UniformGrid Grid.Row="3" Columns="5" Margin="0,0,0,12">
-      <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
-        <StackPanel>
-          <TextBlock Text="Số món" Style="{StaticResource WhFieldLabelStyle}" />
-          <TextBlock Text="{Binding FooterLineCountText, Mode=OneWay}"
-                     Style="{StaticResource WhSummaryValueStyle}"
-                     Foreground="{DynamicResource PrimaryBrush}" />
-        </StackPanel>
-      </Border>
-      <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
-        <StackPanel>
-          <TextBlock Text="Tổng TL vàng (chỉ)" Style="{StaticResource WhFieldLabelStyle}" />
-          <TextBlock Text="{Binding FooterGoldWeightText, Mode=OneWay}"
-                     Style="{StaticResource WhSummaryValueStyle}"
-                     Foreground="{DynamicResource PrimaryBrush}" />
-        </StackPanel>
-      </Border>
-      <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
-        <StackPanel>
-          <TextBlock Text="Tổng công chế tác (VND)" Style="{StaticResource WhFieldLabelStyle}" />
-          <TextBlock Text="{Binding FooterCraftLaborText, Mode=OneWay}"
-                     Style="{StaticResource WhSummaryValueStyle}"
-                     Foreground="{DynamicResource PrimaryBrush}" />
-        </StackPanel>
-      </Border>
-      <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
-        <StackPanel>
-          <TextBlock Text="Tổng giá vốn (VND)" Style="{StaticResource WhFieldLabelStyle}" />
-          <TextBlock Text="{Binding FooterCostPriceText, Mode=OneWay}"
-                     Style="{StaticResource WhSummaryValueStyle}"
-                     Foreground="{DynamicResource PrimaryBrush}" />
-        </StackPanel>
-      </Border>
-      <Border Style="{DynamicResource CardBorderStyle}" Padding="12">
-        <StackPanel>
-          <TextBlock Text="Tổng giá bán (VND)" Style="{StaticResource WhFieldLabelStyle}" />
-          <TextBlock Text="{Binding FooterSalePriceText, Mode=OneWay}"
-                     Style="{StaticResource WhSummaryValueStyle}"
-                     Foreground="{DynamicResource PrimaryBrush}" />
-        </StackPanel>
-      </Border>
-    </UniformGrid>
+    <!-- Đối chiếu vàng + Tổng hợp -->
+    <Grid Grid.Row="4" Margin="0,0,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="400" />
+        <ColumnDefinition Width="12" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
 
-    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="16">
+        <StackPanel>
+          <TextBlock Text="Đối chiếu vàng"
+                     Style="{StaticResource WhSectionHeaderStyle}"
+                     Foreground="{DynamicResource PrimaryBrush}"
+                     FontWeight="SemiBold"
+                     Margin="0,0,0,12" />
+
+          <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+              <TextBlock Text="Vàng đã giao" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding IssuedGold, StringFormat={}{0:0.###} chỉ}"
+                         Style="{StaticResource WhDetailValueTextStyle}" FontWeight="SemiBold" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+              <TextBlock Text="Vàng đã nhận" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding ReceivedGold, StringFormat={}{0:0.###} chỉ}"
+                         Style="{StaticResource WhDetailValueTextStyle}" FontWeight="SemiBold" />
+            </StackPanel>
+          </Grid>
+
+          <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+              <TextBlock Text="Hao hụt (chỉ)" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBox Text="{Binding LossWeightText, UpdateSourceTrigger=PropertyChanged}"
+                       Style="{StaticResource WhRoundedTextBoxStyle}"
+                       MinHeight="40"
+                       ToolTip="Nhân viên tự gõ. Hao hụt không ghi công nợ." />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+              <TextBlock Text="Nợ vàng" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding DebtGoldDisplay}"
+                         Style="{StaticResource WhSummaryValueStyle}"
+                         Foreground="{DynamicResource DangerBrush}" />
+            </StackPanel>
+          </Grid>
+
+          <TextBlock Text="Thợ" Style="{StaticResource WhFieldLabelStyle}" />
+          <ComboBox ItemsSource="{Binding WorkerOptions}"
+                    SelectedItem="{Binding SelectedWorker}"
+                    DisplayMemberPath="FullName"
+                    Style="{StaticResource WhComboStyle}"
+                    MinHeight="40"
+                    Margin="0,0,0,12" />
+
+          <Button Content="Ghi công nợ vàng"
+                  Command="{Binding RecordDebtCommand}"
+                  Style="{StaticResource WhPrimaryButtonStyle}"
+                  MinHeight="40"
+                  Margin="0,0,0,8" />
+          <TextBlock Text="{Binding ReconcileMessage}"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="{DynamicResource FontSize.Caption}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding ReconcileMessage, Converter={StaticResource NotNullToVis}}" />
+        </StackPanel>
+      </Border>
+
+      <UniformGrid Grid.Column="2" Columns="5">
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="Số món" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBlock Text="{Binding FooterLineCountText, Mode=OneWay}"
+                       Style="{StaticResource WhSummaryValueStyle}"
+                       Foreground="{DynamicResource PrimaryBrush}" />
+          </StackPanel>
+        </Border>
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="Tổng TL vàng (chỉ)" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBlock Text="{Binding FooterGoldWeightText, Mode=OneWay}"
+                       Style="{StaticResource WhSummaryValueStyle}"
+                       Foreground="{DynamicResource PrimaryBrush}" />
+          </StackPanel>
+        </Border>
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="Tổng TL đá (chỉ)" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBlock Text="{Binding FooterStoneWeightText, Mode=OneWay}"
+                       Style="{StaticResource WhSummaryValueStyle}"
+                       Foreground="{DynamicResource PrimaryBrush}" />
+          </StackPanel>
+        </Border>
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="Tổng giá vốn (VND)" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBlock Text="{Binding FooterCostPriceText, Mode=OneWay}"
+                       Style="{StaticResource WhSummaryValueStyle}"
+                       Foreground="{DynamicResource PrimaryBrush}" />
+          </StackPanel>
+        </Border>
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="12">
+          <StackPanel>
+            <TextBlock Text="Tổng giá bán (VND)" Style="{StaticResource WhFieldLabelStyle}" />
+            <TextBlock Text="{Binding FooterSalePriceText, Mode=OneWay}"
+                       Style="{StaticResource WhSummaryValueStyle}"
+                       Foreground="{DynamicResource PrimaryBrush}" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+    </Grid>
+
+    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Hủy"
               Style="{StaticResource WhOutlineButtonStyle}"
               Command="{Binding CancelCommand}"
