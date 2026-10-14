@@ -112,7 +112,13 @@ public sealed record ProductionOrderListFilter(
     string? ExecutionType,
     DateTime? FromDate,
     DateTime? ToDate,
-    bool IncludeDrafts = true);
+    bool IncludeDrafts = true,
+    // Redesign 14/10: filter riêng theo target UI
+    string? OrderCode = null,
+    string? CustomerName = null,
+    string? SalesOrderCode = null,
+    string? WorkerName = null,
+    string? ModelName = null);
 
 // M1 redesign (Phase 2 decisions): KPI count trên TOÀN BỘ (B2), không theo kỳ;
 // thẻ "Hoàn thành" đổi sang đếm toàn bộ; thêm "Đã hủy"; bỏ 2 thẻ thợ ngoài/nội bộ (A1).
@@ -602,6 +608,10 @@ public interface IProductionPrintDataService
     Task<ProductionGoldSettlementPrintDto?> GetGoldSettlementPrintAsync(
         long productionOrderId,
         CancellationToken cancellationToken = default);
+
+    Task<ProductionOrderPrintDto?> GetOrderPrintAsync(
+        long productionOrderId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record ProductionMaterialIssuePrintDto(
@@ -612,6 +622,27 @@ public sealed record ProductionMaterialIssuePrintDto(
     string? ReceivedByName,
     string DocumentCode,
     IReadOnlyList<ProductionMaterialIssuePrintLine> Lines);
+
+public sealed record ProductionOrderPrintDto(
+    string OrderCode,
+    DateTime OrderDate,
+    DateTime? MaterialIssueDate,
+    DateTime? DueDate,
+    string StatusDisplay,
+    string BranchName,
+    string? CustomerName,
+    string? SalesOrderCode,
+    string? WorkerDisplayName,
+    string? Notes,
+    IReadOnlyList<ProductionOrderPrintLine> Lines);
+
+public sealed record ProductionOrderPrintLine(
+    int LineNumber,
+    string ModelName,
+    int PlannedQuantity,
+    decimal? GoldWeight,
+    string? GoldPurityCode,
+    decimal LaborCost);
 
 public sealed record ProductionMaterialIssuePrintLine(
     int LineNumber,

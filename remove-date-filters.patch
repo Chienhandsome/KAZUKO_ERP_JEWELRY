@@ -1,0 +1,110 @@
+From 67821502edef92cb62eb91d054bc0b88228df243 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Wed, 14 Oct 2026 09:21:33 +0700
+Subject: [PATCH] feat(production): remove FromDate/ToDate filter fields from
+ UI
+
+---
+ .../ProductionView.xaml                       | 22 +-------------
+ .../ProductionViewModel.cs                    | 30 ++++---------------
+ 2 files changed, 6 insertions(+), 46 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionView.xaml b/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
+index 85ed1da..41648cc 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
++++ b/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
+@@ -41,28 +41,8 @@
+                         <ColumnDefinition Width="*" />
+                     </Grid.ColumnDefinitions>
+ 
+-                    <!-- Cột trái: ngày + dropdown -->
++                    <!-- Cột trái: dropdown + text -->
+                     <StackPanel Grid.Column="0">
+-                        <Grid Margin="0,0,0,10">
+-                            <Grid.ColumnDefinitions>
+-                                <ColumnDefinition Width="95" />
+-                                <ColumnDefinition Width="*" />
+-                            </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Từ ngày" VerticalAlignment="Center"
+-                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+-                            <DatePicker Grid.Column="1" SelectedDate="{Binding FromDate}"
+-                                        VerticalContentAlignment="Center" />
+-                        </Grid>
+-                        <Grid Margin="0,0,0,10">
+-                            <Grid.ColumnDefinitions>
+-                                <ColumnDefinition Width="95" />
+-                                <ColumnDefinition Width="*" />
+-                            </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Đến ngày" VerticalAlignment="Center"
+-                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+-                            <DatePicker Grid.Column="1" SelectedDate="{Binding ToDate}"
+-                                        VerticalContentAlignment="Center" />
+-                        </Grid>
+                         <Grid Margin="0,0,0,10">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="95" />
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs b/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
+index 57c10a4..3fa9922 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
+@@ -180,26 +180,6 @@ public sealed class ProductionViewModel : ObservableObject
+         }
+     }
+ 
+-    public DateTime? FromDate
+-    {
+-        get => _fromDate;
+-        set
+-        {
+-            if (SetProperty(ref _fromDate, value))
+-                TriggerFilterSearch();
+-        }
+-    }
+-
+-    public DateTime? ToDate
+-    {
+-        get => _toDate;
+-        set
+-        {
+-            if (SetProperty(ref _toDate, value))
+-                TriggerFilterSearch();
+-        }
+-    }
+-
+     public ProductionOrderRowViewModel? SelectedOrder
+     {
+         get => _selectedOrder;
+@@ -306,7 +286,7 @@ public sealed class ProductionViewModel : ObservableObject
+             ErrorMessage = string.Empty;
+             var branchId = RequireBranchId();
+ 
+-            var summary = await _queries.GetSummaryAsync(branchId, FromDate, ToDate, token);
++            var summary = await _queries.GetSummaryAsync(branchId, _fromDate, _toDate, token);
+             InProgressCount = summary.InProgressCount;
+             CompletedCount = summary.CompletedCount;
+             CancelledCount = summary.CancelledCount;
+@@ -350,8 +330,8 @@ public sealed class ProductionViewModel : ObservableObject
+             StatusCode: status,
+             OrderSource: null,
+             ExecutionType: null,
+-            FromDate: FromDate,
+-            ToDate: ToDate,
++            FromDate: _fromDate,
++            ToDate: _toDate,
+             IncludeDrafts: true,
+             OrderCode: string.IsNullOrWhiteSpace(OrderCodeFilterText) ? null : OrderCodeFilterText.Trim(),
+             CustomerName: string.IsNullOrWhiteSpace(CustomerFilterText) ? null : CustomerFilterText.Trim(),
+@@ -363,8 +343,8 @@ public sealed class ProductionViewModel : ObservableObject
+     private async Task ResetFiltersAsync()
+     {
+         var today = DateTime.Today;
+-        FromDate = new DateTime(today.Year, today.Month, 1);
+-        ToDate = today;
++        _fromDate = new DateTime(today.Year, today.Month, 1);
++        _toDate = today;
+         SelectedStatusFilter = "Tất cả trạng thái";
+         OrderCodeFilterText = string.Empty;
+         CustomerFilterText = string.Empty;
+-- 
+2.43.0
+

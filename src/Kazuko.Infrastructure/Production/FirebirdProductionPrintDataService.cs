@@ -277,4 +277,82 @@ public sealed class FirebirdProductionPrintDataService : IProductionPrintDataSer
 
         return lines;
     }
+
+    public async Task<ProductionOrderPrintDto?> GetOrderPrintAsync(
+        long productionOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        if (productionOrderId <= 0)
+            return null;
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var header = new FbCommand("""
+            SELECT PO.CODE, PO.ORDER_DATE, MI.DOCUMENT_DATE, PO.DUE_DATE,
+                   PO.STATUS_CODE, B.NAME, C.NAME, SO.CODE, PO.NOTES,
+                   CASE
+                       WHEN PO.EXECUTION_TYPE = 'OUTSOURCED' THEN EW.NAME
+                       ELSE (
+                           SELECT LIST(TRIM(E.FULL_NAME), ', ')
+                           FROM PRODUCTION_ORDER_WORKERS POW
+                           JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
+                           WHERE POW.PRODUCTION_ORDER_ID = PO.ID)
+                   END
+            FROM PRODUCTION_ORDERS PO
+            JOIN BRANCHES B ON B.ID = PO.BRANCH_ID
+            LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
+            LEFT JOIN CUSTOMERS C ON C.ID = SO.CUSTOMER_ID AND C.COMPANY_ID = PO.COMPANY_ID
+            LEFT JOIN EXTERNAL_WORKERS EW ON EW.COMPANY_ID = PO.COMPANY_ID AND EW.ID = PO.EXTERNAL_WORKER_ID
+            LEFT JOIN STOCK_DOCUMENTS MI ON MI.ID = PO.MATERIAL_ISSUE_DOCUMENT_ID
+            WHERE PO.ID = @ID
+            """, connection);
+        header.Parameters.Add("@ID", FbDbType.BigInt).Value = productionOrderId;
+        await using var reader = await header.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return null;
+
+        var dto = new ProductionOrderPrintDto(
+            reader.GetString(0),
+            reader.GetDateTime(1),
+            reader.IsDBNull(2) ? null : reader.GetDateTime(2),
+            reader.IsDBNull(3) ? null : reader.GetDateTime(3),
+            ProductionOrderStatuses.ToListDisplay(reader.GetString(4)),
+            reader.GetString(5),
+            reader.IsDBNull(6) ? null : reader.GetString(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7),
+            reader.IsDBNull(9) ? null : reader.GetString(9),
+            reader.IsDBNull(8) ? null : reader.GetString(8),
+            await GetOrderPrintLinesAsync(connection, productionOrderId, cancellationToken));
+        await reader.DisposeAsync();
+        return dto;
+    }
+
+    private static async Task<IReadOnlyList<ProductionOrderPrintLine>> GetOrderPrintLinesAsync(
+        FbConnection connection,
+        long productionOrderId,
+        CancellationToken cancellationToken)
+    {
+        var lines = new List<ProductionOrderPrintLine>();
+        await using var command = new FbCommand("""
+            SELECT POL.LINE_NUMBER, POL.MODEL_NAME, POL.PLANNED_QUANTITY,
+                   POL.GOLD_WEIGHT, POL.GOLD_PURITY_CODE, POL.LABOR_COST
+            FROM PRODUCTION_ORDER_LINES POL
+            WHERE POL.PRODUCTION_ORDER_ID = @ID
+            ORDER BY POL.LINE_NUMBER
+            """, connection);
+        command.Parameters.Add("@ID", FbDbType.BigInt).Value = productionOrderId;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            lines.Add(new ProductionOrderPrintLine(
+                reader.GetInt32(0),
+                reader.GetString(1),
+                reader.GetInt32(2),
+                reader.IsDBNull(3) ? null : reader.GetDecimal(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? 0 : reader.GetDecimal(5)));
+        }
+        return lines;
+    }
 }

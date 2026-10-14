@@ -1,0 +1,157 @@
+From 280a09ceae8fa9f668a626aa00a2cacf084d7a4f Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Wed, 14 Oct 2026 09:15:07 +0700
+Subject: [PATCH] feat(production): polish filter fields and auto-fill on row
+ select
+
+---
+ .../ProductionView.xaml                       | 30 +++++++++----------
+ .../ProductionViewModel.cs                    | 15 ++++++++++
+ 2 files changed, 30 insertions(+), 15 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionView.xaml b/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
+index c3af150..85ed1da 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
++++ b/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
+@@ -33,7 +33,7 @@
+             </Grid.ColumnDefinitions>
+ 
+             <!-- Panel filter -->
+-            <Border Grid.Column="0" Style="{StaticResource ProductionCardStyle}" Padding="14,12">
++            <Border Grid.Column="0" Style="{StaticResource ProductionCardStyle}" Padding="16,14">
+                 <Grid>
+                     <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="*" />
+@@ -43,44 +43,44 @@
+ 
+                     <!-- Cột trái: ngày + dropdown -->
+                     <StackPanel Grid.Column="0">
+-                        <Grid Margin="0,0,0,8">
++                        <Grid Margin="0,0,0,10">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="95" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Từ ngày:" VerticalAlignment="Center"
++                            <TextBlock Text="Từ ngày" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <DatePicker Grid.Column="1" SelectedDate="{Binding FromDate}"
+                                         VerticalContentAlignment="Center" />
+                         </Grid>
+-                        <Grid Margin="0,0,0,8">
++                        <Grid Margin="0,0,0,10">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="95" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Đến ngày:" VerticalAlignment="Center"
++                            <TextBlock Text="Đến ngày" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <DatePicker Grid.Column="1" SelectedDate="{Binding ToDate}"
+                                         VerticalContentAlignment="Center" />
+                         </Grid>
+-                        <Grid Margin="0,0,0,8">
++                        <Grid Margin="0,0,0,10">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="95" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Trạng thái:" VerticalAlignment="Center"
++                            <TextBlock Text="Trạng thái" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <ComboBox Grid.Column="1"
+                                       Style="{StaticResource ProductionFilterComboStyle}"
+                                       ItemsSource="{Binding StatusFilterOptions}"
+                                       SelectedItem="{Binding SelectedStatusFilter}" />
+                         </Grid>
+-                        <Grid Margin="0,0,0,8">
++                        <Grid Margin="0,0,0,10">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="95" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Thợ sản xuất:" VerticalAlignment="Center"
++                            <TextBlock Text="Thợ sản xuất" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <TextBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterFieldStyle}"
+@@ -92,7 +92,7 @@
+                                 <ColumnDefinition Width="95" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Loại sản phẩm:" VerticalAlignment="Center"
++                            <TextBlock Text="Loại sản phẩm" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <TextBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterFieldStyle}"
+@@ -103,24 +103,24 @@
+ 
+                     <!-- Cột phải: search + nút -->
+                     <StackPanel Grid.Column="2">
+-                        <Grid Margin="0,0,0,8">
++                        <Grid Margin="0,0,0,10">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="85" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Mã phiếu:" VerticalAlignment="Center"
++                            <TextBlock Text="Mã phiếu" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <TextBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterFieldStyle}"
+                                      Text="{Binding OrderCodeFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="Nhập mã phiếu..." />
+                         </Grid>
+-                        <Grid Margin="0,0,0,8">
++                        <Grid Margin="0,0,0,10">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="85" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Khách hàng:" VerticalAlignment="Center"
++                            <TextBlock Text="Khách hàng" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <TextBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterFieldStyle}"
+@@ -132,7 +132,7 @@
+                                 <ColumnDefinition Width="85" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
+-                            <TextBlock Text="Đơn đặt hàng:" VerticalAlignment="Center"
++                            <TextBlock Text="Đơn đặt hàng" VerticalAlignment="Center"
+                                        Style="{StaticResource ProductionFilterLabelStyle}" />
+                             <TextBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterFieldStyle}"
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs b/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
+index 9bf8404..8b67cd5 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
+@@ -204,10 +204,25 @@ public sealed class ProductionViewModel : ObservableObject
+                 (DeleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
+                 (CompleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
+                 (PrintOrderCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
++                if (value is not null)
++                    PopulateFiltersFromOrder(value);
+             }
+         }
+     }
+ 
++    /// <summary>
++    /// Điền thông tin phiếu đang chọn lên các field filter phía trên.
++    /// </summary>
++    private void PopulateFiltersFromOrder(ProductionOrderRowViewModel order)
++    {
++        OrderCodeFilterText = order.Code ?? string.Empty;
++        CustomerFilterText = order.CustomerName ?? string.Empty;
++        SalesOrderFilterText = order.SalesOrderCode ?? string.Empty;
++        WorkerFilterText = order.WorkerDisplayName ?? string.Empty;
++        ModelFilterText = order.ModelSummary ?? string.Empty;
++        // Không tự đổi Từ/Đến ngày và Trạng thái để tránh làm hẹp kết quả lọc bất ngờ
++    }
++
+     public string StatusMessage
+     {
+         get => _statusMessage;
+-- 
+2.43.0
+

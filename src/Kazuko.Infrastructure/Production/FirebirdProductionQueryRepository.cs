@@ -95,6 +95,11 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         var status = filter.StatusCode?.Trim() ?? string.Empty;
         var source = filter.OrderSource?.Trim() ?? string.Empty;
         var execution = filter.ExecutionType?.Trim() ?? string.Empty;
+        var orderCode = filter.OrderCode?.Trim() ?? string.Empty;
+        var customerName = filter.CustomerName?.Trim() ?? string.Empty;
+        var salesOrderCode = filter.SalesOrderCode?.Trim() ?? string.Empty;
+        var workerName = filter.WorkerName?.Trim() ?? string.Empty;
+        var modelName = filter.ModelName?.Trim() ?? string.Empty;
 
         var rows = await connection.QueryAsync<ProductionOrderListItem>(
             new CommandDefinition("""
@@ -150,6 +155,21 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                            JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
                            WHERE POW.PRODUCTION_ORDER_ID = PO.ID
                              AND (E.FULL_NAME CONTAINING @SEARCH OR E.CODE CONTAINING @SEARCH)))
+                  AND (@HAS_ORDER_CODE = 0 OR PO.CODE CONTAINING @ORDER_CODE)
+                  AND (@HAS_CUSTOMER = 0 OR C.NAME CONTAINING @CUSTOMER_NAME)
+                  AND (@HAS_SO_CODE = 0 OR SO.CODE CONTAINING @SO_CODE)
+                  AND (@HAS_WORKER = 0
+                       OR COALESCE(EW.NAME, '') CONTAINING @WORKER_NAME
+                       OR EXISTS (
+                           SELECT 1 FROM PRODUCTION_ORDER_WORKERS POW
+                           JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
+                           WHERE POW.PRODUCTION_ORDER_ID = PO.ID
+                             AND E.FULL_NAME CONTAINING @WORKER_NAME))
+                  AND (@HAS_MODEL = 0
+                       OR EXISTS (
+                           SELECT 1 FROM PRODUCTION_ORDER_LINES POL
+                           WHERE POL.PRODUCTION_ORDER_ID = PO.ID
+                             AND POL.MODEL_NAME CONTAINING @MODEL_NAME))
                 ORDER BY PO.ORDER_DATE DESC, PO.ID DESC
                 """,
                 new
@@ -167,7 +187,17 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                     HAS_TO = filter.ToDate is not null ? 1 : 0,
                     TO_DATE_EXCL = (DateTime?)filter.ToDate?.Date.AddDays(1),
                     HAS_SEARCH = search.Length > 0 ? 1 : 0,
-                    SEARCH = search
+                    SEARCH = search,
+                    HAS_ORDER_CODE = orderCode.Length > 0 ? 1 : 0,
+                    ORDER_CODE = orderCode,
+                    HAS_CUSTOMER = customerName.Length > 0 ? 1 : 0,
+                    CUSTOMER_NAME = customerName,
+                    HAS_SO_CODE = salesOrderCode.Length > 0 ? 1 : 0,
+                    SO_CODE = salesOrderCode,
+                    HAS_WORKER = workerName.Length > 0 ? 1 : 0,
+                    WORKER_NAME = workerName,
+                    HAS_MODEL = modelName.Length > 0 ? 1 : 0,
+                    MODEL_NAME = modelName
                 },
                 cancellationToken: cancellationToken));
         return rows.AsList();

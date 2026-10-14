@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
-             MinWidth="900" MinHeight="520"
+             MinWidth="1100" MinHeight="520"
              PreviewKeyDown="UserControl_PreviewKeyDown">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -13,6 +13,7 @@
             <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
             <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
             <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:StatusCodeToBrushConverter x:Key="StatusToBrush" />
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -20,101 +21,163 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <Grid Grid.Row="0" Margin="0,0,0,14">
+        <!-- Hàng 1: Filter (trái) + Thẻ trạng thái (phải) -->
+        <Grid Grid.Row="0" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="1.6*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image Source="/Kazuko.Modules.Production;component/Assets/icons/SX.png"
-                       Width="48" Height="48" Stretch="Uniform" Margin="0,0,12,0" />
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="SẢN XUẤT"
-                               Foreground="{DynamicResource PrimaryBrush}"
-                               FontSize="{DynamicResource FontSize.Heading}"
-                               FontWeight="Bold" />
-                    <TextBlock Text="Quản lý lệnh sản xuất, mẫu và bản nháp"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="{DynamicResource FontSize.Body}"
-                               TextWrapping="Wrap"
-                               Margin="0,4,0,0" />
-                </StackPanel>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Tạo lệnh"
-                        Style="{StaticResource ProductionPrimaryButtonStyle}"
-                        Command="{Binding CreateOrderCommand}"
-                        Margin="0" />
-            </StackPanel>
+
+            <!-- Panel filter -->
+            <Border Grid.Column="0" Style="{StaticResource ProductionCardStyle}" Padding="16,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Cột trái: dropdown + text -->
+                    <StackPanel Grid.Column="0">
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="95" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Trạng thái" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <ComboBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterComboStyle}"
+                                      ItemsSource="{Binding StatusFilterOptions}"
+                                      SelectedItem="{Binding SelectedStatusFilter}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="95" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Thợ sản xuất" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <TextBox Grid.Column="1"
+                                     Style="{StaticResource ProductionFilterFieldStyle}"
+                                     Text="{Binding WorkerFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Lọc theo tên thợ" />
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="95" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Loại sản phẩm" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <TextBox Grid.Column="1"
+                                     Style="{StaticResource ProductionFilterFieldStyle}"
+                                     Text="{Binding ModelFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Lọc theo tên sản phẩm" />
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Cột phải: search + nút -->
+                    <StackPanel Grid.Column="2">
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="85" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Mã phiếu" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <TextBox Grid.Column="1"
+                                     Style="{StaticResource ProductionFilterFieldStyle}"
+                                     Text="{Binding OrderCodeFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Nhập mã phiếu..." />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="85" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Khách hàng" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <TextBox Grid.Column="1"
+                                     Style="{StaticResource ProductionFilterFieldStyle}"
+                                     Text="{Binding CustomerFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Nhập khách hàng..." />
+                        </Grid>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="85" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Đơn đặt hàng" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <TextBox Grid.Column="1"
+                                     Style="{StaticResource ProductionFilterFieldStyle}"
+                                     Text="{Binding SalesOrderFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Nhập mã đơn đặt..." />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button Content="Tìm kiếm"
+                                    Style="{StaticResource ProductionPrimaryButtonStyle}"
+                                    Command="{Binding RefreshCommand}"
+                                    MinWidth="110" Margin="0,0,8,0" />
+                            <Button Content="Làm mới"
+                                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                                    Command="{Binding ResetFiltersCommand}"
+                                    MinWidth="110" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   Style="{StaticResource ProductionErrorStyle}"
+                                   Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}"
+                                   Margin="0,8,0,0" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Style="{StaticResource ProductionHintStyle}"
+                                   Margin="0,4,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 3 thẻ trạng thái -->
+            <UniformGrid Grid.Column="2" Rows="1" Columns="3">
+                <Border Style="{StaticResource ProductionMetricCardStyle}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="Phiếu đang&#x0a;sản xuất" TextAlignment="Center"
+                                   Style="{StaticResource ProductionMetricLabelStyle}" />
+                        <TextBlock Text="{Binding InProgressCount}"
+                                   Style="{StaticResource ProductionMetricValueStyle}"
+                                   Foreground="#E8622C" TextAlignment="Center" FontSize="28" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ProductionMetricCardStyle}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="Hoàn thành" TextAlignment="Center"
+                                   Style="{StaticResource ProductionMetricLabelStyle}" />
+                        <TextBlock Text="{Binding CompletedCount}"
+                                   Style="{StaticResource ProductionMetricValueStyle}"
+                                   Foreground="#2E9E5B" TextAlignment="Center" FontSize="28" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ProductionMetricCardStyle}" Margin="0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="Đã hủy" TextAlignment="Center"
+                                   Style="{StaticResource ProductionMetricLabelStyle}" />
+                        <TextBlock Text="{Binding CancelledCount}"
+                                   Style="{StaticResource ProductionMetricValueStyle}"
+                                   Foreground="#D33F3F" TextAlignment="Center" FontSize="28" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
         </Grid>
 
-        <!-- KPI cards: M1 redesign (A1, B2) — 3 thẻ, đếm trên toàn bộ -->
-        <UniformGrid Grid.Row="1" Rows="1" Columns="3" Margin="0,0,0,12">
-            <Border Style="{StaticResource ProductionMetricCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Đang làm" Style="{StaticResource ProductionMetricLabelStyle}" />
-                    <TextBlock Text="{Binding InProgressCount}" Style="{StaticResource ProductionMetricValueStyle}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource ProductionMetricCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Hoàn thành" Style="{StaticResource ProductionMetricLabelStyle}" />
-                    <TextBlock Text="{Binding CompletedCount}" Style="{StaticResource ProductionMetricValueStyle}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource ProductionMetricCardStyle}" Margin="0">
-                <StackPanel>
-                    <TextBlock Text="Đã hủy" Style="{StaticResource ProductionMetricLabelStyle}" />
-                    <TextBlock Text="{Binding CancelledCount}" Style="{StaticResource ProductionMetricValueStyle}" />
-                </StackPanel>
-            </Border>
-        </UniformGrid>
-
-        <!-- Filters -->
-        <Border Grid.Row="2" Style="{StaticResource ProductionCardStyle}" Padding="12,10" Margin="0,0,0,12">
-            <StackPanel>
-                <WrapPanel>
-                    <TextBox Width="240"
-                             Style="{StaticResource ProductionFilterFieldStyle}"
-                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Mã lệnh, mẫu, đơn đặt, thợ/nhân viên" />
-                    <ComboBox Width="150"
-                              Style="{StaticResource ProductionFilterComboStyle}"
-                              ItemsSource="{Binding StatusFilterOptions}"
-                              SelectedItem="{Binding SelectedStatusFilter}" />
-                    <ComboBox Width="190"
-                              Style="{StaticResource ProductionFilterComboStyle}"
-                              ItemsSource="{Binding SourceFilterOptions}"
-                              SelectedItem="{Binding SelectedSourceFilter}" />
-                    <ComboBox Width="150"
-                              Style="{StaticResource ProductionFilterComboStyle}"
-                              ItemsSource="{Binding ExecutionFilterOptions}"
-                              SelectedItem="{Binding SelectedExecutionFilter}" />
-                    <DatePicker Width="140" Margin="0,0,8,8" SelectedDate="{Binding FromDate}"
-                                VerticalContentAlignment="Center" />
-                    <DatePicker Width="140" Margin="0,0,8,8" SelectedDate="{Binding ToDate}"
-                                VerticalContentAlignment="Center" />
-                    <CheckBox Content="Gồm bản nháp"
-                              IsChecked="{Binding IncludeDrafts}"
-                              Style="{StaticResource ProductionCheckBoxStyle}"
-                              Margin="4,8,8,8"
-                              VerticalAlignment="Center" />
-                </WrapPanel>
-                <TextBlock Text="{Binding ErrorMessage}"
-                           Style="{StaticResource ProductionErrorStyle}"
-                           Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
-            </StackPanel>
-        </Border>
-
-        <!-- Toolbar: giữ nút Tạo lệnh ở header; thêm thao tác dòng theo pattern các module khác -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+        <!-- Hàng 2: Thanh action -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+            <Button Content="Tạo mới phiếu sản xuất"
+                    Style="{StaticResource ProductionPrimaryButtonStyle}"
+                    Command="{Binding CreateOrderCommand}"
+                    Margin="0,0,8,0" MinWidth="170" />
             <Button Content="Chi tiết"
                     Style="{StaticResource ProductionOutlineButtonStyle}"
                     Command="{Binding OpenDetailCommand}"
@@ -126,6 +189,15 @@
                     CommandParameter="{Binding SelectedOrder}"
                     Margin="0,0,8,0" MinWidth="90"
                     ToolTip="Chỉ sửa được khi phiếu còn là bản nháp" />
+            <Button Content="In phiếu"
+                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                    Command="{Binding PrintOrderCommand}"
+                    CommandParameter="{Binding SelectedOrder}"
+                    Margin="0,0,8,0" MinWidth="90" />
+            <Button Content="Xuất Excel"
+                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                    Command="{Binding ExportExcelCommand}"
+                    Margin="0,0,8,0" MinWidth="90" />
             <Button Content="Xóa"
                     Style="{StaticResource ProductionGhostButtonStyle}"
                     Command="{Binding DeleteOrderCommand}"
@@ -133,9 +205,8 @@
                     Margin="0,0,8,0" MinWidth="90" />
         </StackPanel>
 
-        <!-- Grid: M1 redesign — bỏ Ngày lập/Nguồn/Hình thức/SL kế hoạch (giữ ở filter);
-             thêm Ngày giao, Hạn hoàn thành, Khách hàng; Sản phẩm bind ModelSummary (C4) -->
-        <Border Grid.Row="4" Style="{StaticResource ProductionCardStyle}" Padding="0">
+        <!-- Hàng 3: Bảng -->
+        <Border Grid.Row="2" Style="{StaticResource ProductionCardStyle}" Padding="0">
             <DataGrid Style="{StaticResource ProductionDataGridStyle}"
                       ItemsSource="{Binding Orders}"
                       SelectedItem="{Binding SelectedOrder}"
@@ -143,6 +214,16 @@
                       BorderThickness="0"
                       grid:DataGridColumnLayout.SettingsKey="production.orders">
                 <DataGrid.Columns>
+                    <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
+                                        Binding="{Binding Index, Mode=OneWay}" Width="45" />
+                    <DataGridTemplateColumn Header="" grid:DataGridColumnLayout.Key="Select" Width="36">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Mã phiếu" grid:DataGridColumnLayout.Key="Code"
                                         Binding="{Binding Code, Mode=OneWay}" Width="120" />
                     <DataGridTextColumn Header="Ngày giao" grid:DataGridColumnLayout.Key="MaterialIssueDate"
@@ -150,16 +231,26 @@
                     <DataGridTextColumn Header="Hạn hoàn thành" grid:DataGridColumnLayout.Key="DueDate"
                                         Binding="{Binding DueDateDisplay, Mode=OneWay}" Width="110" />
                     <DataGridTextColumn Header="Khách hàng" grid:DataGridColumnLayout.Key="Customer"
-                                        Binding="{Binding CustomerName, Mode=OneWay}" Width="170" />
-                    <DataGridTextColumn Header="Đơn đặt" grid:DataGridColumnLayout.Key="SalesOrder"
-                                        Binding="{Binding SalesOrderCode, Mode=OneWay}" Width="120" />
+                                        Binding="{Binding CustomerName, Mode=OneWay}" Width="150" />
+                    <DataGridTextColumn Header="Đơn đặt hàng" grid:DataGridColumnLayout.Key="SalesOrder"
+                                        Binding="{Binding SalesOrderCode, Mode=OneWay}" Width="110" />
                     <DataGridTextColumn Header="Sản phẩm" grid:DataGridColumnLayout.Key="Models"
-                                        Binding="{Binding ModelSummary, Mode=OneWay}" Width="*" MinWidth="150" />
+                                        Binding="{Binding ModelSummary, Mode=OneWay}" Width="*" MinWidth="140" />
                     <DataGridTextColumn Header="Thợ sản xuất" grid:DataGridColumnLayout.Key="Worker"
-                                        Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="150" />
-                    <DataGridTextColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status"
-                                        Binding="{Binding StatusDisplay, Mode=OneWay}" Width="100" />
-                    <DataGridTemplateColumn Header="" grid:DataGridColumnLayout.Key="Complete" Width="110">
+                                        Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="140" />
+                    <DataGridTemplateColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Width="105">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="10" Padding="8,3" HorizontalAlignment="Center"
+                                        Background="{Binding StatusCode, Converter={StaticResource StatusToBrush}}">
+                                    <TextBlock Text="{Binding StatusDisplay, Mode=OneWay}"
+                                               Foreground="White" FontSize="11" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="Hoàn thành"
@@ -174,13 +265,5 @@
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
-
-        <!-- Footer (B5): chỉ còn tổng số phiếu trên toàn bộ danh sách đã lọc -->
-        <DockPanel Grid.Row="5" Margin="0,12,0,0" LastChildFill="False">
-            <TextBlock DockPanel.Dock="Left"
-                       Text="{Binding StatusMessage}"
-                       VerticalAlignment="Center"
-                       Style="{StaticResource ProductionHintStyle}" />
-        </DockPanel>
     </Grid>
 </UserControl>

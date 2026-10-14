@@ -66,6 +66,34 @@ public sealed class ProductionPrintService
         ShowPrint(doc);
     }
 
+    public void PrintOrder(ProductionOrderPrintDto dto)
+    {
+        var doc = CreateBase($"Phiếu sản xuất — {dto.OrderCode}");
+        doc.Blocks.Add(new Paragraph(new Run(
+            $"Ngày lập: {dto.OrderDate:dd/MM/yyyy}  |  Ngày giao NVL: {dto.MaterialIssueDate:dd/MM/yyyy}  |  Hạn hoàn thành: {dto.DueDate:dd/MM/yyyy}")));
+        doc.Blocks.Add(new Paragraph(new Run(
+            $"Trạng thái: {dto.StatusDisplay}  |  Chi nhánh: {dto.BranchName}")));
+        if (!string.IsNullOrWhiteSpace(dto.CustomerName))
+            doc.Blocks.Add(new Paragraph(new Run($"Khách hàng: {dto.CustomerName}")));
+        if (!string.IsNullOrWhiteSpace(dto.SalesOrderCode))
+            doc.Blocks.Add(new Paragraph(new Run($"Đơn đặt hàng: {dto.SalesOrderCode}")));
+        if (!string.IsNullOrWhiteSpace(dto.WorkerDisplayName))
+            doc.Blocks.Add(new Paragraph(new Run($"Thợ sản xuất: {dto.WorkerDisplayName}")));
+        if (!string.IsNullOrWhiteSpace(dto.Notes))
+            doc.Blocks.Add(new Paragraph(new Run($"Ghi chú: {dto.Notes}")));
+
+        var table = CreateTable("STT", "Sản phẩm", "SL", "TL vàng", "Tuổi vàng", "Tiền công");
+        foreach (var line in dto.Lines)
+            AddRow(table, line.LineNumber.ToString(), line.ModelName,
+                line.PlannedQuantity.ToString(),
+                line.GoldWeight?.ToString("0.####") ?? string.Empty,
+                line.GoldPurityCode ?? string.Empty,
+                FormatMoney(line.LaborCost));
+        doc.Blocks.Add(table);
+        AddSignatures(doc);
+        ShowPrint(doc);
+    }
+
     public void PrintGoldSettlement(ProductionGoldSettlementPrintDto dto)
     {
         var doc = CreateBase($"Biên bản quyết toán vàng — {dto.OrderCode}");

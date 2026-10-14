@@ -30,13 +30,15 @@ public sealed class ProductionViewModel : ObservableObject
     private readonly ICustomerEditorService _customerEditor;
     private CancellationTokenSource? _loadCts;
 
-    private string _searchText = string.Empty;
     private string _selectedStatusFilter = "Tất cả trạng thái";
-    private string _selectedSourceFilter = "Tất cả nguồn";
-    private string _selectedExecutionFilter = "Tất cả hình thức";
     private DateTime? _fromDate;
     private DateTime? _toDate;
-    private bool _includeDrafts = true;
+    // Redesign 14/10: filter theo target UI
+    private string _orderCodeFilterText = string.Empty;
+    private string _customerFilterText = string.Empty;
+    private string _salesOrderFilterText = string.Empty;
+    private string _workerFilterText = string.Empty;
+    private string _modelFilterText = string.Empty;
     private string _statusMessage = string.Empty;
     private string _errorMessage = string.Empty;
     private bool _isLoading;
@@ -83,16 +85,13 @@ public sealed class ProductionViewModel : ObservableObject
         StatusFilterOptions.Add("Hoàn thành");
         StatusFilterOptions.Add("Đã hủy");
 
-        SourceFilterOptions.Add("Tất cả nguồn");
-        SourceFilterOptions.Add("Chế tác nhập kho");
-        SourceFilterOptions.Add("Chế tác theo đơn");
-
-        ExecutionFilterOptions.Add("Tất cả hình thức");
-        ExecutionFilterOptions.Add("Nội bộ");
-        ExecutionFilterOptions.Add("Thợ ngoài");
-
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
+        ResetFiltersCommand = new AsyncRelayCommand(ResetFiltersAsync);
         CreateOrderCommand = new AsyncRelayCommand(CreateOrderAsync);
+        PrintOrderCommand = new AsyncRelayCommand(
+            () => PrintOrderAsync(SelectedOrder),
+            () => SelectedOrder is not null);
+        ExportExcelCommand = new RelayCommand(ExportExcel);
         OpenDetailCommand = new ParameterRelayCommand(
             p => _ = OpenDetailAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
             p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is not null);
@@ -112,16 +111,62 @@ public sealed class ProductionViewModel : ObservableObject
 
     public ObservableCollection<ProductionOrderRowViewModel> Orders { get; } = [];
     public ObservableCollection<string> StatusFilterOptions { get; } = [];
-    public ObservableCollection<string> SourceFilterOptions { get; } = [];
-    public ObservableCollection<string> ExecutionFilterOptions { get; } = [];
 
-    public string SearchText
+    private bool _suppressAutoSearch;
+
+    private void TriggerFilterSearch()
     {
-        get => _searchText;
+        if (!_suppressAutoSearch)
+            _ = LoadAsync();
+    }
+
+    public string OrderCodeFilterText
+    {
+        get => _orderCodeFilterText;
         set
         {
-            if (SetProperty(ref _searchText, value))
-                _ = LoadAsync();
+            if (SetProperty(ref _orderCodeFilterText, value))
+                TriggerFilterSearch();
+        }
+    }
+
+    public string CustomerFilterText
+    {
+        get => _customerFilterText;
+        set
+        {
+            if (SetProperty(ref _customerFilterText, value))
+                TriggerFilterSearch();
+        }
+    }
+
+    public string SalesOrderFilterText
+    {
+        get => _salesOrderFilterText;
+        set
+        {
+            if (SetProperty(ref _salesOrderFilterText, value))
+                TriggerFilterSearch();
+        }
+    }
+
+    public string WorkerFilterText
+    {
+        get => _workerFilterText;
+        set
+        {
+            if (SetProperty(ref _workerFilterText, value))
+                TriggerFilterSearch();
+        }
+    }
+
+    public string ModelFilterText
+    {
+        get => _modelFilterText;
+        set
+        {
+            if (SetProperty(ref _modelFilterText, value))
+                TriggerFilterSearch();
         }
     }
 
@@ -131,57 +176,7 @@ public sealed class ProductionViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _selectedStatusFilter, value))
-                _ = LoadAsync();
-        }
-    }
-
-    public string SelectedSourceFilter
-    {
-        get => _selectedSourceFilter;
-        set
-        {
-            if (SetProperty(ref _selectedSourceFilter, value))
-                _ = LoadAsync();
-        }
-    }
-
-    public string SelectedExecutionFilter
-    {
-        get => _selectedExecutionFilter;
-        set
-        {
-            if (SetProperty(ref _selectedExecutionFilter, value))
-                _ = LoadAsync();
-        }
-    }
-
-    public DateTime? FromDate
-    {
-        get => _fromDate;
-        set
-        {
-            if (SetProperty(ref _fromDate, value))
-                _ = LoadAsync();
-        }
-    }
-
-    public DateTime? ToDate
-    {
-        get => _toDate;
-        set
-        {
-            if (SetProperty(ref _toDate, value))
-                _ = LoadAsync();
-        }
-    }
-
-    public bool IncludeDrafts
-    {
-        get => _includeDrafts;
-        set
-        {
-            if (SetProperty(ref _includeDrafts, value))
-                _ = LoadAsync();
+                TriggerFilterSearch();
         }
     }
 
@@ -196,8 +191,33 @@ public sealed class ProductionViewModel : ObservableObject
                 (EditOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
                 (DeleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
                 (CompleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
+                (PrintOrderCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                if (value is not null)
+                    PopulateFiltersFromOrder(value);
             }
         }
+    }
+
+    /// <summary>
+    /// Điền thông tin phiếu đang chọn lên các field filter phía trên.
+    /// </summary>
+    private void PopulateFiltersFromOrder(ProductionOrderRowViewModel order)
+    {
+        _suppressAutoSearch = true;
+        try
+        {
+            OrderCodeFilterText = order.Code ?? string.Empty;
+            CustomerFilterText = order.CustomerName ?? string.Empty;
+            SalesOrderFilterText = order.SalesOrderCode ?? string.Empty;
+            WorkerFilterText = order.WorkerDisplayName ?? string.Empty;
+            ModelFilterText = order.ModelSummary ?? string.Empty;
+        }
+        finally
+        {
+            _suppressAutoSearch = false;
+        }
+        // Không tự đổi Từ/Đến ngày và Trạng thái để tránh làm hẹp kết quả lọc bất ngờ
+        // Không tự kích hoạt tìm kiếm — người dùng bấm "Tìm kiếm" khi cần
     }
 
     public string StatusMessage
@@ -237,11 +257,14 @@ public sealed class ProductionViewModel : ObservableObject
     }
 
     public ICommand RefreshCommand { get; }
+    public ICommand ResetFiltersCommand { get; }
     public ICommand CreateOrderCommand { get; }
     public ICommand OpenDetailCommand { get; }
     public ICommand EditOrderCommand { get; }
     public ICommand DeleteOrderCommand { get; }
     public ICommand CompleteOrderCommand { get; }
+    public ICommand PrintOrderCommand { get; }
+    public ICommand ExportExcelCommand { get; }
 
     private long RequireBranchId()
     {
@@ -263,7 +286,7 @@ public sealed class ProductionViewModel : ObservableObject
             ErrorMessage = string.Empty;
             var branchId = RequireBranchId();
 
-            var summary = await _queries.GetSummaryAsync(branchId, FromDate, ToDate, token);
+            var summary = await _queries.GetSummaryAsync(branchId, _fromDate, _toDate, token);
             InProgressCount = summary.InProgressCount;
             CompletedCount = summary.CompletedCount;
             CancelledCount = summary.CancelledCount;
@@ -272,11 +295,11 @@ public sealed class ProductionViewModel : ObservableObject
             var items = await _queries.SearchOrdersAsync(branchId, filter, token);
 
             Orders.Clear();
+            var index = 1;
             foreach (var item in items)
-                Orders.Add(new ProductionOrderRowViewModel(item));
+                Orders.Add(new ProductionOrderRowViewModel(item, index++));
 
-            // B5: footer chỉ hiện tổng toàn bộ danh sách đã lọc (không phân trang).
-            StatusMessage = $"Tổng số phiếu: {Orders.Count}.";
+            StatusMessage = string.Empty;
         }
         catch (OperationCanceledException)
         {
@@ -302,26 +325,64 @@ public sealed class ProductionViewModel : ObservableObject
             "Đã hủy" => ProductionOrderStatuses.Cancelled,
             _ => null
         };
-        string? source = SelectedSourceFilter switch
-        {
-            "Chế tác nhập kho" => ProductionOrderSources.Stock,
-            "Chế tác theo đơn" => ProductionOrderSources.SalesOrder,
-            _ => null
-        };
-        string? execution = SelectedExecutionFilter switch
-        {
-            "Nội bộ" => ProductionExecutionTypes.InHouse,
-            "Thợ ngoài" => ProductionExecutionTypes.Outsourced,
-            _ => null
-        };
         return new ProductionOrderListFilter(
-            SearchText,
-            status,
-            source,
-            execution,
-            FromDate,
-            ToDate,
-            IncludeDrafts);
+            SearchText: null,
+            StatusCode: status,
+            OrderSource: null,
+            ExecutionType: null,
+            FromDate: _fromDate,
+            ToDate: _toDate,
+            IncludeDrafts: true,
+            OrderCode: string.IsNullOrWhiteSpace(OrderCodeFilterText) ? null : OrderCodeFilterText.Trim(),
+            CustomerName: string.IsNullOrWhiteSpace(CustomerFilterText) ? null : CustomerFilterText.Trim(),
+            SalesOrderCode: string.IsNullOrWhiteSpace(SalesOrderFilterText) ? null : SalesOrderFilterText.Trim(),
+            WorkerName: string.IsNullOrWhiteSpace(WorkerFilterText) ? null : WorkerFilterText.Trim(),
+            ModelName: string.IsNullOrWhiteSpace(ModelFilterText) ? null : ModelFilterText.Trim());
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        var today = DateTime.Today;
+        _fromDate = new DateTime(today.Year, today.Month, 1);
+        _toDate = today;
+        SelectedStatusFilter = "Tất cả trạng thái";
+        OrderCodeFilterText = string.Empty;
+        CustomerFilterText = string.Empty;
+        SalesOrderFilterText = string.Empty;
+        WorkerFilterText = string.Empty;
+        ModelFilterText = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task PrintOrderAsync(ProductionOrderRowViewModel? row)
+    {
+        if (row is null)
+            return;
+
+        try
+        {
+            ErrorMessage = string.Empty;
+            var dto = await _printData.GetOrderPrintAsync(row.Id);
+            if (dto is null)
+            {
+                ErrorMessage = $"Không lấy được dữ liệu in cho lệnh {row.Code}.";
+                return;
+            }
+            new ProductionPrintService().PrintOrder(dto);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private void ExportExcel()
+    {
+        MessageBox.Show(
+            "Chức năng xuất Excel chưa được hỗ trợ trong phiên bản này.",
+            "Thông báo",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private async Task CreateOrderAsync()
@@ -453,12 +514,14 @@ public sealed class ProductionViewModel : ObservableObject
     }
 }
 
-public sealed class ProductionOrderRowViewModel
+public sealed class ProductionOrderRowViewModel : ObservableObject
 {
     private static readonly CultureInfo ViCulture = CultureInfo.GetCultureInfo("vi-VN");
+    private bool _isSelected;
 
-    public ProductionOrderRowViewModel(ProductionOrderListItem item)
+    public ProductionOrderRowViewModel(ProductionOrderListItem item, int index)
     {
+        Index = index;
         Id = item.Id;
         Code = item.Code;
         OrderDateDisplay = item.OrderDate.ToString("dd/MM/yyyy", ViCulture);
@@ -492,6 +555,12 @@ public sealed class ProductionOrderRowViewModel
     }
 
     public long Id { get; }
+    public int Index { get; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
     public string Code { get; }
     public string OrderDateDisplay { get; }
     public string MaterialIssueDateDisplay { get; }

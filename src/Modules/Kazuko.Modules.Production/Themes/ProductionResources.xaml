@@ -117,6 +117,12 @@
         </Setter>
     </Style>
 
+    <Style x:Key="ProductionFilterLabelStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <Style x:Key="ProductionFilterFieldStyle" TargetType="TextBox" BasedOn="{StaticResource ProductionRoundedTextBoxStyle}">
         <Setter Property="Margin" Value="0,0,8,8" />
         <Setter Property="MinHeight" Value="36" />
