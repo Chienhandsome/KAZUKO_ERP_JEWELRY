@@ -16,6 +16,7 @@ public static class WarehouseWritePermissions
     public const string FinishedIssue = "warehouse.finished.issue";
     public const string DocumentReverse = "warehouse.document.reverse";
     public const string WorkerManage = "warehouse.worker.manage";
+    public const string SalesIntakeApprove = "warehouse.sales_intake.approve";
 }
 
 public static class StockDocumentTypes

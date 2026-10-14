@@ -1,0 +1,185 @@
+<Window x:Class="Kazuko.Modules.Warehouse.SalesIntakeApprovalDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
+        Title="Duyệt nhập từ kho TP"
+        Width="1100" Height="720" MinWidth="900" MinHeight="580"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/WarehouseResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
+      <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+      <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
+    </ResourceDictionary>
+  </Window.Resources>
+
+  <DockPanel Margin="20">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button Content="Đóng"
+              Style="{StaticResource WhOutlineButtonStyle}"
+              Command="{Binding CloseCommand}"
+              MinWidth="100"
+              IsCancel="True" />
+    </StackPanel>
+
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <StackPanel Margin="0,0,0,12">
+        <TextBlock Text="Duyệt nhập từ kho thành phẩm"
+                   FontSize="{DynamicResource FontSize.Heading}"
+                   FontWeight="Bold"
+                   Foreground="{DynamicResource PrimaryBrush}" />
+        <TextBlock Text="Xem yêu cầu chuyển TP→BH. Đồng ý sẽ ghi sổ vào Kho bán hàng; từ chối cần lý do và giữ hàng tại Kho thành phẩm."
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="{DynamicResource FontSize.Body}"
+                   TextWrapping="Wrap"
+                   Margin="0,4,0,0" />
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="{DynamicResource DangerBrush}"
+                   TextWrapping="Wrap"
+                   Margin="0,8,0,0"
+                   Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+      </StackPanel>
+
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="1.1*" MinWidth="360" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="*" MinWidth="340" />
+        </Grid.ColumnDefinitions>
+
+        <Border Style="{DynamicResource CardBorderStyle}" Padding="14">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel Margin="0,0,0,10" LastChildFill="False">
+              <TextBlock Text="Danh sách yêu cầu"
+                         Style="{StaticResource WhSectionHeaderStyle}"
+                         VerticalAlignment="Center" />
+              <Button DockPanel.Dock="Right"
+                      Content="Làm mới"
+                      Command="{Binding RefreshCommand}"
+                      Style="{StaticResource WhOutlineButtonStyle}"
+                      MinWidth="100"
+                      Margin="8,0,0,0" />
+              <ComboBox DockPanel.Dock="Right"
+                        Width="140"
+                        ItemsSource="{Binding StatusFilterOptions}"
+                        SelectedItem="{Binding StatusFilter}"
+                        Style="{StaticResource WhComboStyle}"
+                        Margin="12,0,0,0" />
+            </DockPanel>
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding Requests}"
+                      SelectedItem="{Binding SelectedRequest}"
+                      Style="{StaticResource WhDataGridStyle}"
+                      ColumnHeaderStyle="{StaticResource WhDataGridColumnHeaderStyle}">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Mã phiếu" Binding="{Binding Code, Mode=OneWay}" Width="120" />
+                <DataGridTextColumn Header="Ngày" Binding="{Binding DocumentDate, Mode=OneWay, StringFormat=dd/MM/yyyy}" Width="90" />
+                <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusCode, Mode=OneWay}" Width="90" />
+                <DataGridTextColumn Header="Người gửi" Binding="{Binding CreatedByName, Mode=OneWay}" Width="120" />
+                <DataGridTextColumn Header="Số món" Binding="{Binding LineCount, Mode=OneWay}" Width="70" />
+                <DataGridTextColumn Header="Kho nguồn" Binding="{Binding SourceLocationName, Mode=OneWay}" Width="*" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}">
+              <TextBlock Text="Chi tiết yêu cầu" Style="{StaticResource WhSectionHeaderStyle}" Margin="0,0,0,10" />
+              <TextBlock Text="Mã phiếu" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding DetailCode}" FontSize="{DynamicResource FontSize.Body}" Margin="0,0,0,8" />
+              <TextBlock Text="Trạng thái" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding DetailStatus}" FontSize="{DynamicResource FontSize.Body}" Margin="0,0,0,8" />
+              <TextBlock Text="Người gửi" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding DetailCreatedBy}" FontSize="{DynamicResource FontSize.Body}" Margin="0,0,0,8" />
+              <TextBlock Text="Thời gian gửi" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding DetailCreatedAt}" FontSize="{DynamicResource FontSize.Body}" Margin="0,0,0,8" />
+              <TextBlock Text="Kho nguồn → đích" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock FontSize="{DynamicResource FontSize.Body}" Margin="0,0,0,8" TextWrapping="Wrap">
+                <Run Text="{Binding DetailSource, Mode=OneWay}" />
+                <Run Text=" → " />
+                <Run Text="{Binding DetailDestination, Mode=OneWay}" />
+              </TextBlock>
+              <TextBlock Text="Ghi chú" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBlock Text="{Binding DetailNotes}" FontSize="{DynamicResource FontSize.Body}" TextWrapping="Wrap" Margin="0,0,0,8" />
+              <TextBlock Text="Lý do từ chối" Style="{StaticResource WhFieldLabelStyle}"
+                         Visibility="{Binding DetailRejectionReason, Converter={StaticResource NotNullToVis}}" />
+              <TextBlock Text="{Binding DetailRejectionReason}"
+                         FontSize="{DynamicResource FontSize.Body}"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource DangerBrush}"
+                         Margin="0,0,0,8"
+                         Visibility="{Binding DetailRejectionReason, Converter={StaticResource NotNullToVis}}" />
+            </StackPanel>
+
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding DetailLines}"
+                      Style="{StaticResource WhDataGridStyle}"
+                      ColumnHeaderStyle="{StaticResource WhDataGridColumnHeaderStyle}"
+                      Margin="0,8,0,0"
+                      Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Serial" Binding="{Binding ProductCode, Mode=OneWay}" Width="130" />
+                <DataGridTextColumn Header="Tên sản phẩm" Binding="{Binding ProductName, Mode=OneWay}" Width="*" />
+                <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldPurity, Mode=OneWay}" Width="90" />
+                <DataGridTextColumn Header="Giá trị" Binding="{Binding UnitCost, Mode=OneWay, StringFormat={}{0:N0}}" Width="110" />
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Row="2" Margin="0,12,0,0"
+                        Visibility="{Binding CanDecide, Converter={StaticResource BoolToVis}}">
+              <TextBlock Text="Lý do từ chối (bắt buộc khi Từ chối)" Style="{StaticResource WhFieldLabelStyle}" />
+              <TextBox Text="{Binding RejectReason, UpdateSourceTrigger=PropertyChanged}"
+                       Style="{StaticResource WhRoundedTextBoxStyle}"
+                       MinHeight="56"
+                       AcceptsReturn="True"
+                       TextWrapping="Wrap"
+                       VerticalContentAlignment="Top"
+                       Padding="12,10"
+                       Margin="0,0,0,10" />
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Từ chối"
+                        Style="{StaticResource WhOutlineButtonStyle}"
+                        Command="{Binding RejectCommand}"
+                        MinWidth="110"
+                        Margin="0,0,8,0" />
+                <Button Content="Đồng ý nhập"
+                        Style="{StaticResource WhPrimaryButtonStyle}"
+                        Command="{Binding ApproveCommand}"
+                        MinWidth="130" />
+              </StackPanel>
+            </StackPanel>
+
+            <TextBlock Grid.Row="0" Grid.RowSpan="3"
+                       Text="Chọn một yêu cầu bên trái để xem chi tiết."
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Visibility="{Binding HasDetail, Converter={StaticResource InverseBoolToVis}}" />
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</Window>

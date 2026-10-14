@@ -186,7 +186,7 @@ public sealed class FinishedProductTransferDialogViewModel : ObservableObject
             if (SourceLocation is null || DestinationLocation is null)
                 throw new InvalidOperationException("Chọn Kho thành phẩm và Kho bán hàng.");
 
-            await _service.CreateAndPostAsync(
+            await _service.CreateRequestAsync(
                 new FinishedProductTransferDraft(
                     DateTime.Now, SourceLocation.Id, DestinationLocation.Id,
                     Notes, Lines.Select(x => x.Id).ToList()),
@@ -196,7 +196,7 @@ public sealed class FinishedProductTransferDialogViewModel : ObservableObject
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Nhập từ kho thành phẩm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, "Yêu cầu xuất kho bán hàng", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }

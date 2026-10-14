@@ -205,6 +205,7 @@ public sealed class WarehouseViewModel : ObservableObject
         OpenIssueTabCommand = new RelayCommand(() => OpenDocumentTab("ISSUE", WarehouseTabs.Issue));
         OpenTransferTabCommand = new RelayCommand(() => OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer));
         OpenFinishedProductTransferCommand = new RelayCommand(OpenFinishedProductTransferDialog);
+        OpenSalesIntakeApprovalCommand = new RelayCommand(OpenSalesIntakeApprovalDialog);
         OpenProductionFinishedReceiptCommand = new RelayCommand(OpenProductionFinishedReceiptDialog);
         OpenWarehouseGoldPricesCommand = new RelayCommand(OpenWarehouseGoldPriceDialog);
         ViewAllRawMaterialsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.RawMaterials));
@@ -758,6 +759,7 @@ public sealed class WarehouseViewModel : ObservableObject
     public ICommand OpenIssueTabCommand { get; }
     public ICommand OpenTransferTabCommand { get; }
     public ICommand OpenFinishedProductTransferCommand { get; }
+    public ICommand OpenSalesIntakeApprovalCommand { get; }
     public ICommand OpenProductionFinishedReceiptCommand { get; }
     public ICommand OpenWarehouseGoldPricesCommand { get; }
     public ICommand ViewAllRawMaterialsCommand { get; }
@@ -1462,6 +1464,25 @@ public sealed class WarehouseViewModel : ObservableObject
             Owner = Application.Current?.MainWindow
         };
         if (dialog.ShowDialog() == true)
+            _ = RefreshAllAsync();
+    }
+
+    private void OpenSalesIntakeApprovalDialog()
+    {
+        var session = RequireSession();
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        var viewModel = new SalesIntakeApprovalDialogViewModel(_finishedProductTransfers, session);
+        var dialog = new SalesIntakeApprovalDialog(viewModel)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+        if (viewModel.Changed)
         {
             OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer);
             _ = RefreshAllAsync();

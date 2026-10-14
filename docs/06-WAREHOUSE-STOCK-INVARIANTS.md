@@ -135,11 +135,13 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 
 ### 8.1. Chuyển Kho thành phẩm sang Kho bán hàng
 
-- UI lập phiếu từ **Kho thành phẩm** (nút **Xuất kho bán hàng**); không còn nút “Nhập từ kho thành phẩm” trên Kho bán hàng.
-- Chỉ chuyển món đang `IN_STOCK` tại location scope `FINISHED_GOODS`.
-- Kho đích phải có scope `SALES_FLOOR`.
-- POST trong một transaction: tạo phiếu `TRANSFER`, tạo một dòng/serial, cập nhật location, đổi trạng thái sang `DISPLAYED`, ghi hai movement OUT/IN và audit.
-- Sau commit, query Kho thành phẩm không còn món đó; query Kho bán hàng mới hiển thị món đó.
+- UI lập **yêu cầu** từ **Kho thành phẩm** (nút **Xuất kho bán hàng** / **Gửi yêu cầu**). Người tạo = user đăng nhập hiện tại.
+- Chỉ chọn món đang `IN_STOCK` tại location scope `FINISHED_GOODS`. Kho đích phải có scope `SALES_FLOOR`.
+- Yêu cầu lưu ở `SALES_INTAKE_REQUESTS` / `SALES_INTAKE_REQUEST_LINES` (`PENDING`). **Chưa** tạo `STOCK_DOCUMENTS`, **chưa** đổi location/status, **chưa** ghi movement. Hàng vẫn ở Kho thành phẩm; tab Chuyển kho chưa có phiếu.
+- Một serial không được nằm trên hai yêu cầu `PENDING` cùng lúc.
+- BH duyệt trên Tổng quan / tab **Kho bán hàng** (nút **Duyệt nhập từ kho TP**): **Đồng ý** → mới lập phiếu `TRANSFER` / `FINISHED_TO_SALES` `POSTED` (location → `SALES_FLOOR`, status `DISPLAYED`, hai movement OUT/IN, gắn `STOCK_DOCUMENT_ID`, request → `APPROVED`); **Từ chối** → request `REJECTED` + `REJECTION_REASON` bắt buộc, **không** tạo phiếu chuyển kho, hàng giữ nguyên tại TP.
+- Quyền duyệt/từ chối: `warehouse.sales_intake.approve` (seed ADMIN/MANAGER; enforce khi Approve/Reject).
+- Sau duyệt, query Kho thành phẩm không còn món đó; query Kho bán hàng mới hiển thị món đó.
 - Query Kho bán hàng chỉ lấy `DISPLAYED` tại `SALES_FLOOR`; `SOLD` tuyệt đối không xuất hiện trong danh sách active.
 
 ### 8.2. Danh mục loại vàng (`GOLD_TYPES`) và bảng giá
@@ -172,6 +174,7 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 | `warehouse.craft.outsource` | Xuất / thu hồi thợ ngoài |
 | `warehouse.craft.settle.override` | Thu hồi vượt lượng (điều chỉnh) |
 | `warehouse.finished.issue` | Xuất thành phẩm theo đơn |
+| `warehouse.sales_intake.approve` | Duyệt / từ chối yêu cầu nhập TP vào Kho bán hàng |
 | `warehouse.document.reverse` | Hủy / đảo chứng từ đã ghi sổ |
 | `debt.payable.read` / `debt.payable.pay` | Xem / thanh toán công nợ phải trả |
 | `finance.fund.read` / `finance.bank.read` | Chọn quỹ / TKNH |
