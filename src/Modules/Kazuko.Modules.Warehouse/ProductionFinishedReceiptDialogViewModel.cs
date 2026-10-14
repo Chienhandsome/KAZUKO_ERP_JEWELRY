@@ -26,6 +26,12 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private static readonly string[] WeightUnitOptions =
         ["Chỉ", "Phân", "Ly", "Gram"];
 
+    private static readonly string[] GoldAgeOptions =
+        ["9999", "999", "750", "680", "610", "585", "416", "375"];
+
+    private static readonly string[] SupplierOptions =
+        ["Nội bộ", "Xưởng chế tác"];
+
     private readonly IWarehouseRepository _warehouse;
     private readonly IProductionQueryRepository _queries;
     private readonly IProductionApplicationService _application;
@@ -64,6 +70,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private bool _isEditing;
     private int _editingIndex = -1;
     private ManualFinishedProductItem? _selectedProduct;
+    private bool _generateSeparateCodes = true;
+    private bool _loadFromProductionOrder;
 
     // Đối chiếu vàng
     private ProductionOrderWorkerDto? _selectedWorker;
@@ -95,6 +103,12 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 SelectedImage = item;
         });
         RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => !IsBusy && !_debtRecorded);
+        PrintLabelCommand = new RelayCommand(() => MessageBox.Show(
+            "Chức năng in tem đang phát triển.", "In lại tem",
+            MessageBoxButton.OK, MessageBoxImage.Information));
+        PrintReceiptCommand = new RelayCommand(() => MessageBox.Show(
+            "Chức năng in phiếu đang phát triển.", "In phiếu",
+            MessageBoxButton.OK, MessageBoxImage.Information));
 
         Products.CollectionChanged += OnProductsChanged;
         _ = LoadLookupsAsync();
@@ -109,6 +123,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 
     public IReadOnlyList<string> GoldPurityChoices => GoldPurityOptions;
     public IReadOnlyList<string> WeightUnitChoices => WeightUnitOptions;
+    public IReadOnlyList<string> GoldAgeChoices => GoldAgeOptions;
+    public IReadOnlyList<string> SupplierChoices => SupplierOptions;
 
     public ProductionFinishedReceiptOrderOption? SelectedOrder
     {
@@ -294,6 +310,28 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     /// <summary>Mã TP xem trước: mã sẽ gán cho dòng tiếp theo khi bấm Thêm.</summary>
     public string PreviewProductCode => NextProductCode(peek: true);
 
+    /// <summary>Tạo mã riêng cho từng món: SL=N → N dòng, mỗi dòng 1 mã riêng.</summary>
+    public bool GenerateSeparateCodes
+    {
+        get => _generateSeparateCodes;
+        set
+        {
+            if (SetProperty(ref _generateSeparateCodes, value))
+                OnPropertyChanged(nameof(PreviewProductCode));
+        }
+    }
+
+    /// <summary>Lấy dữ liệu từ lệnh sản xuất: tự điền tên SP / loại vàng / mã hiệu từ dòng đầu của lệnh.</summary>
+    public bool LoadFromProductionOrder
+    {
+        get => _loadFromProductionOrder;
+        set
+        {
+            if (SetProperty(ref _loadFromProductionOrder, value) && value)
+                PrefillFromOrder();
+        }
+    }
+
     public bool IsEditing
     {
         get => _isEditing;
@@ -341,14 +379,17 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ICommand EditCommand { get; }
     public ICommand DeleteCommand { get; }
     public ICommand CancelEditCommand { get; }
+    public ICommand PrintLabelCommand { get; }
+    public ICommand PrintReceiptCommand { get; }
 
     #endregion
 
     #region Footer totals
 
     public string FooterLineCountText => $"{Products.Count} món";
-    public string FooterGoldWeightText => $"{Products.Sum(x => x.GoldWeight):0.###} chỉ";
-    public string FooterStoneWeightText => $"{Products.Sum(x => x.StoneWeight):0.###} chỉ";
+    public string FooterTotalWeightText => $"{Products.Sum(x => x.TotalWeight):0.###} Chỉ";
+    public string FooterGoldWeightText => $"{Products.Sum(x => x.GoldWeight):0.###} Chỉ";
+    public string FooterStoneWeightText => $"{Products.Sum(x => x.StoneWeight):0.###} Chỉ";
     public string FooterCraftLaborText => $"{Products.Sum(x => x.CraftLaborCost ?? 0):N0}";
     public string FooterCostPriceText => Products.Count == 0
         ? "—" : $"{Products.Sum(x => x.CostPrice ?? 0):N0}";
@@ -500,6 +541,9 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 {
                     ReconcileMessage = $"Không tải được số vàng đã giao: {ex.Message}";
                 }
+
+                if (LoadFromProductionOrder)
+                    PrefillFromOrder();
             }
             NotifyDetailChanged();
             OnPropertyChanged(nameof(HasImages));
@@ -544,10 +588,28 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 
     private void NotifyTotalsChanged()
     {
-        foreach (var name in new[] { nameof(FooterLineCountText), nameof(FooterGoldWeightText),
-                     nameof(FooterStoneWeightText), nameof(FooterCraftLaborText),
-                     nameof(FooterCostPriceText), nameof(FooterSalePriceText) })
+        foreach (var name in new[] { nameof(FooterLineCountText), nameof(FooterTotalWeightText),
+                     nameof(FooterGoldWeightText), nameof(FooterStoneWeightText),
+                     nameof(FooterCraftLaborText), nameof(FooterCostPriceText),
+                     nameof(FooterSalePriceText) })
             OnPropertyChanged(name);
+    }
+
+    /// <summary>
+    /// Điền form từ dòng đầu của lệnh sản xuất (khi bật "Lấy dữ liệu từ lệnh sản xuất").
+    /// Chỉ điền các ô còn trống, không ghi đè dữ liệu người dùng đã nhập.
+    /// </summary>
+    private void PrefillFromOrder()
+    {
+        var line = _detail?.Lines.FirstOrDefault();
+        if (line is null)
+            return;
+        if (string.IsNullOrWhiteSpace(ProductName))
+            ProductName = line.ModelName;
+        if (string.IsNullOrWhiteSpace(GoldPurityCode))
+            GoldPurityCode = line.GoldTypeCode;
+        if (string.IsNullOrWhiteSpace(ModelCode) && !string.IsNullOrWhiteSpace(line.ModelCode))
+            ModelCode = line.ModelCode;
     }
 
     private void RecalculateGoldWeight()
@@ -610,12 +672,18 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         TryParseDecimal(PurchaseLaborCostText, out var purchaseLabor);
 
         var items = new List<ManualFinishedProductItem>(quantity);
+        // Bỏ check "Tạo mã riêng cho từng món" → cả N dòng dùng chung 1 mã.
+        var sharedCode = GenerateSeparateCodes ? null : NextProductCode(peek: false);
         for (var i = 0; i < quantity; i++)
         {
             string code;
             if (IsEditing && i == 0 && Products.Count > _editingIndex && _editingIndex >= 0)
             {
                 code = Products[_editingIndex].ProductCode;
+            }
+            else if (sharedCode is not null)
+            {
+                code = sharedCode;
             }
             else
             {

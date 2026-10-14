@@ -72,3 +72,15 @@ public sealed class AlternationIndexToSttConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+/// <summary>
+/// So sánh 2 object cho cột checkbox phản ánh dòng đang chọn trong DataGrid.
+/// </summary>
+public sealed class ObjectEqualsConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.Length >= 2 && Equals(values[0], values[1]);
+
+    public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
