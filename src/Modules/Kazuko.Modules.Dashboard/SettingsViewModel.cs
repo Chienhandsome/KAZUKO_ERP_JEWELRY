@@ -26,7 +26,11 @@ public sealed class SettingsViewModel : ObservableObject
     private string _errorMessage = string.Empty;
     private bool _isBusy;
     private bool _isDirty;
-    private string _receiptTemplateSummary = "Chưa tải.";
+    private string _receiptTemplateName = "—";
+    private string _receiptTemplateCode = "—";
+    private string _receiptTemplateUpdatedAt = "—";
+    private string _receiptTemplateHash = "—";
+    private string _receiptTemplateSize = "—";
     private ReceiptTemplateKindOption _selectedReceiptTemplateKind;
 
     public SettingsViewModel(
@@ -195,10 +199,34 @@ public sealed class SettingsViewModel : ObservableObject
         private set => SetProperty(ref _isDirty, value);
     }
 
-    public string ReceiptTemplateSummary
+    public string ReceiptTemplateName
     {
-        get => _receiptTemplateSummary;
-        private set => SetProperty(ref _receiptTemplateSummary, value);
+        get => _receiptTemplateName;
+        private set => SetProperty(ref _receiptTemplateName, value);
+    }
+
+    public string ReceiptTemplateCode
+    {
+        get => _receiptTemplateCode;
+        private set => SetProperty(ref _receiptTemplateCode, value);
+    }
+
+    public string ReceiptTemplateUpdatedAt
+    {
+        get => _receiptTemplateUpdatedAt;
+        private set => SetProperty(ref _receiptTemplateUpdatedAt, value);
+    }
+
+    public string ReceiptTemplateHash
+    {
+        get => _receiptTemplateHash;
+        private set => SetProperty(ref _receiptTemplateHash, value);
+    }
+
+    public string ReceiptTemplateSize
+    {
+        get => _receiptTemplateSize;
+        private set => SetProperty(ref _receiptTemplateSize, value);
     }
 
     public ICommand SaveCommand { get; }
@@ -332,31 +360,48 @@ public sealed class SettingsViewModel : ObservableObject
         var session = _sessionAccessor.Current;
         if (session is null)
         {
-            ReceiptTemplateSummary = "Chưa đăng nhập.";
+            ClearReceiptTemplateInfo("Chưa đăng nhập.");
             return;
         }
 
         IsBusy = true;
         ErrorMessage = string.Empty;
+        StatusMessage = string.Empty;
         try
         {
             var kind = SelectedReceiptTemplateKind;
             var template = await _printTemplates.GetByCodeAsync(kind.Code, session);
-            ReceiptTemplateSummary =
-                $"{template.Name}\nMã: {template.Code}\nCập nhật: {template.UpdatedAt:dd/MM/yyyy HH:mm}\n"
-                + $"Hash: {template.ContentHash[..Math.Min(16, template.ContentHash.Length)]}…\n"
-                + $"Dung lượng: {template.Content.Length:N0} bytes";
-            StatusMessage = $"Đã tải thông tin mẫu {kind.Label}.";
+            ApplyReceiptTemplateInfo(template);
         }
         catch (Exception ex)
         {
-            ReceiptTemplateSummary = "Không tải được mẫu in.";
+            ClearReceiptTemplateInfo("Không tải được mẫu in.");
             ErrorMessage = Sanitize(ex.Message);
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    private void ApplyReceiptTemplateInfo(PrintTemplateDto template)
+    {
+        ReceiptTemplateName = template.Name;
+        ReceiptTemplateCode = template.Code;
+        ReceiptTemplateUpdatedAt = template.UpdatedAt.ToString("dd/MM/yyyy HH:mm");
+        ReceiptTemplateHash = template.ContentHash.Length <= 16
+            ? template.ContentHash
+            : $"{template.ContentHash[..16]}…";
+        ReceiptTemplateSize = $"{template.Content.Length:N0} bytes";
+    }
+
+    private void ClearReceiptTemplateInfo(string title)
+    {
+        ReceiptTemplateName = title;
+        ReceiptTemplateCode = "—";
+        ReceiptTemplateUpdatedAt = "—";
+        ReceiptTemplateHash = "—";
+        ReceiptTemplateSize = "—";
     }
 
     private async Task ExportReceiptTemplateAsync()
@@ -429,11 +474,8 @@ public sealed class SettingsViewModel : ObservableObject
                 bytes,
                 $"Import từ {Path.GetFileName(dialog.FileName)}",
                 session);
-            ReceiptTemplateSummary =
-                $"{saved.Name}\nMã: {saved.Code}\nCập nhật: {saved.UpdatedAt:dd/MM/yyyy HH:mm}\n"
-                + $"Hash: {saved.ContentHash[..Math.Min(16, saved.ContentHash.Length)]}…\n"
-                + $"Dung lượng: {saved.Content.Length:N0} bytes";
-            StatusMessage = $"Đã import mẫu {kind.Label} vào database.";
+            ApplyReceiptTemplateInfo(saved);
+            StatusMessage = string.Empty;
         }
         catch (Exception ex)
         {

@@ -1,4 +1,4 @@
-<UserControl x:Class="Kazuko.Modules.Dashboard.SettingsView"
+﻿<UserControl x:Class="Kazuko.Modules.Dashboard.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:Kazuko.Shared.UI.Converters;assembly=Kazuko.Shared.UI"
@@ -50,6 +50,215 @@
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
+
+        <Style x:Key="SettingsTextBoxStyle" TargetType="TextBox">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.7" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SettingsComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="MaxDropDownHeight" Value="320" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="ComboBd"
+                                                Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                BorderThickness="{Binding BorderThickness, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                CornerRadius="8"
+                                                SnapsToDevicePixels="True">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Background="Transparent" />
+                                                <Path Grid.Column="1"
+                                                      Data="M 0 0 L 6 6 L 12 0"
+                                                      Stroke="{DynamicResource TextSecondaryBrush}"
+                                                      StrokeThickness="1.5"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                              Margin="12,0,32,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+                            <Popup x:Name="PART_Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border Margin="0,2,0,0"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="{DynamicResource SurfaceBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        SnapsToDevicePixels="True">
+                                    <ScrollViewer Margin="2" VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.7" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SettingsPrimaryButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SettingsSecondaryButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SettingsMetaLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource SettingsFieldLabelStyle}">
+            <Setter Property="Margin" Value="0,0,12,8" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="MinWidth" Value="100" />
+        </Style>
+
+        <Style x:Key="SettingsMetaValueStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
     </UserControl.Resources>
 
     <Grid Background="{DynamicResource AppBackgroundBrush}">
@@ -100,8 +309,7 @@
                           Padding="28,24">
                 <Grid>
                     <!-- Thông tin chung -->
-                    <Border MaxWidth="720"
-                            HorizontalAlignment="Left"
+                    <Border HorizontalAlignment="Stretch"
                             Style="{DynamicResource CardBorderStyle}"
                             Visibility="{Binding IsGeneralSelected, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
@@ -145,14 +353,17 @@
 
                             <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Tên doanh nghiệp *" />
                             <TextBox Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SettingsTextBoxStyle}"
                                      Margin="0,0,0,14" />
 
                             <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Số điện thoại" />
                             <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SettingsTextBoxStyle}"
                                      Margin="0,0,0,14" />
 
                             <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Địa chỉ" />
                             <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SettingsTextBoxStyle}"
                                      Margin="0,0,0,18"
                                      MinHeight="72"
                                      TextWrapping="Wrap"
@@ -211,54 +422,34 @@
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                     <Button Content="Chọn logo..."
                                             Command="{Binding PickLogoCommand}"
-                                            Style="{DynamicResource PrimaryButtonStyle}"
+                                            Style="{StaticResource SettingsPrimaryButtonStyle}"
                                             HorizontalAlignment="Left"
                                             MinWidth="140"
                                             Margin="0,0,0,8" />
                                     <Button Content="Xóa logo"
                                             Command="{Binding ClearLogoCommand}"
-                                            Style="{DynamicResource NavButtonStyle}"
+                                            Style="{StaticResource SettingsSecondaryButtonStyle}"
                                             HorizontalAlignment="Left"
                                             MinWidth="140"
                                             Margin="0" />
-
                                 </StackPanel>
                             </Grid>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                 <Button Content="Lưu"
                                         Command="{Binding SaveCommand}"
-                                        Style="{DynamicResource PrimaryButtonStyle}"
-                                        MinWidth="120"
+                                        Style="{StaticResource SettingsPrimaryButtonStyle}"
                                         Margin="0,0,10,0" />
                                 <Button Content="Tải lại"
                                         Command="{Binding ReloadCommand}"
-                                        Style="{DynamicResource NavButtonStyle}"
-                                        MinWidth="120"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         Margin="0" />
                             </StackPanel>
-
-                            <TextBlock Text="{Binding StatusMessage}"
-                                       FontSize="{DynamicResource FontSize.Caption}"
-                                       Foreground="{DynamicResource SuccessBrush}"
-                                       TextWrapping="Wrap">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding StatusMessage}" Value="">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
                         </StackPanel>
                     </Border>
 
                     <!-- Mẫu in bill (FastReport .frx trong DB) -->
-                    <Border MaxWidth="720"
-                            HorizontalAlignment="Left"
+                    <Border HorizontalAlignment="Stretch"
                             Style="{DynamicResource CardBorderStyle}"
                             Visibility="{Binding IsReceiptTemplateSelected, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
@@ -277,10 +468,16 @@
                                            VerticalAlignment="Center"
                                            Margin="0,0,10,0"
                                            Foreground="{DynamicResource TextSecondaryBrush}" />
-                                <ComboBox Width="160"
+                                <ComboBox Width="200"
                                           ItemsSource="{Binding ReceiptTemplateKinds}"
                                           SelectedItem="{Binding SelectedReceiptTemplateKind}"
-                                          DisplayMemberPath="Label" />
+                                          Style="{StaticResource SettingsComboBoxStyle}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
 
                             <TextBlock Text="{Binding ErrorMessage}"
@@ -303,52 +500,59 @@
                             <Border Background="{DynamicResource SurfaceAltBrush}"
                                     BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="14"
+                                    CornerRadius="10"
+                                    Padding="16"
                                     Margin="0,0,0,16">
-                                <TextBlock Text="{Binding ReceiptTemplateSummary}"
-                                           FontSize="{DynamicResource FontSize.Body}"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           TextWrapping="Wrap" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Tên mẫu" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ReceiptTemplateName, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryBrush}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Mã" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ReceiptTemplateCode, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Cập nhật" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReceiptTemplateUpdatedAt, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Hash" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReceiptTemplateHash, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" />
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Dung lượng" Style="{StaticResource SettingsMetaLabelStyle}" Margin="0,0,12,0" />
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ReceiptTemplateSize, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" Margin="0" />
+                                </Grid>
                             </Border>
 
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="Xuất .frx"
                                         Command="{Binding ExportReceiptTemplateCommand}"
-                                        Style="{DynamicResource PrimaryButtonStyle}"
+                                        Style="{StaticResource SettingsPrimaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
                                 <Button Content="Import .frx"
                                         Command="{Binding ImportReceiptTemplateCommand}"
-                                        Style="{DynamicResource NavButtonStyle}"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
                                 <Button Content="Tải lại"
                                         Command="{Binding ReloadReceiptTemplateCommand}"
-                                        Style="{DynamicResource NavButtonStyle}"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         MinWidth="110" />
                             </StackPanel>
-
-                            <TextBlock Text="{Binding StatusMessage}"
-                                       Margin="0,14,0,0"
-                                       FontSize="{DynamicResource FontSize.Caption}"
-                                       Foreground="{DynamicResource SuccessBrush}"
-                                       TextWrapping="Wrap">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding StatusMessage}" Value="">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
                         </StackPanel>
                     </Border>
 
                     <!-- Giao diện: giữ DataContext ở StackPanel con để Visibility vẫn bind SettingsViewModel -->
-                    <Border MaxWidth="560"
-                            HorizontalAlignment="Left"
+                    <Border HorizontalAlignment="Stretch"
                             Style="{DynamicResource CardBorderStyle}"
                             Visibility="{Binding IsAppearanceSelected, Converter={StaticResource BoolToVis}}">
                         <StackPanel DataContext="{Binding Appearance}">
@@ -365,17 +569,29 @@
                             <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Chủ đề" />
                             <ComboBox ItemsSource="{Binding Themes}"
                                       SelectedItem="{Binding SelectedTheme}"
-                                      DisplayMemberPath="Label"
-                                      MinHeight="42"
-                                      Padding="10,6"
-                                      Margin="0,0,0,20" />
+                                      Style="{StaticResource SettingsComboBoxStyle}"
+                                      MaxWidth="360"
+                                      HorizontalAlignment="Left"
+                                      Margin="0,0,0,20">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Cỡ chữ" />
                             <ComboBox ItemsSource="{Binding FontScales}"
                                       SelectedItem="{Binding SelectedFontScale}"
-                                      DisplayMemberPath="Label"
-                                      MinHeight="42"
-                                      Padding="10,6" />
+                                      Style="{StaticResource SettingsComboBoxStyle}"
+                                      MaxWidth="360"
+                                      HorizontalAlignment="Left">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                         </StackPanel>
                     </Border>
                 </Grid>

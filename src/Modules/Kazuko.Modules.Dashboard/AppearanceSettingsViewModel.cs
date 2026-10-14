@@ -3,8 +3,15 @@ using Kazuko.Core.Mvvm;
 
 namespace Kazuko.Modules.Dashboard;
 
-public sealed record ThemeChoice(string Label, AppTheme Value);
-public sealed record FontScaleChoice(string Label, double Value);
+public sealed record ThemeChoice(string Label, AppTheme Value)
+{
+    public override string ToString() => Label;
+}
+
+public sealed record FontScaleChoice(string Label, double Value)
+{
+    public override string ToString() => Label;
+}
 
 public sealed class AppearanceSettingsViewModel : ObservableObject
 {
