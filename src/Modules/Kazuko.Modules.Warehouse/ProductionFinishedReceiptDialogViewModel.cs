@@ -23,6 +23,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private readonly AuthenticatedSession _session;
     private ProductionFinishedReceiptOrderOption? _selectedOrder;
     private ProductionOrderDetail? _detail;
+    private ReceiptImageItem? _selectedImage;
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
     private DateTime _receiptDate = DateTime.Today;
@@ -37,6 +38,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         _session = session;
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         CancelCommand = new RelayCommand(() => DialogResult = false);
+        SelectImageCommand = new RelayCommand<ReceiptImageItem>(item =>
+        {
+            if (item is not null)
+                SelectedImage = item;
+        });
         Products.CollectionChanged += OnProductsChanged;
         _ = LoadOrdersAsync();
     }
@@ -52,6 +58,22 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedOrder, value))
                 _ = LoadDetailAsync(value);
+        }
+    }
+
+    public ReceiptImageItem? SelectedImage
+    {
+        get => _selectedImage;
+        set
+        {
+            if (ReferenceEquals(_selectedImage, value))
+                return;
+            if (_selectedImage is not null)
+                _selectedImage.IsSelected = false;
+            _selectedImage = value;
+            if (_selectedImage is not null)
+                _selectedImage.IsSelected = true;
+            OnPropertyChanged();
         }
     }
 
@@ -88,6 +110,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public bool? DialogResult { get => _dialogResult; private set => SetProperty(ref _dialogResult, value); }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
+    public ICommand SelectImageCommand { get; }
 
     private async Task LoadOrdersAsync()
     {
@@ -118,6 +141,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 line.PropertyChanged -= OnLinePropertyChanged;
             Products.Clear();
             ImageItems.Clear();
+            SelectedImage = null;
             NotifyDetailChanged();
             NotifyTotalsChanged();
             OnPropertyChanged(nameof(HasImages));
@@ -150,6 +174,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 }
                 foreach (var attachment in _detail.Attachments.Where(IsImageAttachment))
                     ImageItems.Add(new ReceiptImageItem(attachment.OriginalFileName, attachment.StoredPath));
+                SelectedImage = ImageItems.FirstOrDefault();
             }
             NotifyDetailChanged();
             NotifyTotalsChanged();
@@ -332,8 +357,10 @@ public sealed class FinishedReceiptLineViewModel : ObservableObject
     }
 }
 
-public sealed class ReceiptImageItem
+public sealed class ReceiptImageItem : ObservableObject
 {
+    private bool _isSelected;
+
     public ReceiptImageItem(string fileName, string imagePath)
     {
         FileName = fileName;
@@ -342,4 +369,10 @@ public sealed class ReceiptImageItem
 
     public string FileName { get; }
     public string ImagePath { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
 }

@@ -1,0 +1,38 @@
+From e35b36512573c60be88c9e7c24e54a84d7fde061 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Wed, 14 Oct 2026 10:41:48 +0700
+Subject: [PATCH] fix(warehouse): fix order ComboBox display and orange title
+
+---
+ .../ProductionFinishedReceiptDialog.xaml              | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
+index b3db612..dd4a969 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
+@@ -15,12 +15,19 @@
+             <StackPanel>
+                 <TextBlock Text="Nhập kho thành phẩm từ lệnh sản xuất"
+                            FontSize="{DynamicResource FontSize.Heading}"
+-                           Foreground="{DynamicResource TextPrimaryBrush}" />
++                           FontWeight="Bold"
++                           Foreground="{DynamicResource PrimaryBrush}" />
+                 <TextBlock Text="Chọn lệnh đã hoàn thành. Thông tin sản phẩm được lấy từ kết quả QC của lệnh."
+                            Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,4,0,12" />
+                 <TextBlock Text="Lệnh sản xuất" Foreground="{DynamicResource TextSecondaryBrush}" />
+                 <ComboBox ItemsSource="{Binding Orders}" SelectedItem="{Binding SelectedOrder}"
+-                          DisplayMemberPath="Code" MinHeight="40" />
++                          MinHeight="40">
++                    <ComboBox.ItemTemplate>
++                        <DataTemplate>
++                            <TextBlock Text="{Binding Code}" />
++                        </DataTemplate>
++                    </ComboBox.ItemTemplate>
++                </ComboBox>
+                 <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
+                            TextWrapping="Wrap" Margin="0,8,0,0" />
+                 <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,12,0,0">
+-- 
+2.43.0
+
