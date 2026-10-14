@@ -41,7 +41,6 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private long _sourceLocationId;
     private long _finishedLocationId;
     private string? _notes;
-    private string _laborCalculationType = "Theo sản phẩm";
     private string? _laborNotes;
     private long _rowVersion;
     private string _statusCode = ProductionOrderStatuses.Draft;
@@ -610,19 +609,6 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         set => SetProperty(ref _notes, value);
     }
 
-    public IReadOnlyList<string> LaborCalculationTypeOptions { get; } =
-    [
-        "Theo sản phẩm",
-        "Theo thỏa thuận",
-        "Theo ngày công"
-    ];
-
-    public string SelectedLaborCalculationType
-    {
-        get => _laborCalculationType;
-        set => SetProperty(ref _laborCalculationType, value);
-    }
-
     public string? LaborNotes
     {
         get => _laborNotes;
@@ -652,9 +638,9 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             if (!CanIssueMaterials)
                 return "Chỉ giao NVL khi lệnh còn bản nháp và chưa ghi sổ giao. Hãy Lưu bản nháp trước.";
             if (SourceLocationId <= 0)
-                return "Chọn kho xuất NVL ở phần Thông tin lệnh trước.";
+                return "Chưa cấu hình kho nguyên liệu cho chi nhánh.";
             if (StockMaterials.Count == 0)
-                return "Không có tồn NVL (> 0) tại kho xuất đã chọn. Bấm Tải tồn hoặc đổi kho.";
+                return "Không có tồn NVL (> 0) tại kho nguyên liệu. Bấm Tải tồn để làm mới.";
             return $"Có {StockMaterials.Count} NVL còn tồn — chọn rồi bấm Thêm dòng.";
         }
     }
@@ -785,8 +771,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
             if (_orderId is > 0)
                 await LoadDetailAsync(_orderId.Value);
-            else
-                ApplyDefaultLocations();
+
+            ApplyDefaultLocations();
 
             NotifyQuoteChanged();
             IsLoaded = true;
@@ -815,16 +801,17 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Luôn gắn kho NVL / kho thành phẩm theo scope chi nhánh — không cho chọn trên UI.
+    /// </summary>
     private void ApplyDefaultLocations()
     {
         var raw = Locations.FirstOrDefault(x =>
             string.Equals(x.InventoryScope, InventoryScopes.RawMaterial, StringComparison.OrdinalIgnoreCase));
         var finished = Locations.FirstOrDefault(x =>
             string.Equals(x.InventoryScope, InventoryScopes.FinishedGoods, StringComparison.OrdinalIgnoreCase));
-        if (raw is not null)
-            SourceLocationId = raw.Id;
-        if (finished is not null)
-            FinishedLocationId = finished.Id;
+        SourceLocationId = raw?.Id ?? 0;
+        FinishedLocationId = finished?.Id ?? 0;
     }
 
     private async Task LoadLocationsAsync()
@@ -1207,8 +1194,6 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         OrderDate = detail.OrderDate;
         DueDate = detail.DueDate;
         IssueDate = detail.MaterialIssueDocumentId is > 0 ? detail.MaterialIssueDocumentDate : null;
-        SourceLocationId = detail.SourceLocationId;
-        FinishedLocationId = detail.FinishedLocationId;
         Notes = detail.Notes;
         _rowVersion = detail.RowVersion;
         _hasFinishedReceipt = detail.FinishedReceiptDocumentId is > 0;
@@ -1487,6 +1472,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     {
         try
         {
+            ApplyDefaultLocations();
+            if (SourceLocationId <= 0 || FinishedLocationId <= 0)
+            {
+                ErrorMessage = "Chưa cấu hình kho nguyên liệu hoặc kho thành phẩm cho chi nhánh.";
+                return false;
+            }
+
             var employeeIds = SelectedEmployees.Select(x => x.Id).ToList();
             var lineDrafts = Lines.Select(x => x.ToDraft()).ToList();
             var attachmentDrafts = Lines
@@ -1702,9 +1694,10 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
     private async Task<bool> ShowLineDialogAsync(ProductionLineEditorViewModel line, bool isNew)
     {
+        ApplyDefaultLocations();
         if (SourceLocationId <= 0)
         {
-            ErrorMessage = "Vui lòng chọn kho xuất trước khi thêm/sửa mẫu.";
+            ErrorMessage = "Chưa cấu hình kho nguyên liệu cho chi nhánh.";
             return false;
         }
 
@@ -1878,6 +1871,12 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         {
             IsBusy = true;
             ErrorMessage = string.Empty;
+            ApplyDefaultLocations();
+            if (SourceLocationId <= 0 || FinishedLocationId <= 0)
+            {
+                ErrorMessage = "Chưa cấu hình kho nguyên liệu hoặc kho thành phẩm cho chi nhánh.";
+                return;
+            }
 
             var employeeIds = SelectedEmployees.Select(x => x.Id).ToList();
             var lineDrafts = Lines.Select(x => x.ToDraft()).ToList();
