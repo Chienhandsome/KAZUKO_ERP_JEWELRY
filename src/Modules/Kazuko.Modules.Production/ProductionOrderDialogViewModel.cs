@@ -41,6 +41,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private long _sourceLocationId;
     private long _finishedLocationId;
     private string? _notes;
+    private string _laborCalculationType = "Theo sản phẩm";
+    private string? _laborNotes;
     private long _rowVersion;
     private string _statusCode = ProductionOrderStatuses.Draft;
     private int _selectedTabIndex;
@@ -183,6 +185,11 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ObservableCollection<ProductionSalesOrderItemViewModel> SalesOrders { get; } = [];
     public ObservableCollection<ProductionEmployeeOption> Employees { get; } = [];
     public ObservableCollection<ProductionEmployeeOption> SelectedEmployees { get; } = [];
+    public ObservableCollection<SelectableEmployeeViewModel> SelectableEmployees { get; } = [];
+
+    /// <summary>Tên các thợ đã chọn, cách nhau bởi dấu phẩy (hiển thị trên dropdown).</summary>
+    public string SelectedWorkerDisplayText =>
+        string.Join(", ", SelectableEmployees.Where(x => x.IsSelected).Select(x => x.FullName));
 
     private ProductionEmployeeOption? _selectedEmployeeToAdd;
     public ProductionEmployeeOption? SelectedEmployeeToAdd
@@ -229,7 +236,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private bool _hasMaterialIssue;
 
     public bool HasMaterialIssue => _hasMaterialIssue;
-    public bool CanIssueMaterials => IsDraft && _id is > 0 && !_hasMaterialIssue;
+    public bool CanIssueMaterials => IsDraft && !_hasMaterialIssue;
     public bool CanComplete => IsInProgress && HasMaterialIssue;
     public bool CanCancel => (IsDraft || IsInProgress) && _id is > 0;
     public bool CanUseExecutionTabs => _id is > 0;
@@ -260,9 +267,9 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     }
 
     public string IssueTabEmptyMessage =>
-        _id is not > 0
-            ? "Cần Lưu bản nháp trước khi giao nguyên liệu."
-            : "Đã ghi sổ giao NVL. Dữ liệu bên dưới chỉ đọc.";
+        _hasMaterialIssue
+            ? "Đã ghi sổ giao NVL. Dữ liệu bên dưới chỉ đọc."
+            : "Chọn NVL còn tồn → Thêm dòng → Xác nhận giao vàng.";
 
     public string CompleteTabBlockedMessage
     {
@@ -601,6 +608,25 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     {
         get => _notes;
         set => SetProperty(ref _notes, value);
+    }
+
+    public IReadOnlyList<string> LaborCalculationTypeOptions { get; } =
+    [
+        "Theo sản phẩm",
+        "Theo thỏa thuận",
+        "Theo ngày công"
+    ];
+
+    public string SelectedLaborCalculationType
+    {
+        get => _laborCalculationType;
+        set => SetProperty(ref _laborCalculationType, value);
+    }
+
+    public string? LaborNotes
+    {
+        get => _laborNotes;
+        set => SetProperty(ref _laborNotes, value);
     }
 
     public int SelectedTabIndex
@@ -1074,6 +1100,39 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         SelectedEmployees.Clear();
         foreach (var item in kept)
             SelectedEmployees.Add(item);
+        // Đồng bộ sang danh sách multi-select
+        SyncSelectableEmployees();
+    }
+
+    private void SyncSelectableEmployees()
+    {
+        var selectedIds = SelectedEmployees.Select(x => x.Id).ToHashSet();
+        SelectableEmployees.Clear();
+        foreach (var emp in Employees)
+        {
+            var vm = new SelectableEmployeeViewModel(emp)
+            {
+                IsSelected = selectedIds.Contains(emp.Id)
+            };
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(SelectableEmployeeViewModel.IsSelected))
+                {
+                    SyncSelectedEmployeesFromSelectable();
+                    OnPropertyChanged(nameof(SelectedWorkerDisplayText));
+                }
+            };
+            SelectableEmployees.Add(vm);
+        }
+        OnPropertyChanged(nameof(SelectedWorkerDisplayText));
+    }
+
+    private void SyncSelectedEmployeesFromSelectable()
+    {
+        var selectedIds = SelectableEmployees.Where(x => x.IsSelected).Select(x => x.Id).ToHashSet();
+        SelectedEmployees.Clear();
+        foreach (var emp in Employees.Where(e => selectedIds.Contains(e.Id)))
+            SelectedEmployees.Add(emp);
     }
 
     private void AddSelectedEmployee()
@@ -1165,6 +1224,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         var workerIds = detail.Workers.Select(w => w.EmployeeId).ToHashSet();
         foreach (var employee in Employees.Where(e => workerIds.Contains(e.Id)))
             SelectedEmployees.Add(employee);
+        SyncSelectableEmployees();
 
         _removedAttachments.Clear();
         foreach (var line in Lines)
@@ -1364,9 +1424,15 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
     private async Task PostMaterialIssueAsync()
     {
-        if (_id is not > 0 || IssueLines.Count == 0)
+        if (IssueLines.Count == 0)
         {
-            ErrorMessage = "Cần lưu lệnh và khai ít nhất một dòng NVL.";
+            ErrorMessage = "Khai ít nhất một dòng NVL.";
+            return;
+        }
+
+        if (Lines.Count == 0)
+        {
+            ErrorMessage = "Cần thêm ít nhất một sản phẩm trước khi giao NVL.";
             return;
         }
 
@@ -1381,8 +1447,17 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         {
             IsBusy = true;
             ErrorMessage = string.Empty;
+
+            // Nếu chưa có lệnh (chưa lưu), lưu draft trước
+            if (_id is not > 0)
+            {
+                var saved = await SaveDraftInternalAsync();
+                if (!saved)
+                    return;
+            }
+
             var draft = new ProductionMaterialIssueDraft(
-                _id.Value,
+                _id!.Value,
                 _rowVersion,
                 DateTime.Now,
                 null,
@@ -1401,6 +1476,59 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Lưu draft nội bộ (không hiện MessageBox), trả về true nếu thành công.
+    /// Dùng khi "Xác nhận giao vàng" mà lệnh chưa được lưu.
+    /// </summary>
+    private async Task<bool> SaveDraftInternalAsync()
+    {
+        try
+        {
+            var employeeIds = SelectedEmployees.Select(x => x.Id).ToList();
+            var lineDrafts = Lines.Select(x => x.ToDraft()).ToList();
+            var attachmentDrafts = Lines
+                .SelectMany(line => line.Attachments.Select((att, index) =>
+                {
+                    att.LineNumber = line.LineNumber;
+                    return att.ToDraft(index);
+                }))
+                .Concat(_removedAttachments.Select(x => x.ToDraft(0)))
+                .ToList();
+
+            var draft = new ProductionOrderDraft(
+                _id,
+                string.IsNullOrWhiteSpace(Code) ? null : Code,
+                OrderSource,
+                IsSalesOrderSource ? SalesOrderId : null,
+                ExecutionType,
+                IsOutsourced ? ExternalWorkerId : null,
+                OrderDate,
+                DueDate,
+                SourceLocationId,
+                FinishedLocationId,
+                Notes,
+                _id is > 0 ? _rowVersion : null,
+                employeeIds,
+                lineDrafts,
+                attachmentDrafts);
+
+            var result = await _application.SaveDraftAsync(draft, RequireSession());
+            _id = result.Id;
+            Code = result.Code;
+            _rowVersion = result.RowVersion;
+            _statusCode = ProductionOrderStatuses.Draft;
+            _removedAttachments.Clear();
+            OnPropertyChanged(nameof(WindowTitle));
+            await LoadDetailAsync(result.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return false;
         }
     }
 
@@ -2307,3 +2435,27 @@ public sealed class ProductionIssueLineEditorViewModel
         : $"{SnapshotCostHint:N0} / {UnitCode} (ước tính tồn)";
 }
 
+/// <summary>
+/// Wrapper cho nhân viên với checkbox chọn nhiều (dùng trong dropdown multi-select).
+/// </summary>
+public sealed class SelectableEmployeeViewModel : ObservableObject
+{
+    private bool _isSelected;
+
+    public SelectableEmployeeViewModel(ProductionEmployeeOption option)
+    {
+        Option = option;
+    }
+
+    public ProductionEmployeeOption Option { get; }
+    public long Id => Option.Id;
+    public string Code => Option.Code;
+    public string FullName => Option.FullName;
+    public string DisplayText => $"{FullName} ({Code})";
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+}
