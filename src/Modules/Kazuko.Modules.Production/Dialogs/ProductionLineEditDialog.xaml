@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
         Title="{Binding WindowTitle, Mode=OneWay}"
-        Width="760" Height="760"
-        MinWidth="680" MinHeight="600"
+        Width="984" Height="620"
+        MinWidth="864" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
@@ -17,6 +17,19 @@
             </ResourceDictionary.MergedDictionaries>
             <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
             <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+            <Style x:Key="LineCompactLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource ProductionFieldLabelStyle}">
+                <Setter Property="Margin" Value="0,0,8,0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="LineCompactFieldStyle" TargetType="TextBox" BasedOn="{StaticResource ProductionDialogFieldStyle}">
+                <Setter Property="Margin" Value="0,0,0,6" />
+                <Setter Property="MinHeight" Value="32" />
+            </Style>
+            <Style x:Key="LineCompactComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ProductionDialogComboStyle}">
+                <Setter Property="Margin" Value="0,0,0,6" />
+                <Setter Property="MinHeight" Value="32" />
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -27,186 +40,237 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="{Binding WindowTitle}"
-                       FontSize="{DynamicResource FontSize.Heading}"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource PrimaryBrush}" />
-            <TextBlock Text="Nhập thông tin sản phẩm và đính kèm ảnh / file thiết kế."
-                       Margin="0,4,0,0"
-                       Style="{StaticResource ProductionHintStyle}" />
-            <TextBlock Text="{Binding ErrorMessage}"
-                       Style="{StaticResource ProductionErrorStyle}"
-                       Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
-        </StackPanel>
+        <TextBlock Grid.Row="0"
+                   Text="{Binding ErrorMessage}"
+                   Style="{StaticResource ProductionErrorStyle}"
+                   Margin="0,0,0,8"
+                   Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <Border Style="{StaticResource ProductionCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Thông tin sản phẩm" Style="{StaticResource ProductionSectionHeaderStyle}" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="Mã sản phẩm" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding ModelCode, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}" />
-                            <TextBlock Text="Tên sản phẩm *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}" />
-                            <TextBlock Text="Số lượng cần làm *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding PlannedQuantityText, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}" />
-                            <TextBlock Text="TL vàng ước tính (chỉ) *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding EstimatedWeightChiText, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}" />
-                            <TextBlock Text="Giá vàng / chỉ *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding GoldUnitPricePerChiText, UpdateSourceTrigger=LostFocus}"
-                                     Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}"
-                                     LostFocus="MoneyField_OnLostFocus" />
-                            <TextBlock Text="Tiền công mỗi món" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding LaborCostPerUnitText, UpdateSourceTrigger=LostFocus}"
-                                     Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}"
-                                     LostFocus="MoneyField_OnLostFocus" />
-                            <TextBlock Text="Đá mỗi món" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <TextBox Text="{Binding StoneAmountPerUnitVndText, UpdateSourceTrigger=LostFocus}"
-                                     Style="{StaticResource ProductionDialogFieldStyle}"
-                                     IsEnabled="{Binding IsEditable}"
-                                     LostFocus="MoneyField_OnLostFocus" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Loại vàng (kho NVL) *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <ComboBox ItemsSource="{Binding GoldStockOptions}"
-                                      SelectedItem="{Binding SelectedGoldStock}"
-                                      Style="{StaticResource ProductionDialogComboStyle}"
-                                      IsEnabled="{Binding IsEditable}"
-                                      ToolTip="Chọn vàng còn tồn tại kho xuất; mỗi dòng hiện tồn hiện tại">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock>
-                                            <Run Text="{Binding Code, Mode=OneWay}" />
-                                            <Run Text=" — " />
-                                            <Run Text="{Binding Name, Mode=OneWay}" />
-                                            <Run Text=" (" />
-                                            <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
-                                            <Run Text=" " />
-                                            <Run Text="{Binding UnitCode, Mode=OneWay}" />
-                                            <Run Text=")" />
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                            <TextBlock Text="{Binding SelectedGoldStockHint, Mode=OneWay}"
-                                       Style="{StaticResource ProductionHintStyle}"
-                                       Margin="0,0,0,10"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding QuotePreviewText, Mode=OneWay}"
-                                       Style="{StaticResource ProductionHintStyle}"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Grid>
+        <Border Grid.Row="1" Style="{StaticResource ProductionCardStyle}" Padding="12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="100" />
+                </Grid.RowDefinitions>
 
-                    <TextBlock Text="Mô tả mẫu" Style="{StaticResource ProductionFieldLabelStyle}" />
-                    <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource ProductionDialogFieldStyle}"
-                             MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True"
-                             VerticalContentAlignment="Top"
-                             IsEnabled="{Binding IsEditable}" />
+                <!-- Thông tin sản phẩm: 2 cột cân bằng -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <TextBlock Text="Ghi chú" Style="{StaticResource ProductionFieldLabelStyle}" />
-                    <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource ProductionDialogFieldStyle}"
-                             MinHeight="56" TextWrapping="Wrap" AcceptsReturn="True"
-                             VerticalContentAlignment="Top"
-                             IsEnabled="{Binding IsEditable}" />
-
-                    <DockPanel Margin="0,8,0,8">
-                        <Button DockPanel.Dock="Right" Content="Thêm ảnh mẫu..."
-                                Style="{StaticResource ProductionOutlineButtonStyle}"
-                                Command="{Binding AddSampleImageCommand}"
-                                MinHeight="36" Margin="0"
-                                Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}" />
-                        <TextBlock Text="Ảnh mẫu" Style="{StaticResource ProductionSectionHeaderStyle}" Margin="0" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <ItemsControl ItemsSource="{Binding SampleImages}">
-                        <ItemsControl.ItemTemplate>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Mã sản phẩm" Style="{StaticResource LineCompactLabelStyle}" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ModelCode, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}" />
+                    <TextBlock Grid.Row="0" Grid.Column="3" Text="Loại vàng *" Style="{StaticResource LineCompactLabelStyle}"
+                               ToolTip="Loại vàng (kho NVL)" />
+                    <ComboBox Grid.Row="0" Grid.Column="4"
+                              ItemsSource="{Binding GoldStockOptions}"
+                              SelectedItem="{Binding SelectedGoldStock}"
+                              Style="{StaticResource LineCompactComboStyle}"
+                              IsEnabled="{Binding IsEditable}"
+                              ToolTip="Chọn vàng còn tồn tại kho xuất; mỗi dòng hiện tồn hiện tại">
+                        <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Style="{StaticResource ProductionAttachmentCardStyle}">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                            <Button Content="Mở" Style="{StaticResource ProductionGridActionButtonStyle}"
-                                                    Command="{Binding DataContext.OpenAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Gỡ" Style="{StaticResource ProductionGridActionButtonStyle}"
-                                                    Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Visibility="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding OriginalFileName}" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </DockPanel>
-                                </Border>
+                                <TextBlock>
+                                    <Run Text="{Binding Code, Mode=OneWay}" />
+                                    <Run Text=" — " />
+                                    <Run Text="{Binding Name, Mode=OneWay}" />
+                                    <Run Text=" (" />
+                                    <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
+                                    <Run Text=" " />
+                                    <Run Text="{Binding UnitCode, Mode=OneWay}" />
+                                    <Run Text=")" />
+                                </TextBlock>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Text="Chưa có ảnh mẫu."
-                               Style="{StaticResource ProductionHintStyle}"
-                               Margin="0,0,0,12"
-                               Visibility="{Binding HasSampleImages, Converter={StaticResource InverseBoolToVis}}" />
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
-                    <DockPanel Margin="0,4,0,8">
-                        <Button DockPanel.Dock="Right" Content="Thêm file thiết kế..."
-                                Style="{StaticResource ProductionOutlineButtonStyle}"
-                                Command="{Binding AddDesignFileCommand}"
-                                MinHeight="36" Margin="0"
-                                Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}" />
-                        <TextBlock Text="File thiết kế" Style="{StaticResource ProductionSectionHeaderStyle}" Margin="0" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <ItemsControl ItemsSource="{Binding DesignFiles}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Style="{StaticResource ProductionAttachmentCardStyle}">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                            <Button Content="Mở" Style="{StaticResource ProductionGridActionButtonStyle}"
-                                                    Command="{Binding DataContext.OpenAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Gỡ" Style="{StaticResource ProductionGridActionButtonStyle}"
-                                                    Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Visibility="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
-                                        </StackPanel>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding OriginalFileName}"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding KindDisplayName}"
-                                                       Style="{StaticResource ProductionHintStyle}" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Text="Chưa có file thiết kế."
-                               Style="{StaticResource ProductionHintStyle}"
-                               Visibility="{Binding HasDesignFiles, Converter={StaticResource InverseBoolToVis}}" />
-                </StackPanel>
-            </Border>
-        </ScrollViewer>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tên SP *" Style="{StaticResource LineCompactLabelStyle}"
+                               ToolTip="Tên sản phẩm" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4"
+                             Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}" />
 
-        <Border Grid.Row="2" Margin="0,14,0,0" Padding="0,12,0,0"
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Số lượng *" Style="{StaticResource LineCompactLabelStyle}"
+                               ToolTip="Số lượng cần làm" />
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding PlannedQuantityText, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}" />
+                    <TextBlock Grid.Row="2" Grid.Column="3" Text="TL vàng (chỉ) *" Style="{StaticResource LineCompactLabelStyle}"
+                               ToolTip="TL vàng ước tính (chỉ)" />
+                    <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding EstimatedWeightChiText, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Giá vàng / chỉ *" Style="{StaticResource LineCompactLabelStyle}" />
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding GoldUnitPricePerChiText, UpdateSourceTrigger=LostFocus}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
+                             LostFocus="MoneyField_OnLostFocus" />
+                    <TextBlock Grid.Row="3" Grid.Column="3" Text="Tiền công / món" Style="{StaticResource LineCompactLabelStyle}" />
+                    <TextBox Grid.Row="3" Grid.Column="4" Text="{Binding LaborCostPerUnitText, UpdateSourceTrigger=LostFocus}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
+                             LostFocus="MoneyField_OnLostFocus" />
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Đá / món" Style="{StaticResource LineCompactLabelStyle}" />
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StoneAmountPerUnitVndText, UpdateSourceTrigger=LostFocus}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
+                             LostFocus="MoneyField_OnLostFocus" />
+                    <TextBlock Grid.Row="4" Grid.Column="3" Grid.ColumnSpan="2"
+                               Text="{Binding QuotePreviewText, Mode=OneWay}"
+                               Style="{StaticResource ProductionHintStyle}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap" />
+                </Grid>
+
+                <!-- Mô tả + ghi chú cạnh nhau -->
+                <Grid Grid.Row="1" Margin="0,4,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Mô tả mẫu" Style="{StaticResource ProductionFieldLabelStyle}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource LineCompactFieldStyle}"
+                                 MinHeight="40" MaxHeight="56" TextWrapping="Wrap" AcceptsReturn="True"
+                                 VerticalContentAlignment="Top"
+                                 IsEnabled="{Binding IsEditable}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Ghi chú" Style="{StaticResource ProductionFieldLabelStyle}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource LineCompactFieldStyle}"
+                                 MinHeight="40" MaxHeight="56" TextWrapping="Wrap" AcceptsReturn="True"
+                                 VerticalContentAlignment="Top"
+                                 IsEnabled="{Binding IsEditable}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Đính kèm: 2 cột, scroll nội bộ nếu nhiều file -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Background="{DynamicResource SurfaceAltBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <Button DockPanel.Dock="Right" Content="Thêm ảnh..."
+                                        Style="{StaticResource ProductionOutlineButtonStyle}"
+                                        Command="{Binding AddSampleImageCommand}"
+                                        MinHeight="32" Padding="10,4" Margin="0"
+                                        Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}" />
+                                <TextBlock Text="Ảnh mẫu" Style="{StaticResource ProductionSectionHeaderStyle}"
+                                           Margin="0" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel>
+                                    <ItemsControl ItemsSource="{Binding SampleImages}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource ProductionAttachmentCardStyle}">
+                                                    <DockPanel>
+                                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                                            <Button Content="Mở" Style="{StaticResource ProductionGridActionButtonStyle}"
+                                                                    Command="{Binding DataContext.OpenAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}" />
+                                                            <Button Content="Gỡ" Style="{StaticResource ProductionGridActionButtonStyle}"
+                                                                    Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Visibility="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding OriginalFileName}" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </DockPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="Chưa có ảnh mẫu."
+                                               Style="{StaticResource ProductionHintStyle}"
+                                               Visibility="{Binding HasSampleImages, Converter={StaticResource InverseBoolToVis}}" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource SurfaceAltBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <Button DockPanel.Dock="Right" Content="Thêm file..."
+                                        Style="{StaticResource ProductionOutlineButtonStyle}"
+                                        Command="{Binding AddDesignFileCommand}"
+                                        MinHeight="32" Padding="10,4" Margin="0"
+                                        Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}" />
+                                <TextBlock Text="File thiết kế" Style="{StaticResource ProductionSectionHeaderStyle}"
+                                           Margin="0" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel>
+                                    <ItemsControl ItemsSource="{Binding DesignFiles}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource ProductionAttachmentCardStyle}">
+                                                    <DockPanel>
+                                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                                            <Button Content="Mở" Style="{StaticResource ProductionGridActionButtonStyle}"
+                                                                    Command="{Binding DataContext.OpenAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}" />
+                                                            <Button Content="Gỡ" Style="{StaticResource ProductionGridActionButtonStyle}"
+                                                                    Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Visibility="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+                                                        </StackPanel>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding OriginalFileName}"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding KindDisplayName}"
+                                                                       Style="{StaticResource ProductionHintStyle}" />
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="Chưa có file thiết kế."
+                                               Style="{StaticResource ProductionHintStyle}"
+                                               Visibility="{Binding HasDesignFiles, Converter={StaticResource InverseBoolToVis}}" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Margin="0,12,0,0" Padding="0,10,0,0"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Hủy" Style="{StaticResource ProductionGhostButtonStyle}"
