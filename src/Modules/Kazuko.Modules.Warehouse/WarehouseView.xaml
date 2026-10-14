@@ -326,8 +326,8 @@
         </Style>
 
         <Style x:Key="CompactPreviewGridStyle" TargetType="DataGrid" BasedOn="{StaticResource WarehouseDataGridStyle}">
-            <Setter Property="Height" Value="180" />
-            <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="MinHeight" Value="80" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
         </Style>
 
@@ -457,8 +457,13 @@
 
                     <!-- 0 Tổng quan -->
                     <TabItem Header="▣  Tổng quan">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0">
-                            <StackPanel>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="1.2*" MinHeight="140" />
+                                <RowDefinition Height="*" MinHeight="140" />
+                            </Grid.RowDefinitions>
+
                                 <!-- Summary cards -->
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
@@ -581,8 +586,12 @@
                                 </Grid>
 
                                 <!-- 3 warehouse panels -->
-                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,12">
-                                    <Grid MinWidth="1260">
+                                <ScrollViewer Grid.Row="1"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              Margin="0,0,0,12">
+                                    <Grid MinWidth="1260"
+                                          Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" MinWidth="400" />
                                             <ColumnDefinition Width="12" />
@@ -597,8 +606,7 @@
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
                                                 <Grid Margin="0,0,0,8">
@@ -648,7 +656,7 @@
                                                                FontSize="{DynamicResource FontSize.Caption}"
                                                                Visibility="{Binding IsOverviewRawEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
-                                                <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                <Button Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
                                                         Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllRawMaterialsCommand}" />
                                             </Grid>
@@ -660,8 +668,7 @@
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
                                                 <Grid Margin="0,0,0,8">
@@ -721,7 +728,7 @@
                                                                FontSize="{DynamicResource FontSize.Caption}"
                                                                Visibility="{Binding IsOverviewFinishedEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
-                                                <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                <Button Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
                                                         Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllFinishedProductsCommand}" />
                                             </Grid>
@@ -733,8 +740,7 @@
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
                                                 <Grid Margin="0,0,0,8">
@@ -782,7 +788,7 @@
                                                                FontSize="{DynamicResource FontSize.Caption}"
                                                                Visibility="{Binding IsOverviewSaleEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
-                                                <Button Grid.Row="4" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                <Button Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
                                                         Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllSalesGoodsCommand}" />
                                             </Grid>
@@ -791,7 +797,7 @@
                                 </ScrollViewer>
 
                                 <!-- Bottom charts + recent -->
-                                <Grid>
+                                <Grid Grid.Row="2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" MinWidth="240" />
                                         <ColumnDefinition Width="12" />
@@ -800,7 +806,7 @@
                                         <ColumnDefinition Width="1.2*" MinWidth="300" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0" Style="{StaticResource DashboardPanelStyle}" MinHeight="260">
+                                    <Border Grid.Column="0" Style="{StaticResource DashboardPanelStyle}">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
@@ -811,8 +817,7 @@
                                             <charts:DonutChart Grid.Row="1"
                                                                ItemsSource="{Binding CompositionSlices}"
                                                                CenterText="{Binding DonutCenterText}"
-                                                               CenterSubText="{Binding DonutCenterSubText}"
-                                                               MinHeight="160" />
+                                                               CenterSubText="{Binding DonutCenterSubText}" />
                                             <ItemsControl Grid.Row="2" ItemsSource="{Binding CompositionSlices}" Margin="0,8,0,0">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -833,7 +838,7 @@
                                         </Grid>
                                     </Border>
 
-                                    <Border Grid.Column="2" Style="{StaticResource DashboardPanelStyle}" MinHeight="260">
+                                    <Border Grid.Column="2" Style="{StaticResource DashboardPanelStyle}">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
@@ -842,12 +847,11 @@
                                             <TextBlock Text="Biểu đồ giá trị tồn kho theo loại vàng"
                                                        Style="{StaticResource PanelTitleStyle}" Margin="0,0,0,8" TextWrapping="Wrap" />
                                             <charts:BarChart Grid.Row="1"
-                                                             ItemsSource="{Binding GoldTypeBars}"
-                                                             MinHeight="180" />
+                                                             ItemsSource="{Binding GoldTypeBars}" />
                                         </Grid>
                                     </Border>
 
-                                    <Border Grid.Column="4" Style="{StaticResource DashboardPanelStyle}" MinHeight="260">
+                                    <Border Grid.Column="4" Style="{StaticResource DashboardPanelStyle}">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
@@ -864,7 +868,6 @@
                                                           Style="{StaticResource WarehouseDataGridStyle}"
                                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                                           grid:DataGridColumnLayout.SettingsKey="warehouse-overview-recent"
-                                                          MaxHeight="210"
                                                           Visibility="{Binding IsRecentHistoryEmpty, Converter={StaticResource InverseBoolToVis}}">
                                                     <DataGrid.Columns>
                                                         <DataGridTextColumn Header="Ngày" grid:DataGridColumnLayout.Key="Date" Binding="{Binding DocumentDateText, Mode=OneWay}" Width="80" />
@@ -884,8 +887,7 @@
                                         </Grid>
                                     </Border>
                                 </Grid>
-                            </StackPanel>
-                        </ScrollViewer>
+                        </Grid>
                     </TabItem>
 
                     <!-- 1 Kho nguyên liệu -->
