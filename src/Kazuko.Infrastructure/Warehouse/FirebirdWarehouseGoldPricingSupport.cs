@@ -8,7 +8,8 @@ internal sealed record WarehouseGoldPriceSnapshot(
     long Id,
     string Code,
     string Name,
-    decimal IssuePricePerChi);
+    decimal IssuePricePerChi,
+    decimal SellPricePerChi);
 
 internal static class FirebirdWarehouseGoldPricingSupport
 {
@@ -33,7 +34,7 @@ internal static class FirebirdWarehouseGoldPricingSupport
             var byId = await TryResolveByGoldTypeIdAsync(
                 connection, transaction, companyId, goldTypeId.Value, cancellationToken);
             if (byId is not null)
-                return EnsurePositive(byId);
+                return EnsurePositiveIssue(byId);
         }
 
         var requestedToken = PurityToken(purityOrCode);
@@ -41,7 +42,8 @@ internal static class FirebirdWarehouseGoldPricingSupport
         var candidates = new List<(WarehouseGoldPriceSnapshot Price, string Token, string Text)>();
 
         await using var command = new FbCommand("""
-            SELECT W.ID, W.GOLD_TYPE_CODE, W.GOLD_TYPE_NAME, W.PURITY_RATE, W.ISSUE_PRICE_PER_CHI
+            SELECT W.ID, W.GOLD_TYPE_CODE, W.GOLD_TYPE_NAME, W.PURITY_RATE,
+                   W.ISSUE_PRICE_PER_CHI, W.SELL_PRICE_PER_CHI
             FROM WAREHOUSE_GOLD_PRICES W
             WHERE W.COMPANY_ID = @CID AND W.IS_ACTIVE = TRUE
             ORDER BY W.PURITY_RATE DESC, W.ID
@@ -51,7 +53,8 @@ internal static class FirebirdWarehouseGoldPricingSupport
         while (await reader.ReadAsync(cancellationToken))
         {
             var price = new WarehouseGoldPriceSnapshot(
-                reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetDecimal(4));
+                reader.GetInt64(0), reader.GetString(1), reader.GetString(2),
+                reader.GetDecimal(4), reader.GetDecimal(5));
             var combined = $"{price.Code} {price.Name}";
             candidates.Add((price, PurityToken(combined, reader.GetDecimal(3)), Normalize(combined)));
         }
@@ -65,7 +68,14 @@ internal static class FirebirdWarehouseGoldPricingSupport
         if (match.Price is null)
             throw new InvalidOperationException(
                 $"Chưa cấu hình giá vàng kho cho loại vàng '{purityOrCode ?? "(trống)"}'.");
-        return EnsurePositive(match.Price);
+        return EnsurePositiveIssue(match.Price);
+    }
+
+    public static WarehouseGoldPriceSnapshot EnsurePositiveSell(WarehouseGoldPriceSnapshot price)
+    {
+        if (price.SellPricePerChi <= 0)
+            throw new InvalidOperationException($"Giá bán kho '{price.Code}' phải lớn hơn 0.");
+        return price;
     }
 
     private static async Task<WarehouseGoldPriceSnapshot?> TryResolveByGoldTypeIdAsync(
@@ -76,7 +86,8 @@ internal static class FirebirdWarehouseGoldPricingSupport
         CancellationToken cancellationToken)
     {
         await using var command = new FbCommand("""
-            SELECT W.ID, W.GOLD_TYPE_CODE, W.GOLD_TYPE_NAME, W.ISSUE_PRICE_PER_CHI
+            SELECT W.ID, W.GOLD_TYPE_CODE, W.GOLD_TYPE_NAME,
+                   W.ISSUE_PRICE_PER_CHI, W.SELL_PRICE_PER_CHI
             FROM WAREHOUSE_GOLD_PRICES W
             WHERE W.COMPANY_ID = @CID
               AND W.GOLD_TYPE_ID = @TID
@@ -88,10 +99,11 @@ internal static class FirebirdWarehouseGoldPricingSupport
         if (!await reader.ReadAsync(cancellationToken))
             return null;
         return new WarehouseGoldPriceSnapshot(
-            reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetDecimal(3));
+            reader.GetInt64(0), reader.GetString(1), reader.GetString(2),
+            reader.GetDecimal(3), reader.GetDecimal(4));
     }
 
-    private static WarehouseGoldPriceSnapshot EnsurePositive(WarehouseGoldPriceSnapshot price)
+    private static WarehouseGoldPriceSnapshot EnsurePositiveIssue(WarehouseGoldPriceSnapshot price)
     {
         if (price.IssuePricePerChi <= 0)
             throw new InvalidOperationException($"Giá vàng kho '{price.Code}' phải lớn hơn 0.");

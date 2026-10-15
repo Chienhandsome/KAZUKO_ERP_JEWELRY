@@ -116,6 +116,7 @@ public partial class App : Application
         ISalesAuthorizationService salesAuthorization = new FirebirdSalesAuthorizationService();
         ISalesPrintDataService salesPrintData = new FirebirdSalesPrintDataService(salesQueries);
         ICraftOrderApplicationService craftOrders = new FirebirdCraftOrderApplicationService();
+        IWholesaleSalesApplicationService wholesaleSales = new FirebirdWholesaleSalesApplicationService();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -164,6 +165,7 @@ public partial class App : Application
         _services.AddSingleton(salesCheckout);
         _services.AddSingleton(salesQueries);
         _services.AddSingleton(craftOrders);
+        _services.AddSingleton(wholesaleSales);
         _services.AddSingleton(salesAuthorization);
         _services.AddSingleton(salesPrintData);
     }

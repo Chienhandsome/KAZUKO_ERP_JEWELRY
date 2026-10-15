@@ -63,6 +63,7 @@ public sealed class SalesModule : IKazukoModule
             GetRequiredService<ISalesPriceOverrideDialogService>(services),
             GetRequiredService<ISalesReceiptPresenter>(services),
             GetRequiredService<ICraftOrderApplicationService>(services),
+            GetRequiredService<IWholesaleSalesApplicationService>(services),
             GetRequiredService<IWarehouseRepository>(services),
             GetRequiredService<IProductionOrderEditorService>(services));
 

@@ -66,29 +66,62 @@ if (locationId <= 0 || supplierId <= 0 || fundId <= 0)
     return 2;
 }
 
-var stoneLines = new (string Code, decimal Qty)[]
+var stoneLines = new (string Code, string Name, string Kind, string Shape,
+    decimal? Carat, decimal? SizeMm, decimal ReferenceCost, decimal Qty)[]
 {
-    ("STONE_KC_RD_050", 5m),
-    ("STONE_KC_RD_100", 2m),
-    ("STONE_CZ_RD_2MM", 200m),
-    ("STONE_CZ_RD_3MM", 150m),
-    ("STONE_RUBY_OV_080", 8m),
-    ("STONE_PEARL_RD_7MM", 20m),
+    ("STONE_KC_RD_050", "KC tròn 0.50ct", "KC", "ROUND", 0.50m, null, 28_000_000m, 5m),
+    ("STONE_KC_RD_100", "KC tròn 1.00ct", "KC", "ROUND", 1.00m, null, 65_000_000m, 2m),
+    ("STONE_CZ_RD_2MM", "CZ trắng tròn 2mm", "CZ", "ROUND", null, 2m, 2_500m, 200m),
+    ("STONE_CZ_RD_3MM", "CZ trắng tròn 3mm", "CZ", "ROUND", null, 3m, 4_000m, 150m),
+    ("STONE_RUBY_OV_080", "Ruby oval 0.80ct", "RUBY", "OVAL", 0.80m, null, 8_500_000m, 8m),
+    ("STONE_PEARL_RD_7MM", "Ngọc trai tròn 7mm", "PEARL", "ROUND", null, 7m, 350_000m, 20m),
 };
 
+await using (var seedTransaction = await connection.BeginTransactionAsync())
+{
+    foreach (var stone in stoneLines)
+    {
+        await using var seed = new FbCommand("""
+            INSERT INTO MATERIALS
+                (COMPANY_ID, CODE, NAME, MATERIAL_TYPE, PURITY_CODE, UNIT_CODE,
+                 REFERENCE_COST, IS_ACTIVE, TRACKING_MODE, MIN_STOCK,
+                 STONE_KIND, STONE_SHAPE, CARAT_PER_PIECE, SIZE_MM)
+            SELECT (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
+                   @CODE, @NAME, 'STONE', NULL, 'VIEN',
+                   @COST, TRUE, 'QUANTITY', 0,
+                   @KIND, @SHAPE, @CARAT, @SIZE_MM
+            FROM RDB$DATABASE
+            WHERE NOT EXISTS (
+                SELECT 1 FROM MATERIALS
+                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND CODE = @CODE)
+            """, connection, (FbTransaction)seedTransaction);
+        seed.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = stone.Code;
+        seed.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = stone.Name;
+        seed.Parameters.Add("@COST", FbDbType.Decimal).Value = stone.ReferenceCost;
+        seed.Parameters.Add("@KIND", FbDbType.VarChar, 20).Value = stone.Kind;
+        seed.Parameters.Add("@SHAPE", FbDbType.VarChar, 20).Value = stone.Shape;
+        seed.Parameters.Add("@CARAT", FbDbType.Decimal).Value = stone.Carat is { } carat ? carat : DBNull.Value;
+        seed.Parameters.Add("@SIZE_MM", FbDbType.Decimal).Value = stone.SizeMm is { } size ? size : DBNull.Value;
+        await seed.ExecuteNonQueryAsync();
+    }
+
+    await seedTransaction.CommitAsync();
+}
+
 var lines = new List<MaterialReceiptLineDraft>();
-foreach (var (code, qty) in stoneLines)
+foreach (var stone in stoneLines)
 {
     await using var cmd = new FbCommand("""
         SELECT ID, REFERENCE_COST FROM MATERIALS
         WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
           AND CODE = @CODE AND MATERIAL_TYPE = 'STONE' AND IS_ACTIVE = TRUE
         """, connection);
-    cmd.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
+    cmd.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = stone.Code;
     await using var reader = await cmd.ExecuteReaderAsync();
     if (!await reader.ReadAsync())
     {
-        Console.Error.WriteLine($"Stone material missing: {code}");
+        Console.Error.WriteLine($"Stone material missing: {stone.Code}");
         return 3;
     }
 
@@ -96,8 +129,8 @@ foreach (var (code, qty) in stoneLines)
     var unitPrice = reader.GetDecimal(1);
     if (unitPrice <= 0)
         unitPrice = 1_000m;
-    lines.Add(new MaterialReceiptLineDraft(materialId, qty, unitPrice, "VND", 1m, null));
-    Console.WriteLine($"  Line {code}: qty={qty:N0} @ {unitPrice:N0}");
+    lines.Add(new MaterialReceiptLineDraft(materialId, stone.Qty, unitPrice, "VND", 1m, null));
+    Console.WriteLine($"  Line {stone.Code}: qty={stone.Qty:N0} @ {unitPrice:N0}");
 }
 
 var total = lines.Sum(l => Math.Round(l.Quantity * l.UnitPrice * l.ExchangeRate, 2, MidpointRounding.AwayFromZero));

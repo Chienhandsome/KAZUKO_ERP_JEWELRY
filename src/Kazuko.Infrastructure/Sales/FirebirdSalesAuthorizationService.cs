@@ -8,7 +8,7 @@ namespace Kazuko.Infrastructure.Sales;
 public sealed class FirebirdSalesAuthorizationService : ISalesAuthorizationService
 {
     private static readonly SalesPermissionSnapshot NoPermissions =
-        new(false, false, false, false, false, false);
+        new(false, false, false, false, false, false, false);
 
     public async Task<SalesPermissionSnapshot> GetPermissionsAsync(
         AuthenticatedSession session,
@@ -27,7 +27,8 @@ public sealed class FirebirdSalesAuthorizationService : ISalesAuthorizationServi
                    MAX(CASE WHEN P.CODE = @DEBT AND RP.IS_ALLOWED = TRUE THEN 1 ELSE 0 END),
                    MAX(CASE WHEN P.CODE = @SALESPERSON AND RP.IS_ALLOWED = TRUE THEN 1 ELSE 0 END),
                    MAX(CASE WHEN P.CODE = @HISTORY AND RP.IS_ALLOWED = TRUE THEN 1 ELSE 0 END),
-                   MAX(CASE WHEN P.CODE = @PRINT AND RP.IS_ALLOWED = TRUE THEN 1 ELSE 0 END)
+                   MAX(CASE WHEN P.CODE = @PRINT AND RP.IS_ALLOWED = TRUE THEN 1 ELSE 0 END),
+                   MAX(CASE WHEN P.CODE = @WHOLESALE AND RP.IS_ALLOWED = TRUE THEN 1 ELSE 0 END)
             FROM USERS U
             JOIN ROLES R ON R.ID = U.ROLE_ID AND R.IS_ACTIVE = TRUE
             JOIN BRANCHES B ON B.ID = @BRANCH_ID
@@ -47,13 +48,14 @@ public sealed class FirebirdSalesAuthorizationService : ISalesAuthorizationServi
         command.Parameters.Add("@SALESPERSON", FbDbType.VarChar, 80).Value = SalesPermissions.SalespersonChange;
         command.Parameters.Add("@HISTORY", FbDbType.VarChar, 80).Value = SalesPermissions.HistoryRead;
         command.Parameters.Add("@PRINT", FbDbType.VarChar, 80).Value = SalesPermissions.ReceiptPrint;
+        command.Parameters.Add("@WHOLESALE", FbDbType.VarChar, 80).Value = SalesPermissions.WholesalePost;
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
             return NoPermissions;
 
         if (string.Equals(reader.GetString(0).Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase))
-            return new SalesPermissionSnapshot(true, true, true, true, true, true);
+            return new SalesPermissionSnapshot(true, true, true, true, true, true, true);
 
         return new SalesPermissionSnapshot(
             ReadAllowed(reader, 1),
@@ -61,7 +63,8 @@ public sealed class FirebirdSalesAuthorizationService : ISalesAuthorizationServi
             ReadAllowed(reader, 3),
             ReadAllowed(reader, 4),
             ReadAllowed(reader, 5),
-            ReadAllowed(reader, 6));
+            ReadAllowed(reader, 6),
+            ReadAllowed(reader, 7));
     }
 
     private static bool ReadAllowed(FbDataReader reader, int ordinal) =>

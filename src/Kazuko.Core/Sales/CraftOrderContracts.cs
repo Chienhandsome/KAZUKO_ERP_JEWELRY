@@ -7,6 +7,7 @@ public static class SalesOrderTypes
 {
     public const string Retail = "RETAIL";
     public const string Custom = "CUSTOM";
+    public const string Wholesale = "WHOLESALE";
 }
 
 public static class CraftOrderStatuses

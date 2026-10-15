@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
@@ -14,6 +15,7 @@ public sealed class SalesViewModel : ObservableObject
 {
     private readonly ISalesQueryRepository _queries;
     private readonly ISalesCheckoutApplicationService _checkout;
+    private readonly IWholesaleSalesApplicationService _wholesaleSales;
     private readonly ISalesAuthorizationService _authorization;
     private readonly ICashFundRepository _cashFunds;
     private readonly IBankAccountRepository _bankAccounts;
@@ -31,7 +33,7 @@ public sealed class SalesViewModel : ObservableObject
     private string? _notes;
     private Guid _clientRequestId = Guid.NewGuid();
     private bool _preserveRequestIdOnEdit;
-    private SalesPermissionSnapshot _permissions = new(false, false, false, false, false, false);
+    private SalesPermissionSnapshot _permissions = new(false, false, false, false, false, false, false);
     private long _salesFloorLocationId;
     private SalesCheckoutResult? _lastResult;
     private IReadOnlyList<CashFundOption> _funds = [];
@@ -49,11 +51,13 @@ public sealed class SalesViewModel : ObservableObject
         ISalesPriceOverrideDialogService priceOverrideDialog,
         ISalesReceiptPresenter receiptPresenter,
         ICraftOrderApplicationService craftOrders,
+        IWholesaleSalesApplicationService wholesaleSales,
         IWarehouseRepository warehouse,
         IProductionOrderEditorService productionOrderEditor)
     {
         _queries = queries;
         _checkout = checkout;
+        _wholesaleSales = wholesaleSales;
         _authorization = authorization;
         _cashFunds = cashFunds;
         _bankAccounts = bankAccounts;
@@ -65,6 +69,7 @@ public sealed class SalesViewModel : ObservableObject
 
         BuySell = new BuySellWorkspaceViewModel(OnWorkspaceChanged);
         BuyOldGold = new BuyOldGoldWorkspaceViewModel(OnWorkspaceChanged);
+        Wholesale = new WholesaleWorkspaceViewModel(OnWorkspaceChanged);
         CraftOrders = new CraftOrderWorkspaceViewModel(
             craftOrders,
             warehouse,
@@ -78,6 +83,9 @@ public sealed class SalesViewModel : ObservableObject
         BuySell.CountMatchingProductsAsync = CountMatchingProductsAsync;
         BuySell.AddCustomerAction = () => AddCustomerForBuySell();
         BuyOldGold.AddCustomerAction = () => AddCustomerForBuyOldGold();
+        Wholesale.AddCustomerAction = () => AddCustomerForWholesale();
+        Wholesale.FindProductAsync = (code, locationId) => FindWholesaleProductAsync(code, locationId);
+        Wholesale.SearchProductsAsync = SearchWholesaleProductsAsync;
         BuySell.EditSellPriceAction = EditSellPrice;
         History.PrintCheckoutAsync = id => PrintCheckoutAsync(id);
         CraftOrders.GetCashFunds = () => _funds;
@@ -95,7 +103,7 @@ public sealed class SalesViewModel : ObservableObject
         };
 
         NewCommand = new AsyncRelayCommand(NewAsync, () => !IsPosting);
-        PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && IsCheckoutTab && _permissions.CanPost);
+        PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && CanPayCurrentTab);
         PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && CanPrintCurrent);
 
         _ = InitializeAsync();
@@ -103,6 +111,7 @@ public sealed class SalesViewModel : ObservableObject
 
     public BuySellWorkspaceViewModel BuySell { get; }
     public BuyOldGoldWorkspaceViewModel BuyOldGold { get; }
+    public WholesaleWorkspaceViewModel Wholesale { get; }
     public CraftOrderWorkspaceViewModel CraftOrders { get; }
     public InvoiceHistoryWorkspaceViewModel History { get; }
 
@@ -122,9 +131,15 @@ public sealed class SalesViewModel : ObservableObject
     }
 
     public bool IsBuySellTab => MainTabIndex == 0;
+    public bool IsBuyOldGoldTab => MainTabIndex == 1;
+    public bool IsWholesaleTab => MainTabIndex == 2;
     public bool IsCheckoutTab => MainTabIndex is 0 or 1;
-    public bool IsCraftOrderTab => MainTabIndex == 2;
-    public bool IsHistoryTab => MainTabIndex == 3;
+    public bool IsCraftOrderTab => MainTabIndex == 3;
+    public bool IsHistoryTab => MainTabIndex == 4;
+    public bool CanPayCurrentTab =>
+        (IsCheckoutTab && _permissions.CanPost) || (IsWholesaleTab && _permissions.CanPostWholesale);
+    public Visibility WholesaleTabVisibility =>
+        _permissions.CanPostWholesale ? Visibility.Visible : Visibility.Collapsed;
     public bool CanPrintCurrent =>
         _permissions.CanPrintReceipt
         && (History.SelectedDetail?.CheckoutId > 0 || LastResult is { CheckoutId: > 0 });
@@ -203,9 +218,11 @@ public sealed class SalesViewModel : ObservableObject
             CraftOrders.CanCreateOrder = _permissions.CanPost;
             History.CanReadHistory = _permissions.CanReadHistory;
             History.CanPrint = _permissions.CanPrintReceipt;
+            Wholesale.CanPostWholesale = _permissions.CanPostWholesale;
             OnPropertyChanged(nameof(Permissions));
             OnPropertyChanged(nameof(CanChangeSalesperson));
             OnPropertyChanged(nameof(CanPrintCurrent));
+            OnPropertyChanged(nameof(WholesaleTabVisibility));
             ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
             ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
 
@@ -213,6 +230,7 @@ public sealed class SalesViewModel : ObservableObject
             var staff = await _queries.GetSalespeopleAsync(session);
             var materials = await _queries.GetOldGoldMaterialsAsync(session);
             var locations = await _queries.GetOldGoldLocationsAsync(session);
+            var wholesaleLocations = await _wholesaleSales.GetSourceLocationsAsync(session);
             _funds = await _cashFunds.GetActiveFundsAsync(session);
             _banks = await _bankAccounts.GetActiveAccountsAsync(session);
 
@@ -224,6 +242,9 @@ public sealed class SalesViewModel : ObservableObject
             Replace(BuyOldGold.StaffOptions, staff);
             Replace(BuyOldGold.OldGoldTypeOptions, materials);
             Replace(BuyOldGold.OldGoldLocationOptions, locations);
+            Replace(Wholesale.CustomerOptions, customers);
+            Replace(Wholesale.StaffOptions, staff);
+            Replace(Wholesale.LocationOptions, wholesaleLocations);
 
             var self = staff.FirstOrDefault(x => x.Id == session.UserId) ?? staff.FirstOrDefault();
             var walkIn = customers.FirstOrDefault(x => x.IsWalkIn);
@@ -232,12 +253,17 @@ public sealed class SalesViewModel : ObservableObject
             BuySell.SelectedStaff = self;
             BuyOldGold.SelectedCustomer = named ?? customers.FirstOrDefault();
             BuyOldGold.SelectedStaff = self;
+            Wholesale.SelectedCustomer = named ?? customers.FirstOrDefault();
+            Wholesale.SelectedStaff = self;
+            Wholesale.SelectedLocation = wholesaleLocations.FirstOrDefault(x => x.IsDefault)
+                ?? wholesaleLocations.FirstOrDefault();
             BuySell.SelectedOldGoldLocation = locations.FirstOrDefault(x => x.IsDefault) ?? locations.FirstOrDefault();
             BuyOldGold.SelectedOldGoldLocation = BuySell.SelectedOldGoldLocation;
             BuySell.SelectedOldGoldMaterial = materials.FirstOrDefault();
             BuyOldGold.SelectedOldGoldMaterial = materials.FirstOrDefault();
             BuySell.CanChangeSalesperson = _permissions.CanChangeSalesperson;
             BuyOldGold.CanChangeSalesperson = _permissions.CanChangeSalesperson;
+            Wholesale.CanChangeSalesperson = _permissions.CanChangeSalesperson;
             BuySell.CanOverridePrice = _permissions.CanOverridePrice;
 
             // Infer sales-floor from first product lookup seed is unavailable; leave 0 until first product scan.
@@ -245,8 +271,10 @@ public sealed class SalesViewModel : ObservableObject
             BuySell.SellLines.Clear();
             BuySell.BuyLines.Clear();
             BuyOldGold.BuyLines.Clear();
+            Wholesale.Lines.Clear();
             BuySell.RaiseTotalsChanged();
             BuyOldGold.RaiseTotalsChanged();
+            Wholesale.RaiseTotalsChanged();
             RenewRequestId();
         }
         catch (Exception ex)
@@ -266,6 +294,9 @@ public sealed class SalesViewModel : ObservableObject
             ?? BuySell.StaffOptions.FirstOrDefault();
         BuySell.ResetForNew(BuySell.CustomerOptions.FirstOrDefault(x => x.IsWalkIn) ?? BuySell.SelectedCustomer, self);
         BuyOldGold.ResetForNew(BuyOldGold.CustomerOptions.FirstOrDefault(x => !x.IsWalkIn) ?? BuyOldGold.SelectedCustomer, self);
+        Wholesale.ResetForNew(
+            Wholesale.CustomerOptions.FirstOrDefault(x => !x.IsWalkIn) ?? Wholesale.SelectedCustomer,
+            self);
         LastResult = null;
         SuccessMessage = string.Empty;
         ErrorMessage = string.Empty;
@@ -280,10 +311,13 @@ public sealed class SalesViewModel : ObservableObject
         var customers = await _queries.SearchCustomersAsync(string.Empty, session);
         var selectedBuySell = BuySell.SelectedCustomer?.Id;
         var selectedOld = BuyOldGold.SelectedCustomer?.Id;
+        var selectedWholesale = Wholesale.SelectedCustomer?.Id;
         Replace(BuySell.CustomerOptions, customers);
         Replace(BuyOldGold.CustomerOptions, customers);
+        Replace(Wholesale.CustomerOptions, customers);
         BuySell.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedBuySell) ?? customers.FirstOrDefault();
         BuyOldGold.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedOld) ?? customers.FirstOrDefault();
+        Wholesale.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedWholesale) ?? customers.FirstOrDefault();
     }
 
     private void AddCustomerForBuySell()
@@ -293,6 +327,15 @@ public sealed class SalesViewModel : ObservableObject
             return;
         EnsureCustomerOption(BuySell.CustomerOptions, created);
         BuySell.SelectedCustomer = created;
+    }
+
+    private void AddCustomerForWholesale()
+    {
+        var created = ShowCreateCustomer();
+        if (created is null)
+            return;
+        EnsureCustomerOption(Wholesale.CustomerOptions, created);
+        Wholesale.SelectedCustomer = created;
     }
 
     private void AddCustomerForBuyOldGold()
@@ -397,6 +440,12 @@ public sealed class SalesViewModel : ObservableObject
         SuccessMessage = string.Empty;
         try
         {
+            if (IsWholesaleTab)
+            {
+                await PayWholesaleAsync();
+                return;
+            }
+
             var session = RequireSession();
             if (!_permissions.CanPost)
                 throw new InvalidOperationException("Không có quyền ghi sổ bán hàng.");
@@ -476,6 +525,57 @@ public sealed class SalesViewModel : ObservableObject
         }
     }
 
+    private async Task PayWholesaleAsync()
+    {
+        var session = RequireSession();
+        if (!_permissions.CanPostWholesale)
+            throw new InvalidOperationException("Không có quyền ghi sổ bán sỉ.");
+        if (Wholesale.Lines.Count == 0)
+            throw new InvalidOperationException("Phải chọn ít nhất một thành phẩm.");
+        if (Wholesale.SelectedCustomer is null)
+            throw new InvalidOperationException("Phải chọn khách hàng.");
+        if (Wholesale.SelectedLocation is null)
+            throw new InvalidOperationException("Phải chọn kho xuất.");
+
+        var total = Wholesale.GrandTotal;
+        var payment = _paymentDialog.Show(new SalesPaymentDialogRequest(
+            total,
+            IsPayout: false,
+            _permissions.CanApproveDebt,
+            AllowReceivable: Wholesale.SelectedCustomer is { IsWalkIn: false },
+            _funds,
+            _banks,
+            "Bán sỉ"));
+        if (payment is null)
+            return;
+
+        var draft = Wholesale.BuildDraft(payment.Allocations, payment.ReceivableAmountVnd, Notes);
+        IsPosting = true;
+        var result = await _wholesaleSales.PostAsync(draft, session);
+        Wholesale.DocumentCode = result.DocumentCode;
+        SuccessMessage =
+            $"Ghi sổ bán sỉ thành công: {result.DocumentCode}" +
+            (result.ReceivableAmountVnd > 0
+                ? $" (còn nợ {result.ReceivableAmountVnd:N0})"
+                : string.Empty);
+        Wholesale.ResetForNew(Wholesale.SelectedCustomer, Wholesale.SelectedStaff);
+    }
+
+    private Task<WholesaleProductOption?> FindWholesaleProductAsync(string code, long? locationId)
+    {
+        var session = RequireSession();
+        return _wholesaleSales.FindAvailableProductAsync(code, locationId, session);
+    }
+
+    private Task<IReadOnlyList<WholesaleProductOption>> SearchWholesaleProductsAsync(
+        string searchText,
+        long? locationId,
+        CancellationToken cancellationToken)
+    {
+        var session = RequireSession();
+        return _wholesaleSales.SearchAvailableProductsAsync(searchText, locationId, session, cancellationToken);
+    }
+
     private async Task PrintAsync()
     {
         try
@@ -512,10 +612,14 @@ public sealed class SalesViewModel : ObservableObject
     private void OnWorkspaceChanged()
     {
         OnPropertyChanged(nameof(IsBuySellTab));
+        OnPropertyChanged(nameof(IsBuyOldGoldTab));
+        OnPropertyChanged(nameof(IsWholesaleTab));
         OnPropertyChanged(nameof(IsCheckoutTab));
         OnPropertyChanged(nameof(IsCraftOrderTab));
         OnPropertyChanged(nameof(IsHistoryTab));
+        OnPropertyChanged(nameof(CanPayCurrentTab));
         OnPropertyChanged(nameof(CanPrintCurrent));
+        OnPropertyChanged(nameof(WholesaleTabVisibility));
         ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
         InvalidateRequestIdIfNeeded();

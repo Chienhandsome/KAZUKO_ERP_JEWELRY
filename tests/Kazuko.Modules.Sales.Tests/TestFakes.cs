@@ -103,6 +103,28 @@ internal sealed class FakeCheckoutService : ISalesCheckoutApplicationService
     }
 }
 
+internal sealed class FakeWholesaleSalesService : IWholesaleSalesApplicationService
+{
+    public Task<IReadOnlyList<WholesaleLocationOption>> GetSourceLocationsAsync(
+        AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WholesaleLocationOption>>(
+            [new(1, "TP", "Kho thành phẩm", "FINISHED_GOODS", true)]);
+
+    public Task<WholesaleProductOption?> FindAvailableProductAsync(
+        string productCode, long? sourceLocationId, AuthenticatedSession session,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<WholesaleProductOption?>(null);
+
+    public Task<IReadOnlyList<WholesaleProductOption>> SearchAvailableProductsAsync(
+        string searchText, long? sourceLocationId, AuthenticatedSession session,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WholesaleProductOption>>([]);
+
+    public Task<WholesaleSaleResult> PostAsync(
+        WholesaleSaleDraft draft, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new WholesaleSaleResult(1, "BSI-2026-000001", 2, 100, 100, 0));
+}
+
 internal sealed class FakeAuthService : ISalesAuthorizationService
 {
     public SalesPermissionSnapshot Permissions { get; set; } =
@@ -254,6 +276,7 @@ internal static class SalesTestFactory
             queries, checkout, auth, new FakeCashFunds(), new FakeBanks(),
             session, payments, new FakeCustomerEditor(), new FakePriceOverrideDialog(), receipts,
             DispatchProxy.Create<ICraftOrderApplicationService, UnusedDependencyProxy>(),
+            new FakeWholesaleSalesService(),
             DispatchProxy.Create<IWarehouseRepository, UnusedDependencyProxy>(),
             DispatchProxy.Create<IProductionOrderEditorService, UnusedDependencyProxy>());
         return (vm, checkout, payments, receipts, queries);

@@ -7,7 +7,7 @@ Tài liệu quyết định cho module Kho và các domain liên quan (công n�
 | Nhóm | Nhập thủ công | Tăng tồn | Xuất |
 |------|---------------|----------|------|
 | NVL (`MATERIALS`: GOLD / STONE / ACCESSORY) | Có (mua từ NCC) | Khi chứng từ `RECEIPT` POSTED | Service vẫn hỗ trợ xuất; **UI Kho không còn nút Xuất NVL / Thợ ngoài** |
-| Thành phẩm (`FINISHED_PRODUCTS`) | **Cấm** thủ công ngoài luồng SX/nhập hợp lệ | Chỉ từ hoàn thành lệnh chế tác / phiếu nhập chế tác hợp lệ | Bán/xuất: chuyển TP→BH rồi xuất từ BH (hoặc checkout); **không** xuất thẳng từ TP qua dialog Kho |
+| Thành phẩm (`FINISHED_PRODUCTS`) | **Cấm** thủ công ngoài luồng SX/nhập hợp lệ | Chỉ từ hoàn thành lệnh chế tác / phiếu nhập chế tác hợp lệ | Bán lẻ (checkout) / bán sỉ (tab Bán hàng) từ TP hoặc BH; **không** xuất thẳng từ TP qua dialog Kho |
 
 - Không tạo `STOCK_DOCUMENTS` loại `RECEIPT` với `PURPOSE_CODE = FINISHED_RECEIPT` nếu thiếu `PRODUCTION_ORDER_ID` hợp lệ.
 - Điều chỉnh tồn thành phẩm dùng `STOCK_ADJUSTMENT` (quyền + audit), không dùng nhập kho thường.
@@ -125,13 +125,14 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 - Không xóa `FINISHED_PRODUCTS` đã bán; hóa đơn/chứng từ/movement giữ lịch sử serial phục vụ báo cáo, bảo hành và kiểm toán.
 - Khi hủy đúng quy trình: hoàn đúng vị trí và trạng thái trước xuất, bỏ đánh dấu đơn, tăng `ROW_VERSION`, ghi movement đảo và audit đầy đủ.
 
-### 8.0. Ranh giới với giao đơn đặt (CUSTOM)
+### 8.0. Ranh giới với giao đơn đặt (CUSTOM) và bán sỉ (WHOLESALE)
 
 - Posting xuất TP vẫn qua `FINISHED_GOODS_ISSUE` (serial → `SOLD`, một phiếu / đơn).
-- **Luồng chuẩn:** Bán hàng → tab **Đơn đặt** → **Giao hàng** (xuất + thu phần còn trong một thao tác).
-- Màn Kho không cung cấp nút/dialog xuất thủ công từ **Kho bán hàng**; bán hàng và giao đơn đặt phải thực hiện từ phân hệ Bán hàng để đồng bộ chứng từ, thanh toán và trạng thái serial.
-- Không có nút/dialog xuất thẳng từ Kho thành phẩm.
-- Chi tiết: `docs/10-CRAFT-CUSTOM-ORDER.md` §5.
+- **Luồng chuẩn đơn đặt:** Bán hàng → tab **Đơn đặt** → **Giao hàng** (xuất + thu phần còn trong một thao tác).
+- **Luồng chuẩn bán sỉ:** Bán hàng → tab **Bán sỉ** → chọn serial từ Kho TP (`IN_STOCK`) hoặc Kho BH (`DISPLAYED`) → thanh toán đủ/một phần → ghi `SALES_ORDERS.ORDER_TYPE = WHOLESALE` + xuất TP + settlement/công nợ. Giá dòng = `GOLD_WEIGHT × WAREHOUSE_GOLD_PRICES.SELL_PRICE_PER_CHI + LABOR_COST + NON_GOLD_MATERIAL_COST`. Quyền `sales.wholesale.post`. Không ghi nợ cho khách vãng lai.
+- Màn Kho không cung cấp nút/dialog xuất thủ công từ **Kho bán hàng** hay xuất sỉ; bán lẻ, bán sỉ và giao đơn đặt phải thực hiện từ phân hệ Bán hàng để đồng bộ chứng từ, thanh toán và trạng thái serial.
+- Không có nút/dialog xuất thẳng từ Kho thành phẩm (ngoài luồng Bán hàng nêu trên).
+- Chi tiết đơn đặt: `docs/10-CRAFT-CUSTOM-ORDER.md` §5.
 
 ### 8.1. Chuyển Kho thành phẩm sang Kho bán hàng
 
@@ -173,7 +174,8 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 | `warehouse.transfer.write` / `warehouse.transfer.post` | Lập / ghi sổ chuyển kho |
 | `warehouse.craft.outsource` | Xuất / thu hồi thợ ngoài |
 | `warehouse.craft.settle.override` | Thu hồi vượt lượng (điều chỉnh) |
-| `warehouse.finished.issue` | Xuất thành phẩm theo đơn |
+| `warehouse.finished.issue` | Xuất thành phẩm theo đơn (hỗ trợ service; UI giao/bán ở Bán hàng) |
+| `sales.wholesale.post` | Ghi sổ bán sỉ từ tab Bán hàng (xuất TP + thu/công nợ) |
 | `warehouse.sales_intake.approve` | Duyệt / từ chối yêu cầu nhập TP vào Kho bán hàng |
 | `warehouse.document.reverse` | Hủy / đảo chứng từ đã ghi sổ |
 | `debt.payable.read` / `debt.payable.pay` | Xem / thanh toán công nợ phải trả |

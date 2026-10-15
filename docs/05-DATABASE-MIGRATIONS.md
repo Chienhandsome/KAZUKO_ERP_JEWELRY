@@ -506,3 +506,17 @@ powershell -File "database\tools\Invoke-KazukoMigration.ps1" `
   powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0061__finished_product_groups.sql"
   ```
 
+---
+
+## 25. Migration Version 69: `0069__sales_wholesale_permission.sql`
+
+- **Phiên bản:** `69` — quyền ghi sổ bán sỉ.
+- **Phụ thuộc:** version 68.
+- **Tệp nguồn:** `database/migrations/0069__sales_wholesale_permission.sql`.
+- **Nội dung:** seed permission `sales.wholesale.post`; map `ADMIN` / `MANAGER` / `SALE`.
+- **Nghiệp vụ:** Bán hàng → tab **Bán sỉ** (chọn serial kho TP/BH, giá `SELL_PRICE_PER_CHI`, thu đủ/một phần + công nợ). Chi tiết: `docs/06-WAREHOUSE-STOCK-INVARIANTS.md` §8.0.
+- **Áp dụng (sau backup, đóng app):**
+  ```powershell
+  powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0069__sales_wholesale_permission.sql"
+  ```
+

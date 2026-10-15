@@ -13,7 +13,18 @@ public static class FinishedGoodsPostingSupport
         IReadOnlyList<long> finishedProductIds, CancellationToken cancellationToken) =>
         PostAsync(connection, transaction, companyId, session, salesOrderId,
             sourceLocationId, DateTime.Now, null, null, null, finishedProductIds,
-            retailOnly: true, requireExistingOrderAssignment: false, cancellationToken);
+            retailOnly: true, requireExistingOrderAssignment: false,
+            useWarehouseSellPrice: false, cancellationToken);
+
+    public static Task<long> PostWholesaleIssueAsync(
+        FbConnection connection, FbTransaction transaction, long companyId,
+        AuthenticatedSession session, long salesOrderId, long sourceLocationId,
+        DateTime documentDate, IReadOnlyList<long> finishedProductIds,
+        CancellationToken cancellationToken) =>
+        PostAsync(connection, transaction, companyId, session, salesOrderId,
+            sourceLocationId, documentDate, null, null, null, finishedProductIds,
+            retailOnly: true, requireExistingOrderAssignment: false,
+            useWarehouseSellPrice: true, cancellationToken);
 
     internal static Task<long> PostExistingOrderIssueAsync(
         FbConnection connection, FbTransaction transaction, long companyId,
@@ -23,14 +34,16 @@ public static class FinishedGoodsPostingSupport
             draft.SourceLocationId, draft.DocumentDate, draft.DeliveredByName,
             draft.ReceivedByName, draft.Notes,
             draft.Lines.Select(x => x.FinishedProductId).Distinct().ToArray(),
-            retailOnly: false, requireExistingOrderAssignment: true, cancellationToken);
+            retailOnly: false, requireExistingOrderAssignment: true,
+            useWarehouseSellPrice: false, cancellationToken);
 
     private static async Task<long> PostAsync(
         FbConnection connection, FbTransaction transaction, long companyId,
         AuthenticatedSession session, long salesOrderId, long sourceLocationId,
         DateTime documentDate, string? deliveredByName, string? receivedByName,
         string? notes, IReadOnlyList<long> finishedProductIds, bool retailOnly,
-        bool requireExistingOrderAssignment, CancellationToken cancellationToken)
+        bool requireExistingOrderAssignment, bool useWarehouseSellPrice,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(transaction);
@@ -38,7 +51,7 @@ public static class FinishedGoodsPostingSupport
         if (finishedProductIds.Count == 0)
             throw new InvalidOperationException("Phiếu xuất phải có ít nhất một thành phẩm.");
 
-        // Dialog Kho chỉ xuất từ SALES_FLOOR; checkout bán lẻ vẫn được lấy từ TP hoặc BH.
+        // Dialog Kho chỉ xuất từ SALES_FLOOR; checkout bán lẻ / bán sỉ lấy từ TP hoặc BH.
         await EnsureSourceLocationAsync(
             connection, transaction, companyId, session.BranchId, sourceLocationId,
             retailOnly
@@ -120,8 +133,11 @@ public static class FinishedGoodsPostingSupport
             lineNumber++;
             var warehousePrice = await FirebirdWarehouseGoldPricingSupport.ResolveAsync(
                 connection, transaction, companyId, product.GoldTypeId, product.GoldPurity, cancellationToken);
+            var goldPricePerChi = useWarehouseSellPrice
+                ? FirebirdWarehouseGoldPricingSupport.EnsurePositiveSell(warehousePrice).SellPricePerChi
+                : warehousePrice.IssuePricePerChi;
             var issueValue = WarehouseIssuePricing.CalculateFinishedProductIssueValue(
-                product.GoldWeightChi, warehousePrice.IssuePricePerChi, product.LaborCost, product.NonGoldCost);
+                product.GoldWeightChi, goldPricePerChi, product.LaborCost, product.NonGoldCost);
 
             await using (var update = new FbCommand($"""
                 UPDATE FINISHED_PRODUCTS
@@ -145,7 +161,7 @@ public static class FinishedGoodsPostingSupport
             await FirebirdFinishedProductTransferService.InsertDocumentLineAsync(
                 connection, transaction, documentId, lineNumber, product.Id,
                 sourceLocationId, null, product.StatusCode, "SOLD", issueValue, cancellationToken,
-                warehousePrice.Id, warehousePrice.Code, warehousePrice.IssuePricePerChi,
+                warehousePrice.Id, warehousePrice.Code, goldPricePerChi,
                 product.GoldWeightChi, product.LaborCost, product.NonGoldCost);
             await FirebirdFinishedProductTransferService.InsertMovementAsync(
                 connection, transaction, companyId, session.BranchId, product.Id,

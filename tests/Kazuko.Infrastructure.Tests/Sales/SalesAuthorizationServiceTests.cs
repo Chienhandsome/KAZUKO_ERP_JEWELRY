@@ -18,7 +18,7 @@ public sealed class SalesAuthorizationServiceTests : IDisposable
             _database.BranchSession(_database.AdminUserId, claimedRoleCode: "SALE"));
 
         Assert.Equal(
-            new[] { true, true, true, true, true, true },
+            new[] { true, true, true, true, true, true, true },
             new[]
             {
                 permissions.CanPost,
@@ -26,7 +26,8 @@ public sealed class SalesAuthorizationServiceTests : IDisposable
                 permissions.CanApproveDebt,
                 permissions.CanChangeSalesperson,
                 permissions.CanReadHistory,
-                permissions.CanPrintReceipt
+                permissions.CanPrintReceipt,
+                permissions.CanPostWholesale
             });
     }
 
@@ -42,6 +43,7 @@ public sealed class SalesAuthorizationServiceTests : IDisposable
         Assert.False(permissions.CanChangeSalesperson);
         Assert.True(permissions.CanReadHistory);
         Assert.False(permissions.CanPrintReceipt);
+        Assert.False(permissions.CanPostWholesale);
     }
 
     [Fact]
@@ -51,7 +53,7 @@ public sealed class SalesAuthorizationServiceTests : IDisposable
             _database.BranchSession(_database.OtherCompanyUserId, claimedRoleCode: "ADMIN"));
 
         Assert.Equal(
-            new[] { false, false, false, false, false, false },
+            new[] { false, false, false, false, false, false, false },
             new[]
             {
                 permissions.CanPost,
@@ -59,7 +61,8 @@ public sealed class SalesAuthorizationServiceTests : IDisposable
                 permissions.CanApproveDebt,
                 permissions.CanChangeSalesperson,
                 permissions.CanReadHistory,
-                permissions.CanPrintReceipt
+                permissions.CanPrintReceipt,
+                permissions.CanPostWholesale
             });
     }
 }

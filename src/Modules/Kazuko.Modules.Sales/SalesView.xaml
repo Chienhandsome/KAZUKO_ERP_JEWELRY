@@ -76,6 +76,9 @@
             <TabItem Header="Mua vàng cũ">
                 <local:BuyOldGoldTabView DataContext="{Binding BuyOldGold}" Margin="0,6,0,0" />
             </TabItem>
+            <TabItem Header="Bán sỉ" Visibility="{Binding WholesaleTabVisibility}">
+                <local:WholesaleTabView DataContext="{Binding Wholesale}" Margin="0,6,0,0" />
+            </TabItem>
             <TabItem Header="Đơn đặt">
                 <local:CraftOrderTabView DataContext="{Binding CraftOrders}" Margin="0,6,0,0" />
             </TabItem>
