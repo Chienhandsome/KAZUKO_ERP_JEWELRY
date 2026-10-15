@@ -1,0 +1,171 @@
+From fd09e75b60e80fe8befe9cd05cddaffdba1fe811 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 07:11:49 +0000
+Subject: [PATCH 1/2] fix(db): allow one gold debt per order per purity
+
+---
+ .../0071__worker_gold_debt_per_purity.sql     | 67 +++++++++++++++++++
+ .../FirebirdProductionApplicationService.cs   | 18 +++--
+ 2 files changed, 81 insertions(+), 4 deletions(-)
+ create mode 100644 database/migrations/0071__worker_gold_debt_per_purity.sql
+
+diff --git a/database/migrations/0071__worker_gold_debt_per_purity.sql b/database/migrations/0071__worker_gold_debt_per_purity.sql
+new file mode 100644
+index 0000000..bf1b727
+--- /dev/null
++++ b/database/migrations/0071__worker_gold_debt_per_purity.sql
+@@ -0,0 +1,67 @@
++/*
++================================================================================
++KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
++================================================================================
++Migration Version: 71
++Migration Name:    WORKER_GOLD_DEBT_PER_PURITY
++Description:       Change WORKER_GOLD_DEBTS uniqueness from one debt per
++                   production order to one debt per (order, gold purity),
++                   so an order with multiple gold types (9999, 18K, ...)
++                   can record a separate gold debt for each purity.
++Target Database:   Firebird 5.0 (Dialect 3, UTF8)
++================================================================================
++Rollback (dev):
++  -- Manual: drop UQ_WGD_ORDER_PURITY, re-add UQ_WGD_ORDER
++  DELETE FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 71;
++================================================================================
++*/
++
++SET AUTODDL OFF;
++
++CREATE EXCEPTION EX_MIGRATION_CHECK 'Migration 71 validation failed';
++
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cnt INTEGER;
++BEGIN
++    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 71 INTO :v_cnt;
++    IF (:v_cnt > 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Phien ban migration 71 da ton tai.';
++
++    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 70 INTO :v_cnt;
++    IF (:v_cnt = 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Can migration 70 truoc migration 71.';
++
++    SELECT COUNT(*) FROM RDB$RELATIONS
++    WHERE RDB$RELATION_NAME = 'WORKER_GOLD_DEBTS'
++    INTO :v_cnt;
++    IF (:v_cnt <> 1) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Thieu bang WORKER_GOLD_DEBTS.';
++
++    SELECT COUNT(*) FROM RDB$RELATION_CONSTRAINTS
++    WHERE RDB$RELATION_NAME = 'WORKER_GOLD_DEBTS'
++      AND RDB$CONSTRAINT_NAME = 'UQ_WGD_ORDER'
++    INTO :v_cnt;
++    IF (:v_cnt <> 1) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Thieu constraint UQ_WGD_ORDER.';
++END^
++SET TERM ; ^
++
++ALTER TABLE WORKER_GOLD_DEBTS DROP CONSTRAINT UQ_WGD_ORDER;
++ALTER TABLE WORKER_GOLD_DEBTS ADD CONSTRAINT UQ_WGD_ORDER_PURITY
++    UNIQUE (COMPANY_ID, PRODUCTION_ORDER_ID, GOLD_PURITY_CODE);
++
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cnt INTEGER;
++BEGIN
++    SELECT COUNT(*) FROM RDB$RELATION_CONSTRAINTS
++    WHERE RDB$RELATION_NAME = 'WORKER_GOLD_DEBTS'
++      AND RDB$CONSTRAINT_NAME = 'UQ_WGD_ORDER_PURITY'
++    INTO :v_cnt;
++    IF (:v_cnt <> 1) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong tao duoc UQ_WGD_ORDER_PURITY.';
++END^
++SET TERM ; ^
++
++DROP EXCEPTION EX_MIGRATION_CHECK;
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index d7edd8d..48ab504 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -1479,14 +1479,24 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
+                 }
+             }
+ 
++            var purityCode = string.IsNullOrWhiteSpace(request.GoldPurityCode)
++                ? null
++                : request.GoldPurityCode.Trim();
+             await using (var dupCmd = new FbCommand(
+-                "SELECT COUNT(*) FROM WORKER_GOLD_DEBTS WHERE COMPANY_ID = @CID AND PRODUCTION_ORDER_ID = @PO",
++                """
++                SELECT COUNT(*) FROM WORKER_GOLD_DEBTS
++                 WHERE COMPANY_ID = @CID
++                   AND PRODUCTION_ORDER_ID = @PO
++                   AND ((GOLD_PURITY_CODE = @PURITY) OR (GOLD_PURITY_CODE IS NULL AND @PURITY IS NULL))
++                """,
+                 connection, fbTx))
+             {
+                 dupCmd.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                 dupCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = request.ProductionOrderId;
++                dupCmd.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
++                    (object?)purityCode ?? DBNull.Value;
+                 if (Convert.ToInt32(await dupCmd.ExecuteScalarAsync(cancellationToken)) > 0)
+-                    throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng.");
++                    throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng cho loại vàng này.");
+             }
+ 
+             var code = await StockPostingSupport.NextDocumentCodeAsync(
+@@ -1514,7 +1524,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
+                 insert.Parameters.Add("@WID", FbDbType.BigInt).Value = request.WorkerId;
+                 insert.Parameters.Add("@WNAME", FbDbType.VarChar, 200).Value = request.WorkerName.Trim();
+                 insert.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+-                    string.IsNullOrWhiteSpace(request.GoldPurityCode) ? DBNull.Value : request.GoldPurityCode.Trim();
++                    (object?)purityCode ?? DBNull.Value;
+                 insert.Parameters.Add("@W", FbDbType.Decimal).Value = request.WeightChi;
+                 insert.Parameters.Add("@ISSUED", FbDbType.Decimal).Value = request.WeightIssuedChi;
+                 insert.Parameters.Add("@RECEIVED", FbDbType.Decimal).Value = request.WeightReceivedChi;
+@@ -1545,7 +1555,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
+         catch (FbException ex) when (IsUniqueViolation(ex))
+         {
+             await transaction.RollbackAsync(cancellationToken);
+-            throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng.", ex);
++            throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng cho loại vàng này.", ex);
+         }
+         catch
+         {
+-- 
+2.43.0
+
+
+From 4d9fe5cef3f352496b08065deefb54038789a196 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 07:12:23 +0000
+Subject: [PATCH 2/2] fix(production): mark sales order READY on finished
+ receipt instead of order completion
+
+---
+ .../Production/FirebirdProductionApplicationService.cs         | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index 48ab504..2a38785 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -978,7 +978,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
+                 throw new InvalidOperationException("Không thể hoàn tất lệnh. Dữ liệu đã thay đổi.");
+             var rowVersion = Convert.ToInt64(updated);
+ 
+-            await MarkCraftOrderReadyAsync(connection, fbTx, order.SalesOrderId, cancellationToken);
+             await AuditLogWriter.WriteAsync(connection, fbTx, "PRODUCTION_ORDER_COMPLETED",
+                 session.UserId, session.Username, session.BranchId,
+                 "PRODUCTION_ORDER", productionOrderId.ToString(), order.Code, cancellationToken);
+@@ -1401,6 +1400,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
+                         $"Không gắn phiếu nhập cho lệnh {orderCode}. Dữ liệu lệnh đã thay đổi.");
+             }
+ 
++            await MarkCraftOrderReadyAsync(connection, fbTx, salesOrderId, cancellationToken);
++
+             await AuditLogWriter.WriteAsync(
+                 connection, fbTx, "MANUAL_FINISHED_RECEIPT_POSTED",
+                 session.UserId, session.Username, session.BranchId,
+-- 
+2.43.0
+

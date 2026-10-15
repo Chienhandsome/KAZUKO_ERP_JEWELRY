@@ -978,7 +978,6 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 throw new InvalidOperationException("Không thể hoàn tất lệnh. Dữ liệu đã thay đổi.");
             var rowVersion = Convert.ToInt64(updated);
 
-            await MarkCraftOrderReadyAsync(connection, fbTx, order.SalesOrderId, cancellationToken);
             await AuditLogWriter.WriteAsync(connection, fbTx, "PRODUCTION_ORDER_COMPLETED",
                 session.UserId, session.Username, session.BranchId,
                 "PRODUCTION_ORDER", productionOrderId.ToString(), order.Code, cancellationToken);
@@ -1401,6 +1400,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                         $"Không gắn phiếu nhập cho lệnh {orderCode}. Dữ liệu lệnh đã thay đổi.");
             }
 
+            await MarkCraftOrderReadyAsync(connection, fbTx, salesOrderId, cancellationToken);
+
             await AuditLogWriter.WriteAsync(
                 connection, fbTx, "MANUAL_FINISHED_RECEIPT_POSTED",
                 session.UserId, session.Username, session.BranchId,
@@ -1479,14 +1480,24 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 }
             }
 
+            var purityCode = string.IsNullOrWhiteSpace(request.GoldPurityCode)
+                ? null
+                : request.GoldPurityCode.Trim();
             await using (var dupCmd = new FbCommand(
-                "SELECT COUNT(*) FROM WORKER_GOLD_DEBTS WHERE COMPANY_ID = @CID AND PRODUCTION_ORDER_ID = @PO",
+                """
+                SELECT COUNT(*) FROM WORKER_GOLD_DEBTS
+                 WHERE COMPANY_ID = @CID
+                   AND PRODUCTION_ORDER_ID = @PO
+                   AND ((GOLD_PURITY_CODE = @PURITY) OR (GOLD_PURITY_CODE IS NULL AND @PURITY IS NULL))
+                """,
                 connection, fbTx))
             {
                 dupCmd.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
                 dupCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = request.ProductionOrderId;
+                dupCmd.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+                    (object?)purityCode ?? DBNull.Value;
                 if (Convert.ToInt32(await dupCmd.ExecuteScalarAsync(cancellationToken)) > 0)
-                    throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng.");
+                    throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng cho loại vàng này.");
             }
 
             var code = await StockPostingSupport.NextDocumentCodeAsync(
@@ -1514,7 +1525,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 insert.Parameters.Add("@WID", FbDbType.BigInt).Value = request.WorkerId;
                 insert.Parameters.Add("@WNAME", FbDbType.VarChar, 200).Value = request.WorkerName.Trim();
                 insert.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
-                    string.IsNullOrWhiteSpace(request.GoldPurityCode) ? DBNull.Value : request.GoldPurityCode.Trim();
+                    (object?)purityCode ?? DBNull.Value;
                 insert.Parameters.Add("@W", FbDbType.Decimal).Value = request.WeightChi;
                 insert.Parameters.Add("@ISSUED", FbDbType.Decimal).Value = request.WeightIssuedChi;
                 insert.Parameters.Add("@RECEIVED", FbDbType.Decimal).Value = request.WeightReceivedChi;
@@ -1545,7 +1556,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         catch (FbException ex) when (IsUniqueViolation(ex))
         {
             await transaction.RollbackAsync(cancellationToken);
-            throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng.", ex);
+            throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng cho loại vàng này.", ex);
         }
         catch
         {
