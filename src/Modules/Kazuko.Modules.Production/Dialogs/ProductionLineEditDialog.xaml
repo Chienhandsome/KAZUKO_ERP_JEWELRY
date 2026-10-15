@@ -71,9 +71,10 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Mã sản phẩm" Style="{StaticResource LineCompactLabelStyle}" />
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ModelCode, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}" />
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Mã mẫu" Style="{StaticResource LineCompactLabelStyle}" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ModelCode, Mode=OneWay}"
+                             Style="{StaticResource LineCompactFieldStyle}" IsReadOnly="True"
+                             ToolTip="Mã mẫu do hệ thống tự sinh" />
                     <TextBlock Grid.Row="0" Grid.Column="3" Text="Loại vàng *" Style="{StaticResource LineCompactLabelStyle}"
                                ToolTip="Loại vàng (kho NVL)" />
                     <ComboBox Grid.Row="0" Grid.Column="4"

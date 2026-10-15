@@ -40,6 +40,7 @@ Không được trộn nhân viên nội bộ và thợ ngoài trong cùng một
 
 - Một lệnh có 1-nhiều dòng mẫu.
 - Mỗi dòng gồm tối thiểu: tên/mã mẫu, loại vàng, số lượng cần làm, tiền công cho **mỗi món**, mô tả và ghi chú.
+- Khi mở dialog thêm dòng mẫu, ứng dụng tự sinh mã mẫu và hiển thị ở trường chỉ đọc; người dùng không sửa mã này.
 - Mỗi dòng mẫu có thể đính kèm nhiều **ảnh mẫu** (`CUSTOMER_REQUIREMENT`) và **file thiết kế** (`DESIGN`); liên kết theo `LINE_NUMBER` trên `PRODUCTION_ATTACHMENTS` (ổn định khi replace dòng nháp).
 - Nhập/sửa mẫu qua dialog form, không nhập trực tiếp trên DataGrid.
 - Không lập BOM dự kiến và không nhập ngày dự kiến hoàn thành.
@@ -156,7 +157,7 @@ Ràng buộc bắt buộc:
 #### `PRODUCTION_ORDER_LINES`
 
 - `ID`, `PRODUCTION_ORDER_ID`, `LINE_NUMBER`.
-- `MODEL_CODE` nullable, `MODEL_NAME` bắt buộc.
+- `MODEL_CODE` nullable để tương thích dữ liệu cũ; UI tự sinh mã cho dòng mới. `MODEL_NAME` bắt buộc.
 - `GOLD_TYPE_CODE`, `GOLD_TYPE_NAME` snapshot.
 - `PLANNED_QUANTITY` integer > 0.
 - `LABOR_COST_PER_UNIT` numeric >= 0.

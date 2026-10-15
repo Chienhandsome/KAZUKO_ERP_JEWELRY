@@ -61,7 +61,11 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             GoldStockOptions.Add(item);
         }
 
-        if (source is not null)
+        if (source is null)
+        {
+            ModelCode = GenerateModelCode();
+        }
+        else
         {
             ModelCode = source.ModelCode;
             ModelName = source.ModelName;
@@ -129,6 +133,9 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         get => _modelCode;
         set => SetProperty(ref _modelCode, value);
     }
+
+    private static string GenerateModelCode() =>
+        $"M-{DateTime.Now:yyMMddHHmmssfff}-{Guid.NewGuid():N}"[..22].ToUpperInvariant();
 
     public string ModelName
     {

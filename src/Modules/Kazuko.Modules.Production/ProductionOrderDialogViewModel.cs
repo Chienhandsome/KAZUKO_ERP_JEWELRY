@@ -2075,6 +2075,8 @@ public sealed class ProductionExternalWorkerItemViewModel
 
     public long Id { get; }
     public string DisplayName { get; }
+
+    public override string ToString() => DisplayName;
 }
 
 public sealed class ProductionLineEditorViewModel : ObservableObject

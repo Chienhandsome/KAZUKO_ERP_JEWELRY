@@ -200,8 +200,6 @@ public sealed class ProductionValidatorTests
             null,
             1,
             2,
-            "A",
-            "B",
             null,
             null,
             [10],
