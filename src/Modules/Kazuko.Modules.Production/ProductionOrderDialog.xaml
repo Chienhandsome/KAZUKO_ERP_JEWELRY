@@ -38,19 +38,21 @@
             </Style>
             <Style x:Key="ProductionCompactFieldStyle" TargetType="TextBox" BasedOn="{StaticResource ProductionDialogFieldStyle}">
                 <Setter Property="Margin" Value="0" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="Padding" Value="10,3" />
             </Style>
             <Style x:Key="ProductionCompactComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ProductionDialogComboStyle}">
                 <Setter Property="Margin" Value="0" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="Padding" Value="10,3" />
             </Style>
             <Style x:Key="ProductionCompactDateStyle" TargetType="DatePicker">
                 <Setter Property="Margin" Value="0" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinHeight" Value="28" />
                 <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="8,2" />
+                <Setter Property="Padding" Value="8,1" />
                 <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                 <Setter Property="CalendarStyle">
@@ -223,7 +225,7 @@
                                 <Button Grid.Column="2" Content="Thêm thợ"
                                         Command="{Binding CreateExternalWorkerCommand}"
                                         Style="{StaticResource ProductionPrimaryButtonStyle}"
-                                        MinHeight="32" Padding="12,4"
+                                        MinHeight="28" Padding="12,2"
                                         IsEnabled="{Binding IsDraft}"
                                         ToolTip="Mở nhanh danh mục thêm/sửa thợ ngoài" />
                             </Grid>
@@ -232,7 +234,7 @@
                             <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="4"
                                      Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource ProductionCompactFieldStyle}"
-                                     MinHeight="32" TextWrapping="Wrap" AcceptsReturn="True"
+                                     MinHeight="28" TextWrapping="Wrap" AcceptsReturn="True"
                                      VerticalContentAlignment="Center" IsEnabled="{Binding IsDraft}" />
                         </Grid>
 
