@@ -719,6 +719,45 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         }
     }
 
+    public async Task<IReadOnlyList<IssuedStoneByMaterialDto>> GetIssuedStoneByMaterialAsync(
+        long productionOrderId,
+        long branchId,
+        CancellationToken cancellationToken = default)
+    {
+        if (productionOrderId <= 0 || branchId <= 0)
+            return Array.Empty<IssuedStoneByMaterialDto>();
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            // Đá đã giao theo từng loại NVL (MATERIAL_TYPE = 'STONE').
+            // Chỉ hiển thị tham khảo trong dialog đối chiếu vàng.
+            var rows = await connection.QueryAsync<IssuedStoneByMaterialDto>(
+                new CommandDefinition("""
+                    SELECT M.CODE AS MaterialCode, M.NAME AS MaterialName,
+                           COALESCE(SUM(B.QUANTITY_ISSUED), 0) AS QuantityIssued,
+                           MAX(B.UNIT_CODE) AS UnitCode
+                    FROM PRODUCTION_MATERIAL_BALANCES B
+                    JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
+                    JOIN PRODUCTION_ORDERS PO ON PO.ID = B.PRODUCTION_ORDER_ID
+                    WHERE B.PRODUCTION_ORDER_ID = @PO
+                      AND PO.BRANCH_ID = @BID
+                      AND PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND M.MATERIAL_TYPE = 'STONE'
+                    GROUP BY M.CODE, M.NAME
+                    """,
+                    new { PO = productionOrderId, BID = branchId },
+                    cancellationToken: cancellationToken));
+            return rows.AsList();
+        }
+        catch (FbException)
+        {
+            // Migration 46 not applied yet — no material balances.
+            return Array.Empty<IssuedStoneByMaterialDto>();
+        }
+    }
+
     private static async Task<IReadOnlyList<ProductionQcUnitDto>> LoadQcUnitsAsync(
         FbConnection connection,
         long orderId,

@@ -153,6 +153,15 @@
             </DataGridTextColumn>
           </DataGrid.Columns>
         </DataGrid>
+        <!-- Đá đã giao (tham khảo, không tham gia đối chiếu): ẩn khi không có. -->
+        <TextBlock DockPanel.Dock="Bottom"
+                   Text="{Binding IssuedStoneSummaryText}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="{DynamicResource FontSize.Caption}"
+                   FontStyle="Italic"
+                   Margin="14,8"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding IssuedStoneSummaryText, Converter={StaticResource NotNullToVis}}" />
       </DockPanel>
     </Border>
 

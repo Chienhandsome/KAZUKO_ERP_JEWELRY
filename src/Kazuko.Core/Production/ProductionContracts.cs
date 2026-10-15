@@ -493,6 +493,16 @@ public sealed record IssuedGoldByPurityDto(
     string? PurityCode,
     decimal WeightChi);
 
+/// <summary>
+/// Đá đã giao theo từng loại NVL (từ PRODUCTION_MATERIAL_BALANCES).
+/// Chỉ hiển thị tham khảo trong dialog đối chiếu vàng, không tham gia đối chiếu.
+/// </summary>
+public sealed record IssuedStoneByMaterialDto(
+    string? MaterialCode,
+    string? MaterialName,
+    decimal QuantityIssued,
+    string? UnitCode);
+
 public sealed record RecordWorkerGoldDebtRequest(
     long WorkerId,
     string WorkerName,
@@ -582,6 +592,15 @@ public interface IProductionQueryRepository
     /// Dùng cho đối chiếu vàng theo từng loại vàng trong dialog nhập kho thành phẩm.
     /// </summary>
     Task<IReadOnlyList<IssuedGoldByPurityDto>> GetIssuedGoldByPurityAsync(
+        long productionOrderId,
+        long branchId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Đá đã giao theo từng loại NVL (MATERIAL_TYPE = 'STONE'), từ PRODUCTION_MATERIAL_BALANCES.
+    /// Chỉ hiển thị tham khảo trong dialog đối chiếu vàng, không tham gia đối chiếu.
+    /// </summary>
+    Task<IReadOnlyList<IssuedStoneByMaterialDto>> GetIssuedStoneByMaterialAsync(
         long productionOrderId,
         long branchId,
         CancellationToken cancellationToken = default);

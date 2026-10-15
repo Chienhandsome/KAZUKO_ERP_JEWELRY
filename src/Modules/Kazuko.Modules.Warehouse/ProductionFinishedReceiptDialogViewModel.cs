@@ -69,6 +69,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private ProductionOrderWorkerDto? _selectedWorker;
     private ProductionOrderWorkerDto? _externalWorkerOption;
     private string _reconcileMessage = string.Empty;
+    private string _issuedStoneSummaryText = string.Empty;
     private bool _debtRecorded;
 
     public ProductionFinishedReceiptDialogViewModel(
@@ -415,6 +416,15 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         private set => SetProperty(ref _reconcileMessage, value);
     }
 
+    /// <summary>
+    /// Tóm tắt đá đã giao (tham khảo, không tham gia đối chiếu). Rỗng → ẩn khỏi UI.
+    /// </summary>
+    public string IssuedStoneSummaryText
+    {
+        get => _issuedStoneSummaryText;
+        private set => SetProperty(ref _issuedStoneSummaryText, value);
+    }
+
     public ICommand RecordDebtCommand { get; }
     public ICommand OpenReconcileCommand { get; }
 
@@ -473,6 +483,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             GoldReconcileRows.Clear();
             DebtRecorded = false;
             ReconcileMessage = string.Empty;
+            IssuedStoneSummaryText = string.Empty;
             NotifyDetailChanged();
             OnPropertyChanged(nameof(HasImages));
             if (item is not null)
@@ -509,6 +520,13 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                     // kết hợp với vàng đã nhận từ SP trong bảng (group theo GoldPurityCode).
                     var issuedByPurity = await _queries.GetIssuedGoldByPurityAsync(item!.Id, _session.BranchId);
                     RebuildReconcileRows(issuedByPurity);
+
+                    // Đá đã giao: chỉ hiển thị tham khảo, không tham gia đối chiếu.
+                    var issuedStones = await _queries.GetIssuedStoneByMaterialAsync(item!.Id, _session.BranchId);
+                    IssuedStoneSummaryText = issuedStones.Count == 0
+                        ? string.Empty
+                        : "Đá đã giao: " + string.Join(", ", issuedStones.Select(s =>
+                            $"{s.QuantityIssued:0.###} {(string.IsNullOrWhiteSpace(s.UnitCode) ? "viên" : s.UnitCode)} {s.MaterialName}".Trim()));
                 }
                 catch (Exception ex)
                 {
