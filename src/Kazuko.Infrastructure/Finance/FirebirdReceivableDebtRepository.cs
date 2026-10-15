@@ -45,7 +45,8 @@ public sealed class FirebirdReceivableDebtRepository : IReceivableDebtRepository
 
             var debt = await connection.QuerySingleOrDefaultAsync<DebtLockRow>(
                 new CommandDefinition("""
-                    SELECT PARTY_TYPE AS PartyType, COALESCE(CUSTOMER_ID, EXTERNAL_WORKER_ID) AS PartyId,
+                    -- SUPPLIER_ID: migration 73 — NCC cũng có thể là party của khoản phải thu.
+                    SELECT PARTY_TYPE AS PartyType, COALESCE(CUSTOMER_ID, EXTERNAL_WORKER_ID, SUPPLIER_ID) AS PartyId,
                            REMAINING_AMOUNT_VND AS RemainingAmount, STATUS_CODE AS StatusCode
                     FROM RECEIVABLE_DEBTS
                     WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID

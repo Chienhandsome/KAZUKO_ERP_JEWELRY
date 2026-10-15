@@ -58,8 +58,16 @@ public sealed class DebtStatusToBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-public sealed class PositiveAmountToBrushConverter : IValueConverter
+/// <summary>
+/// Tô màu số tiền theo HƯỚNG công nợ, không theo dấu âm/dương:
+/// RECEIVE &amp; &gt; 0 → SuccessBrush (xanh lá), PAY &amp; &gt; 0 → DangerBrush (đỏ),
+/// = 0 → TextSecondaryBrush (trung tính).
+/// </summary>
+public sealed class DebtDirectionToBrushConverter : IValueConverter
 {
+    /// <summary>DebtLedgerDirections.Receive hoặc DebtLedgerDirections.Pay.</summary>
+    public string Direction { get; set; } = DebtLedgerDirections.Receive;
+
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var amount = value switch
@@ -71,8 +79,15 @@ public sealed class PositiveAmountToBrushConverter : IValueConverter
         };
 
         if (amount > 0)
-            return Application.Current.TryFindResource("DangerBrush") as Brush ?? Brushes.IndianRed;
-        return Application.Current.TryFindResource("TextPrimaryBrush") as Brush ?? Brushes.Black;
+        {
+            var brushKey = string.Equals(
+                Direction, DebtLedgerDirections.Pay, StringComparison.OrdinalIgnoreCase)
+                ? "DangerBrush"
+                : "SuccessBrush";
+            return Application.Current.TryFindResource(brushKey) as Brush ?? Brushes.Gray;
+        }
+
+        return Application.Current.TryFindResource("TextSecondaryBrush") as Brush ?? Brushes.Gray;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

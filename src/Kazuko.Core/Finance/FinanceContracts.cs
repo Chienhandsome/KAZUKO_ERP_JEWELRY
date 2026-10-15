@@ -21,6 +21,8 @@ public static class PaymentMethods
     public const string Cash = "CASH";
     public const string BankTransfer = "BANK_TRANSFER";
     public const string Card = "CARD";
+    /// <summary>Phiếu thu/chi gộp nhiều phương thức (chỉ dùng cho voucher bulk, migration 74).</summary>
+    public const string Mixed = "MIXED";
 }
 
 public static class PayablePartyTypes
@@ -146,7 +148,10 @@ public sealed record CustomerDebtRow(
     decimal PaidVnd,
     decimal RemainingVnd,
     DateTime? LastDebtDate,
-    string StatusCode);
+    string StatusCode,
+    // Công nợ 2 chiều (số dư hiện tại, không lọc theo kỳ):
+    decimal ReceivableRemainingVnd = 0m,  // còn phải thu: đơn hàng + khoản phải thu (RECEIVABLE_DEBTS)
+    decimal PayableRemainingVnd = 0m);    // còn phải trả: DN nợ KH (PAYABLE_DEBTS party=CUSTOMER)
 
 public sealed record SupplierDebtRow(
     long SupplierId,
@@ -159,7 +164,10 @@ public sealed record SupplierDebtRow(
     decimal PaidVnd,
     decimal RemainingVnd,
     DateTime? LastDebtDate,
-    string StatusCode);
+    string StatusCode,
+    // Công nợ 2 chiều (số dư hiện tại, không lọc theo kỳ):
+    decimal ReceivableRemainingVnd = 0m,  // còn phải thu: NCC nợ DN (RECEIVABLE_DEBTS party=SUPPLIER)
+    decimal PayableRemainingVnd = 0m);     // còn phải trả: DN nợ NCC (PAYABLE_DEBTS)
 
 public sealed record CustomerDebtSearchFilter(
     string SearchText,
@@ -174,18 +182,84 @@ public sealed record SupplierDebtSearchFilter(
     DateTime? FromDate,
     DateTime? ToDate);
 
+/// <summary>Hướng của dòng sổ cái công nợ: phải thu (khách hàng nợ) hay phải trả (nợ nhà cung cấp).</summary>
+public static class DebtLedgerDirections
+{
+    public const string Receive = "RECEIVE"; // phải thu
+    public const string Pay = "PAY";         // phải trả
+}
+
+/// <summary>Nguồn gốc của dòng sổ cái công nợ.</summary>
+public static class DebtLedgerSourceTypes
+{
+    public const string SalesOrder = "SALES_ORDER";
+    public const string OrderPayment = "ORDER_PAYMENT";
+    public const string SalesCheckoutOffset = "SALES_CHECKOUT_OFFSET";
+    public const string PayableDebt = "PAYABLE_DEBT";
+    public const string PayableDebtPayment = "PAYABLE_DEBT_PAYMENT";
+    public const string ReceivableDebt = "RECEIVABLE_DEBT";
+    public const string CashVoucher = "CASH_VOUCHER";
+}
+
+/// <summary>
+/// Dòng sổ cái công nợ. Các tham số mới đều có giá trị mặc định nên các chỗ
+/// khởi tạo cũ (positional, 6 tham số đầu) vẫn biên dịch không đổi.
+/// </summary>
 public sealed record DebtLedgerEntry(
     DateTime EntryDate,
     string DocumentCode,
     string Description,
     decimal ReceiptAmountVnd,
     decimal PaymentAmountVnd,
-    decimal BalanceAfterVnd);
+    decimal BalanceAfterVnd,
+    string? SourceType = null,           // DebtLedgerSourceTypes.*
+    long? SourceId = null,               // Id của bản ghi gốc (đơn hàng, khoản nợ...)
+    string? Direction = null,            // DebtLedgerDirections.RECEIVE | PAY
+    decimal OriginalAmountVnd = 0m,      // số tiền gốc của chứng từ nợ
+    decimal PaidAmountVnd = 0m,          // đã thu/chi
+    decimal RemainingAmountVnd = 0m,     // còn dư
+    bool CanSettle = false,             // có hiện nút Thu/Chi: còn dư > 0 và không phải dòng hủy/bù trừ/phiếu
+    string? LinkedVoucherCode = null,    // mã phiếu thu/chi đã gắn (nếu có)
+    long? LinkedVoucherId = null,
+    string? StatusCode = null);         // OPEN / PARTIAL / PAID / CANCELLED / ...
 
 public sealed record CustomerCollectPaymentRequest(
     long CustomerId,
     IReadOnlyList<PaymentAllocationDraft> Allocations,
     string? Notes);
+
+public sealed record SupplierCollectPaymentRequest(
+    long SupplierId,
+    IReadOnlyList<PaymentAllocationDraft> Allocations,
+    string? Notes);
+
+/// <summary>
+/// Yêu cầu tất toán lẻ đúng 1 khoản nguồn trong sổ cái công nợ
+/// (nút Thu/Chi trên từng dòng lịch sử giao dịch).
+/// </summary>
+/// <param name="SourceType">DebtLedgerSourceTypes.SalesOrder | ReceivableDebt | PayableDebt.</param>
+/// <param name="SourceId">Id của bản ghi gốc (đơn hàng / khoản nợ).</param>
+public sealed record SingleLedgerSettleRequest(
+    string SourceType,
+    long SourceId,
+    IReadOnlyList<PaymentAllocationDraft> Allocations,
+    string? Notes);
+
+/// <summary>Một khoản phải thu mở (RECEIVABLE_DEBTS) của một đối tượng.</summary>
+public sealed record ReceivableDebtListItem(
+    long Id,
+    string Code,
+    string PartyType,
+    long PartyId,
+    string DebtKind,
+    string OriginDocumentType,
+    long OriginDocumentId,
+    decimal OriginalAmountVnd,
+    decimal CollectedAmountVnd,
+    decimal RemainingAmountVnd,
+    string StatusCode,
+    DateTime CreatedAt,
+    string? Notes = null);
 
 public interface ICashFundRepository
 {
@@ -245,6 +319,31 @@ public interface IDebtWorkbenchRepository
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Các khoản NCC còn nợ DN (RECEIVABLE_DEBTS party=SUPPLIER), FIFO theo ngày tạo.</summary>
+    Task<IReadOnlyList<ReceivableDebtListItem>> GetSupplierReceivableDebtsAsync(
+        long supplierId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Các khoản DN còn nợ KH (PAYABLE_DEBTS party=CUSTOMER), FIFO theo ngày tạo.</summary>
+    Task<IReadOnlyList<PayableDebtListItem>> GetCustomerOpenPayablesAsync(
+        long customerId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Thu gộp tiền NCC nợ DN: 1 settlement + 1 phiếu thu, phân bổ FIFO.</summary>
+    Task CollectSupplierPaymentAsync(
+        SupplierCollectPaymentRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task PayCustomerFifoAsync(
+        long customerId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
     Task CollectCustomerPaymentAsync(
         CustomerCollectPaymentRequest request,
         AuthenticatedSession session,
@@ -262,6 +361,15 @@ public interface IDebtWorkbenchRepository
         long partyId,
         IReadOnlyList<PaymentAllocationDraft> allocations,
         string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tất toán lẻ đúng 1 khoản nguồn (theo SourceType + SourceId của dòng sổ cái):
+    /// 1 settlement + 1 phiếu thu/chi + cập nhật khoản nợ, trong 1 transaction.
+    /// </summary>
+    Task SettleSingleLedgerEntryAsync(
+        SingleLedgerSettleRequest request,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 }

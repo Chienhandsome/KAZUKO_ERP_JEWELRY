@@ -42,7 +42,7 @@
                    FontSize="{DynamicResource FontSize.Heading}"
                    Foreground="{DynamicResource PrimaryBrush}"
                    FontWeight="Bold" />
-        <TextBlock Text="Phiếu được ghi sổ ngay sau khi lưu."
+        <TextBlock Text="{Binding SubtitleText}"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    FontSize="{DynamicResource FontSize.Body}"
                    Margin="0,4,0,12"
@@ -63,7 +63,8 @@
 
         <TextBlock Text="Số tiền (VND)" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource DialogFieldStyle}" />
+                 Style="{StaticResource DialogFieldStyle}"
+                 IsReadOnly="{Binding IsAmountReadOnly}" />
 
         <TextBlock Text="Phương thức" Style="{StaticResource FinanceFieldLabelStyle}" />
         <ComboBox ItemsSource="{Binding PaymentMethodOptions}" SelectedItem="{Binding SelectedPaymentMethod}"

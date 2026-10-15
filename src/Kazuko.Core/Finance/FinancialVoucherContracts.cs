@@ -23,6 +23,8 @@ public static class FinancialVoucherSourceAllocationTypes
     public const string StockDocumentPayment = "STOCK_DOCUMENT_PAYMENT";
     public const string SettlementAllocation = "SETTLEMENT_ALLOCATION";
     public const string PayableDebtPaymentAllocation = "PAYABLE_DEBT_PAY_ALLOC";
+    /// <summary>Một phiếu thu/chi duy nhất cho cả settlement gộp (thu/chi toàn bộ).</summary>
+    public const string SettlementBulk = "SETTLEMENT_BULK";
 }
 
 public sealed record FinancialVoucherPostRequest(

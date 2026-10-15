@@ -94,7 +94,16 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                        (SELECT MAX(O.ORDER_DATE) FROM SALES_ORDERS O
                         WHERE O.CUSTOMER_ID = C.ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
                           AND (@HAS_FROM = 0 OR O.ORDER_DATE >= @FROM_DATE)
-                          AND (@HAS_TO = 0 OR O.ORDER_DATE <= @TO_DATE)) AS LastDebtDate
+                          AND (@HAS_TO = 0 OR O.ORDER_DATE <= @TO_DATE)) AS LastDebtDate,
+                       -- Công nợ 2 chiều: số dư hiện tại (không lọc theo kỳ tìm kiếm).
+                       COALESCE((SELECT SUM(R.REMAINING_AMOUNT_VND) FROM RECEIVABLE_DEBTS R
+                                 WHERE R.CUSTOMER_ID = C.ID AND R.PARTY_TYPE = 'CUSTOMER'
+                                   AND R.STATUS_CODE <> 'CANCELLED' AND R.BRANCH_ID = @BID), 0)
+                           AS ReceivableDebtsRemainingVnd,
+                       COALESCE((SELECT SUM(D.REMAINING_AMOUNT_VND) FROM PAYABLE_DEBTS D
+                                 WHERE D.CUSTOMER_ID = C.ID AND D.PARTY_TYPE = 'CUSTOMER'
+                                   AND D.STATUS_CODE <> 'CANCELLED' AND D.BRANCH_ID = @BID), 0)
+                           AS PayableRemainingVnd
                 FROM CUSTOMERS C
                 JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
                 WHERE C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
@@ -108,6 +117,7 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 """,
                 new
                 {
+                    BID = session.BranchId,
                     HAS_SEARCH = search.Length > 0 ? 1 : 0,
                     SEARCH = search,
                     GROUP_ID = filter.GroupId,
@@ -121,7 +131,10 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         var result = new List<CustomerDebtRow>();
         foreach (var row in rows)
         {
-            if (row.TotalIncurredVnd <= 0 && row.PaidVnd <= 0)
+            // Giữ lại KH có số dư ở bất kỳ chiều nào (phải thu đơn hàng, phải thu
+            // RECEIVABLE_DEBTS, hoặc DN đang nợ KH).
+            if (row.TotalIncurredVnd <= 0 && row.PaidVnd <= 0
+                && row.ReceivableDebtsRemainingVnd <= 0 && row.PayableRemainingVnd <= 0)
                 continue;
             var remaining = row.TotalIncurredVnd - row.PaidVnd;
             if (remaining < 0) remaining = 0;
@@ -140,7 +153,9 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 row.PaidVnd,
                 remaining,
                 row.LastDebtDate,
-                status));
+                status,
+                ReceivableRemainingVnd: remaining + row.ReceivableDebtsRemainingVnd,
+                PayableRemainingVnd: row.PayableRemainingVnd));
         }
 
         return result;
@@ -167,7 +182,12 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                        COALESCE(SUM(D.ORIGINAL_AMOUNT_VND), 0) AS TotalIncurredVnd,
                        COALESCE(SUM(D.PAID_AMOUNT_VND), 0) AS PaidVnd,
                        COALESCE(SUM(D.REMAINING_AMOUNT_VND), 0) AS RemainingVnd,
-                       MAX(D.CREATED_AT) AS LastDebtDate
+                       MAX(D.CREATED_AT) AS LastDebtDate,
+                       -- Công nợ 2 chiều: NCC nợ DN (số dư hiện tại, không lọc theo kỳ).
+                       COALESCE((SELECT SUM(R.REMAINING_AMOUNT_VND) FROM RECEIVABLE_DEBTS R
+                                 WHERE R.SUPPLIER_ID = S.ID AND R.PARTY_TYPE = 'SUPPLIER'
+                                   AND R.STATUS_CODE <> 'CANCELLED' AND R.BRANCH_ID = @BID), 0)
+                           AS ReceivableRemainingVnd
                 FROM SUPPLIERS S
                 LEFT JOIN SUPPLIER_GROUPS G ON G.ID = S.SUPPLIER_GROUP_ID
                 LEFT JOIN PAYABLE_DEBTS D ON D.SUPPLIER_ID = S.ID
@@ -185,6 +205,9 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 GROUP BY S.ID, S.CODE, S.NAME, S.PHONE, G.NAME, S.ADDRESS
                 HAVING COALESCE(SUM(D.ORIGINAL_AMOUNT_VND), 0) > 0
                     OR COALESCE(SUM(D.REMAINING_AMOUNT_VND), 0) > 0
+                    OR COALESCE((SELECT SUM(R.REMAINING_AMOUNT_VND) FROM RECEIVABLE_DEBTS R
+                                 WHERE R.SUPPLIER_ID = S.ID AND R.PARTY_TYPE = 'SUPPLIER'
+                                   AND R.STATUS_CODE <> 'CANCELLED' AND R.BRANCH_ID = @BID), 0) > 0
                 ORDER BY S.NAME, S.CODE
                 """,
                 new
@@ -218,7 +241,9 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 row.PaidVnd,
                 row.RemainingVnd,
                 row.LastDebtDate,
-                status));
+                status,
+                ReceivableRemainingVnd: row.ReceivableRemainingVnd,
+                PayableRemainingVnd: row.RemainingVnd));
         }
 
         return result;
@@ -232,13 +257,16 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         ArgumentNullException.ThrowIfNull(session);
         StockPostingSupport.EnsureBranch(session);
 
-        var entries = new List<(DateTime Date, string Code, string Desc, decimal Receipt, decimal Payment)>();
+        var entries = new List<(DateTime Date, string Code, string Desc, decimal Receipt, decimal Payment,
+            string? SourceType, long? SourceId, string Direction,
+            decimal Original, decimal Paid, decimal Remaining, bool CanSettle, string? StatusCode)>();
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
         var orderRows = await connection.QueryAsync<CustomerOrderLedgerRow>(
             new CommandDefinition("""
-                SELECT O.ORDER_DATE AS OrderDate, O.CODE AS Code, O.GRAND_TOTAL AS GrandTotal, O.STATUS_CODE AS StatusCode
+                SELECT O.ID AS OrderId, O.ORDER_DATE AS OrderDate, O.CODE AS Code,
+                       O.GRAND_TOTAL AS GrandTotal, O.STATUS_CODE AS StatusCode
                 FROM SALES_ORDERS O
                 WHERE O.CUSTOMER_ID = @CID
                   AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
@@ -246,19 +274,42 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 """,
                 new { CID = customerId },
                 cancellationToken: cancellationToken));
+        // Tổng đã thu theo từng đơn (cùng ngữ nghĩa cột Thu/Chi trong sổ: refund làm tăng số dư nợ).
+        var paidPerOrder = (await connection.QueryAsync<OrderPaidRow>(
+            new CommandDefinition("""
+                SELECT P.ORDER_ID AS OrderId,
+                       SUM(CASE WHEN UPPER(COALESCE(P.PAYMENT_TYPE, '')) = 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END) AS PaidTotal
+                FROM ORDER_PAYMENTS P
+                JOIN SALES_ORDERS O ON O.ID = P.ORDER_ID
+                WHERE O.CUSTOMER_ID = @CID AND P.IS_VOIDED = FALSE
+                GROUP BY P.ORDER_ID
+                """,
+                new { CID = customerId },
+                cancellationToken: cancellationToken))
+            ).ToDictionary(r => r.OrderId, r => r.PaidTotal);
         foreach (var row in orderRows)
         {
+            var paid = paidPerOrder.TryGetValue(row.OrderId, out var p) ? p : 0m;
+            var remaining = row.GrandTotal - paid;
             entries.Add((
                 row.OrderDate,
                 row.Code,
                 "Đơn hàng " + row.StatusCode,
                 0m,
-                row.GrandTotal));
+                row.GrandTotal,
+                DebtLedgerSourceTypes.SalesOrder,
+                (long?)row.OrderId,
+                DebtLedgerDirections.Receive,
+                row.GrandTotal,
+                paid,
+                remaining,
+                remaining > 0,
+                row.StatusCode));
         }
 
         var paymentRows = await connection.QueryAsync<CustomerPaymentLedgerRow>(
             new CommandDefinition("""
-                SELECT P.PAYMENT_DATE AS PaymentDate, O.CODE AS OrderCode, P.PAYMENT_TYPE AS PaymentType,
+                SELECT P.ID AS PaymentId, P.PAYMENT_DATE AS PaymentDate, O.CODE AS OrderCode, P.PAYMENT_TYPE AS PaymentType,
                        P.AMOUNT AS Amount, P.PAYMENT_METHOD AS PaymentMethod
                 FROM ORDER_PAYMENTS P
                 JOIN SALES_ORDERS O ON O.ID = P.ORDER_ID
@@ -275,12 +326,58 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 row.OrderCode,
                 row.PaymentType + " / " + row.PaymentMethod,
                 isRefund ? 0m : row.Amount,
-                isRefund ? row.Amount : 0m));
+                isRefund ? row.Amount : 0m,
+                DebtLedgerSourceTypes.OrderPayment,
+                (long?)row.PaymentId,
+                DebtLedgerDirections.Receive,
+                row.Amount,
+                row.Amount,
+                0m,
+                false, // dòng thanh toán đã ghi nhận: không hiện nút Thu/Chi
+                null));
+        }
+
+        // Spec D: khoản phải thu KH ngoài đơn hàng (vd. bồi thường hao hụt chế tác).
+        var receivableRows = await connection.QueryAsync<ReceivableDebtLedgerRow>(
+            new CommandDefinition("""
+                SELECT D.ID AS DebtId, D.CREATED_AT AS CreatedAt, D.CODE AS Code,
+                       D.DEBT_KIND AS DebtKind,
+                       D.ORIGIN_DOCUMENT_TYPE AS OriginDocumentType,
+                       D.ORIGIN_DOCUMENT_ID AS OriginDocumentId,
+                       D.ORIGINAL_AMOUNT_VND AS OriginalAmountVnd,
+                       D.COLLECTED_AMOUNT_VND AS CollectedAmountVnd,
+                       D.REMAINING_AMOUNT_VND AS RemainingAmountVnd,
+                       D.STATUS_CODE AS StatusCode,
+                       COALESCE(D.NOTES, '') AS Notes
+                FROM RECEIVABLE_DEBTS D
+                WHERE D.CUSTOMER_ID = @CID
+                  AND D.PARTY_TYPE = 'CUSTOMER'
+                  AND D.STATUS_CODE <> 'CANCELLED'
+                ORDER BY D.CREATED_AT, D.ID
+                """,
+                new { CID = customerId },
+                cancellationToken: cancellationToken));
+        foreach (var row in receivableRows)
+        {
+            entries.Add((
+                row.CreatedAt,
+                row.Code,
+                BuildReceivableDebtDescription(row.DebtKind, row.Code, row.Notes),
+                0m,
+                row.OriginalAmountVnd,
+                DebtLedgerSourceTypes.ReceivableDebt,
+                (long?)row.DebtId,
+                DebtLedgerDirections.Receive,
+                row.OriginalAmountVnd,
+                row.CollectedAmountVnd,
+                row.RemainingAmountVnd,
+                row.RemainingAmountVnd > 0,
+                row.StatusCode));
         }
 
         var offsetRows = await connection.QueryAsync<CustomerOffsetLedgerRow>(
             new CommandDefinition("""
-                SELECT C.DOCUMENT_DATE AS DocumentDate, C.CODE AS Code, O.AMOUNT_VND AS AmountVnd
+                SELECT O.CHECKOUT_ID AS CheckoutId, C.DOCUMENT_DATE AS DocumentDate, C.CODE AS Code, O.AMOUNT_VND AS AmountVnd
                 FROM SALES_CHECKOUT_OFFSETS O
                 JOIN SALES_CHECKOUTS C ON C.ID = O.CHECKOUT_ID
                 JOIN SALES_ORDERS SO ON SO.ID = O.SALES_ORDER_ID
@@ -296,7 +393,15 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 row.Code,
                 "Bù trừ vàng cũ",
                 row.AmountVnd,
-                0m));
+                0m,
+                DebtLedgerSourceTypes.SalesCheckoutOffset,
+                (long?)row.CheckoutId,
+                DebtLedgerDirections.Receive,
+                row.AmountVnd,
+                row.AmountVnd,
+                0m,
+                false, // dòng bù trừ: không hiện nút Thu/Chi
+                null));
         }
 
         decimal balance = 0;
@@ -310,7 +415,15 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 entry.Desc,
                 entry.Receipt,
                 entry.Payment,
-                balance));
+                balance,
+                entry.SourceType,
+                entry.SourceId,
+                entry.Direction,
+                entry.Original,
+                entry.Paid,
+                entry.Remaining,
+                entry.CanSettle,
+                StatusCode: entry.StatusCode));
         }
 
         return result;
@@ -324,16 +437,22 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         ArgumentNullException.ThrowIfNull(session);
         StockPostingSupport.EnsureBranch(session);
 
-        var entries = new List<(DateTime Date, string Code, string Desc, decimal Receipt, decimal Payment)>();
+        var entries = new List<(DateTime Date, string Code, string Desc, decimal Receipt, decimal Payment,
+            string? SourceType, long? SourceId, string Direction,
+            decimal Original, decimal Paid, decimal Remaining, bool CanSettle, string? StatusCode)>();
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
         var debtRows = await connection.QueryAsync<SupplierDebtLedgerRow>(
             new CommandDefinition("""
-                SELECT D.CREATED_AT AS CreatedAt,
+                SELECT D.ID AS DebtId,
+                       D.CREATED_AT AS CreatedAt,
                        COALESCE(SD.CODE, D.CODE) AS DocCode,
                        D.DEBT_KIND AS DebtKind,
                        D.ORIGINAL_AMOUNT_VND AS OriginalAmountVnd,
+                       D.PAID_AMOUNT_VND AS PaidAmountVnd,
+                       D.REMAINING_AMOUNT_VND AS RemainingAmountVnd,
+                       D.STATUS_CODE AS StatusCode,
                        COALESCE(SD.CODE, '') AS StockCode,
                        COALESCE(SD.SOURCE_TYPE, '') AS SourceType,
                        D.CODE AS DebtCode
@@ -358,12 +477,60 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 displayCode,
                 desc,
                 0m,
-                row.OriginalAmountVnd));
+                row.OriginalAmountVnd,
+                DebtLedgerSourceTypes.PayableDebt,
+                (long?)row.DebtId,
+                DebtLedgerDirections.Pay,
+                row.OriginalAmountVnd,
+                row.PaidAmountVnd,
+                row.RemainingAmountVnd,
+                row.RemainingAmountVnd > 0,
+                row.StatusCode));
+        }
+
+        // Spec D: NCC nợ DN (RECEIVABLE_DEBTS party=SUPPLIER) — dòng phải thu,
+        // làm giảm số dư ròng "DN nợ NCC" nên ghi vào cột Thu.
+        var receivableRows = await connection.QueryAsync<ReceivableDebtLedgerRow>(
+            new CommandDefinition("""
+                SELECT D.ID AS DebtId, D.CREATED_AT AS CreatedAt, D.CODE AS Code,
+                       D.DEBT_KIND AS DebtKind,
+                       D.ORIGIN_DOCUMENT_TYPE AS OriginDocumentType,
+                       D.ORIGIN_DOCUMENT_ID AS OriginDocumentId,
+                       D.ORIGINAL_AMOUNT_VND AS OriginalAmountVnd,
+                       D.COLLECTED_AMOUNT_VND AS CollectedAmountVnd,
+                       D.REMAINING_AMOUNT_VND AS RemainingAmountVnd,
+                       D.STATUS_CODE AS StatusCode,
+                       COALESCE(D.NOTES, '') AS Notes
+                FROM RECEIVABLE_DEBTS D
+                WHERE D.SUPPLIER_ID = @SID
+                  AND D.PARTY_TYPE = 'SUPPLIER'
+                  AND D.STATUS_CODE <> 'CANCELLED'
+                  AND D.BRANCH_ID = @BID
+                ORDER BY D.CREATED_AT, D.ID
+                """,
+                new { SID = supplierId, BID = session.BranchId },
+                cancellationToken: cancellationToken));
+        foreach (var row in receivableRows)
+        {
+            entries.Add((
+                row.CreatedAt,
+                row.Code,
+                BuildReceivableDebtDescription(row.DebtKind, row.Code, row.Notes),
+                row.OriginalAmountVnd,
+                0m,
+                DebtLedgerSourceTypes.ReceivableDebt,
+                (long?)row.DebtId,
+                DebtLedgerDirections.Receive,
+                row.OriginalAmountVnd,
+                row.CollectedAmountVnd,
+                row.RemainingAmountVnd,
+                row.RemainingAmountVnd > 0,
+                row.StatusCode));
         }
 
         var paymentRows = await connection.QueryAsync<SupplierPaymentLedgerRow>(
             new CommandDefinition("""
-                SELECT P.PAYMENT_DATE AS PaymentDate, D.CODE AS DebtCode,
+                SELECT P.ID AS PaymentId, P.PAYMENT_DATE AS PaymentDate, D.CODE AS DebtCode,
                        P.AMOUNT_VND AS AmountVnd, COALESCE(P.NOTES, '') AS Notes
                 FROM PAYABLE_DEBT_PAYMENTS P
                 JOIN PAYABLE_DEBTS D ON D.ID = P.DEBT_ID
@@ -381,7 +548,15 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 row.DebtCode,
                 string.IsNullOrWhiteSpace(row.Notes) ? "Thanh toán công nợ" : row.Notes,
                 row.AmountVnd,
-                0m));
+                0m,
+                DebtLedgerSourceTypes.PayableDebtPayment,
+                (long?)row.PaymentId,
+                DebtLedgerDirections.Pay,
+                row.AmountVnd,
+                row.AmountVnd,
+                0m,
+                false, // dòng thanh toán đã ghi nhận: không hiện nút Thu/Chi
+                null));
         }
 
         decimal balance = 0;
@@ -395,7 +570,15 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 entry.Desc,
                 entry.Receipt,
                 entry.Payment,
-                balance));
+                balance,
+                entry.SourceType,
+                entry.SourceId,
+                entry.Direction,
+                entry.Original,
+                entry.Paid,
+                entry.Remaining,
+                entry.CanSettle,
+                StatusCode: entry.StatusCode));
         }
 
         return result;
@@ -431,6 +614,81 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 cancellationToken: cancellationToken));
         return rows.AsList();
     }
+
+    /// <summary>NCC nợ DN: các khoản phải thu mở trên RECEIVABLE_DEBTS (party=SUPPLIER).</summary>
+    public async Task<IReadOnlyList<ReceivableDebtListItem>> GetSupplierReceivableDebtsAsync(
+        long supplierId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<ReceivableDebtListItem>(
+            new CommandDefinition("""
+                SELECT D.ID AS Id, D.CODE AS Code, D.PARTY_TYPE AS PartyType,
+                       D.SUPPLIER_ID AS PartyId, D.DEBT_KIND AS DebtKind,
+                       D.ORIGIN_DOCUMENT_TYPE AS OriginDocumentType,
+                       D.ORIGIN_DOCUMENT_ID AS OriginDocumentId,
+                       D.ORIGINAL_AMOUNT_VND AS OriginalAmountVnd,
+                       D.COLLECTED_AMOUNT_VND AS CollectedAmountVnd,
+                       D.REMAINING_AMOUNT_VND AS RemainingAmountVnd,
+                       D.STATUS_CODE AS StatusCode, D.CREATED_AT AS CreatedAt,
+                       D.NOTES AS Notes
+                FROM RECEIVABLE_DEBTS D
+                WHERE D.SUPPLIER_ID = @SID
+                  AND D.PARTY_TYPE = 'SUPPLIER'
+                  AND D.STATUS_CODE IN ('OPEN', 'PARTIAL')
+                  AND D.BRANCH_ID = @BID
+                ORDER BY D.CREATED_AT, D.ID
+                """,
+                new { SID = supplierId, BID = session.BranchId },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    /// <summary>DN nợ KH: các khoản phải trả mở trên PAYABLE_DEBTS (party=CUSTOMER).</summary>
+    public async Task<IReadOnlyList<PayableDebtListItem>> GetCustomerOpenPayablesAsync(
+        long customerId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<PayableDebtListItem>(
+            new CommandDefinition("""
+                SELECT D.ID AS Id, D.CODE AS Code, D.PARTY_TYPE AS PartyType, COALESCE(C.NAME, '') AS PartyName,
+                       D.DEBT_KIND AS DebtKind, D.ORIGIN_DOCUMENT_TYPE AS OriginDocumentType,
+                       D.ORIGIN_DOCUMENT_ID AS OriginDocumentId,
+                       D.ORIGINAL_AMOUNT_VND AS OriginalAmountVnd, D.PAID_AMOUNT_VND AS PaidAmountVnd,
+                       D.REMAINING_AMOUNT_VND AS RemainingAmountVnd,
+                       D.STATUS_CODE AS StatusCode, D.CREATED_AT AS CreatedAt
+                FROM PAYABLE_DEBTS D
+                LEFT JOIN CUSTOMERS C ON C.ID = D.CUSTOMER_ID
+                WHERE D.CUSTOMER_ID = @CID
+                  AND D.PARTY_TYPE = 'CUSTOMER'
+                  AND D.STATUS_CODE IN ('OPEN', 'PARTIAL')
+                  AND D.BRANCH_ID = @BID
+                ORDER BY D.CREATED_AT, D.ID
+                """,
+                new { CID = customerId, BID = session.BranchId },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    public Task PayCustomerFifoAsync(
+        long customerId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default) =>
+        PayPayablePartyFifoAsync(
+            PayablePartyTypes.Customer, customerId, allocations, notes, session, cancellationToken);
 
     public async Task CollectCustomerPaymentAsync(
         CustomerCollectPaymentRequest request,
@@ -484,19 +742,42 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
             if (amount > totalOpen)
                 throw new InvalidOperationException($"Số thu ({amount:N0}) vượt tổng còn nợ ({totalOpen:N0}).");
 
+            // Spec C: re-check từng đơn sau khi lock — nếu đơn đã bị thu bởi
+            // người dùng khác (snapshot lúc UI đọc đã cũ) thì báo lỗi rõ ràng.
             var applications = new List<SettlementApplicationDraft>();
             var left = amount;
             foreach (var order in openOrders)
             {
                 if (left <= 0)
                     break;
-                var apply = Math.Min(left, order.Remaining);
+                var fresh = await connection.QuerySingleOrDefaultAsync<OpenOrderRecheckRow>(
+                    new CommandDefinition("""
+                        SELECT O.ID AS Id, O.CODE AS Code,
+                               O.GRAND_TOTAL - COALESCE((
+                                   SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                                   FROM ORDER_PAYMENTS P
+                                   WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0) AS Remaining
+                        FROM SALES_ORDERS O
+                        WHERE O.ID = @OID
+                        WITH LOCK
+                        """,
+                        new { OID = order.OrderId },
+                        fbTx,
+                        cancellationToken: cancellationToken));
+                if (fresh is null || fresh.Remaining <= 0)
+                    throw new InvalidOperationException(
+                        $"Đơn hàng {(fresh?.Code ?? "#" + order.OrderId)} đã được thanh toán hết bởi người dùng khác. Vui lòng tải lại và thử lại.");
+                var planned = Math.Min(left, order.Remaining);
+                if (fresh.Remaining < planned)
+                    throw new InvalidOperationException(
+                        $"Đơn hàng {fresh.Code} vừa được thanh toán một phần bởi người dùng khác. Vui lòng tải lại và thử lại.");
                 applications.Add(new SettlementApplicationDraft(
-                    SettlementApplicationTargetTypes.SalesOrder, order.OrderId, apply));
-                left -= apply;
+                    SettlementApplicationTargetTypes.SalesOrder, order.OrderId, planned));
+                left -= planned;
             }
 
-            var settlement = await _settlements.PostInTransactionAsync(
+            // Thu toàn bộ = 1 settlement + 1 phiếu thu duy nhất cho tổng tiền (spec B).
+            var settlement = await _settlements.PostBulkSettlementInTransactionAsync(
                 connection, fbTx, companyId, session.BranchId,
                 new FinancialSettlementDraft(
                     SettlementTypes.Receipt,
@@ -539,6 +820,114 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 session.UserId, session.Username, session.BranchId,
                 "CUSTOMER", request.CustomerId.ToString(),
                 $"{{\"settlementId\":{settlement.SettlementId},\"amount\":{amount},\"vouchers\":{settlement.CashVoucherIds.Count},\"orders\":{applications.Count}}}",
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Thu gộp tiền NCC nợ DN: lock FIFO các khoản RECEIVABLE_DEBTS mở của NCC,
+    /// tạo 1 settlement + 1 phiếu thu duy nhất, phân bổ N dòng application,
+    /// ghi RECEIVABLE_DEBT_COLLECTIONS và cập nhật từng khoản nợ.
+    /// Không bù trừ với chiều phải trả — thu và chi là 2 lần bấm riêng.
+    /// </summary>
+    public async Task CollectSupplierPaymentAsync(
+        SupplierCollectPaymentRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        var allocations = request.Allocations ?? Array.Empty<PaymentAllocationDraft>();
+        var amount = allocations.Sum(x => x.AmountVnd);
+        var errors = PaymentAllocationValidator.Validate(allocations, amount);
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(" ", errors));
+        if (amount <= 0)
+            throw new InvalidOperationException("Số tiền thu phải > 0.");
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTx = (FbTransaction)transaction;
+
+        try
+        {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+
+            var openDebtRows = await connection.QueryAsync<OpenReceivableDebtRow>(
+                new CommandDefinition("""
+                    SELECT ID AS Id,
+                           REMAINING_AMOUNT_VND AS Remaining
+                    FROM RECEIVABLE_DEBTS
+                    WHERE SUPPLIER_ID = @SID
+                      AND PARTY_TYPE = 'SUPPLIER'
+                      AND STATUS_CODE IN ('OPEN', 'PARTIAL')
+                      AND BRANCH_ID = @BID
+                    ORDER BY CREATED_AT, ID
+                    WITH LOCK
+                    """,
+                    new { SID = request.SupplierId, BID = session.BranchId },
+                    fbTx,
+                    cancellationToken: cancellationToken));
+            var openDebts = new List<(long DebtId, decimal Remaining)>();
+            foreach (var row in openDebtRows)
+            {
+                if (row.Remaining > 0)
+                    openDebts.Add((row.Id, row.Remaining));
+            }
+
+            var totalOpen = openDebts.Sum(x => x.Remaining);
+            if (amount > totalOpen)
+                throw new InvalidOperationException($"Số thu ({amount:N0}) vượt tổng còn nợ ({totalOpen:N0}).");
+
+            var applications = new List<SettlementApplicationDraft>();
+            var left = amount;
+            foreach (var debt in openDebts)
+            {
+                if (left <= 0)
+                    break;
+                var apply = Math.Min(left, debt.Remaining);
+                applications.Add(new SettlementApplicationDraft(
+                    SettlementApplicationTargetTypes.ReceivableDebt, debt.DebtId, apply));
+                left -= apply;
+            }
+
+            // Thu toàn bộ = 1 settlement + 1 phiếu thu duy nhất cho tổng tiền (spec B).
+            var settlement = await _settlements.PostBulkSettlementInTransactionAsync(
+                connection, fbTx, companyId, session.BranchId,
+                new FinancialSettlementDraft(
+                    SettlementTypes.Receipt,
+                    SettlementPartyTypes.Supplier,
+                    request.SupplierId,
+                    DateTime.Now,
+                    allocations,
+                    applications,
+                    request.Notes),
+                session.UserId,
+                cancellationToken);
+
+            foreach (var application in applications)
+            {
+                await ApplyReceivableDebtCollectionAsync(
+                    connection, fbTx, application.TargetId, application.AmountVnd,
+                    request.Notes, settlement.SettlementId, settlement.Code,
+                    session.UserId, cancellationToken);
+            }
+
+            await AuditLogWriter.WriteAsync(
+                connection, fbTx, "SUPPLIER_RECEIVABLE_COLLECTED",
+                session.UserId, session.Username, session.BranchId,
+                "SUPPLIER", request.SupplierId.ToString(),
+                $"{{\"settlementId\":{settlement.SettlementId},\"amount\":{amount},\"vouchers\":{settlement.CashVoucherIds.Count},\"debts\":{applications.Count}}}",
                 cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -611,7 +1000,8 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 left -= apply;
             }
 
-            var settlement = await _settlements.PostInTransactionAsync(
+            // Chi toàn bộ = 1 settlement + 1 phiếu chi duy nhất cho tổng tiền (spec B).
+            var settlement = await _settlements.PostBulkSettlementInTransactionAsync(
                 connection, fbTx, companyId, session.BranchId,
                 new FinancialSettlementDraft(
                     SettlementTypes.Payment,
@@ -647,6 +1037,257 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         }
     }
 
+    /// <summary>
+    /// Tất toán lẻ đúng 1 khoản nguồn (nút Thu/Chi trên từng dòng lịch sử):
+    /// 1 settlement + 1 phiếu thu/chi + cập nhật khoản nợ trong 1 transaction.
+    /// Tái dùng PostBulkSettlementInTransactionAsync (1 application) và các helper
+    /// ApplyReceivableDebtCollectionAsync / ApplyPayableDebtPaymentAsync đã có.
+    /// </summary>
+    public async Task SettleSingleLedgerEntryAsync(
+        SingleLedgerSettleRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        var sourceType = (request.SourceType ?? string.Empty).Trim().ToUpperInvariant();
+        if (sourceType is not (
+            DebtLedgerSourceTypes.SalesOrder or
+            DebtLedgerSourceTypes.ReceivableDebt or
+            DebtLedgerSourceTypes.PayableDebt))
+            throw new InvalidOperationException("Nguồn công nợ không hỗ trợ tất toán lẻ.");
+        if (request.SourceId <= 0)
+            throw new InvalidOperationException("Thiếu id khoản công nợ cần tất toán.");
+
+        var allocations = request.Allocations ?? Array.Empty<PaymentAllocationDraft>();
+        var amount = allocations.Sum(x => x.AmountVnd);
+        var errors = PaymentAllocationValidator.Validate(allocations, amount);
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(" ", errors));
+        if (amount <= 0)
+            throw new InvalidOperationException("Số tiền thanh toán phải > 0.");
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTx = (FbTransaction)transaction;
+
+        try
+        {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+            var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+
+            var (settlement, auditAction, partyType, partyId) = sourceType switch
+            {
+                DebtLedgerSourceTypes.SalesOrder => await CollectSingleSalesOrderAsync(
+                    connection, fbTx, companyId, request.SourceId,
+                    allocations, amount, notes, session, cancellationToken),
+                DebtLedgerSourceTypes.ReceivableDebt => await CollectSingleReceivableDebtAsync(
+                    connection, fbTx, companyId, request.SourceId,
+                    allocations, amount, notes, session, cancellationToken),
+                _ => await PaySinglePayableDebtAsync(
+                    connection, fbTx, companyId, request.SourceId,
+                    allocations, amount, notes, session, cancellationToken)
+            };
+
+            await AuditLogWriter.WriteAsync(
+                connection, fbTx, auditAction,
+                session.UserId, session.Username, session.BranchId,
+                partyType, partyId.ToString(),
+                $"{{\"settlementId\":{settlement.SettlementId},\"amount\":{amount},\"sourceId\":{request.SourceId}}}",
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private async Task<(FinancialSettlementResult Settlement, string AuditAction, string PartyType, long PartyId)> CollectSingleSalesOrderAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long orderId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        decimal amount,
+        string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken)
+    {
+        var order = await connection.QuerySingleOrDefaultAsync<SingleOrderLockRow>(
+            new CommandDefinition("""
+                SELECT O.CUSTOMER_ID AS CustomerId, O.CODE AS Code,
+                       O.GRAND_TOTAL - COALESCE((
+                           SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                           FROM ORDER_PAYMENTS P
+                           WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0) AS Remaining
+                FROM SALES_ORDERS O
+                WHERE O.ID = @ID AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+                WITH LOCK
+                """,
+                new { ID = orderId },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (order is null)
+            throw new InvalidOperationException($"Không tìm thấy đơn hàng #{orderId}.");
+        // Spec C: re-check sau khi lock.
+        if (order.Remaining <= 0)
+            throw new InvalidOperationException($"Đơn hàng {order.Code} đã được thanh toán hết bởi người dùng khác. Vui lòng tải lại.");
+        if (amount > order.Remaining)
+            throw new InvalidOperationException($"Số thu ({amount:N0}) vượt số còn nợ của đơn {order.Code} ({order.Remaining:N0}).");
+
+        var settlement = await _settlements.PostBulkSettlementInTransactionAsync(
+            connection, transaction, companyId, session.BranchId,
+            new FinancialSettlementDraft(
+                SettlementTypes.Receipt,
+                SettlementPartyTypes.Customer,
+                order.CustomerId,
+                DateTime.Now,
+                allocations,
+                [new SettlementApplicationDraft(
+                    SettlementApplicationTargetTypes.SalesOrder, orderId, amount)],
+                notes),
+            session.UserId,
+            cancellationToken);
+
+        await connection.ExecuteAsync(
+            new CommandDefinition("""
+                INSERT INTO ORDER_PAYMENTS
+                    (ORDER_ID, PAYMENT_DATE, PAYMENT_TYPE, AMOUNT, PAYMENT_METHOD,
+                     REFERENCE_NO, NOTES, IS_VOIDED, CREATED_BY, CREATED_AT)
+                VALUES
+                    (@OID, CURRENT_TIMESTAMP, 'PAYMENT', @AMT, @METHOD,
+                     @REF, @NOTES, FALSE, @BY, CURRENT_TIMESTAMP)
+                """,
+                new
+                {
+                    OID = orderId,
+                    AMT = amount,
+                    METHOD = ResolveOrderPaymentMethod(allocations),
+                    REF = settlement.Code,
+                    NOTES = (object?)notes ?? DBNull.Value,
+                    BY = session.UserId > 0 ? (object)session.UserId : DBNull.Value
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+        return (settlement, "SALES_ORDER_SINGLE_COLLECTED", SettlementPartyTypes.Customer, order.CustomerId);
+    }
+
+    private async Task<(FinancialSettlementResult Settlement, string AuditAction, string PartyType, long PartyId)> CollectSingleReceivableDebtAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long debtId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        decimal amount,
+        string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken)
+    {
+        var debt = await connection.QuerySingleOrDefaultAsync<SingleDebtLockRow>(
+            new CommandDefinition("""
+                SELECT PARTY_TYPE AS PartyType,
+                       COALESCE(CUSTOMER_ID, SUPPLIER_ID, EXTERNAL_WORKER_ID) AS PartyId,
+                       REMAINING_AMOUNT_VND AS RemainingAmountVnd,
+                       STATUS_CODE AS StatusCode
+                FROM RECEIVABLE_DEBTS
+                WHERE ID = @ID
+                WITH LOCK
+                """,
+                new { ID = debtId },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (debt is null)
+            throw new InvalidOperationException($"Không tìm thấy khoản phải thu #{debtId}.");
+        if (debt.StatusCode is ReceivableDebtStatuses.Paid or ReceivableDebtStatuses.Cancelled)
+            throw new InvalidOperationException($"Khoản phải thu #{debtId} đã đóng ({debt.StatusCode}).");
+        if (debt.RemainingAmountVnd <= 0)
+            throw new InvalidOperationException($"Khoản phải thu #{debtId} đã được thu hết bởi người dùng khác. Vui lòng tải lại.");
+        if (amount > debt.RemainingAmountVnd)
+            throw new InvalidOperationException($"Số thu ({amount:N0}) vượt số còn phải thu của #{debtId} ({debt.RemainingAmountVnd:N0}).");
+
+        var settlement = await _settlements.PostBulkSettlementInTransactionAsync(
+            connection, transaction, companyId, session.BranchId,
+            new FinancialSettlementDraft(
+                SettlementTypes.Receipt,
+                debt.PartyType,
+                debt.PartyId,
+                DateTime.Now,
+                allocations,
+                [new SettlementApplicationDraft(
+                    SettlementApplicationTargetTypes.ReceivableDebt, debtId, amount)],
+                notes),
+            session.UserId,
+            cancellationToken);
+
+        await ApplyReceivableDebtCollectionAsync(
+            connection, transaction, debtId, amount,
+            notes, settlement.SettlementId, settlement.Code,
+            session.UserId, cancellationToken);
+
+        return (settlement, "RECEIVABLE_DEBT_SINGLE_COLLECTED", debt.PartyType, debt.PartyId);
+    }
+
+    private async Task<(FinancialSettlementResult Settlement, string AuditAction, string PartyType, long PartyId)> PaySinglePayableDebtAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long debtId,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        decimal amount,
+        string? notes,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken)
+    {
+        var debt = await connection.QuerySingleOrDefaultAsync<SingleDebtLockRow>(
+            new CommandDefinition("""
+                SELECT PARTY_TYPE AS PartyType,
+                       COALESCE(CUSTOMER_ID, SUPPLIER_ID, EXTERNAL_WORKER_ID) AS PartyId,
+                       REMAINING_AMOUNT_VND AS RemainingAmountVnd,
+                       STATUS_CODE AS StatusCode
+                FROM PAYABLE_DEBTS
+                WHERE ID = @ID
+                WITH LOCK
+                """,
+                new { ID = debtId },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (debt is null)
+            throw new InvalidOperationException($"Không tìm thấy công nợ #{debtId}.");
+        if (debt.StatusCode is PayableDebtStatuses.Paid or PayableDebtStatuses.Cancelled)
+            throw new InvalidOperationException($"Công nợ #{debtId} đã đóng ({debt.StatusCode}).");
+        if (debt.RemainingAmountVnd <= 0)
+            throw new InvalidOperationException($"Công nợ #{debtId} đã được thanh toán hết bởi người dùng khác. Vui lòng tải lại.");
+        if (amount > debt.RemainingAmountVnd)
+            throw new InvalidOperationException($"Số thanh toán ({amount:N0}) vượt số còn nợ của #{debtId} ({debt.RemainingAmountVnd:N0}).");
+
+        var settlement = await _settlements.PostBulkSettlementInTransactionAsync(
+            connection, transaction, companyId, session.BranchId,
+            new FinancialSettlementDraft(
+                SettlementTypes.Payment,
+                debt.PartyType,
+                debt.PartyId,
+                DateTime.Now,
+                allocations,
+                [new SettlementApplicationDraft(
+                    SettlementApplicationTargetTypes.PayableDebt, debtId, amount)],
+                notes),
+            session.UserId,
+            cancellationToken);
+
+        await ApplyPayableDebtPaymentAsync(
+            connection, transaction, debtId, amount,
+            notes, settlement.Code, session.UserId, cancellationToken);
+
+        return (settlement, "PAYABLE_DEBT_SINGLE_PAID", debt.PartyType, debt.PartyId);
+    }
+
     private static async Task ApplyPayableDebtPaymentAsync(
         FbConnection connection,
         FbTransaction transaction,
@@ -672,6 +1313,10 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
 
         if (debt.StatusCode is PayableDebtStatuses.Paid or PayableDebtStatuses.Cancelled)
             throw new InvalidOperationException($"Công nợ #{debtId} đã đóng ({debt.StatusCode}).");
+        // Spec C: re-check sau khi lock — khoản nợ có thể đã được thanh toán
+        // bởi người dùng khác giữa lúc UI đọc và lúc transaction này bắt đầu.
+        if (debt.RemainingAmountVnd <= 0)
+            throw new InvalidOperationException($"Công nợ #{debtId} đã được thanh toán hết bởi người dùng khác.");
         if (paid > debt.RemainingAmountVnd)
             throw new InvalidOperationException($"Số thanh toán vượt số còn nợ của #{debtId}.");
 
@@ -705,6 +1350,85 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
                 new
                 {
                     PAID = paid,
+                    REM = newRemaining,
+                    STATUS = newStatus,
+                    BY = userId > 0 ? (object)userId : DBNull.Value,
+                    ID = debtId
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// Ghi nhận thu một khoản phải thu: lock row, re-check số dư (spec C),
+    /// insert RECEIVABLE_DEBT_COLLECTIONS và cập nhật RECEIVABLE_DEBTS.
+    /// </summary>
+    private static async Task ApplyReceivableDebtCollectionAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long debtId,
+        decimal collected,
+        string? notes,
+        long settlementId,
+        string settlementCode,
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        var debt = await connection.QuerySingleOrDefaultAsync<ReceivableDebtLockRow>(
+            new CommandDefinition("""
+                SELECT REMAINING_AMOUNT_VND AS RemainingAmountVnd, STATUS_CODE AS StatusCode
+                FROM RECEIVABLE_DEBTS
+                WHERE ID = @ID
+                WITH LOCK
+                """,
+                new { ID = debtId },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (debt is null)
+            throw new InvalidOperationException($"Không tìm thấy khoản phải thu #{debtId}.");
+
+        if (debt.StatusCode is ReceivableDebtStatuses.Paid or ReceivableDebtStatuses.Cancelled)
+            throw new InvalidOperationException($"Khoản phải thu #{debtId} đã đóng ({debt.StatusCode}).");
+        // Spec C: re-check sau khi lock — khoản nợ có thể đã được thu
+        // bởi người dùng khác giữa lúc UI đọc và lúc transaction này bắt đầu.
+        if (debt.RemainingAmountVnd <= 0)
+            throw new InvalidOperationException($"Khoản phải thu #{debtId} đã được thu hết bởi người dùng khác.");
+        if (collected > debt.RemainingAmountVnd)
+            throw new InvalidOperationException($"Số thu vượt số còn phải thu của #{debtId}.");
+
+        await connection.ExecuteAsync(
+            new CommandDefinition("""
+                INSERT INTO RECEIVABLE_DEBT_COLLECTIONS
+                    (DEBT_ID, COLLECTION_DATE, AMOUNT_VND, SETTLEMENT_ID, NOTES, CREATED_BY, CREATED_AT)
+                VALUES
+                    (@DEBT, CURRENT_TIMESTAMP, @AMT, @SID, @NOTES, @BY, CURRENT_TIMESTAMP)
+                """,
+                new
+                {
+                    DEBT = debtId,
+                    AMT = collected,
+                    SID = settlementId,
+                    NOTES = string.IsNullOrWhiteSpace(notes) ? settlementCode : $"{settlementCode}: {notes}",
+                    BY = userId > 0 ? (object)userId : DBNull.Value
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+        var newRemaining = debt.RemainingAmountVnd - collected;
+        var newStatus = newRemaining == 0 ? ReceivableDebtStatuses.Paid : ReceivableDebtStatuses.Partial;
+        await connection.ExecuteAsync(
+            new CommandDefinition("""
+                UPDATE RECEIVABLE_DEBTS
+                   SET COLLECTED_AMOUNT_VND = COLLECTED_AMOUNT_VND + @AMT,
+                       REMAINING_AMOUNT_VND = @REM,
+                       STATUS_CODE = @STATUS,
+                       UPDATED_BY = @BY,
+                       UPDATED_AT = CURRENT_TIMESTAMP
+                 WHERE ID = @ID
+                """,
+                new
+                {
+                    AMT = collected,
                     REM = newRemaining,
                     STATUS = newStatus,
                     BY = userId > 0 ? (object)userId : DBNull.Value,
@@ -756,6 +1480,20 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         if (methods.Count != 1)
             return "MIXED";
         return methods[0] == PaymentMethods.BankTransfer ? "BANK" : methods[0];
+    }
+
+    private static string BuildReceivableDebtDescription(
+        string debtKind,
+        string debtCode,
+        string notes)
+    {
+        var kindLabel = debtKind.Equals(ReceivableDebtKinds.LossCompensation, StringComparison.OrdinalIgnoreCase)
+            ? "Bồi thường hao hụt"
+            : debtKind.Equals(ReceivableDebtKinds.Sales, StringComparison.OrdinalIgnoreCase)
+                ? "Bán hàng"
+                : debtKind;
+        var desc = $"Phải thu {kindLabel} ({debtCode})";
+        return string.IsNullOrWhiteSpace(notes) ? desc : $"{desc} — {notes}";
     }
 
     private static string BuildSupplierDebtDescription(
@@ -811,7 +1549,9 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         string Address,
         decimal TotalIncurredVnd,
         decimal PaidVnd,
-        DateTime? LastDebtDate);
+        DateTime? LastDebtDate,
+        decimal ReceivableDebtsRemainingVnd,
+        decimal PayableRemainingVnd);
 
     private sealed record SupplierDebtSearchRow(
         long SupplierId,
@@ -823,15 +1563,20 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         decimal TotalIncurredVnd,
         decimal PaidVnd,
         decimal RemainingVnd,
-        DateTime? LastDebtDate);
+        DateTime? LastDebtDate,
+        decimal ReceivableRemainingVnd);
 
     private sealed record CustomerOrderLedgerRow(
+        long OrderId,
         DateTime OrderDate,
         string Code,
         decimal GrandTotal,
         string StatusCode);
 
+    private sealed record OrderPaidRow(long OrderId, decimal PaidTotal);
+
     private sealed record CustomerPaymentLedgerRow(
+        long PaymentId,
         DateTime PaymentDate,
         string OrderCode,
         string PaymentType,
@@ -839,20 +1584,39 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         string PaymentMethod);
 
     private sealed record CustomerOffsetLedgerRow(
+        long CheckoutId,
         DateTime DocumentDate,
         string Code,
         decimal AmountVnd);
 
+    private sealed record ReceivableDebtLedgerRow(
+        long DebtId,
+        DateTime CreatedAt,
+        string Code,
+        string DebtKind,
+        string OriginDocumentType,
+        long OriginDocumentId,
+        decimal OriginalAmountVnd,
+        decimal CollectedAmountVnd,
+        decimal RemainingAmountVnd,
+        string StatusCode,
+        string Notes);
+
     private sealed record SupplierDebtLedgerRow(
+        long DebtId,
         DateTime CreatedAt,
         string DocCode,
         string DebtKind,
         decimal OriginalAmountVnd,
+        decimal PaidAmountVnd,
+        decimal RemainingAmountVnd,
+        string StatusCode,
         string StockCode,
         string SourceType,
         string DebtCode);
 
     private sealed record SupplierPaymentLedgerRow(
+        long PaymentId,
         DateTime PaymentDate,
         string DebtCode,
         decimal AmountVnd,
@@ -860,7 +1624,17 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
 
     private sealed record OpenOrderRow(long Id, decimal Remaining);
 
+    private sealed record OpenOrderRecheckRow(long Id, string Code, decimal Remaining);
+
     private sealed record OpenPartyDebtRow(long Id, decimal Remaining);
 
+    private sealed record OpenReceivableDebtRow(long Id, decimal Remaining);
+
     private sealed record PayableDebtLockRow(decimal RemainingAmountVnd, string StatusCode);
+
+    private sealed record SingleOrderLockRow(long CustomerId, string Code, decimal Remaining);
+
+    private sealed record SingleDebtLockRow(string PartyType, long PartyId, decimal RemainingAmountVnd, string StatusCode);
+
+    private sealed record ReceivableDebtLockRow(decimal RemainingAmountVnd, string StatusCode);
 }

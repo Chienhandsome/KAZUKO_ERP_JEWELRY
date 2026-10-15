@@ -14,6 +14,12 @@ public sealed class FinanceModule : IKazukoModule
 
     public void RegisterServices(IServiceRegistry services)
     {
+        // Dialog tất toán công nợ dùng chung: mở từ module Công nợ nhưng
+        // implementation WPF (CashVoucherDialog) thuộc module Tài chính.
+        services.AddSingleton<IDebtSettlementDialogService>(
+            new FinanceDebtSettlementDialogService(
+                services.GetRequiredService<IFinanceVoucherService>(),
+                services.GetRequiredService<ICurrentSessionAccessor>()));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

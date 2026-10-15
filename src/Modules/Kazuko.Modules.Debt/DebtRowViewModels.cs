@@ -23,8 +23,16 @@ public sealed class CustomerDebtRowViewModel : ObservableObject
     public decimal TotalIncurredVnd => Row.TotalIncurredVnd;
     public decimal PaidVnd => Row.PaidVnd;
     public decimal RemainingVnd => Row.RemainingVnd;
+    public decimal ReceivableRemainingVnd => Row.ReceivableRemainingVnd;
+    public decimal PayableRemainingVnd => Row.PayableRemainingVnd;
     public DateTime? LastDebtDate => Row.LastDebtDate;
     public string StatusCode => Row.StatusCode;
+
+    /// <summary>Hiện nút "Thu toàn bộ" khi còn phải thu ở bất kỳ chiều nào.</summary>
+    public bool CanCollectAll => ReceivableRemainingVnd > 0;
+
+    /// <summary>Hiện nút "Chi toàn bộ" khi DN còn nợ KH.</summary>
+    public bool CanPayAll => PayableRemainingVnd > 0;
 
     public string TotalIncurredText => Row.TotalIncurredVnd.ToString("N0", CultureInfo.CurrentCulture);
     public string PaidText => Row.PaidVnd.ToString("N0", CultureInfo.CurrentCulture);
@@ -57,8 +65,16 @@ public sealed class SupplierDebtRowViewModel : ObservableObject
     public decimal TotalIncurredVnd => Row.TotalIncurredVnd;
     public decimal PaidVnd => Row.PaidVnd;
     public decimal RemainingVnd => Row.RemainingVnd;
+    public decimal ReceivableRemainingVnd => Row.ReceivableRemainingVnd;
+    public decimal PayableRemainingVnd => Row.PayableRemainingVnd;
     public DateTime? LastDebtDate => Row.LastDebtDate;
     public string StatusCode => Row.StatusCode;
+
+    /// <summary>Hiện nút "Thu toàn bộ" khi NCC còn nợ DN.</summary>
+    public bool CanCollectAll => ReceivableRemainingVnd > 0;
+
+    /// <summary>Hiện nút "Chi toàn bộ" khi DN còn nợ NCC.</summary>
+    public bool CanPayAll => PayableRemainingVnd > 0;
 
     public string TotalIncurredText => Row.TotalIncurredVnd.ToString("N0", CultureInfo.CurrentCulture);
     public string PaidText => Row.PaidVnd.ToString("N0", CultureInfo.CurrentCulture);
@@ -80,6 +96,18 @@ public sealed class DebtLedgerRowViewModel
     }
 
     public DebtLedgerEntry Entry { get; }
+
+    /// <summary>Hiện nút Thu: dòng còn dư có thể tất toán, hướng phải thu.</summary>
+    public bool CanShowCollectButton =>
+        Entry.CanSettle
+        && string.Equals(Entry.Direction, DebtLedgerDirections.Receive, StringComparison.OrdinalIgnoreCase)
+        && Entry.RemainingAmountVnd > 0;
+
+    /// <summary>Hiện nút Chi: dòng còn dư có thể tất toán, hướng phải trả.</summary>
+    public bool CanShowPayButton =>
+        Entry.CanSettle
+        && string.Equals(Entry.Direction, DebtLedgerDirections.Pay, StringComparison.OrdinalIgnoreCase)
+        && Entry.RemainingAmountVnd > 0;
     public string EntryDateText => Entry.EntryDate.ToString("dd/MM/yyyy", CultureInfo.CurrentCulture);
     public string DocumentCode => Entry.DocumentCode;
     public string Description => Entry.Description;

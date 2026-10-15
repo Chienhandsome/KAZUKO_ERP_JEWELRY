@@ -18,6 +18,7 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     private readonly IFinanceVoucherService _voucherService;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly string _voucherType;
+    private readonly string? _sourceDocumentCode;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
@@ -28,14 +29,53 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     private string _notes = string.Empty;
     private string _referenceNumber = string.Empty;
 
+    /// <summary>
+    /// Chế độ mở từ module Tài chính: lưu là tạo phiếu ngay (hành vi gốc).
+    /// </summary>
     public CashVoucherDialogViewModel(
         IFinanceVoucherService voucherService,
         ICurrentSessionAccessor sessionAccessor,
         string voucherType)
+        : this(voucherService, sessionAccessor, voucherType, createVoucherOnSave: true, prefill: null)
+    {
+    }
+
+    /// <summary>
+    /// Chế độ mở từ module Công nợ: chỉ thu thập input, KHÔNG tự tạo voucher.
+    /// Backend tạo settlement + voucher + cập nhật nợ trong 1 transaction.
+    /// </summary>
+    public CashVoucherDialogViewModel(
+        IFinanceVoucherService voucherService,
+        ICurrentSessionAccessor sessionAccessor,
+        DebtSettlementDialogRequest request)
+        : this(voucherService, sessionAccessor, request.VoucherType, createVoucherOnSave: false, prefill: request)
+    {
+    }
+
+    private CashVoucherDialogViewModel(
+        IFinanceVoucherService voucherService,
+        ICurrentSessionAccessor sessionAccessor,
+        string voucherType,
+        bool createVoucherOnSave,
+        DebtSettlementDialogRequest? prefill)
     {
         _voucherService = voucherService;
         _sessionAccessor = sessionAccessor;
         _voucherType = voucherType;
+        _sourceDocumentCode = prefill?.SourceDocumentCode;
+        CreateVoucherOnSave = createVoucherOnSave;
+        IsAmountEditable = prefill?.AllowAmountEdit ?? true;
+        SubtitleText = createVoucherOnSave
+            ? "Phiếu được ghi sổ ngay sau khi lưu."
+            : "Xác nhận thông tin phiếu, công nợ được trừ khi lưu.";
+
+        if (prefill is not null)
+        {
+            _partyName = prefill.PartyDisplayName;
+            _referenceNumber = prefill.SourceDocumentCode ?? string.Empty;
+            _amountText = prefill.DefaultAmountVnd.ToString("N0", new CultureInfo("vi-VN"));
+            _notes = prefill.DefaultNotes ?? string.Empty;
+        }
 
         var isIncome = voucherType == FinancialVoucherTypes.In;
         Title = isIncome ? "Phiếu thu tiền" : "Phiếu chi tiền";
@@ -53,6 +93,18 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     public string Title { get; }
     public string VoucherTypeName { get; }
 
+    /// <summary>
+    /// true = lưu tạo phiếu ngay (module Tài chính); false = chỉ trả input (module Công nợ).
+    /// </summary>
+    public bool CreateVoucherOnSave { get; }
+
+    /// <summary>false khi request khóa ô số tiền (VD: tất toán đúng số dư).</summary>
+    public bool IsAmountEditable { get; }
+
+    public bool IsAmountReadOnly => !IsAmountEditable;
+
+    public string SubtitleText { get; }
+
     public System.Collections.ObjectModel.ObservableCollection<PaymentMethodOption> PaymentMethodOptions { get; } = [];
 
     public ICommand SaveCommand { get; }
@@ -60,8 +112,11 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
 
     public Action<bool>? RequestClose { get; set; }
 
-    /// <summary>Phiếu vừa được tạo (null nếu người dùng hủy).</summary>
+    /// <summary>Phiếu vừa được tạo (null nếu người dùng hủy). Chỉ có ở chế độ tạo voucher.</summary>
     public CashVoucherDetail? SavedVoucher { get; private set; }
+
+    /// <summary>Input đã xác nhận (chỉ có ở chế độ thu thập input từ Công nợ).</summary>
+    public DebtSettlementDialogResult? SettlementResult { get; private set; }
 
     public bool IsBusy
     {
@@ -146,7 +201,23 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
                 NullIfEmpty(Notes),
                 NullIfEmpty(ReferenceNumber));
 
-            SavedVoucher = await _voucherService.CreateManualVoucherAsync(request, session);
+            if (CreateVoucherOnSave)
+            {
+                SavedVoucher = await _voucherService.CreateManualVoucherAsync(request, session);
+            }
+            else
+            {
+                SettlementResult = new DebtSettlementDialogResult(
+                    _voucherType,
+                    VoucherDate,
+                    SelectedPaymentMethod.Code,
+                    amount,
+                    NullIfEmpty(PartyName),
+                    NullIfEmpty(Notes),
+                    NullIfEmpty(ReferenceNumber),
+                    _sourceDocumentCode);
+            }
+
             RequestClose?.Invoke(true);
         }
         catch (Exception ex)

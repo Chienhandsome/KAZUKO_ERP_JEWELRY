@@ -111,51 +111,16 @@ public sealed class FirebirdFinancialVoucherPostingService : IFinancialVoucherPo
             connection, transaction, companyId, branchId, method,
             allocation.CashFundId, allocation.BankAccountId, cancellationToken);
 
-        var isIn = voucherType == FinancialVoucherTypes.In;
-        var sequenceType = isIn ? "CASH_VOUCHER_IN" : "CASH_VOUCHER_OUT";
-        var prefix = isIn ? "PT" : "PC";
-        var code = await StockPostingSupport.NextDocumentCodeAsync(
-            connection, transaction, sequenceType, branchId, prefix, cancellationToken);
-
         try
         {
-            await using var command = new FbCommand("""
-                INSERT INTO CASH_VOUCHERS
-                    (COMPANY_ID, BRANCH_ID, CODE, VOUCHER_DATE, VOUCHER_TYPE, PAYMENT_METHOD,
-                     AMOUNT_VND, CURRENCY_CODE, EXCHANGE_RATE, CASH_FUND_ID, BANK_ACCOUNT_ID,
-                     REFERENCE_NUMBER, NOTES, SOURCE_DOCUMENT_TYPE, SOURCE_DOCUMENT_ID,
-                     SOURCE_ALLOCATION_TYPE, SOURCE_ALLOCATION_ID, STATUS_CODE, CREATED_BY)
-                VALUES
-                    (@CID, @BID, @CODE, CURRENT_TIMESTAMP, @VTYPE, @METHOD,
-                     @AMT, 'VND', 1, @FUND, @BANK,
-                     @REF, @NOTES, @SRC_TYPE, @SRC_ID,
-                     @ALLOC_TYPE, @ALLOC_ID, 'POSTED', @BY)
-                RETURNING ID
-                """, connection, transaction);
-            command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
-            command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
-            command.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
-            command.Parameters.Add("@VTYPE", FbDbType.VarChar, 10).Value = voucherType;
-            command.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value = method;
-            command.Parameters.Add("@AMT", FbDbType.Decimal).Value = allocation.AmountVnd;
-            command.Parameters.Add("@FUND", FbDbType.BigInt).Value =
-                allocation.CashFundId is > 0 ? allocation.CashFundId.Value : DBNull.Value;
-            command.Parameters.Add("@BANK", FbDbType.BigInt).Value =
-                allocation.BankAccountId is > 0 ? allocation.BankAccountId.Value : DBNull.Value;
-            command.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
-                (object?)allocation.ReferenceNumber ?? DBNull.Value;
-            command.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
-                (object?)request.Notes ?? DBNull.Value;
-            command.Parameters.Add("@SRC_TYPE", FbDbType.VarChar, 40).Value = request.SourceDocumentType.Trim();
-            command.Parameters.Add("@SRC_ID", FbDbType.BigInt).Value = request.SourceDocumentId;
-            command.Parameters.Add("@ALLOC_TYPE", FbDbType.VarChar, 40).Value =
-                request.SourceAllocationType.Trim();
-            command.Parameters.Add("@ALLOC_ID", FbDbType.BigInt).Value = request.SourceAllocationId;
-            command.Parameters.Add("@BY", FbDbType.BigInt).Value =
-                createdBy is > 0 ? createdBy.Value : DBNull.Value;
-
-            var id = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
-            return new FinancialVoucherPostResult(id, code, voucherType, AlreadyExisted: false);
+            return await InsertVoucherAsync(
+                connection, transaction, companyId, branchId, voucherType,
+                method, allocation.AmountVnd,
+                allocation.CashFundId, allocation.BankAccountId, allocation.ReferenceNumber,
+                request.Notes,
+                request.SourceDocumentType, request.SourceDocumentId,
+                request.SourceAllocationType, request.SourceAllocationId,
+                createdBy, cancellationToken);
         }
         catch (FbException ex) when (IsUniqueViolation(ex))
         {
@@ -167,6 +132,166 @@ public sealed class FirebirdFinancialVoucherPostingService : IFinancialVoucherPo
                 return raced with { AlreadyExisted = true };
             throw;
         }
+    }
+
+    /// <summary>
+    /// Posts exactly ONE cash voucher (PT/PC) for the total of several payment
+    /// allocation lines inside an existing transaction. The per-method breakdown
+    /// stays on FINANCIAL_SETTLEMENT_ALLOCATIONS; the voucher header uses the
+    /// single method when all lines agree, otherwise 'MIXED' (migration 74).
+    /// Idempotency: (SOURCE_ALLOCATION_TYPE, SOURCE_ALLOCATION_ID).
+    /// </summary>
+    public async Task<FinancialVoucherPostResult> PostBulkInTransactionAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        string voucherType,
+        IReadOnlyList<PaymentAllocationDraft> allocations,
+        string sourceDocumentType,
+        long sourceDocumentId,
+        string sourceAllocationType,
+        long sourceAllocationId,
+        string? notes,
+        long? createdBy,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
+        ArgumentNullException.ThrowIfNull(allocations);
+
+        if (string.IsNullOrWhiteSpace(sourceDocumentType))
+            throw new InvalidOperationException("Thiếu SourceDocumentType cho phiếu thu/chi.");
+        if (sourceDocumentId <= 0)
+            throw new InvalidOperationException("SourceDocumentId không hợp lệ.");
+        if (string.IsNullOrWhiteSpace(sourceAllocationType))
+            throw new InvalidOperationException("Thiếu SourceAllocationType (idempotency).");
+        if (sourceAllocationId <= 0)
+            throw new InvalidOperationException("SourceAllocationId không hợp lệ.");
+
+        var total = allocations.Sum(x => x.AmountVnd);
+        var errors = PaymentAllocationValidator.Validate(allocations, total);
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(" ", errors));
+        if (total <= 0)
+            throw new InvalidOperationException("Tổng tiền phiếu phải > 0.");
+
+        var existing = await TryFindExistingAsync(
+            connection, transaction, companyId,
+            sourceAllocationType, sourceAllocationId,
+            cancellationToken);
+        if (existing is not null)
+            return existing with { AlreadyExisted = true };
+
+        var methods = allocations
+            .Select(x => (x.PaymentMethod ?? string.Empty).Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var voucherMethod = methods.Count == 1 ? methods[0] : PaymentMethods.Mixed;
+
+        foreach (var line in allocations)
+        {
+            var lineMethod = (line.PaymentMethod ?? string.Empty).Trim().ToUpperInvariant();
+            await ValidateFundOrBankAsync(
+                connection, transaction, companyId, branchId, lineMethod,
+                line.CashFundId, line.BankAccountId, cancellationToken);
+        }
+
+        long? fundId = null;
+        long? bankId = null;
+        if (methods.Count == 1)
+        {
+            var only = allocations[0];
+            fundId = only.CashFundId is > 0 ? only.CashFundId : null;
+            bankId = only.BankAccountId is > 0 ? only.BankAccountId : null;
+        }
+        var reference = allocations
+            .Select(x => x.ReferenceNumber)
+            .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+        try
+        {
+            return await InsertVoucherAsync(
+                connection, transaction, companyId, branchId, voucherType,
+                voucherMethod, total, fundId, bankId, reference, notes,
+                sourceDocumentType, sourceDocumentId,
+                sourceAllocationType, sourceAllocationId,
+                createdBy, cancellationToken);
+        }
+        catch (FbException ex) when (IsUniqueViolation(ex))
+        {
+            var raced = await TryFindExistingAsync(
+                connection, transaction, companyId,
+                sourceAllocationType, sourceAllocationId,
+                cancellationToken);
+            if (raced is not null)
+                return raced with { AlreadyExisted = true };
+            throw;
+        }
+    }
+
+    private static async Task<FinancialVoucherPostResult> InsertVoucherAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        string voucherType,
+        string paymentMethod,
+        decimal amountVnd,
+        long? cashFundId,
+        long? bankAccountId,
+        string? referenceNumber,
+        string? notes,
+        string sourceDocumentType,
+        long sourceDocumentId,
+        string sourceAllocationType,
+        long sourceAllocationId,
+        long? createdBy,
+        CancellationToken cancellationToken)
+    {
+        var isIn = voucherType == FinancialVoucherTypes.In;
+        var sequenceType = isIn ? "CASH_VOUCHER_IN" : "CASH_VOUCHER_OUT";
+        var prefix = isIn ? "PT" : "PC";
+        var code = await StockPostingSupport.NextDocumentCodeAsync(
+            connection, transaction, sequenceType, branchId, prefix, cancellationToken);
+
+        await using var command = new FbCommand("""
+            INSERT INTO CASH_VOUCHERS
+                (COMPANY_ID, BRANCH_ID, CODE, VOUCHER_DATE, VOUCHER_TYPE, PAYMENT_METHOD,
+                 AMOUNT_VND, CURRENCY_CODE, EXCHANGE_RATE, CASH_FUND_ID, BANK_ACCOUNT_ID,
+                 REFERENCE_NUMBER, NOTES, SOURCE_DOCUMENT_TYPE, SOURCE_DOCUMENT_ID,
+                 SOURCE_ALLOCATION_TYPE, SOURCE_ALLOCATION_ID, STATUS_CODE, CREATED_BY)
+            VALUES
+                (@CID, @BID, @CODE, CURRENT_TIMESTAMP, @VTYPE, @METHOD,
+                 @AMT, 'VND', 1, @FUND, @BANK,
+                 @REF, @NOTES, @SRC_TYPE, @SRC_ID,
+                 @ALLOC_TYPE, @ALLOC_ID, 'POSTED', @BY)
+            RETURNING ID
+            """, connection, transaction);
+        command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+        command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
+        command.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
+        command.Parameters.Add("@VTYPE", FbDbType.VarChar, 10).Value = voucherType;
+        command.Parameters.Add("@METHOD", FbDbType.VarChar, 20).Value = paymentMethod;
+        command.Parameters.Add("@AMT", FbDbType.Decimal).Value = amountVnd;
+        command.Parameters.Add("@FUND", FbDbType.BigInt).Value =
+            cashFundId is > 0 ? cashFundId.Value : DBNull.Value;
+        command.Parameters.Add("@BANK", FbDbType.BigInt).Value =
+            bankAccountId is > 0 ? bankAccountId.Value : DBNull.Value;
+        command.Parameters.Add("@REF", FbDbType.VarChar, 100).Value =
+            (object?)referenceNumber ?? DBNull.Value;
+        command.Parameters.Add("@NOTES", FbDbType.VarChar, 500).Value =
+            (object?)notes ?? DBNull.Value;
+        command.Parameters.Add("@SRC_TYPE", FbDbType.VarChar, 40).Value = sourceDocumentType.Trim();
+        command.Parameters.Add("@SRC_ID", FbDbType.BigInt).Value = sourceDocumentId;
+        command.Parameters.Add("@ALLOC_TYPE", FbDbType.VarChar, 40).Value =
+            sourceAllocationType.Trim();
+        command.Parameters.Add("@ALLOC_ID", FbDbType.BigInt).Value = sourceAllocationId;
+        command.Parameters.Add("@BY", FbDbType.BigInt).Value =
+            createdBy is > 0 ? createdBy.Value : DBNull.Value;
+
+        var id = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
+        return new FinancialVoucherPostResult(id, code, voucherType, AlreadyExisted: false);
     }
 
     private static void ValidateRequest(FinancialVoucherPostRequest request)

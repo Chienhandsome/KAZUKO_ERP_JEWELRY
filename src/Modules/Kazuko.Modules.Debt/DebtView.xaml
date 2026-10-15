@@ -9,7 +9,8 @@
     <local:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
     <local:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
     <local:DebtStatusToBrushConverter x:Key="StatusBrush" />
-    <local:PositiveAmountToBrushConverter x:Key="PositiveBrush" />
+    <local:DebtDirectionToBrushConverter x:Key="ReceiveBrush" Direction="RECEIVE" />
+    <local:DebtDirectionToBrushConverter x:Key="PayBrush" Direction="PAY" />
 
     <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
       <Setter Property="MinHeight" Value="36" />
@@ -164,6 +165,45 @@
           </ControlTemplate>
         </Setter.Value>
       </Setter>
+    </Style>
+
+    <Style x:Key="RoundedSuccessButtonStyle" TargetType="Button">
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6"
+                    Padding="{TemplateBinding Padding}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="RoundedDangerButtonStyle" TargetType="Button"
+           BasedOn="{StaticResource RoundedSuccessButtonStyle}">
+      <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
     </Style>
 
     <Style x:Key="OutlineButtonStyle" TargetType="Button">
@@ -520,7 +560,7 @@
                       <DataTemplate>
                         <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
                                    FontWeight="SemiBold"
-                                   Foreground="{Binding RemainingVnd, Converter={StaticResource PositiveBrush}}"
+                                   Foreground="{Binding RemainingVnd, Converter={StaticResource ReceiveBrush}}"
                                    VerticalAlignment="Center" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -537,6 +577,27 @@
                                      FontSize="{DynamicResource FontSize.Caption}"
                                      FontWeight="SemiBold" />
                         </Border>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="200">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <Button Content="Thu toàn bộ"
+                                  Style="{StaticResource RoundedSuccessButtonStyle}"
+                                  Margin="0,0,6,0"
+                                  Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.CollectCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}"
+                                  ToolTip="Thu toàn bộ số phải thu trên đơn hàng" />
+                          <Button Content="Chi toàn bộ"
+                                  Style="{StaticResource RoundedDangerButtonStyle}"
+                                  Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.PayCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}"
+                                  ToolTip="Chi toàn bộ số DN đang nợ khách hàng" />
+                        </StackPanel>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
@@ -605,7 +666,7 @@
                     <TextBox Text="{Binding SelectedRemainingText, Mode=OneWay, StringFormat={}{0} VND}"
                             Style="{StaticResource DetailValueStyle}"
                             FontWeight="Bold"
-                            Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource PositiveBrush}}" />
+                            Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource ReceiveBrush}}" />
                   </StackPanel>
                 </ScrollViewer>
               </Border>
@@ -630,11 +691,42 @@
                       <DataGridTextColumn Header="Diễn giải" Binding="{Binding Description, Mode=OneWay}" Width="*"
                                           grid:DataGridColumnLayout.Key="Desc" />
                       <DataGridTextColumn Header="Thu" Binding="{Binding ReceiptText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Receipt" />
+                                          grid:DataGridColumnLayout.Key="Receipt">
+                        <DataGridTextColumn.ElementStyle>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{Binding Entry.ReceiptAmountVnd, Converter={StaticResource ReceiveBrush}}" />
+                          </Style>
+                        </DataGridTextColumn.ElementStyle>
+                      </DataGridTextColumn>
                       <DataGridTextColumn Header="Chi" Binding="{Binding PaymentText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Payment" />
+                                          grid:DataGridColumnLayout.Key="Payment">
+                        <DataGridTextColumn.ElementStyle>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{Binding Entry.PaymentAmountVnd, Converter={StaticResource PayBrush}}" />
+                          </Style>
+                        </DataGridTextColumn.ElementStyle>
+                      </DataGridTextColumn>
                       <DataGridTextColumn Header="Dư" Binding="{Binding BalanceText, Mode=OneWay}" Width="90"
                                           grid:DataGridColumnLayout.Key="Balance" />
+                      <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                          <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                              <Button Content="Thu"
+                                      Style="{StaticResource RoundedSuccessButtonStyle}"
+                                      Margin="0,0,6,0"
+                                      Visibility="{Binding CanShowCollectButton, Converter={StaticResource BoolToVis}}"
+                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                      CommandParameter="{Binding}" />
+                              <Button Content="Chi"
+                                      Style="{StaticResource RoundedDangerButtonStyle}"
+                                      Visibility="{Binding CanShowPayButton, Converter={StaticResource BoolToVis}}"
+                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                      CommandParameter="{Binding}" />
+                            </StackPanel>
+                          </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                      </DataGridTemplateColumn>
                     </DataGrid.Columns>
                   </DataGrid>
                 </DockPanel>
@@ -709,7 +801,7 @@
                       <DataTemplate>
                         <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
                                    FontWeight="SemiBold"
-                                   Foreground="{Binding RemainingVnd, Converter={StaticResource PositiveBrush}}"
+                                   Foreground="{Binding RemainingVnd, Converter={StaticResource PayBrush}}"
                                    VerticalAlignment="Center" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -726,6 +818,27 @@
                                      FontSize="{DynamicResource FontSize.Caption}"
                                      FontWeight="SemiBold" />
                         </Border>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="200">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <Button Content="Thu toàn bộ"
+                                  Style="{StaticResource RoundedSuccessButtonStyle}"
+                                  Margin="0,0,6,0"
+                                  Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.CollectSupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}"
+                                  ToolTip="Thu toàn bộ số NCC đang nợ" />
+                          <Button Content="Chi toàn bộ"
+                                  Style="{StaticResource RoundedDangerButtonStyle}"
+                                  Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.PaySupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}"
+                                  ToolTip="Chi toàn bộ số DN đang nợ NCC" />
+                        </StackPanel>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
@@ -794,7 +907,7 @@
                     <TextBox Text="{Binding SelectedRemainingText, Mode=OneWay, StringFormat={}{0} VND}"
                             Style="{StaticResource DetailValueStyle}"
                             FontWeight="Bold"
-                            Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource PositiveBrush}}" />
+                            Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource PayBrush}}" />
                   </StackPanel>
                 </ScrollViewer>
               </Border>
@@ -819,11 +932,42 @@
                       <DataGridTextColumn Header="Diễn giải" Binding="{Binding Description, Mode=OneWay}" Width="*"
                                           grid:DataGridColumnLayout.Key="Desc" />
                       <DataGridTextColumn Header="Thu" Binding="{Binding ReceiptText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Receipt" />
+                                          grid:DataGridColumnLayout.Key="Receipt">
+                        <DataGridTextColumn.ElementStyle>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{Binding Entry.ReceiptAmountVnd, Converter={StaticResource ReceiveBrush}}" />
+                          </Style>
+                        </DataGridTextColumn.ElementStyle>
+                      </DataGridTextColumn>
                       <DataGridTextColumn Header="Chi" Binding="{Binding PaymentText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Payment" />
+                                          grid:DataGridColumnLayout.Key="Payment">
+                        <DataGridTextColumn.ElementStyle>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{Binding Entry.PaymentAmountVnd, Converter={StaticResource PayBrush}}" />
+                          </Style>
+                        </DataGridTextColumn.ElementStyle>
+                      </DataGridTextColumn>
                       <DataGridTextColumn Header="Dư" Binding="{Binding BalanceText, Mode=OneWay}" Width="90"
                                           grid:DataGridColumnLayout.Key="Balance" />
+                      <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                          <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                              <Button Content="Thu"
+                                      Style="{StaticResource RoundedSuccessButtonStyle}"
+                                      Margin="0,0,6,0"
+                                      Visibility="{Binding CanShowCollectButton, Converter={StaticResource BoolToVis}}"
+                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                      CommandParameter="{Binding}" />
+                              <Button Content="Chi"
+                                      Style="{StaticResource RoundedDangerButtonStyle}"
+                                      Visibility="{Binding CanShowPayButton, Converter={StaticResource BoolToVis}}"
+                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                      CommandParameter="{Binding}" />
+                            </StackPanel>
+                          </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                      </DataGridTemplateColumn>
                     </DataGrid.Columns>
                   </DataGrid>
                 </DockPanel>

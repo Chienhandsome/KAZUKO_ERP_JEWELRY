@@ -34,10 +34,18 @@ public sealed class DebtModule : IKazukoModule
             string.Empty,
             50,
             null,
-            () => new DebtView
+            () =>
             {
-                DataContext = new DebtViewModel(
-                    workbench, funds, banks, customers, customerEditor, supplierEditor, session)
+                // IDebtSettlementDialogService do FinanceModule đăng ký — module Tài chính
+                // đứng sau Công nợ trong thứ tự khởi tạo nên phải resolve lazy ở đây,
+                // khi view thực sự được mở (lúc đó mọi RegisterServices đã chạy xong).
+                var settlementDialog = GetRequiredService<IDebtSettlementDialogService>(services);
+                return new DebtView
+                {
+                    DataContext = new DebtViewModel(
+                        workbench, funds, banks, customers, customerEditor, supplierEditor, session,
+                        settlementDialog)
+                };
             },
             AssetRoot + "TC.png",
             "Theo dõi công nợ khách hàng\nvà nhà cung cấp",
