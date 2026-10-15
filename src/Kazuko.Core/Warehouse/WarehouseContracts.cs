@@ -208,6 +208,12 @@ public interface IWarehouseRepository
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 
+    Task<FinishedProductGroupOption> CreateFinishedProductGroupAsync(
+        string code,
+        string name,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<WarehouseLocationOption>> GetLocationsAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);

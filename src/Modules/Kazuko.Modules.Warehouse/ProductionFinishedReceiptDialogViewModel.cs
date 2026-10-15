@@ -101,6 +101,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         });
         RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => !IsBusy && !_debtRecorded);
         OpenReconcileCommand = new RelayCommand(OpenReconcileDialog);
+        CreateProductGroupCommand = new RelayCommand(CreateProductGroup, () => !IsBusy);
         PrintLabelCommand = new RelayCommand(() => MessageBox.Show(
             "Chức năng in tem đang phát triển.", "In lại tem",
             MessageBoxButton.OK, MessageBoxImage.Information));
@@ -355,6 +356,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             {
                 (EditCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (DeleteCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                (CreateProductGroupCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (RecordDebtCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
             }
@@ -365,6 +367,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ICommand EditCommand { get; }
     public ICommand DeleteCommand { get; }
     public ICommand CancelEditCommand { get; }
+    public ICommand CreateProductGroupCommand { get; }
     public ICommand PrintLabelCommand { get; }
     public ICommand PrintReceiptCommand { get; }
 
@@ -837,6 +840,49 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         if (owner is not null)
             dialog.Owner = owner;
         dialog.ShowDialog();
+    }
+
+    private void CreateProductGroup()
+    {
+        try
+        {
+            var viewModel = new FinishedProductGroupDialogViewModel(_warehouse, _session);
+            var dialog = new FinishedProductGroupDialog(viewModel);
+            var owner = Application.Current.Windows
+                .OfType<ProductionFinishedReceiptDialog>()
+                .FirstOrDefault();
+            if (owner is not null)
+                dialog.Owner = owner;
+
+            if (dialog.ShowDialog() != true || viewModel.CreatedGroup is null)
+                return;
+
+            _ = ReloadProductGroupsAsync(viewModel.CreatedGroup.Id);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task ReloadProductGroupsAsync(long? selectId)
+    {
+        try
+        {
+            var groups = await _warehouse.GetFinishedProductGroupsAsync(_session);
+            ProductGroups.Clear();
+            foreach (var group in groups)
+                ProductGroups.Add(group);
+
+            SelectedProductGroup = selectId is > 0
+                ? ProductGroups.FirstOrDefault(g => g.Id == selectId.Value) ?? ProductGroups.FirstOrDefault()
+                : ProductGroups.FirstOrDefault();
+            OnPropertyChanged(nameof(PreviewProductCode));
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
     }
 
     private async Task RecordDebtAsync()

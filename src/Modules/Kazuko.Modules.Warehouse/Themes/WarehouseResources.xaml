@@ -81,6 +81,7 @@
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
+  <!-- Combo bo góc + Surface; hỗ trợ IsEditable (PART_EditableTextBox). -->
   <Style x:Key="WhComboStyle" TargetType="ComboBox">
     <Setter Property="MinHeight" Value="40" />
     <Setter Property="Padding" Value="10,4" />
@@ -90,6 +91,8 @@
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="MaxDropDownHeight" Value="320" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ComboBox">
@@ -101,10 +104,11 @@
               <ToggleButton.Template>
                 <ControlTemplate TargetType="ToggleButton">
                   <Border x:Name="ComboBd"
-                          Background="{DynamicResource SurfaceBrush}"
-                          BorderBrush="{DynamicResource BorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="8">
+                          Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                          BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                          BorderThickness="{Binding BorderThickness, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                          CornerRadius="8"
+                          SnapsToDevicePixels="True">
                     <Grid>
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -122,14 +126,26 @@
                 </ControlTemplate>
               </ToggleButton.Template>
             </ToggleButton>
-            <ContentPresenter Margin="12,0,32,0"
+            <ContentPresenter x:Name="ContentSite"
+                              Margin="12,0,32,0"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Left"
                               IsHitTestVisible="False"
                               Content="{TemplateBinding SelectionBoxItem}"
                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                               ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
-            <Popup x:Name="Popup"
+            <TextBox x:Name="PART_EditableTextBox"
+                     Margin="12,0,32,0"
+                     VerticalAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Focusable="True"
+                     Visibility="Collapsed"
+                     FontSize="{TemplateBinding FontSize}"
+                     Foreground="{TemplateBinding Foreground}"
+                     IsReadOnly="{TemplateBinding IsReadOnly}" />
+            <Popup x:Name="PART_Popup"
                    Placement="Bottom"
                    IsOpen="{TemplateBinding IsDropDownOpen}"
                    AllowsTransparency="True"
@@ -141,13 +157,32 @@
                       Background="{DynamicResource SurfaceBrush}"
                       BorderBrush="{DynamicResource BorderBrush}"
                       BorderThickness="1"
-                      CornerRadius="8">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                      CornerRadius="8"
+                      SnapsToDevicePixels="True">
+                <ScrollViewer Margin="2" VerticalScrollBarVisibility="Auto">
                   <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
                 </ScrollViewer>
               </Border>
             </Popup>
           </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsEditable" Value="True">
+              <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.7" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsDropDownOpen" Value="True">
+              <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>

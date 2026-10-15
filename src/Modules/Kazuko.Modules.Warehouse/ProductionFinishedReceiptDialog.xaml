@@ -4,6 +4,7 @@
         xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Nhập kho thành phẩm" Width="1520" Height="920"
         MinWidth="1300" MinHeight="820" WindowStartupLocation="CenterOwner"
+        WindowState="Maximized"
         ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}">
   <Window.InputBindings>
@@ -118,34 +119,19 @@
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="132" />
             <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Mã thành phẩm:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding PreviewProductCode, Mode=OneWay}"
-                   IsReadOnly="True"
-                   Style="{StaticResource ReceiptReadonlyFieldStyle}"
-                   ToolTip="Mã tự sinh khi bấm Thêm." />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Mã vạch/QR:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding PreviewProductCode, Mode=OneWay}"
-                   IsReadOnly="True"
-                   Style="{StaticResource ReceiptReadonlyFieldStyle}"
-                   ToolTip="Mã vạch = mã thành phẩm, tự sinh khi bấm Thêm." />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Nhóm hàng:" Style="{StaticResource ReceiptFormLabelStyle}" />
           <ComboBox Grid.Column="1" ItemsSource="{Binding ProductGroups}"
                     SelectedItem="{Binding SelectedProductGroup}"
                     DisplayMemberPath="Name"
                     Style="{StaticResource ReceiptComboStyle}" />
+          <Button Grid.Column="3" Content="Thêm"
+                  Command="{Binding CreateProductGroupCommand}"
+                  Style="{StaticResource WhOutlineButtonStyle}"
+                  MinHeight="30" Padding="12,4"
+                  ToolTip="Thêm nhóm hàng mới" />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
@@ -163,8 +149,9 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="Loại vàng:" Style="{StaticResource ReceiptFormLabelStyle}" />
           <ComboBox Grid.Column="1" ItemsSource="{Binding GoldPurityChoices}"
-                    SelectedItem="{Binding GoldPurityCode, UpdateSourceTrigger=PropertyChanged}"
+                    Text="{Binding GoldPurityCode, UpdateSourceTrigger=PropertyChanged}"
                     IsEditable="True"
+                    IsTextSearchEnabled="True"
                     Style="{StaticResource ReceiptComboStyle}" />
         </Grid>
         <Grid Margin="0,0,0,0">
@@ -176,6 +163,7 @@
           <ComboBox Grid.Column="1" ItemsSource="{Binding GoldAgeChoices}"
                     Text="{Binding GoldAge, UpdateSourceTrigger=PropertyChanged}"
                     IsEditable="True"
+                    IsTextSearchEnabled="True"
                     Style="{StaticResource ReceiptComboStyle}" />
         </Grid>
       </StackPanel>

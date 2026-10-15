@@ -37,6 +37,70 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         return rows.AsList();
     }
 
+    public async Task<FinishedProductGroupOption> CreateFinishedProductGroupAsync(
+        string code,
+        string name,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        var normalizedCode = (code ?? string.Empty).Trim().ToUpperInvariant();
+        var normalizedName = (name ?? string.Empty).Trim();
+        if (normalizedCode.Length == 0)
+            throw new InvalidOperationException("Mã nhóm hàng không được để trống.");
+        if (normalizedCode.Length > 30)
+            throw new InvalidOperationException("Mã nhóm hàng tối đa 30 ký tự.");
+        if (normalizedName.Length == 0)
+            throw new InvalidOperationException("Tên nhóm hàng không được để trống.");
+        if (normalizedName.Length > 100)
+            throw new InvalidOperationException("Tên nhóm hàng tối đa 100 ký tự.");
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var exists = await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition("""
+                SELECT COUNT(*)
+                FROM FINISHED_PRODUCT_GROUPS G
+                WHERE G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND G.CODE = @CODE
+                """,
+                new { CODE = normalizedCode },
+                cancellationToken: cancellationToken));
+        if (exists > 0)
+            throw new InvalidOperationException($"Mã nhóm hàng '{normalizedCode}' đã tồn tại.");
+
+        var displayOrder = await connection.ExecuteScalarAsync<int?>(
+            new CommandDefinition("""
+                SELECT MAX(G.DISPLAY_ORDER)
+                FROM FINISHED_PRODUCT_GROUPS G
+                WHERE G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                cancellationToken: cancellationToken)) ?? 0;
+
+        var id = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition("""
+                INSERT INTO FINISHED_PRODUCT_GROUPS (COMPANY_ID, CODE, NAME, DISPLAY_ORDER, IS_ACTIVE)
+                VALUES (
+                    (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
+                    @CODE,
+                    @NAME,
+                    @DISPLAY_ORDER,
+                    TRUE)
+                RETURNING ID
+                """,
+                new
+                {
+                    CODE = normalizedCode,
+                    NAME = normalizedName,
+                    DISPLAY_ORDER = displayOrder + 10
+                },
+                cancellationToken: cancellationToken));
+
+        return new FinishedProductGroupOption(id, normalizedCode, normalizedName);
+    }
+
     public async Task<IReadOnlyList<WarehouseLocationOption>> GetLocationsAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default)
