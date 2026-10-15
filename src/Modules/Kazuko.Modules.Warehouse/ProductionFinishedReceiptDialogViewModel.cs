@@ -23,9 +23,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private static readonly string[] GoldPurityOptions =
         ["9999", "999", "750", "680", "610", "585", "18K", "24K"];
 
-    private static readonly string[] WeightUnitOptions =
-        ["Chỉ", "Phân", "Ly", "Gram"];
-
     private static readonly string[] GoldAgeOptions =
         ["9999", "999", "750", "680", "610", "585", "416", "375"];
 
@@ -71,7 +68,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private int _editingIndex = -1;
     private ManualFinishedProductItem? _selectedProduct;
     private bool _generateSeparateCodes = true;
-    private bool _loadFromProductionOrder;
 
     // Đối chiếu vàng
     private ProductionOrderWorkerDto? _selectedWorker;
@@ -103,6 +99,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 SelectedImage = item;
         });
         RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => !IsBusy && !_debtRecorded);
+        OpenReconcileCommand = new RelayCommand(OpenReconcileDialog);
         PrintLabelCommand = new RelayCommand(() => MessageBox.Show(
             "Chức năng in tem đang phát triển.", "In lại tem",
             MessageBoxButton.OK, MessageBoxImage.Information));
@@ -122,7 +119,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ObservableCollection<ProductionOrderWorkerDto> WorkerOptions { get; } = [];
 
     public IReadOnlyList<string> GoldPurityChoices => GoldPurityOptions;
-    public IReadOnlyList<string> WeightUnitChoices => WeightUnitOptions;
     public IReadOnlyList<string> GoldAgeChoices => GoldAgeOptions;
     public IReadOnlyList<string> SupplierChoices => SupplierOptions;
 
@@ -321,17 +317,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         }
     }
 
-    /// <summary>Lấy dữ liệu từ lệnh sản xuất: tự điền tên SP / loại vàng / mã hiệu từ dòng đầu của lệnh.</summary>
-    public bool LoadFromProductionOrder
-    {
-        get => _loadFromProductionOrder;
-        set
-        {
-            if (SetProperty(ref _loadFromProductionOrder, value) && value)
-                PrefillFromOrder();
-        }
-    }
-
     public bool IsEditing
     {
         get => _isEditing;
@@ -459,6 +444,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public string DebtGoldDisplay => $"{DebtGold:0.###} chỉ";
 
     public ICommand RecordDebtCommand { get; }
+    public ICommand OpenReconcileCommand { get; }
 
     #endregion
 
@@ -541,9 +527,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 {
                     ReconcileMessage = $"Không tải được số vàng đã giao: {ex.Message}";
                 }
-
-                if (LoadFromProductionOrder)
-                    PrefillFromOrder();
             }
             NotifyDetailChanged();
             OnPropertyChanged(nameof(HasImages));
@@ -593,23 +576,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                      nameof(FooterCraftLaborText), nameof(FooterCostPriceText),
                      nameof(FooterSalePriceText) })
             OnPropertyChanged(name);
-    }
-
-    /// <summary>
-    /// Điền form từ dòng đầu của lệnh sản xuất (khi bật "Lấy dữ liệu từ lệnh sản xuất").
-    /// Chỉ điền các ô còn trống, không ghi đè dữ liệu người dùng đã nhập.
-    /// </summary>
-    private void PrefillFromOrder()
-    {
-        var line = _detail?.Lines.FirstOrDefault();
-        if (line is null)
-            return;
-        if (string.IsNullOrWhiteSpace(ProductName))
-            ProductName = line.ModelName;
-        if (string.IsNullOrWhiteSpace(GoldPurityCode))
-            GoldPurityCode = line.GoldTypeCode;
-        if (string.IsNullOrWhiteSpace(ModelCode) && !string.IsNullOrWhiteSpace(line.ModelCode))
-            ModelCode = line.ModelCode;
     }
 
     private void RecalculateGoldWeight()
@@ -847,6 +813,17 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private void OpenReconcileDialog()
+    {
+        var dialog = new GoldReconcileDialog(this);
+        var owner = Application.Current.Windows
+            .OfType<ProductionFinishedReceiptDialog>()
+            .FirstOrDefault();
+        if (owner is not null)
+            dialog.Owner = owner;
+        dialog.ShowDialog();
     }
 
     private async Task RecordDebtAsync()
