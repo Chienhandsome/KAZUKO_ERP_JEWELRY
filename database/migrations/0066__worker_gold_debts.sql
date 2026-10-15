@@ -2,7 +2,7 @@
 ================================================================================
 KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
 ================================================================================
-Migration Version: 64
+Migration Version: 66
 Migration Name:    WORKER_GOLD_DEBTS
 Description:       Add the WORKER_GOLD_DEBTS table to record gold debts owed by
                    workers (HR employees) after the finished-receipt gold
@@ -14,19 +14,19 @@ Target Database:   Firebird 5.0 (Dialect 3, UTF8)
 
 SET AUTODDL OFF;
 
-CREATE EXCEPTION EX_MIGRATION_CHECK 'Migration 64 validation failed';
+CREATE EXCEPTION EX_MIGRATION_CHECK 'Migration 66 validation failed';
 
 SET TERM ^ ;
 EXECUTE BLOCK AS
 DECLARE VARIABLE v_cnt INTEGER;
 BEGIN
-    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 64 INTO :v_cnt;
+    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 66 INTO :v_cnt;
     IF (:v_cnt > 0) THEN
-        EXCEPTION EX_MIGRATION_CHECK 'Phien ban migration 64 da ton tai.';
+        EXCEPTION EX_MIGRATION_CHECK 'Phien ban migration 66 da ton tai.';
 
-    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 63 INTO :v_cnt;
+    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 65 INTO :v_cnt;
     IF (:v_cnt <> 1) THEN
-        EXCEPTION EX_MIGRATION_CHECK 'Can migration 63 truoc migration 64.';
+        EXCEPTION EX_MIGRATION_CHECK 'Can migration 65 truoc migration 66.';
 
     SELECT COUNT(*) FROM RDB$RELATIONS WHERE RDB$RELATION_NAME = 'PRODUCTION_ORDERS' INTO :v_cnt;
     IF (:v_cnt <> 1) THEN

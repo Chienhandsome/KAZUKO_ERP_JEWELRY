@@ -41,6 +41,7 @@ public sealed class WarehouseModule : IKazukoModule
         var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
         var productionQueries = GetRequiredService<IProductionQueryRepository>(services);
         var productionApplication = GetRequiredService<IProductionApplicationService>(services);
+        var workerEditor = GetRequiredService<IExternalWorkerEditorService>(services);
 
         navigation.Register(new NavigationItem(
             "WAREHOUSE",
@@ -80,6 +81,19 @@ public sealed class WarehouseModule : IKazukoModule
             () => new WarehouseGoldPriceLaunchView(warehouseGoldPrices, session, navigationService),
             AssetRoot + "KHO.png",
             "Cập nhật giá mua và\ngiá bán vàng trong kho",
+            ShowInSidebar: false,
+            ShowOnHome: true,
+            IsPlaceholder: false));
+
+        navigation.Register(new NavigationItem(
+            "WAREHOUSE_EXTERNAL_WORKERS",
+            "THỢ NGOÀI",
+            string.Empty,
+            26,
+            null,
+            () => new ExternalWorkerLaunchView(workerEditor, navigationService),
+            AssetRoot + "KHO.png",
+            "Quản lý danh mục thợ ngoài\ncho lệnh sản xuất OUTSOURCED",
             ShowInSidebar: false,
             ShowOnHome: true,
             IsPlaceholder: false));

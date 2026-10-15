@@ -71,6 +71,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 
     // Đối chiếu vàng
     private ProductionOrderWorkerDto? _selectedWorker;
+    private ProductionOrderWorkerDto? _externalWorkerOption;
     private decimal _issuedGold;
     private string _lossWeightText = string.Empty;
     private string _reconcileMessage = string.Empty;
@@ -496,6 +497,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             ImageItems.Clear();
             SelectedImage = null;
             WorkerOptions.Clear();
+            _externalWorkerOption = null;
             SelectedWorker = null;
             IssuedGold = 0;
             DebtRecorded = false;
@@ -516,8 +518,19 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 SelectedImage = ImageItems.FirstOrDefault();
 
                 // Đối chiếu vàng: thợ + số vàng đã giao từ bản ghi giao NVL.
+                _externalWorkerOption = null;
                 foreach (var worker in _detail.Workers)
                     WorkerOptions.Add(worker);
+                if (_detail.ExecutionType == ProductionExecutionTypes.Outsourced
+                    && _detail.ExternalWorkerId is { } externalWorkerId
+                    && !string.IsNullOrWhiteSpace(_detail.ExternalWorkerName)
+                    && WorkerOptions.All(w => w.EmployeeId != externalWorkerId))
+                {
+                    // Lệnh thuê ngoài: cho chọn thợ ngoài để ghi công nợ vàng.
+                    _externalWorkerOption = new ProductionOrderWorkerDto(
+                        externalWorkerId, "Thợ ngoài", _detail.ExternalWorkerName);
+                    WorkerOptions.Add(_externalWorkerOption);
+                }
                 SelectedWorker = WorkerOptions.FirstOrDefault();
                 try
                 {
@@ -847,6 +860,9 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            var workerType = ReferenceEquals(SelectedWorker, _externalWorkerOption)
+                ? WorkerGoldDebtWorkerTypes.ExternalWorker
+                : WorkerGoldDebtWorkerTypes.Employee;
             var request = new RecordWorkerGoldDebtRequest(
                 WorkerId: SelectedWorker.EmployeeId,
                 WorkerName: SelectedWorker.FullName,
@@ -857,7 +873,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 WeightLossChi: LossGold,
                 ProductionOrderId: SelectedOrder.Id,
                 ProductionOrderCode: SelectedOrder.Code,
-                Notes: null);
+                Notes: null,
+                WorkerType: workerType);
             await _application.RecordWorkerGoldDebtAsync(request, _session);
             DebtRecorded = true;
             ReconcileMessage = "Đã ghi công nợ vàng thành công.";

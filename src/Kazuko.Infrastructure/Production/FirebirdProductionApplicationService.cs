@@ -1395,6 +1395,12 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             throw new InvalidOperationException("Thiếu thông tin thợ nợ vàng.");
         if (request.WeightChi <= 0)
             throw new InvalidOperationException("Số vàng nợ phải lớn hơn 0 mới được ghi công nợ.");
+        var workerType = string.IsNullOrWhiteSpace(request.WorkerType)
+            ? WorkerGoldDebtWorkerTypes.Employee
+            : request.WorkerType.Trim().ToUpperInvariant();
+        if (workerType != WorkerGoldDebtWorkerTypes.Employee
+            && workerType != WorkerGoldDebtWorkerTypes.ExternalWorker)
+            throw new InvalidOperationException("Loại thợ ghi công nợ không hợp lệ.");
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -1408,14 +1414,29 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 connection, fbTx, companyId, session.BranchId,
                 request.ProductionOrderId, cancellationToken);
 
-            await using (var workerCmd = new FbCommand(
-                "SELECT COUNT(*) FROM PRODUCTION_ORDER_WORKERS WHERE PRODUCTION_ORDER_ID = @PO AND EMPLOYEE_ID = @EID",
-                connection, fbTx))
+            if (workerType == WorkerGoldDebtWorkerTypes.ExternalWorker)
             {
-                workerCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = request.ProductionOrderId;
-                workerCmd.Parameters.Add("@EID", FbDbType.BigInt).Value = request.WorkerId;
-                if (Convert.ToInt32(await workerCmd.ExecuteScalarAsync(cancellationToken)) < 1)
-                    throw new InvalidOperationException("Thợ không thuộc lệnh sản xuất này.");
+                await using (var workerCmd = new FbCommand(
+                    "SELECT COUNT(*) FROM EXTERNAL_WORKERS WHERE COMPANY_ID = @CID AND ID = @WID AND IS_ACTIVE = TRUE",
+                    connection, fbTx))
+                {
+                    workerCmd.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+                    workerCmd.Parameters.Add("@WID", FbDbType.BigInt).Value = request.WorkerId;
+                    if (Convert.ToInt32(await workerCmd.ExecuteScalarAsync(cancellationToken)) < 1)
+                        throw new InvalidOperationException("Thợ ngoài không tồn tại hoặc đã ngưng hoạt động.");
+                }
+            }
+            else
+            {
+                await using (var workerCmd = new FbCommand(
+                    "SELECT COUNT(*) FROM PRODUCTION_ORDER_WORKERS WHERE PRODUCTION_ORDER_ID = @PO AND EMPLOYEE_ID = @EID",
+                    connection, fbTx))
+                {
+                    workerCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = request.ProductionOrderId;
+                    workerCmd.Parameters.Add("@EID", FbDbType.BigInt).Value = request.WorkerId;
+                    if (Convert.ToInt32(await workerCmd.ExecuteScalarAsync(cancellationToken)) < 1)
+                        throw new InvalidOperationException("Thợ không thuộc lệnh sản xuất này.");
+                }
             }
 
             await using (var dupCmd = new FbCommand(
@@ -1439,7 +1460,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                      PRODUCTION_ORDER_ID, PRODUCTION_ORDER_CODE, STATUS_CODE, NOTES,
                      CREATED_BY, CREATED_AT)
                 VALUES
-                    (@CID, @BID, @CODE, 'EMPLOYEE', @WID, @WNAME,
+                    (@CID, @BID, @CODE, @WT, @WID, @WNAME,
                      @PURITY, @W, @ISSUED, @RECEIVED, @LOSS,
                      @PO, @POCODE, 'OPEN', @NOTES,
                      @BY, CURRENT_TIMESTAMP)
@@ -1449,6 +1470,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 insert.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
                 insert.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
                 insert.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
+                insert.Parameters.Add("@WT", FbDbType.VarChar, 30).Value = workerType;
                 insert.Parameters.Add("@WID", FbDbType.BigInt).Value = request.WorkerId;
                 insert.Parameters.Add("@WNAME", FbDbType.VarChar, 200).Value = request.WorkerName.Trim();
                 insert.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
@@ -1878,6 +1900,25 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         IReadOnlyList<long> employeeIds,
         CancellationToken cancellationToken)
     {
+        // Thợ đã nghỉ việc phải được giữ lại trong lệnh: union với các worker
+        // không còn đang làm việc hiện có trong DB cho lệnh này.
+        var resignedIds = new HashSet<long>();
+        await using (var load = new FbCommand("""
+            SELECT POW.EMPLOYEE_ID
+              FROM PRODUCTION_ORDER_WORKERS POW
+              JOIN HR_EMPLOYEES E ON E.ID = POW.EMPLOYEE_ID
+             WHERE POW.PRODUCTION_ORDER_ID = @ID
+               AND NOT (E.STATUS_CODE = 'WORKING' AND E.IS_ACTIVE = TRUE)
+            """, connection, transaction))
+        {
+            load.Parameters.Add("@ID", FbDbType.BigInt).Value = orderId;
+            await using var reader = await load.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                resignedIds.Add(reader.GetInt64(0));
+        }
+
+        var finalIds = employeeIds.Distinct().Concat(resignedIds).Distinct().ToList();
+
         await using (var delete = new FbCommand(
             "DELETE FROM PRODUCTION_ORDER_WORKERS WHERE PRODUCTION_ORDER_ID = @ID",
             connection, transaction))
@@ -1886,7 +1927,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             await delete.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        foreach (var employeeId in employeeIds.Distinct())
+        foreach (var employeeId in finalIds)
         {
             await using var insert = new FbCommand("""
                 INSERT INTO PRODUCTION_ORDER_WORKERS (PRODUCTION_ORDER_ID, EMPLOYEE_ID)

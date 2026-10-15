@@ -188,7 +188,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
     /// <summary>Tên các thợ đã chọn, cách nhau bởi dấu phẩy (hiển thị trên dropdown).</summary>
     public string SelectedWorkerDisplayText =>
-        string.Join(", ", SelectableEmployees.Where(x => x.IsSelected).Select(x => x.FullName));
+        string.Join(", ", SelectableEmployees.Where(x => x.IsSelected)
+            .Select(x => x.IsInactive ? $"{x.FullName} (đã nghỉ)" : x.FullName));
 
     private ProductionEmployeeOption? _selectedEmployeeToAdd;
     public ProductionEmployeeOption? SelectedEmployeeToAdd
@@ -1082,44 +1083,54 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         Employees.Clear();
         foreach (var item in items)
             Employees.Add(item);
-        // Giữ lại các NV đã chọn nếu vẫn còn trong danh sách
-        var kept = SelectedEmployees.Where(x => Employees.Any(e => e.Id == x.Id)).ToList();
-        SelectedEmployees.Clear();
-        foreach (var item in kept)
-            SelectedEmployees.Add(item);
-        // Đồng bộ sang danh sách multi-select
+        // Đồng bộ sang danh sách multi-select; các thợ đã nghỉ đang được giữ vẫn ở lại.
         SyncSelectableEmployees();
     }
 
     private void SyncSelectableEmployees()
     {
         var selectedIds = SelectedEmployees.Select(x => x.Id).ToHashSet();
+        var activeIds = Employees.Select(x => x.Id).ToHashSet();
         SelectableEmployees.Clear();
         foreach (var emp in Employees)
         {
-            var vm = new SelectableEmployeeViewModel(emp)
+            AddSelectableEmployee(new SelectableEmployeeViewModel(emp)
             {
                 IsSelected = selectedIds.Contains(emp.Id)
-            };
-            vm.PropertyChanged += (_, e) =>
+            });
+        }
+        // Thợ đã nghỉ việc nhưng vẫn có trong lệnh: giữ lại trong danh sách đã chọn.
+        foreach (var emp in SelectedEmployees.Where(e => !activeIds.Contains(e.Id)))
+        {
+            AddSelectableEmployee(new SelectableEmployeeViewModel(emp)
             {
-                if (e.PropertyName == nameof(SelectableEmployeeViewModel.IsSelected))
-                {
-                    SyncSelectedEmployeesFromSelectable();
-                    OnPropertyChanged(nameof(SelectedWorkerDisplayText));
-                }
-            };
-            SelectableEmployees.Add(vm);
+                IsSelected = true,
+                IsInactive = true
+            });
         }
         OnPropertyChanged(nameof(SelectedWorkerDisplayText));
+    }
+
+    private void AddSelectableEmployee(SelectableEmployeeViewModel vm)
+    {
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SelectableEmployeeViewModel.IsSelected))
+            {
+                SyncSelectedEmployeesFromSelectable();
+                OnPropertyChanged(nameof(SelectedWorkerDisplayText));
+            }
+        };
+        SelectableEmployees.Add(vm);
     }
 
     private void SyncSelectedEmployeesFromSelectable()
     {
         var selectedIds = SelectableEmployees.Where(x => x.IsSelected).Select(x => x.Id).ToHashSet();
         SelectedEmployees.Clear();
-        foreach (var emp in Employees.Where(e => selectedIds.Contains(e.Id)))
-            SelectedEmployees.Add(emp);
+        // Giữ nguyên thứ tự hiển thị; bao gồm cả thợ đã nghỉ đang được giữ.
+        foreach (var vm in SelectableEmployees.Where(x => selectedIds.Contains(x.Id)))
+            SelectedEmployees.Add(vm.Option);
     }
 
     private void AddSelectedEmployee()
@@ -1206,9 +1217,20 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         await LoadCraftOrderContextAsync(detail.SalesOrderId);
 
         SelectedEmployees.Clear();
-        var workerIds = detail.Workers.Select(w => w.EmployeeId).ToHashSet();
-        foreach (var employee in Employees.Where(e => workerIds.Contains(e.Id)))
-            SelectedEmployees.Add(employee);
+        var activeEmployees = Employees.ToDictionary(e => e.Id);
+        foreach (var worker in detail.Workers)
+        {
+            if (activeEmployees.TryGetValue(worker.EmployeeId, out var employee))
+            {
+                SelectedEmployees.Add(employee);
+            }
+            else
+            {
+                // Thợ đã nghỉ việc: vẫn giữ trong danh sách đã chọn để không bị xóa khi lưu lại.
+                SelectedEmployees.Add(new ProductionEmployeeOption(
+                    worker.EmployeeId, worker.EmployeeCode, worker.FullName));
+            }
+        }
         SyncSelectableEmployees();
 
         _removedAttachments.Clear();
@@ -1433,12 +1455,24 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             IsBusy = true;
             ErrorMessage = string.Empty;
 
+            // Snapshot các dòng NVL đã nhập: SaveDraftInternalAsync() gọi LoadDetailAsync()
+            // sẽ xóa sạch IssueLines khi lệnh chưa có phiếu giao NVL.
+            var issueSnapshot = IssueLines.Select(x => x.Clone()).ToList();
+
             // Nếu chưa có lệnh (chưa lưu), lưu draft trước
             if (_id is not > 0)
             {
                 var saved = await SaveDraftInternalAsync();
                 if (!saved)
                     return;
+            }
+
+            // Lệnh vừa lưu draft chưa có phiếu giao NVL → khôi phục lại các dòng đã nhập
+            // trước khi ghi sổ (nếu không backend báo thiếu dòng nguyên liệu).
+            if (!_hasMaterialIssue && IssueLines.Count == 0 && issueSnapshot.Count > 0)
+            {
+                foreach (var line in issueSnapshot)
+                    IssueLines.Add(line);
             }
 
             var draft = new ProductionMaterialIssueDraft(
@@ -2404,6 +2438,20 @@ public sealed class ProductionIssueLineEditorViewModel
         IsPostedHistory = false;
     }
 
+    private ProductionIssueLineEditorViewModel(ProductionIssueLineEditorViewModel source)
+    {
+        MaterialId = source.MaterialId;
+        MaterialCode = source.MaterialCode;
+        MaterialName = source.MaterialName;
+        MaterialType = source.MaterialType;
+        PurityDisplay = source.PurityDisplay;
+        UnitCode = source.UnitCode;
+        SnapshotCostHint = source.SnapshotCostHint;
+        Quantity = source.Quantity;
+        Notes = source.Notes;
+        IsPostedHistory = source.IsPostedHistory;
+    }
+
     private ProductionIssueLineEditorViewModel(ProductionMaterialBalanceDto balance)
     {
         MaterialId = balance.MaterialId;
@@ -2420,6 +2468,9 @@ public sealed class ProductionIssueLineEditorViewModel
 
     public static ProductionIssueLineEditorViewModel FromPostedBalance(ProductionMaterialBalanceDto balance) =>
         new(balance);
+
+    /// <summary>Deep copy dòng NVL (dùng để snapshot trước khi lưu draft/load lại).</summary>
+    public ProductionIssueLineEditorViewModel Clone() => new(this);
 
     public long MaterialId { get; }
     public string MaterialCode { get; }
@@ -2452,7 +2503,13 @@ public sealed class SelectableEmployeeViewModel : ObservableObject
     public long Id => Option.Id;
     public string Code => Option.Code;
     public string FullName => Option.FullName;
-    public string DisplayText => $"{FullName} ({Code})";
+
+    /// <summary>True khi thợ đã nghỉ việc nhưng vẫn được giữ trong lệnh.</summary>
+    public bool IsInactive { get; set; }
+
+    public string DisplayText => IsInactive
+        ? $"{FullName} ({Code}) (đã nghỉ)"
+        : $"{FullName} ({Code})";
 
     public bool IsSelected
     {

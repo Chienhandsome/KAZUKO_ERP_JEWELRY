@@ -495,7 +495,17 @@ public sealed record RecordWorkerGoldDebtRequest(
     decimal WeightLossChi,
     long ProductionOrderId,
     string ProductionOrderCode,
-    string? Notes);
+    string? Notes,
+    string WorkerType = WorkerGoldDebtWorkerTypes.Employee);
+
+/// <summary>
+/// Loại thợ ghi trong WORKER_GOLD_DEBTS.WORKER_TYPE.
+/// </summary>
+public static class WorkerGoldDebtWorkerTypes
+{
+    public const string Employee = "EMPLOYEE";
+    public const string ExternalWorker = "EXTERNAL_WORKER";
+}
 
 public interface IProductionQueryRepository
 {
