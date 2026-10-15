@@ -259,6 +259,13 @@
                         <TextBox Text="{Binding TaxCode, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
 
+                        <TextBlock Text="Ngày cấp CMND/CCCD" Style="{StaticResource FieldLabelStyle}" />
+                        <DatePicker SelectedDate="{Binding IdIssueDate}" Style="{StaticResource DialogDateStyle}" />
+
+                        <TextBlock Text="Nơi cấp CMND/CCCD" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding IdIssuePlace, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
                         <TextBlock Text="Địa chỉ" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
@@ -391,6 +398,18 @@
                         <TextBox Text="{Binding CreditLimitText, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
                         <TextBlock Text="{Binding CreditLimitError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+
+                        <TextBlock Text="Ngân hàng" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding BankName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Số tài khoản" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding BankAccountNumber, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Người mua hàng" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding BuyerName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
 
                         <CheckBox Content="Đang hoạt động"
                                   IsChecked="{Binding IsActive}"

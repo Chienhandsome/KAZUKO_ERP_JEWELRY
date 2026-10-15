@@ -34,6 +34,11 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
     private string? _region;
     private string? _membershipRank = "Thường";
     private string? _photoPath;
+    private DateTime? _idIssueDate;
+    private string _idIssuePlace = string.Empty;
+    private string _bankName = string.Empty;
+    private string _buyerName = string.Empty;
+    private string _bankAccountNumber = string.Empty;
     private CustomerGroupOption? _selectedGroup;
     private DateTime? _birthDate;
     private DateTime? _joinDate = DateTime.Today;
@@ -201,6 +206,36 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
     {
         get => _membershipRank;
         set => SetProperty(ref _membershipRank, value);
+    }
+
+    public DateTime? IdIssueDate
+    {
+        get => _idIssueDate;
+        set => SetProperty(ref _idIssueDate, value);
+    }
+
+    public string IdIssuePlace
+    {
+        get => _idIssuePlace;
+        set => SetProperty(ref _idIssuePlace, value);
+    }
+
+    public string BankName
+    {
+        get => _bankName;
+        set => SetProperty(ref _bankName, value);
+    }
+
+    public string BuyerName
+    {
+        get => _buyerName;
+        set => SetProperty(ref _buyerName, value);
+    }
+
+    public string BankAccountNumber
+    {
+        get => _bankAccountNumber;
+        set => SetProperty(ref _bankAccountNumber, value);
     }
 
     public CustomerGroupOption? SelectedGroup
@@ -477,6 +512,11 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                 CreditLimitText = detail.CreditLimit.ToString("0.##", CultureInfo.InvariantCulture);
                 IsActive = detail.IsActive;
                 PhotoPath = detail.PhotoPath;
+                IdIssueDate = detail.IdIssueDate;
+                IdIssuePlace = detail.IdIssuePlace;
+                BankName = detail.BankName;
+                BuyerName = detail.BuyerName;
+                BankAccountNumber = detail.BankAccountNumber;
 
                 SelectedGroup = Groups.FirstOrDefault(g => g.Id == detail.CustomerGroupId);
                 if (SelectedGroup is null && detail.CustomerGroupId > 0)
@@ -639,7 +679,12 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
             JoinDate,
             credit,
             IsActive,
-            string.IsNullOrWhiteSpace(PhotoPath) ? null : PhotoPath.Trim());
+            string.IsNullOrWhiteSpace(PhotoPath) ? null : PhotoPath.Trim(),
+            IdIssueDate,
+            IdIssuePlace,
+            BankName,
+            BuyerName,
+            BankAccountNumber);
     }
 
     private static string Sanitize(string message)

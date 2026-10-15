@@ -243,6 +243,14 @@
                         <TextBlock Text="Mã số thuế" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding TaxCode, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="Mã thương hiệu" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding BrandCode, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+
+                        <TextBlock Text="TCCS" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Tccs, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
                     </StackPanel>
 
                     <!-- Cột phải: Người liên hệ, địa chỉ & trạng thái -->

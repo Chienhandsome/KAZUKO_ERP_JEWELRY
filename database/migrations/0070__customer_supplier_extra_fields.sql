@@ -1,0 +1,50 @@
+/*
+================================================================================
+KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
+================================================================================
+Migration Version: 70
+Migration Name:    CUSTOMER_SUPPLIER_EXTRA_FIELDS
+Description:       Add ID issue info, bank info, buyer to CUSTOMERS;
+                   add brand code and TCCS to SUPPLIERS.
+Target Database:   Firebird 5.0 (Dialect 3, UTF8)
+================================================================================
+Rollback (dev):
+  ALTER TABLE CUSTOMERS DROP ID_ISSUE_DATE;
+  ALTER TABLE CUSTOMERS DROP ID_ISSUE_PLACE;
+  ALTER TABLE CUSTOMERS DROP BANK_NAME;
+  ALTER TABLE CUSTOMERS DROP BUYER_NAME;
+  ALTER TABLE CUSTOMERS DROP BANK_ACCOUNT_NUMBER;
+  ALTER TABLE SUPPLIERS DROP BRAND_CODE;
+  ALTER TABLE SUPPLIERS DROP TCCS;
+  DELETE FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 70;
+================================================================================
+*/
+
+SET AUTODDL OFF;
+
+CREATE EXCEPTION EX_MIGRATION_CHECK 'Migration 70 validation failed';
+
+SET TERM ^ ;
+EXECUTE BLOCK AS
+DECLARE VARIABLE v_cnt INTEGER;
+BEGIN
+    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 70 INTO :v_cnt;
+    IF (:v_cnt > 0) THEN
+        EXCEPTION EX_MIGRATION_CHECK 'Phien ban migration 70 da ton tai.';
+
+    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 69 INTO :v_cnt;
+    IF (:v_cnt = 0) THEN
+        EXCEPTION EX_MIGRATION_CHECK 'Can migration 69 truoc migration 70.';
+END^
+SET TERM ; ^
+
+ALTER TABLE CUSTOMERS ADD ID_ISSUE_DATE DATE;
+ALTER TABLE CUSTOMERS ADD ID_ISSUE_PLACE VARCHAR(100);
+ALTER TABLE CUSTOMERS ADD BANK_NAME VARCHAR(100);
+ALTER TABLE CUSTOMERS ADD BUYER_NAME VARCHAR(200);
+ALTER TABLE CUSTOMERS ADD BANK_ACCOUNT_NUMBER VARCHAR(50) CHARACTER SET ASCII;
+
+ALTER TABLE SUPPLIERS ADD BRAND_CODE VARCHAR(50);
+ALTER TABLE SUPPLIERS ADD TCCS VARCHAR(100);
+
+DROP EXCEPTION EX_MIGRATION_CHECK;

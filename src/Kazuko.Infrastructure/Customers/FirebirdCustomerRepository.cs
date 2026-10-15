@@ -191,7 +191,12 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                        COALESCE(C.OCCUPATION, '') AS Occupation,
                        COALESCE(C.MEMBERSHIP_RANK, '') AS MembershipRank,
                        C.JOIN_DATE AS JoinDate, COALESCE(C.CREDIT_LIMIT, 0) AS CreditLimit,
-                       C.IS_ACTIVE AS IsActive, C.PHOTO_PATH AS PhotoPath
+                       C.IS_ACTIVE AS IsActive, C.PHOTO_PATH AS PhotoPath,
+                       C.ID_ISSUE_DATE AS IdIssueDate,
+                       COALESCE(C.ID_ISSUE_PLACE, '') AS IdIssuePlace,
+                       COALESCE(C.BANK_NAME, '') AS BankName,
+                       COALESCE(C.BUYER_NAME, '') AS BuyerName,
+                       COALESCE(C.BANK_ACCOUNT_NUMBER, '') AS BankAccountNumber
                 FROM CUSTOMERS C
                 JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
                 WHERE C.ID = @ID
@@ -280,12 +285,16 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                             (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
                              NAME, ADDRESS, PHONE, EMAIL, BIRTH_OR_ESTABLISHED_DATE, OPENING_POINTS,
                              TAX_CODE, NOTES, GENDER, REGION, OCCUPATION, MEMBERSHIP_RANK,
-                             JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH, CREATED_BY, UPDATED_BY, UPDATED_AT)
+                             JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH,
+                             ID_ISSUE_DATE, ID_ISSUE_PLACE, BANK_NAME, BUYER_NAME, BANK_ACCOUNT_NUMBER,
+                             CREATED_BY, UPDATED_BY, UPDATED_AT)
                         VALUES
                             ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
                              @TEMP_CODE, 'INDIVIDUAL', @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
                              @POINTS, @TAX_CODE, @NOTES, @GENDER, @REGION, @OCCUPATION, @MEMBERSHIP_RANK,
-                             @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
+                             @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH,
+                             @ID_ISSUE_DATE, @ID_ISSUE_PLACE, @BANK_NAME, @BUYER_NAME, @BANK_ACCOUNT_NUMBER,
+                             @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
                         RETURNING ID
                         """,
                         insertParameters,
@@ -317,6 +326,9 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                             OCCUPATION=@OCCUPATION, MEMBERSHIP_RANK=@MEMBERSHIP_RANK,
                             JOIN_DATE=@JOIN_DATE, CREDIT_LIMIT=@CREDIT_LIMIT, IS_ACTIVE=@IS_ACTIVE,
                             PHOTO_PATH=@PHOTO_PATH,
+                            ID_ISSUE_DATE=@ID_ISSUE_DATE, ID_ISSUE_PLACE=@ID_ISSUE_PLACE,
+                            BANK_NAME=@BANK_NAME, BUYER_NAME=@BUYER_NAME,
+                            BANK_ACCOUNT_NUMBER=@BANK_ACCOUNT_NUMBER,
                             UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
                         WHERE ID=@ID
                           AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
@@ -559,6 +571,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         parameters.Add("@CREDIT_LIMIT", item.CreditLimit);
         parameters.Add("@IS_ACTIVE", item.IsActive);
         parameters.Add("@PHOTO_PATH", (object?)item.PhotoPath ?? DBNull.Value);
+        parameters.Add("@ID_ISSUE_DATE", item.IdIssueDate ?? (object)DBNull.Value);
+        parameters.Add("@ID_ISSUE_PLACE", NullIfEmpty(item.IdIssuePlace));
+        parameters.Add("@BANK_NAME", NullIfEmpty(item.BankName));
+        parameters.Add("@BUYER_NAME", NullIfEmpty(item.BuyerName));
+        parameters.Add("@BANK_ACCOUNT_NUMBER", NullIfEmpty(item.BankAccountNumber));
         parameters.Add("@USER_ID", session.UserId > 0 ? (object)session.UserId : DBNull.Value);
         return parameters;
     }

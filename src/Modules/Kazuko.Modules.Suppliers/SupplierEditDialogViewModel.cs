@@ -42,6 +42,8 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
     private string? _region;
     private string _contactName = string.Empty;
     private string _contactTitle = string.Empty;
+    private string _brandCode = string.Empty;
+    private string _tccs = string.Empty;
     private SupplierGroupOption? _selectedGroup;
     private bool _isActive = true;
     private string _nameError = string.Empty;
@@ -141,6 +143,18 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
     {
         get => _contactTitle;
         set => SetProperty(ref _contactTitle, value);
+    }
+
+    public string BrandCode
+    {
+        get => _brandCode;
+        set => SetProperty(ref _brandCode, value);
+    }
+
+    public string Tccs
+    {
+        get => _tccs;
+        set => SetProperty(ref _tccs, value);
     }
 
     public SupplierGroupOption? SelectedGroup
@@ -249,6 +263,8 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
                 Region = string.IsNullOrWhiteSpace(detail.Region) ? null : detail.Region;
                 ContactName = detail.ContactName;
                 ContactTitle = detail.ContactTitle;
+                BrandCode = detail.BrandCode;
+                Tccs = detail.Tccs;
                 IsActive = detail.IsActive;
 
                 SelectedGroup = Groups.FirstOrDefault(g => g.Id == detail.SupplierGroupId) ?? Groups.FirstOrDefault();
@@ -377,7 +393,9 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
             Region ?? string.Empty,
             TaxCode,
             Notes,
-            IsActive);
+            IsActive,
+            BrandCode,
+            Tccs);
 
     private static string Sanitize(string message)
     {

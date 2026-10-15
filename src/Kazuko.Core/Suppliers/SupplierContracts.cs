@@ -35,7 +35,9 @@ public sealed record SupplierDetail(
     string Region,
     string TaxCode,
     string Notes,
-    bool IsActive);
+    bool IsActive,
+    string BrandCode,
+    string Tccs);
 
 public sealed record SupplierGroupOption(long Id, string Code, string Name, bool IsActive, bool IsDefault)
 {
@@ -60,7 +62,9 @@ public sealed record SupplierSaveRequest(
     string Region,
     string TaxCode,
     string Notes,
-    bool IsActive);
+    bool IsActive,
+    string BrandCode,
+    string Tccs);
 
 public sealed record SupplierEditResult(
     long Id,

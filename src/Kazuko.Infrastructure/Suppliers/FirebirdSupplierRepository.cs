@@ -109,7 +109,9 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                        COALESCE(S.ADDRESS, '') AS Address,
                        COALESCE(S.REGION, '') AS Region, COALESCE(S.TAX_CODE, '') AS TaxCode,
                        COALESCE(S.NOTES, '') AS Notes,
-                       S.IS_ACTIVE AS IsActive
+                       S.IS_ACTIVE AS IsActive,
+                       COALESCE(S.BRAND_CODE, '') AS BrandCode,
+                       COALESCE(S.TCCS, '') AS Tccs
                 FROM SUPPLIERS S
                 JOIN SUPPLIER_GROUPS G ON G.ID = S.SUPPLIER_GROUP_ID
                 WHERE S.ID = @ID
@@ -195,11 +197,14 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                         INSERT INTO SUPPLIERS
                             (COMPANY_ID, CREATED_BRANCH_ID, SUPPLIER_GROUP_ID, CODE, NAME,
                              PHONE, EMAIL, ADDRESS, REGION, TAX_CODE, CONTACT_NAME, CONTACT_TITLE,
-                             NOTES, IS_ACTIVE, CREATED_BY, UPDATED_BY, UPDATED_AT)
+                             NOTES, IS_ACTIVE, BRAND_CODE, TCCS,
+                             CREATED_BY, UPDATED_BY, UPDATED_AT)
                         VALUES
                             ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
                              @TEMP_CODE, @NAME, @PHONE, @EMAIL, @ADDRESS, @REGION, @TAX_CODE,
-                             @CONTACT_NAME, @CONTACT_TITLE, @NOTES, @IS_ACTIVE, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
+                             @CONTACT_NAME, @CONTACT_TITLE, @NOTES, @IS_ACTIVE,
+                             @BRAND_CODE, @TCCS,
+                             @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
                         RETURNING ID
                         """,
                         new
@@ -217,6 +222,8 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                             CONTACT_TITLE = NullIfEmpty(normalized.ContactTitle),
                             NOTES = NullIfEmpty(normalized.Notes),
                             IS_ACTIVE = normalized.IsActive,
+                            BRAND_CODE = NullIfEmpty(normalized.BrandCode),
+                            TCCS = NullIfEmpty(normalized.Tccs),
                             USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value
                         },
                         transaction,
@@ -242,6 +249,7 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                             PHONE=@PHONE, EMAIL=@EMAIL, ADDRESS=@ADDRESS, REGION=@REGION,
                             TAX_CODE=@TAX_CODE, CONTACT_NAME=@CONTACT_NAME, CONTACT_TITLE=@CONTACT_TITLE,
                             NOTES=@NOTES, IS_ACTIVE=@IS_ACTIVE,
+                            BRAND_CODE=@BRAND_CODE, TCCS=@TCCS,
                             UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
                         WHERE ID=@ID
                           AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
@@ -259,6 +267,8 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                             CONTACT_TITLE = NullIfEmpty(normalized.ContactTitle),
                             NOTES = NullIfEmpty(normalized.Notes),
                             IS_ACTIVE = normalized.IsActive,
+                            BRAND_CODE = NullIfEmpty(normalized.BrandCode),
+                            TCCS = NullIfEmpty(normalized.Tccs),
                             USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value,
                             ID = id
                         },

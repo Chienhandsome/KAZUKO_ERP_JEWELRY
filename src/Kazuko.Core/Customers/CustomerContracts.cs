@@ -47,7 +47,12 @@ public sealed record CustomerDetail(
     DateTime? JoinDate,
     decimal CreditLimit,
     bool IsActive,
-    string? PhotoPath);
+    string? PhotoPath,
+    DateTime? IdIssueDate,
+    string IdIssuePlace,
+    string BankName,
+    string BuyerName,
+    string BankAccountNumber);
 
 public sealed record CustomerGroupOption(long Id, string Code, string Name, bool IsActive, bool IsDefault)
 {
@@ -78,7 +83,12 @@ public sealed record CustomerSaveRequest(
     DateTime? JoinDate,
     decimal CreditLimit,
     bool IsActive,
-    string? PhotoPath);
+    string? PhotoPath,
+    DateTime? IdIssueDate,
+    string IdIssuePlace,
+    string BankName,
+    string BuyerName,
+    string BankAccountNumber);
 
 public sealed record CustomerEditRequest(long? CustomerId);
 

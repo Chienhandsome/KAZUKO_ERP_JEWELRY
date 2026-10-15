@@ -1,0 +1,465 @@
+From fe6a57ae45c994a03a91f87eb9ebf2f50cdb01a1 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 04:49:29 +0000
+Subject: [PATCH 1/3] feat(db): migration 70 add ID issue, bank, buyer fields
+ to CUSTOMERS and brand/TCCS to SUPPLIERS
+
+---
+ .../0070__customer_supplier_extra_fields.sql  | 50 +++++++++++++++++++
+ 1 file changed, 50 insertions(+)
+ create mode 100644 database/migrations/0070__customer_supplier_extra_fields.sql
+
+diff --git a/database/migrations/0070__customer_supplier_extra_fields.sql b/database/migrations/0070__customer_supplier_extra_fields.sql
+new file mode 100644
+index 0000000..ee71b97
+--- /dev/null
++++ b/database/migrations/0070__customer_supplier_extra_fields.sql
+@@ -0,0 +1,50 @@
++/*
++================================================================================
++KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
++================================================================================
++Migration Version: 70
++Migration Name:    CUSTOMER_SUPPLIER_EXTRA_FIELDS
++Description:       Add ID issue info, bank info, buyer to CUSTOMERS;
++                   add brand code and TCCS to SUPPLIERS.
++Target Database:   Firebird 5.0 (Dialect 3, UTF8)
++================================================================================
++Rollback (dev):
++  ALTER TABLE CUSTOMERS DROP ID_ISSUE_DATE;
++  ALTER TABLE CUSTOMERS DROP ID_ISSUE_PLACE;
++  ALTER TABLE CUSTOMERS DROP BANK_NAME;
++  ALTER TABLE CUSTOMERS DROP BUYER_NAME;
++  ALTER TABLE CUSTOMERS DROP BANK_ACCOUNT_NUMBER;
++  ALTER TABLE SUPPLIERS DROP BRAND_CODE;
++  ALTER TABLE SUPPLIERS DROP TCCS;
++  DELETE FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 70;
++================================================================================
++*/
++
++SET AUTODDL OFF;
++
++CREATE EXCEPTION EX_MIGRATION_CHECK 'Migration 70 validation failed';
++
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cnt INTEGER;
++BEGIN
++    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 70 INTO :v_cnt;
++    IF (:v_cnt > 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Phien ban migration 70 da ton tai.';
++
++    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 69 INTO :v_cnt;
++    IF (:v_cnt = 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Can migration 69 truoc migration 70.';
++END^
++SET TERM ; ^
++
++ALTER TABLE CUSTOMERS ADD ID_ISSUE_DATE DATE;
++ALTER TABLE CUSTOMERS ADD ID_ISSUE_PLACE VARCHAR(100);
++ALTER TABLE CUSTOMERS ADD BANK_NAME VARCHAR(100);
++ALTER TABLE CUSTOMERS ADD BUYER_NAME VARCHAR(200);
++ALTER TABLE CUSTOMERS ADD BANK_ACCOUNT_NUMBER VARCHAR(50) CHARACTER SET ASCII;
++
++ALTER TABLE SUPPLIERS ADD BRAND_CODE VARCHAR(50);
++ALTER TABLE SUPPLIERS ADD TCCS VARCHAR(100);
++
++DROP EXCEPTION EX_MIGRATION_CHECK;
+-- 
+2.43.0
+
+
+From 56f1e4b08bf6b32bcf2490c057aff901a0a63258 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 04:49:32 +0000
+Subject: [PATCH 2/3] feat(customers): add ID issue date/place, bank, buyer,
+ account number fields
+
+---
+ .../Customers/CustomerContracts.cs            | 14 +++++-
+ .../Customers/FirebirdCustomerRepository.cs   | 23 +++++++--
+ .../CustomerEditDialogViewModel.cs            | 47 ++++++++++++++++++-
+ .../Dialogs/CustomerEditDialog.xaml           | 19 ++++++++
+ 4 files changed, 97 insertions(+), 6 deletions(-)
+
+diff --git a/src/Kazuko.Core/Customers/CustomerContracts.cs b/src/Kazuko.Core/Customers/CustomerContracts.cs
+index 89db73d..f686c83 100644
+--- a/src/Kazuko.Core/Customers/CustomerContracts.cs
++++ b/src/Kazuko.Core/Customers/CustomerContracts.cs
+@@ -47,7 +47,12 @@ public sealed record CustomerDetail(
+     DateTime? JoinDate,
+     decimal CreditLimit,
+     bool IsActive,
+-    string? PhotoPath);
++    string? PhotoPath,
++    DateTime? IdIssueDate,
++    string IdIssuePlace,
++    string BankName,
++    string BuyerName,
++    string BankAccountNumber);
+ 
+ public sealed record CustomerGroupOption(long Id, string Code, string Name, bool IsActive, bool IsDefault)
+ {
+@@ -78,7 +83,12 @@ public sealed record CustomerSaveRequest(
+     DateTime? JoinDate,
+     decimal CreditLimit,
+     bool IsActive,
+-    string? PhotoPath);
++    string? PhotoPath,
++    DateTime? IdIssueDate,
++    string IdIssuePlace,
++    string BankName,
++    string BuyerName,
++    string BankAccountNumber);
+ 
+ public sealed record CustomerEditRequest(long? CustomerId);
+ 
+diff --git a/src/Kazuko.Infrastructure/Customers/FirebirdCustomerRepository.cs b/src/Kazuko.Infrastructure/Customers/FirebirdCustomerRepository.cs
+index c00a8fd..9a2cd82 100644
+--- a/src/Kazuko.Infrastructure/Customers/FirebirdCustomerRepository.cs
++++ b/src/Kazuko.Infrastructure/Customers/FirebirdCustomerRepository.cs
+@@ -191,7 +191,12 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
+                        COALESCE(C.OCCUPATION, '') AS Occupation,
+                        COALESCE(C.MEMBERSHIP_RANK, '') AS MembershipRank,
+                        C.JOIN_DATE AS JoinDate, COALESCE(C.CREDIT_LIMIT, 0) AS CreditLimit,
+-                       C.IS_ACTIVE AS IsActive, C.PHOTO_PATH AS PhotoPath
++                       C.IS_ACTIVE AS IsActive, C.PHOTO_PATH AS PhotoPath,
++                       C.ID_ISSUE_DATE AS IdIssueDate,
++                       COALESCE(C.ID_ISSUE_PLACE, '') AS IdIssuePlace,
++                       COALESCE(C.BANK_NAME, '') AS BankName,
++                       COALESCE(C.BUYER_NAME, '') AS BuyerName,
++                       COALESCE(C.BANK_ACCOUNT_NUMBER, '') AS BankAccountNumber
+                 FROM CUSTOMERS C
+                 JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
+                 WHERE C.ID = @ID
+@@ -280,12 +285,16 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
+                             (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
+                              NAME, ADDRESS, PHONE, EMAIL, BIRTH_OR_ESTABLISHED_DATE, OPENING_POINTS,
+                              TAX_CODE, NOTES, GENDER, REGION, OCCUPATION, MEMBERSHIP_RANK,
+-                             JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH, CREATED_BY, UPDATED_BY, UPDATED_AT)
++                             JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH,
++                             ID_ISSUE_DATE, ID_ISSUE_PLACE, BANK_NAME, BUYER_NAME, BANK_ACCOUNT_NUMBER,
++                             CREATED_BY, UPDATED_BY, UPDATED_AT)
+                         VALUES
+                             ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
+                              @TEMP_CODE, 'INDIVIDUAL', @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
+                              @POINTS, @TAX_CODE, @NOTES, @GENDER, @REGION, @OCCUPATION, @MEMBERSHIP_RANK,
+-                             @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
++                             @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH,
++                             @ID_ISSUE_DATE, @ID_ISSUE_PLACE, @BANK_NAME, @BUYER_NAME, @BANK_ACCOUNT_NUMBER,
++                             @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
+                         RETURNING ID
+                         """,
+                         insertParameters,
+@@ -317,6 +326,9 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
+                             OCCUPATION=@OCCUPATION, MEMBERSHIP_RANK=@MEMBERSHIP_RANK,
+                             JOIN_DATE=@JOIN_DATE, CREDIT_LIMIT=@CREDIT_LIMIT, IS_ACTIVE=@IS_ACTIVE,
+                             PHOTO_PATH=@PHOTO_PATH,
++                            ID_ISSUE_DATE=@ID_ISSUE_DATE, ID_ISSUE_PLACE=@ID_ISSUE_PLACE,
++                            BANK_NAME=@BANK_NAME, BUYER_NAME=@BUYER_NAME,
++                            BANK_ACCOUNT_NUMBER=@BANK_ACCOUNT_NUMBER,
+                             UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
+                         WHERE ID=@ID
+                           AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+@@ -559,6 +571,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
+         parameters.Add("@CREDIT_LIMIT", item.CreditLimit);
+         parameters.Add("@IS_ACTIVE", item.IsActive);
+         parameters.Add("@PHOTO_PATH", (object?)item.PhotoPath ?? DBNull.Value);
++        parameters.Add("@ID_ISSUE_DATE", item.IdIssueDate ?? (object)DBNull.Value);
++        parameters.Add("@ID_ISSUE_PLACE", NullIfEmpty(item.IdIssuePlace));
++        parameters.Add("@BANK_NAME", NullIfEmpty(item.BankName));
++        parameters.Add("@BUYER_NAME", NullIfEmpty(item.BuyerName));
++        parameters.Add("@BANK_ACCOUNT_NUMBER", NullIfEmpty(item.BankAccountNumber));
+         parameters.Add("@USER_ID", session.UserId > 0 ? (object)session.UserId : DBNull.Value);
+         return parameters;
+     }
+diff --git a/src/Modules/Kazuko.Modules.Customers/CustomerEditDialogViewModel.cs b/src/Modules/Kazuko.Modules.Customers/CustomerEditDialogViewModel.cs
+index bd020c0..aab208b 100644
+--- a/src/Modules/Kazuko.Modules.Customers/CustomerEditDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Customers/CustomerEditDialogViewModel.cs
+@@ -34,6 +34,11 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
+     private string? _region;
+     private string? _membershipRank = "Thường";
+     private string? _photoPath;
++    private DateTime? _idIssueDate;
++    private string _idIssuePlace = string.Empty;
++    private string _bankName = string.Empty;
++    private string _buyerName = string.Empty;
++    private string _bankAccountNumber = string.Empty;
+     private CustomerGroupOption? _selectedGroup;
+     private DateTime? _birthDate;
+     private DateTime? _joinDate = DateTime.Today;
+@@ -203,6 +208,36 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
+         set => SetProperty(ref _membershipRank, value);
+     }
+ 
++    public DateTime? IdIssueDate
++    {
++        get => _idIssueDate;
++        set => SetProperty(ref _idIssueDate, value);
++    }
++
++    public string IdIssuePlace
++    {
++        get => _idIssuePlace;
++        set => SetProperty(ref _idIssuePlace, value);
++    }
++
++    public string BankName
++    {
++        get => _bankName;
++        set => SetProperty(ref _bankName, value);
++    }
++
++    public string BuyerName
++    {
++        get => _buyerName;
++        set => SetProperty(ref _buyerName, value);
++    }
++
++    public string BankAccountNumber
++    {
++        get => _bankAccountNumber;
++        set => SetProperty(ref _bankAccountNumber, value);
++    }
++
+     public CustomerGroupOption? SelectedGroup
+     {
+         get => _selectedGroup;
+@@ -477,6 +512,11 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
+                 CreditLimitText = detail.CreditLimit.ToString("0.##", CultureInfo.InvariantCulture);
+                 IsActive = detail.IsActive;
+                 PhotoPath = detail.PhotoPath;
++                IdIssueDate = detail.IdIssueDate;
++                IdIssuePlace = detail.IdIssuePlace;
++                BankName = detail.BankName;
++                BuyerName = detail.BuyerName;
++                BankAccountNumber = detail.BankAccountNumber;
+ 
+                 SelectedGroup = Groups.FirstOrDefault(g => g.Id == detail.CustomerGroupId);
+                 if (SelectedGroup is null && detail.CustomerGroupId > 0)
+@@ -639,7 +679,12 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
+             JoinDate,
+             credit,
+             IsActive,
+-            string.IsNullOrWhiteSpace(PhotoPath) ? null : PhotoPath.Trim());
++            string.IsNullOrWhiteSpace(PhotoPath) ? null : PhotoPath.Trim(),
++            IdIssueDate,
++            IdIssuePlace,
++            BankName,
++            BuyerName,
++            BankAccountNumber);
+     }
+ 
+     private static string Sanitize(string message)
+diff --git a/src/Modules/Kazuko.Modules.Customers/Dialogs/CustomerEditDialog.xaml b/src/Modules/Kazuko.Modules.Customers/Dialogs/CustomerEditDialog.xaml
+index d12c0ff..4ba0e23 100644
+--- a/src/Modules/Kazuko.Modules.Customers/Dialogs/CustomerEditDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Customers/Dialogs/CustomerEditDialog.xaml
+@@ -259,6 +259,13 @@
+                         <TextBox Text="{Binding TaxCode, UpdateSourceTrigger=PropertyChanged}"
+                                  Style="{StaticResource DialogFieldStyle}" />
+ 
++                        <TextBlock Text="Ngày cấp CMND/CCCD" Style="{StaticResource FieldLabelStyle}" />
++                        <DatePicker SelectedDate="{Binding IdIssueDate}" Style="{StaticResource DialogDateStyle}" />
++
++                        <TextBlock Text="Nơi cấp CMND/CCCD" Style="{StaticResource FieldLabelStyle}" />
++                        <TextBox Text="{Binding IdIssuePlace, UpdateSourceTrigger=PropertyChanged}"
++                                 Style="{StaticResource DialogFieldStyle}" />
++
+                         <TextBlock Text="Địa chỉ" Style="{StaticResource FieldLabelStyle}" />
+                         <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
+                                  Style="{StaticResource DialogFieldStyle}" />
+@@ -392,6 +399,18 @@
+                                  Style="{StaticResource DialogFieldStyle}" />
+                         <TextBlock Text="{Binding CreditLimitError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
+ 
++                        <TextBlock Text="Ngân hàng" Style="{StaticResource FieldLabelStyle}" />
++                        <TextBox Text="{Binding BankName, UpdateSourceTrigger=PropertyChanged}"
++                                 Style="{StaticResource DialogFieldStyle}" />
++
++                        <TextBlock Text="Số tài khoản" Style="{StaticResource FieldLabelStyle}" />
++                        <TextBox Text="{Binding BankAccountNumber, UpdateSourceTrigger=PropertyChanged}"
++                                 Style="{StaticResource DialogFieldStyle}" />
++
++                        <TextBlock Text="Người mua hàng" Style="{StaticResource FieldLabelStyle}" />
++                        <TextBox Text="{Binding BuyerName, UpdateSourceTrigger=PropertyChanged}"
++                                 Style="{StaticResource DialogFieldStyle}" />
++
+                         <CheckBox Content="Đang hoạt động"
+                                   IsChecked="{Binding IsActive}"
+                                   Margin="0,12,0,0"
+-- 
+2.43.0
+
+
+From 4e71615ae25a1223c76d0f05e49a1f8a05064287 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 04:49:34 +0000
+Subject: [PATCH 3/3] feat(suppliers): add brand code and TCCS fields
+
+---
+ .../Suppliers/SupplierContracts.cs            |  8 ++++++--
+ .../Suppliers/FirebirdSupplierRepository.cs   | 16 ++++++++++++---
+ .../Dialogs/SupplierEditDialog.xaml           |  8 ++++++++
+ .../SupplierEditDialogViewModel.cs            | 20 ++++++++++++++++++-
+ 4 files changed, 46 insertions(+), 6 deletions(-)
+
+diff --git a/src/Kazuko.Core/Suppliers/SupplierContracts.cs b/src/Kazuko.Core/Suppliers/SupplierContracts.cs
+index 9168323..cdd355e 100644
+--- a/src/Kazuko.Core/Suppliers/SupplierContracts.cs
++++ b/src/Kazuko.Core/Suppliers/SupplierContracts.cs
+@@ -35,7 +35,9 @@ public sealed record SupplierDetail(
+     string Region,
+     string TaxCode,
+     string Notes,
+-    bool IsActive);
++    bool IsActive,
++    string BrandCode,
++    string Tccs);
+ 
+ public sealed record SupplierGroupOption(long Id, string Code, string Name, bool IsActive, bool IsDefault)
+ {
+@@ -60,7 +62,9 @@ public sealed record SupplierSaveRequest(
+     string Region,
+     string TaxCode,
+     string Notes,
+-    bool IsActive);
++    bool IsActive,
++    string BrandCode,
++    string Tccs);
+ 
+ public sealed record SupplierEditResult(
+     long Id,
+diff --git a/src/Kazuko.Infrastructure/Suppliers/FirebirdSupplierRepository.cs b/src/Kazuko.Infrastructure/Suppliers/FirebirdSupplierRepository.cs
+index bfd115a..ebcdb67 100644
+--- a/src/Kazuko.Infrastructure/Suppliers/FirebirdSupplierRepository.cs
++++ b/src/Kazuko.Infrastructure/Suppliers/FirebirdSupplierRepository.cs
+@@ -109,7 +109,9 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
+                        COALESCE(S.ADDRESS, '') AS Address,
+                        COALESCE(S.REGION, '') AS Region, COALESCE(S.TAX_CODE, '') AS TaxCode,
+                        COALESCE(S.NOTES, '') AS Notes,
+-                       S.IS_ACTIVE AS IsActive
++                       S.IS_ACTIVE AS IsActive,
++                       COALESCE(S.BRAND_CODE, '') AS BrandCode,
++                       COALESCE(S.TCCS, '') AS Tccs
+                 FROM SUPPLIERS S
+                 JOIN SUPPLIER_GROUPS G ON G.ID = S.SUPPLIER_GROUP_ID
+                 WHERE S.ID = @ID
+@@ -195,11 +197,14 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
+                         INSERT INTO SUPPLIERS
+                             (COMPANY_ID, CREATED_BRANCH_ID, SUPPLIER_GROUP_ID, CODE, NAME,
+                              PHONE, EMAIL, ADDRESS, REGION, TAX_CODE, CONTACT_NAME, CONTACT_TITLE,
+-                             NOTES, IS_ACTIVE, CREATED_BY, UPDATED_BY, UPDATED_AT)
++                             NOTES, IS_ACTIVE, BRAND_CODE, TCCS,
++                             CREATED_BY, UPDATED_BY, UPDATED_AT)
+                         VALUES
+                             ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
+                              @TEMP_CODE, @NAME, @PHONE, @EMAIL, @ADDRESS, @REGION, @TAX_CODE,
+-                             @CONTACT_NAME, @CONTACT_TITLE, @NOTES, @IS_ACTIVE, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
++                             @CONTACT_NAME, @CONTACT_TITLE, @NOTES, @IS_ACTIVE,
++                             @BRAND_CODE, @TCCS,
++                             @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
+                         RETURNING ID
+                         """,
+                         new
+@@ -217,6 +222,8 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
+                             CONTACT_TITLE = NullIfEmpty(normalized.ContactTitle),
+                             NOTES = NullIfEmpty(normalized.Notes),
+                             IS_ACTIVE = normalized.IsActive,
++                            BRAND_CODE = NullIfEmpty(normalized.BrandCode),
++                            TCCS = NullIfEmpty(normalized.Tccs),
+                             USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value
+                         },
+                         transaction,
+@@ -242,6 +249,7 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
+                             PHONE=@PHONE, EMAIL=@EMAIL, ADDRESS=@ADDRESS, REGION=@REGION,
+                             TAX_CODE=@TAX_CODE, CONTACT_NAME=@CONTACT_NAME, CONTACT_TITLE=@CONTACT_TITLE,
+                             NOTES=@NOTES, IS_ACTIVE=@IS_ACTIVE,
++                            BRAND_CODE=@BRAND_CODE, TCCS=@TCCS,
+                             UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
+                         WHERE ID=@ID
+                           AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+@@ -259,6 +267,8 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
+                             CONTACT_TITLE = NullIfEmpty(normalized.ContactTitle),
+                             NOTES = NullIfEmpty(normalized.Notes),
+                             IS_ACTIVE = normalized.IsActive,
++                            BRAND_CODE = NullIfEmpty(normalized.BrandCode),
++                            TCCS = NullIfEmpty(normalized.Tccs),
+                             USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value,
+                             ID = id
+                         },
+diff --git a/src/Modules/Kazuko.Modules.Suppliers/Dialogs/SupplierEditDialog.xaml b/src/Modules/Kazuko.Modules.Suppliers/Dialogs/SupplierEditDialog.xaml
+index f5b70cb..305097c 100644
+--- a/src/Modules/Kazuko.Modules.Suppliers/Dialogs/SupplierEditDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Suppliers/Dialogs/SupplierEditDialog.xaml
+@@ -243,6 +243,14 @@
+                         <TextBlock Text="Mã số thuế" Style="{StaticResource FieldLabelStyle}" />
+                         <TextBox Text="{Binding TaxCode, UpdateSourceTrigger=PropertyChanged}"
+                                  Style="{StaticResource DialogFieldStyle}" />
++
++                        <TextBlock Text="Mã thương hiệu" Style="{StaticResource FieldLabelStyle}" />
++                        <TextBox Text="{Binding BrandCode, UpdateSourceTrigger=PropertyChanged}"
++                                 Style="{StaticResource DialogFieldStyle}" />
++
++                        <TextBlock Text="TCCS" Style="{StaticResource FieldLabelStyle}" />
++                        <TextBox Text="{Binding Tccs, UpdateSourceTrigger=PropertyChanged}"
++                                 Style="{StaticResource DialogFieldStyle}" />
+                     </StackPanel>
+ 
+                     <!-- Cột phải: Người liên hệ, địa chỉ & trạng thái -->
+diff --git a/src/Modules/Kazuko.Modules.Suppliers/SupplierEditDialogViewModel.cs b/src/Modules/Kazuko.Modules.Suppliers/SupplierEditDialogViewModel.cs
+index e978e25..045f2fe 100644
+--- a/src/Modules/Kazuko.Modules.Suppliers/SupplierEditDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Suppliers/SupplierEditDialogViewModel.cs
+@@ -42,6 +42,8 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
+     private string? _region;
+     private string _contactName = string.Empty;
+     private string _contactTitle = string.Empty;
++    private string _brandCode = string.Empty;
++    private string _tccs = string.Empty;
+     private SupplierGroupOption? _selectedGroup;
+     private bool _isActive = true;
+     private string _nameError = string.Empty;
+@@ -143,6 +145,18 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
+         set => SetProperty(ref _contactTitle, value);
+     }
+ 
++    public string BrandCode
++    {
++        get => _brandCode;
++        set => SetProperty(ref _brandCode, value);
++    }
++
++    public string Tccs
++    {
++        get => _tccs;
++        set => SetProperty(ref _tccs, value);
++    }
++
+     public SupplierGroupOption? SelectedGroup
+     {
+         get => _selectedGroup;
+@@ -249,6 +263,8 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
+                 Region = string.IsNullOrWhiteSpace(detail.Region) ? null : detail.Region;
+                 ContactName = detail.ContactName;
+                 ContactTitle = detail.ContactTitle;
++                BrandCode = detail.BrandCode;
++                Tccs = detail.Tccs;
+                 IsActive = detail.IsActive;
+ 
+                 SelectedGroup = Groups.FirstOrDefault(g => g.Id == detail.SupplierGroupId) ?? Groups.FirstOrDefault();
+@@ -377,7 +393,9 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
+             Region ?? string.Empty,
+             TaxCode,
+             Notes,
+-            IsActive);
++            IsActive,
++            BrandCode,
++            Tccs);
+ 
+     private static string Sanitize(string message)
+     {
+-- 
+2.43.0
+
