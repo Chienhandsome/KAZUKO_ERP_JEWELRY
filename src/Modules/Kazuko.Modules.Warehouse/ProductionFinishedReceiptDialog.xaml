@@ -93,11 +93,11 @@
         <ColumnDefinition Width="300" />
       </Grid.ColumnDefinitions>
 
-      <!-- Cột 1 -->
+      <!-- Cột 1: định danh / phân loại -->
       <StackPanel Grid.Column="0">
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Ngày nhập:" Style="{StaticResource ReceiptFormLabelStyle}" />
@@ -106,7 +106,7 @@
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Kho nhập:" Style="{StaticResource ReceiptFormLabelStyle}" />
@@ -117,7 +117,7 @@
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="8" />
             <ColumnDefinition Width="Auto" />
@@ -135,7 +135,7 @@
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Mặt hàng/Tên SP:" Style="{StaticResource ReceiptFormLabelStyle}" />
@@ -144,111 +144,21 @@
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <TextBlock Text="Loại vàng:" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBlock Text="Loại vàng:" Style="{StaticResource ReceiptFormLabelStyle}"
+                     ToolTip="Loại / tuổi vàng (GOLD_TYPES)" />
           <ComboBox Grid.Column="1" ItemsSource="{Binding GoldPurityChoices}"
                     Text="{Binding GoldPurityCode, UpdateSourceTrigger=PropertyChanged}"
                     IsEditable="True"
                     IsTextSearchEnabled="True"
-                    Style="{StaticResource ReceiptComboStyle}" />
-        </Grid>
-        <Grid Margin="0,0,0,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Tuổi vàng:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <ComboBox Grid.Column="1" ItemsSource="{Binding GoldAgeChoices}"
-                    Text="{Binding GoldAge, UpdateSourceTrigger=PropertyChanged}"
-                    IsEditable="True"
-                    IsTextSearchEnabled="True"
-                    Style="{StaticResource ReceiptComboStyle}" />
-        </Grid>
-      </StackPanel>
-
-      <!-- Cột 2 -->
-      <StackPanel Grid.Column="2">
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Trọng lượng tổng (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding TotalWeightText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+                    Style="{StaticResource ReceiptComboStyle}"
+                    ToolTip="Chọn loại/tuổi vàng (750, 999…)" />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Trọng lượng đá (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding StoneWeightText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Trọng lượng vàng (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding GoldWeightText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}"
-                   ToolTip="Tự tính = TL tổng − TL đá, có thể sửa tay." />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Số lượng (món):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}"
-                   ToolTip="Số lượng = N sẽ thêm N dòng, mỗi dòng 1 mã riêng." />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Giá vốn (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding CostPriceText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Giá bán (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding SalePriceText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Công chế tác (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding CraftLaborCostText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Nhà cung cấp:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <ComboBox Grid.Column="1" IsEditable="True"
-                    ItemsSource="{Binding SupplierChoices}"
-                    Text="{Binding SupplierName, UpdateSourceTrigger=PropertyChanged}"
-                    Style="{StaticResource ReceiptComboStyle}" />
-        </Grid>
-        <Grid Margin="0,0,0,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Lệnh sản xuất:" Style="{StaticResource ReceiptFormLabelStyle}" />
@@ -263,13 +173,111 @@
             </ComboBox.ItemTemplate>
           </ComboBox>
         </Grid>
+        <Grid Margin="0,0,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Nhà cung cấp:" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <ComboBox Grid.Column="1" IsEditable="True"
+                    ItemsSource="{Binding SupplierChoices}"
+                    Text="{Binding SupplierName, UpdateSourceTrigger=PropertyChanged}"
+                    Style="{StaticResource ReceiptComboStyle}" />
+        </Grid>
       </StackPanel>
 
-      <!-- Cột 3 -->
+      <!-- Cột 2: trọng lượng / số lượng / giá -->
+      <StackPanel Grid.Column="2">
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="TL tổng (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding TotalWeightText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}" />
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="TL đá (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding StoneWeightText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}" />
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="TL vàng (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding GoldWeightText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}"
+                   ToolTip="Tự tính = TL tổng − TL đá, có thể sửa tay." />
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Số lượng (món):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}"
+                   ToolTip="Số lượng = N sẽ thêm N dòng, mỗi dòng 1 mã riêng." />
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Giá vốn (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding CostPriceText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}" />
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Giá bán (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding SalePriceText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}" />
+        </Grid>
+        <Grid Margin="0,0,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Công chế tác:" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding CraftLaborCostText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}" />
+        </Grid>
+      </StackPanel>
+
+      <!-- Cột 3: công / mã / ghi chú -->
       <StackPanel Grid.Column="4">
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Công bán (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding SaleLaborCostText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}" />
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Công nhập (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <TextBox Grid.Column="1" Text="{Binding PurchaseLaborCostText, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource ReceiptFieldStyle}" />
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Mã hiệu:" Style="{StaticResource ReceiptFormLabelStyle}" />
@@ -278,7 +286,7 @@
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Ký hiệu:" Style="{StaticResource ReceiptFormLabelStyle}" />
@@ -287,30 +295,12 @@
         </Grid>
         <CheckBox Content="Tạo mã riêng cho từng món"
                   IsChecked="{Binding GenerateSeparateCodes}"
-                  Margin="0,2,0,6" VerticalContentAlignment="Center" />
+                  Margin="0,2,0,8" VerticalContentAlignment="Center" />
         <TextBlock Text="Ghi chú:" Style="{StaticResource WhFieldLabelStyle}" Margin="0,0,0,4" />
         <TextBox Text="{Binding FormNotes, UpdateSourceTrigger=PropertyChanged}"
                  Style="{StaticResource ReceiptFieldStyle}"
-                 MinHeight="96" TextWrapping="Wrap" AcceptsReturn="True"
+                 MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True"
                  VerticalContentAlignment="Top" Padding="10,6" />
-        <Grid Margin="0,6,0,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Công bán (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding SaleLaborCostText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
-        </Grid>
-        <Grid Margin="0,6,0,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Công nhập (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding PurchaseLaborCostText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
-        </Grid>
       </StackPanel>
 
       <!-- Cột 4: Hình ảnh sản phẩm -->

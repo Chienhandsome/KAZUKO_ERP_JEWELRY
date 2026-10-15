@@ -21,10 +21,7 @@ namespace Kazuko.Modules.Warehouse;
 public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 {
     private static readonly string[] GoldPurityOptions =
-        ["9999", "999", "750", "680", "610", "585", "18K", "24K"];
-
-    private static readonly string[] GoldAgeOptions =
-        ["9999", "999", "750", "680", "610", "585", "416", "375"];
+        ["9999", "999", "750", "680", "610", "585", "416", "375", "18K", "24K"];
 
     private static readonly string[] SupplierOptions =
         ["Nội bộ", "Xưởng chế tác"];
@@ -48,7 +45,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private FinishedProductGroupOption? _selectedProductGroup;
     private string _productName = string.Empty;
     private string _goldPurityCode = string.Empty;
-    private string _goldAge = string.Empty;
     private string _weightUnitCode = "Chỉ";
     private string _totalWeightText = string.Empty;
     private string _stoneWeightText = string.Empty;
@@ -119,7 +115,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ObservableCollection<ProductionOrderWorkerDto> WorkerOptions { get; } = [];
 
     public IReadOnlyList<string> GoldPurityChoices => GoldPurityOptions;
-    public IReadOnlyList<string> GoldAgeChoices => GoldAgeOptions;
     public IReadOnlyList<string> SupplierChoices => SupplierOptions;
 
     public ProductionFinishedReceiptOrderOption? SelectedOrder
@@ -194,16 +189,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         set => SetProperty(ref _productName, value);
     }
 
+    /// <summary>Loại/tuổi vàng (cùng danh mục GOLD_TYPES).</summary>
     public string GoldPurityCode
     {
         get => _goldPurityCode;
         set => SetProperty(ref _goldPurityCode, value);
-    }
-
-    public string GoldAge
-    {
-        get => _goldAge;
-        set => SetProperty(ref _goldAge, value);
     }
 
     public string WeightUnitCode
@@ -738,7 +728,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 ProductName: ProductName.Trim(),
                 ProductGroup: SelectedProductGroup?.Name,
                 GoldPurityCode: string.IsNullOrWhiteSpace(GoldPurityCode) ? null : GoldPurityCode.Trim(),
-                GoldAge: string.IsNullOrWhiteSpace(GoldAge) ? null : GoldAge.Trim(),
+                GoldAge: string.IsNullOrWhiteSpace(GoldPurityCode) ? null : GoldPurityCode.Trim(),
                 WeightUnitCode: WeightUnitCode,
                 TotalWeight: totalWeight,
                 StoneWeight: stoneWeight,
@@ -780,8 +770,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         var item = Products[index];
         ProductName = item.ProductName;
         SelectedProductGroup = ProductGroups.FirstOrDefault(g => g.Name == item.ProductGroup);
-        GoldPurityCode = item.GoldPurityCode ?? string.Empty;
-        GoldAge = item.GoldAge ?? string.Empty;
+        GoldPurityCode = item.GoldPurityCode ?? item.GoldAge ?? string.Empty;
         WeightUnitCode = item.WeightUnitCode;
         TotalWeightText = FormatDecimal(item.TotalWeight);
         StoneWeightText = FormatDecimal(item.StoneWeight);
@@ -830,7 +819,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     {
         ProductName = string.Empty;
         GoldPurityCode = string.Empty;
-        GoldAge = string.Empty;
         WeightUnitCode = "Chỉ";
         TotalWeightText = string.Empty;
         StoneWeightText = string.Empty;
