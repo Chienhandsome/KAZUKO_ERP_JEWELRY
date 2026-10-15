@@ -69,11 +69,9 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private ManualFinishedProductItem? _selectedProduct;
     private bool _generateSeparateCodes = true;
 
-    // Đối chiếu vàng
+    // Đối chiếu vàng theo từng loại vàng
     private ProductionOrderWorkerDto? _selectedWorker;
     private ProductionOrderWorkerDto? _externalWorkerOption;
-    private decimal _issuedGold;
-    private string _lossWeightText = string.Empty;
     private string _reconcileMessage = string.Empty;
     private bool _debtRecorded;
 
@@ -397,37 +395,19 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         set => SetProperty(ref _selectedWorker, value);
     }
 
-    /// <summary>Tổng vàng đã giao cho thợ (chỉ), từ bản ghi giao NVL của lệnh.</summary>
-    public decimal IssuedGold
-    {
-        get => _issuedGold;
-        private set
-        {
-            if (SetProperty(ref _issuedGold, value))
-                RefreshDebt();
-        }
-    }
+    /// <summary>Các dòng đối chiếu vàng theo từng loại vàng.</summary>
+    public ObservableCollection<GoldReconcileRowViewModel> GoldReconcileRows { get; } = [];
 
-    /// <summary>Tổng TL vàng đã nhận = tổng TL vàng các SP trong bảng.</summary>
-    public decimal ReceivedGold => Products.Sum(p => p.GoldWeight);
+    /// <summary>Tổng nợ vàng các loại (chỉ), để hiển thị nhanh.</summary>
+    public decimal TotalDebtGold => GoldReconcileRows.Sum(r => r.DebtWeight > 0 ? r.DebtWeight : 0);
 
-    /// <summary>Hao hụt (chỉ): nhân viên tự gõ, không ghi công nợ.</summary>
-    public string LossWeightText
-    {
-        get => _lossWeightText;
-        set
-        {
-            if (SetProperty(ref _lossWeightText, value))
-                RefreshDebt();
-        }
-    }
+    public decimal TotalIssuedGold => GoldReconcileRows.Sum(r => r.IssuedWeight);
 
-    public decimal LossGold => TryParseDecimal(LossWeightText, out var v) && v > 0 ? v : 0;
+    public decimal TotalReceivedGold => GoldReconcileRows.Sum(r => r.ReceivedWeight);
 
-    /// <summary>Nợ vàng = Vàng giao − Vàng nhận − Hao hụt.</summary>
-    public decimal DebtGold => IssuedGold - ReceivedGold - LossGold;
+    public string TotalDebtGoldDisplay => $"{TotalDebtGold:0.###} chỉ";
 
-    public bool DebtIsPositive => DebtGold > 0;
+    public bool HasAnyDebt => GoldReconcileRows.Any(r => r.HasDebt);
 
     public bool DebtRecorded
     {
@@ -444,8 +424,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         get => _reconcileMessage;
         private set => SetProperty(ref _reconcileMessage, value);
     }
-
-    public string DebtGoldDisplay => $"{DebtGold:0.###} chỉ";
 
     public ICommand RecordDebtCommand { get; }
     public ICommand OpenReconcileCommand { get; }
@@ -502,7 +480,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             WorkerOptions.Clear();
             _externalWorkerOption = null;
             SelectedWorker = null;
-            IssuedGold = 0;
+            GoldReconcileRows.Clear();
             DebtRecorded = false;
             ReconcileMessage = string.Empty;
             NotifyDetailChanged();
@@ -537,7 +515,10 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 SelectedWorker = WorkerOptions.FirstOrDefault();
                 try
                 {
-                    IssuedGold = await _queries.GetIssuedGoldWeightAsync(item!.Id, _session.BranchId);
+                    // Đối chiếu vàng theo từng loại: load vàng đã giao group theo PURITY_CODE,
+                    // kết hợp với vàng đã nhận từ SP trong bảng (group theo GoldPurityCode).
+                    var issuedByPurity = await _queries.GetIssuedGoldByPurityAsync(item!.Id, _session.BranchId);
+                    RebuildReconcileRows(issuedByPurity);
                 }
                 catch (Exception ex)
                 {
@@ -546,7 +527,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             }
             NotifyDetailChanged();
             OnPropertyChanged(nameof(HasImages));
-            RefreshDebt();
+            OnPropertyChanged(nameof(TotalDebtGold));
+            OnPropertyChanged(nameof(HasAnyDebt));
         }
         catch (Exception ex)
         {
@@ -566,16 +548,95 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private void OnProductsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         NotifyTotalsChanged();
-        RefreshDebt();
+        RefreshReconcileReceived();
     }
 
-    private void RefreshDebt()
+    /// <summary>
+    /// Dựng lại các dòng đối chiếu theo loại vàng:
+    /// union purity từ vàng đã giao và từ SP đã nhập.
+    /// </summary>
+    private void RebuildReconcileRows(IReadOnlyList<IssuedGoldByPurityDto> issuedByPurity)
     {
-        OnPropertyChanged(nameof(ReceivedGold));
-        OnPropertyChanged(nameof(LossGold));
-        OnPropertyChanged(nameof(DebtGold));
-        OnPropertyChanged(nameof(DebtIsPositive));
-        OnPropertyChanged(nameof(DebtGoldDisplay));
+        var receivedByPurity = Products
+            .GroupBy(p => NormalizePurity(p.GoldPurityCode))
+            .ToDictionary(g => g.Key, g => g.Sum(p => p.GoldWeight));
+
+        var purities = issuedByPurity
+            .Select(d => NormalizePurity(d.PurityCode))
+            .Union(receivedByPurity.Keys)
+            .OrderBy(p => p)
+            .ToList();
+
+        GoldReconcileRows.Clear();
+        foreach (var purity in purities)
+        {
+            var issued = issuedByPurity
+                .Where(d => NormalizePurity(d.PurityCode) == purity)
+                .Sum(d => d.WeightChi);
+            receivedByPurity.TryGetValue(purity, out var received);
+            var row = new GoldReconcileRowViewModel(purity)
+            {
+                IssuedWeight = issued,
+                ReceivedWeight = received,
+            };
+            row.PropertyChanged += OnReconcileRowPropertyChanged;
+            GoldReconcileRows.Add(row);
+        }
+        NotifyReconcileTotalsChanged();
+    }
+
+    private static string NormalizePurity(string? purity) =>
+        string.IsNullOrWhiteSpace(purity) ? string.Empty : purity.Trim().ToUpperInvariant();
+
+    /// <summary>
+    /// Tính lại vàng đã nhận từng dòng khi bảng SP thay đổi (giữ nguyên hao hụt đã nhập).
+    /// </summary>
+    private void RefreshReconcileReceived()
+    {
+        if (GoldReconcileRows.Count == 0)
+            return;
+
+        var receivedByPurity = Products
+            .GroupBy(p => NormalizePurity(p.GoldPurityCode))
+            .ToDictionary(g => g.Key, g => g.Sum(p => p.GoldWeight));
+
+        var known = new HashSet<string>(GoldReconcileRows.Select(r => NormalizePurity(r.PurityCode)));
+        foreach (var row in GoldReconcileRows)
+        {
+            receivedByPurity.TryGetValue(NormalizePurity(row.PurityCode), out var received);
+            row.ReceivedWeight = received;
+        }
+
+        // Thêm dòng mới nếu SP có loại vàng chưa từng xuất hiện.
+        foreach (var kv in receivedByPurity.Where(kv => !known.Contains(kv.Key)).OrderBy(kv => kv.Key))
+        {
+            var row = new GoldReconcileRowViewModel(kv.Key)
+            {
+                IssuedWeight = 0,
+                ReceivedWeight = kv.Value,
+            };
+            row.PropertyChanged += OnReconcileRowPropertyChanged;
+            GoldReconcileRows.Add(row);
+        }
+        NotifyReconcileTotalsChanged();
+    }
+
+    private void OnReconcileRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(GoldReconcileRowViewModel.LossWeightText)
+            or nameof(GoldReconcileRowViewModel.DebtWeight)
+            or nameof(GoldReconcileRowViewModel.DebtDisplay))
+            NotifyReconcileTotalsChanged();
+    }
+
+    private void NotifyReconcileTotalsChanged()
+    {
+        OnPropertyChanged(nameof(TotalDebtGold));
+        OnPropertyChanged(nameof(TotalIssuedGold));
+        OnPropertyChanged(nameof(TotalReceivedGold));
+        OnPropertyChanged(nameof(TotalDebtGoldDisplay));
+        OnPropertyChanged(nameof(HasAnyDebt));
+        (RecordDebtCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
     }
 
     private void NotifyDetailChanged()
@@ -898,9 +959,10 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             ReconcileMessage = "Chọn thợ.";
             return;
         }
-        if (DebtGold <= 0)
+        var debtRows = GoldReconcileRows.Where(r => r.HasDebt).ToList();
+        if (debtRows.Count == 0)
         {
-            ReconcileMessage = "Nợ vàng phải lớn hơn 0 mới ghi công nợ.";
+            ReconcileMessage = "Không có loại vàng nào nợ (Nợ phải lớn hơn 0 mới ghi công nợ).";
             return;
         }
         IsBusy = true;
@@ -909,21 +971,25 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             var workerType = ReferenceEquals(SelectedWorker, _externalWorkerOption)
                 ? WorkerGoldDebtWorkerTypes.ExternalWorker
                 : WorkerGoldDebtWorkerTypes.Employee;
-            var request = new RecordWorkerGoldDebtRequest(
-                WorkerId: SelectedWorker.EmployeeId,
-                WorkerName: SelectedWorker.FullName,
-                GoldPurityCode: Products.FirstOrDefault()?.GoldPurityCode,
-                WeightChi: DebtGold,
-                WeightIssuedChi: IssuedGold,
-                WeightReceivedChi: ReceivedGold,
-                WeightLossChi: LossGold,
-                ProductionOrderId: SelectedOrder.Id,
-                ProductionOrderCode: SelectedOrder.Code,
-                Notes: null,
-                WorkerType: workerType);
-            await _application.RecordWorkerGoldDebtAsync(request, _session);
+            // Ghi công nợ riêng cho từng loại vàng có nợ > 0.
+            foreach (var row in debtRows)
+            {
+                var request = new RecordWorkerGoldDebtRequest(
+                    WorkerId: SelectedWorker.EmployeeId,
+                    WorkerName: SelectedWorker.FullName,
+                    GoldPurityCode: string.IsNullOrWhiteSpace(row.PurityCode) ? null : row.PurityCode,
+                    WeightChi: row.DebtWeight,
+                    WeightIssuedChi: row.IssuedWeight,
+                    WeightReceivedChi: row.ReceivedWeight,
+                    WeightLossChi: row.LossWeight,
+                    ProductionOrderId: SelectedOrder.Id,
+                    ProductionOrderCode: SelectedOrder.Code,
+                    Notes: null,
+                    WorkerType: workerType);
+                await _application.RecordWorkerGoldDebtAsync(request, _session);
+            }
             DebtRecorded = true;
-            ReconcileMessage = "Đã ghi công nợ vàng thành công.";
+            ReconcileMessage = $"Đã ghi công nợ vàng thành công ({debtRows.Count} loại vàng).";
         }
         catch (Exception ex)
         {
@@ -975,5 +1041,62 @@ public sealed class ReceiptImageItem : ObservableObject
     {
         get => _isSelected;
         set => SetProperty(ref _isSelected, value);
+    }
+}
+
+/// <summary>
+/// Một dòng đối chiếu vàng theo loại vàng (PurityCode).
+/// Nợ = Đã giao − Đã nhận − Hao hụt (hao hụt nhập tay từng dòng).
+/// </summary>
+public sealed class GoldReconcileRowViewModel : ObservableObject
+{
+    private string _lossWeightText = string.Empty;
+
+    public GoldReconcileRowViewModel(string? purityCode)
+    {
+        PurityCode = purityCode;
+    }
+
+    /// <summary>Mã loại vàng (có thể null → hiển thị "Không rõ").</summary>
+    public string? PurityCode { get; }
+
+    public string PurityDisplay => string.IsNullOrWhiteSpace(PurityCode) ? "Không rõ" : PurityCode;
+
+    public decimal IssuedWeight { get; set; }
+
+    public decimal ReceivedWeight { get; set; }
+
+    /// <summary>Hao hụt (chỉ): nhân viên tự gõ từng dòng, không ghi công nợ.</summary>
+    public string LossWeightText
+    {
+        get => _lossWeightText;
+        set
+        {
+            if (SetProperty(ref _lossWeightText, value))
+            {
+                OnPropertyChanged(nameof(LossWeight));
+                OnPropertyChanged(nameof(DebtWeight));
+                OnPropertyChanged(nameof(DebtDisplay));
+            }
+        }
+    }
+
+    public decimal LossWeight => TryParseDecimal(LossWeightText, out var v) && v > 0 ? v : 0;
+
+    /// <summary>Nợ vàng = Vàng giao − Vàng nhận − Hao hụt.</summary>
+    public decimal DebtWeight => IssuedWeight - ReceivedWeight - LossWeight;
+
+    public string DebtDisplay => $"{DebtWeight:0.###} chỉ";
+
+    public bool HasDebt => DebtWeight > 0;
+
+    private static bool TryParseDecimal(string? text, out decimal value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        var styles = NumberStyles.Number;
+        return decimal.TryParse(text.Trim(), styles, CultureInfo.CurrentCulture, out value)
+            || decimal.TryParse(text.Trim(), styles, CultureInfo.InvariantCulture, out value);
     }
 }

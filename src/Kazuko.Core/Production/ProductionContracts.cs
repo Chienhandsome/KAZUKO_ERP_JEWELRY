@@ -485,6 +485,14 @@ public sealed record ManualFinishedReceiptResult(
     string DocumentCode,
     int ProductCount);
 
+/// <summary>
+/// Vàng đã giao theo từng loại vàng (PURITY_CODE của material).
+/// Dùng cho đối chiếu vàng theo loại trong dialog nhập kho thành phẩm.
+/// </summary>
+public sealed record IssuedGoldByPurityDto(
+    string? PurityCode,
+    decimal WeightChi);
+
 public sealed record RecordWorkerGoldDebtRequest(
     long WorkerId,
     string WorkerName,
@@ -565,6 +573,15 @@ public interface IProductionQueryRepository
     /// Dùng cho section đối chiếu vàng của dialog nhập kho thành phẩm.
     /// </summary>
     Task<decimal> GetIssuedGoldWeightAsync(
+        long productionOrderId,
+        long branchId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Vàng đã giao theo từng loại (PURITY_CODE của material), từ PRODUCTION_MATERIAL_BALANCES.
+    /// Dùng cho đối chiếu vàng theo từng loại vàng trong dialog nhập kho thành phẩm.
+    /// </summary>
+    Task<IReadOnlyList<IssuedGoldByPurityDto>> GetIssuedGoldByPurityAsync(
         long productionOrderId,
         long branchId,
         CancellationToken cancellationToken = default);

@@ -682,6 +682,43 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         }
     }
 
+    public async Task<IReadOnlyList<IssuedGoldByPurityDto>> GetIssuedGoldByPurityAsync(
+        long productionOrderId,
+        long branchId,
+        CancellationToken cancellationToken = default)
+    {
+        if (productionOrderId <= 0 || branchId <= 0)
+            return Array.Empty<IssuedGoldByPurityDto>();
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            // Vàng đã giao theo từng loại (PURITY_CODE), từ PRODUCTION_MATERIAL_BALANCES.
+            // Đơn vị chuẩn của vàng là chỉ.
+            var rows = await connection.QueryAsync<IssuedGoldByPurityDto>(
+                new CommandDefinition("""
+                    SELECT M.PURITY_CODE AS PurityCode, COALESCE(SUM(B.QUANTITY_ISSUED), 0) AS WeightChi
+                    FROM PRODUCTION_MATERIAL_BALANCES B
+                    JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
+                    JOIN PRODUCTION_ORDERS PO ON PO.ID = B.PRODUCTION_ORDER_ID
+                    WHERE B.PRODUCTION_ORDER_ID = @PO
+                      AND PO.BRANCH_ID = @BID
+                      AND PO.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND M.MATERIAL_TYPE = 'GOLD'
+                    GROUP BY M.PURITY_CODE
+                    """,
+                    new { PO = productionOrderId, BID = branchId },
+                    cancellationToken: cancellationToken));
+            return rows.AsList();
+        }
+        catch (FbException)
+        {
+            // Migration 46 not applied yet — no material balances.
+            return Array.Empty<IssuedGoldByPurityDto>();
+        }
+    }
+
     private static async Task<IReadOnlyList<ProductionQcUnitDto>> LoadQcUnitsAsync(
         FbConnection connection,
         long orderId,
