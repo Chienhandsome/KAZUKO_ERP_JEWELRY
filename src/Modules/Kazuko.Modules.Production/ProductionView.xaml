@@ -48,6 +48,26 @@
                                 <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
+                            <TextBlock Text="Từ ngày" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <DatePicker Grid.Column="1" SelectedDate="{Binding FromDate}"
+                                        VerticalContentAlignment="Center" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Đến ngày" VerticalAlignment="Center"
+                                       Style="{StaticResource ProductionFilterLabelStyle}" />
+                            <DatePicker Grid.Column="1" SelectedDate="{Binding ToDate}"
+                                        VerticalContentAlignment="Center" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                             <TextBlock Text="Trạng thái" VerticalAlignment="Center"
                                        Style="{StaticResource ProductionFilterLabelStyle}" />
                             <ComboBox Grid.Column="1"

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
@@ -129,6 +131,26 @@ public sealed class ProductionViewModel : ObservableObject
 
     private static bool IsFilterAll(string? value) =>
         string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), FilterAll, StringComparison.OrdinalIgnoreCase);
+
+    public DateTime? FromDate
+    {
+        get => _fromDate;
+        set
+        {
+            if (SetProperty(ref _fromDate, value))
+                TriggerFilterSearch();
+        }
+    }
+
+    public DateTime? ToDate
+    {
+        get => _toDate;
+        set
+        {
+            if (SetProperty(ref _toDate, value))
+                TriggerFilterSearch();
+        }
+    }
 
     public string OrderCodeFilterText
     {
@@ -454,11 +476,64 @@ public sealed class ProductionViewModel : ObservableObject
 
     private void ExportExcel()
     {
-        MessageBox.Show(
-            "Chức năng xuất Excel chưa được hỗ trợ trong phiên bản này.",
-            "Thông báo",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        try
+        {
+            if (Orders.Count == 0)
+            {
+                MessageBox.Show(
+                    "Không có dữ liệu để xuất.",
+                    "Xuất Excel",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Xuất danh sách lệnh sản xuất",
+                Filter = "CSV (mở bằng Excel)|*.csv|Tất cả|*.*",
+                FileName = $"DanhSachLenhSX_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+                AddExtension = true,
+                DefaultExt = ".csv"
+            };
+            if (dialog.ShowDialog() != true)
+                return;
+
+            var sb = new StringBuilder();
+            // BOM để Excel mở đúng tiếng Việt
+            sb.Append('\uFEFF');
+            sb.AppendLine("STT,Mã phiếu,Ngày giao,Hạn hoàn thành,Khách hàng,Đơn đặt hàng,Sản phẩm,Thợ sản xuất,Trạng thái");
+            foreach (var o in Orders)
+            {
+                sb.AppendLine(string.Join(",",
+                    Csv(o.Index.ToString()),
+                    Csv(o.Code),
+                    Csv(o.MaterialIssueDateDisplay),
+                    Csv(o.DueDateDisplay),
+                    Csv(o.CustomerName),
+                    Csv(o.SalesOrderCode),
+                    Csv(o.ModelSummary),
+                    Csv(o.WorkerDisplayName),
+                    Csv(o.StatusDisplay)));
+            }
+
+            File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
+            MessageBox.Show(
+                $"Đã xuất {Orders.Count} dòng ra file:\n{dialog.FileName}",
+                "Xuất Excel",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private static string Csv(string? value)
+    {
+        var v = (value ?? string.Empty).Replace("\"", "\"\"");
+        return $"\"{v}\"";
     }
 
     private async Task CreateOrderAsync()

@@ -1,0 +1,523 @@
+From 0bed2289e419d9b186ab49580d44e70966820408 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 05:09:56 +0000
+Subject: [PATCH 1/2] feat(production): re-add date filter and CSV export to
+ order list
+
+---
+ .../ProductionView.xaml                       | 20 +++++
+ .../ProductionViewModel.cs                    | 85 +++++++++++++++++--
+ 2 files changed, 100 insertions(+), 5 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionView.xaml b/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
+index 228e157..142baed 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
++++ b/src/Modules/Kazuko.Modules.Production/ProductionView.xaml
+@@ -43,6 +43,26 @@
+ 
+                     <!-- Cột trái -->
+                     <StackPanel Grid.Column="0">
++                        <Grid Margin="0,0,0,8">
++                            <Grid.ColumnDefinitions>
++                                <ColumnDefinition Width="100" />
++                                <ColumnDefinition Width="*" />
++                            </Grid.ColumnDefinitions>
++                            <TextBlock Text="Từ ngày" VerticalAlignment="Center"
++                                       Style="{StaticResource ProductionFilterLabelStyle}" />
++                            <DatePicker Grid.Column="1" SelectedDate="{Binding FromDate}"
++                                        VerticalContentAlignment="Center" />
++                        </Grid>
++                        <Grid Margin="0,0,0,8">
++                            <Grid.ColumnDefinitions>
++                                <ColumnDefinition Width="100" />
++                                <ColumnDefinition Width="*" />
++                            </Grid.ColumnDefinitions>
++                            <TextBlock Text="Đến ngày" VerticalAlignment="Center"
++                                       Style="{StaticResource ProductionFilterLabelStyle}" />
++                            <DatePicker Grid.Column="1" SelectedDate="{Binding ToDate}"
++                                        VerticalContentAlignment="Center" />
++                        </Grid>
+                         <Grid Margin="0,0,0,8">
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="100" />
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs b/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
+index 202beb1..9084202 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Production/ProductionViewModel.cs
+@@ -1,5 +1,7 @@
+ using System.Collections.ObjectModel;
+ using System.Globalization;
++using System.IO;
++using System.Text;
+ using System.Windows;
+ using System.Windows.Input;
+ using Kazuko.Core.Authentication;
+@@ -130,6 +132,26 @@ public sealed class ProductionViewModel : ObservableObject
+     private static bool IsFilterAll(string? value) =>
+         string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), FilterAll, StringComparison.OrdinalIgnoreCase);
+ 
++    public DateTime? FromDate
++    {
++        get => _fromDate;
++        set
++        {
++            if (SetProperty(ref _fromDate, value))
++                TriggerFilterSearch();
++        }
++    }
++
++    public DateTime? ToDate
++    {
++        get => _toDate;
++        set
++        {
++            if (SetProperty(ref _toDate, value))
++                TriggerFilterSearch();
++        }
++    }
++
+     public string OrderCodeFilterText
+     {
+         get => _orderCodeFilterText;
+@@ -454,11 +476,64 @@ public sealed class ProductionViewModel : ObservableObject
+ 
+     private void ExportExcel()
+     {
+-        MessageBox.Show(
+-            "Chức năng xuất Excel chưa được hỗ trợ trong phiên bản này.",
+-            "Thông báo",
+-            MessageBoxButton.OK,
+-            MessageBoxImage.Information);
++        try
++        {
++            if (Orders.Count == 0)
++            {
++                MessageBox.Show(
++                    "Không có dữ liệu để xuất.",
++                    "Xuất Excel",
++                    MessageBoxButton.OK,
++                    MessageBoxImage.Information);
++                return;
++            }
++
++            var dialog = new Microsoft.Win32.SaveFileDialog
++            {
++                Title = "Xuất danh sách lệnh sản xuất",
++                Filter = "CSV (mở bằng Excel)|*.csv|Tất cả|*.*",
++                FileName = $"DanhSachLenhSX_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
++                AddExtension = true,
++                DefaultExt = ".csv"
++            };
++            if (dialog.ShowDialog() != true)
++                return;
++
++            var sb = new StringBuilder();
++            // BOM để Excel mở đúng tiếng Việt
++            sb.Append('\uFEFF');
++            sb.AppendLine("STT,Mã phiếu,Ngày giao,Hạn hoàn thành,Khách hàng,Đơn đặt hàng,Sản phẩm,Thợ sản xuất,Trạng thái");
++            foreach (var o in Orders)
++            {
++                sb.AppendLine(string.Join(",",
++                    Csv(o.Index.ToString()),
++                    Csv(o.Code),
++                    Csv(o.MaterialIssueDateDisplay),
++                    Csv(o.DueDateDisplay),
++                    Csv(o.CustomerName),
++                    Csv(o.SalesOrderCode),
++                    Csv(o.ModelSummary),
++                    Csv(o.WorkerDisplayName),
++                    Csv(o.StatusDisplay)));
++            }
++
++            File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
++            MessageBox.Show(
++                $"Đã xuất {Orders.Count} dòng ra file:\n{dialog.FileName}",
++                "Xuất Excel",
++                MessageBoxButton.OK,
++                MessageBoxImage.Information);
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = ex.Message;
++        }
++    }
++
++    private static string Csv(string? value)
++    {
++        var v = (value ?? string.Empty).Replace("\"", "\"\"");
++        return $"\"{v}\"";
+     }
+ 
+     private async Task CreateOrderAsync()
+-- 
+2.43.0
+
+
+From 27274b8e4066be2b2cb9e8bc974323d0f1aa3993 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 05:09:59 +0000
+Subject: [PATCH 2/2] feat(production): add simple QC section to order dialog
+
+---
+ .../ProductionOrderDialog.xaml                |  78 +++++++
+ .../ProductionOrderDialogViewModel.cs         | 199 ++++++++++++++++++
+ 2 files changed, 277 insertions(+)
+
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
+index d686187..9cd453f 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialog.xaml
+@@ -86,6 +86,7 @@
+                     <RowDefinition Height="Auto" />
+                     <RowDefinition Height="*" MinHeight="100" />
+                     <RowDefinition Height="*" MinHeight="100" />
++                    <RowDefinition Height="*" MinHeight="100" />
+                 </Grid.RowDefinitions>
+ 
+             <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
+@@ -522,6 +523,83 @@
+             </Border>
+             </Grid>
+ 
++            <DockPanel Grid.Row="3" Margin="0,8,0,0" LastChildFill="True">
++                <TextBlock DockPanel.Dock="Top" Text="5   Kiểm tra chất lượng (QC)"
++                           Style="{StaticResource ProductionDialogSectionHeaderStyle}" />
++                <Border DockPanel.Dock="Top" Style="{StaticResource ProductionEmptyStateStyle}"
++                        Visibility="{Binding HasQcUnits, Converter={StaticResource InverseBoolToVis}}">
++                    <TextBlock Text="Chưa có món QC. Giao nguyên vật liệu cho thợ để tạo danh sách QC."
++                               Style="{StaticResource ProductionHintStyle}" />
++                </Border>
++                <Border Style="{StaticResource ProductionCardStyle}" Padding="0"
++                        Visibility="{Binding HasQcUnits, Converter={StaticResource BoolToVis}}">
++                    <DataGrid Style="{StaticResource ProductionDataGridStyle}"
++                              ItemsSource="{Binding QcUnits}"
++                              MinHeight="80"
++                              BorderThickness="0"
++                              grid:DataGridColumnLayout.SettingsKey="production.order.qc">
++                        <DataGrid.Columns>
++                            <DataGridTextColumn Header="STT" Binding="{Binding UnitNumber, Mode=OneWay}" Width="50"
++                                                grid:DataGridColumnLayout.Key="UnitNumber" />
++                            <DataGridTextColumn Header="Tên mẫu" Binding="{Binding ModelName, Mode=OneWay}" Width="*"
++                                                MinWidth="140" grid:DataGridColumnLayout.Key="ModelName" />
++                            <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplay, Mode=OneWay}" Width="150"
++                                                grid:DataGridColumnLayout.Key="Status" />
++                            <DataGridTemplateColumn Header="Ghi chú lỗi" Width="200" MinWidth="120"
++                                                    grid:DataGridColumnLayout.Key="DefectNotes">
++                                <DataGridTemplateColumn.CellTemplate>
++                                    <DataTemplate>
++                                        <Grid>
++                                            <TextBlock Text="{Binding DefectNotes, Mode=OneWay}"
++                                                       TextWrapping="Wrap"
++                                                       Visibility="{Binding IsEditingDefectNotes, Converter={StaticResource InverseBoolToVis}}" />
++                                            <TextBox Text="{Binding DefectNotesDraft, UpdateSourceTrigger=PropertyChanged}"
++                                                     Style="{StaticResource ProductionDialogFieldStyle}"
++                                                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="28"
++                                                     Visibility="{Binding IsEditingDefectNotes, Converter={StaticResource BoolToVis}}"
++                                                     ToolTip="Nhập lý do không đạt" />
++                                        </Grid>
++                                    </DataTemplate>
++                                </DataGridTemplateColumn.CellTemplate>
++                            </DataGridTemplateColumn>
++                            <DataGridTemplateColumn Header="Đạt" Width="70" grid:DataGridColumnLayout.Key="Pass">
++                                <DataGridTemplateColumn.CellTemplate>
++                                    <DataTemplate>
++                                        <Button Content="Đạt"
++                                                Style="{StaticResource ProductionGridActionButtonStyle}"
++                                                Command="{Binding DataContext.MarkQcPassCommand, RelativeSource={RelativeSource AncestorType=Window}}"
++                                                CommandParameter="{Binding}" />
++                                    </DataTemplate>
++                                </DataGridTemplateColumn.CellTemplate>
++                            </DataGridTemplateColumn>
++                            <DataGridTemplateColumn Header="Không đạt" Width="170" grid:DataGridColumnLayout.Key="Fail">
++                                <DataGridTemplateColumn.CellTemplate>
++                                    <DataTemplate>
++                                        <StackPanel Orientation="Horizontal">
++                                            <Button Content="Không đạt"
++                                                    Style="{StaticResource ProductionGridActionButtonStyle}"
++                                                    Command="{Binding DataContext.BeginQcFailCommand, RelativeSource={RelativeSource AncestorType=Window}}"
++                                                    CommandParameter="{Binding}"
++                                                    Visibility="{Binding IsEditingDefectNotes, Converter={StaticResource InverseBoolToVis}}" />
++                                            <Button Content="Xác nhận"
++                                                    Style="{StaticResource ProductionGridActionButtonStyle}"
++                                                    Command="{Binding DataContext.ConfirmQcFailCommand, RelativeSource={RelativeSource AncestorType=Window}}"
++                                                    CommandParameter="{Binding}"
++                                                    Visibility="{Binding IsEditingDefectNotes, Converter={StaticResource BoolToVis}}" />
++                                            <Button Content="Hủy"
++                                                    Style="{StaticResource ProductionGridActionButtonStyle}"
++                                                    Command="{Binding DataContext.CancelQcFailCommand, RelativeSource={RelativeSource AncestorType=Window}}"
++                                                    CommandParameter="{Binding}"
++                                                    Visibility="{Binding IsEditingDefectNotes, Converter={StaticResource BoolToVis}}" />
++                                        </StackPanel>
++                                    </DataTemplate>
++                                </DataGridTemplateColumn.CellTemplate>
++                            </DataGridTemplateColumn>
++                        </DataGrid.Columns>
++                    </DataGrid>
++                </Border>
++            </DockPanel>
++
+             </Grid>
+         </ScrollViewer>
+ 
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
+index 0982b8a..342a8f9 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
+@@ -173,6 +173,26 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+                     SelectedTabIndex = step.TabIndex;
+             },
+             p => p is ProductionWorkflowStepViewModel { CanNavigate: true });
++        MarkQcPassCommand = new ParameterRelayCommand(
++            p =>
++            {
++                if (p is ProductionQcUnitViewModel unit)
++                    _ = MarkQcPassAsync(unit);
++            },
++            p => CanMarkQc && p is ProductionQcUnitViewModel unit && unit.CanMark);
++        BeginQcFailCommand = new ParameterRelayCommand(
++            p => BeginQcFail(p as ProductionQcUnitViewModel),
++            p => CanMarkQc && p is ProductionQcUnitViewModel unit && unit.CanMark && !unit.IsEditingDefectNotes);
++        ConfirmQcFailCommand = new ParameterRelayCommand(
++            p =>
++            {
++                if (p is ProductionQcUnitViewModel unit)
++                    _ = ConfirmQcFailAsync(unit);
++            },
++            p => CanMarkQc && p is ProductionQcUnitViewModel unit && unit.CanMark && unit.IsEditingDefectNotes);
++        CancelQcFailCommand = new ParameterRelayCommand(
++            p => CancelQcFail(p as ProductionQcUnitViewModel),
++            p => p is ProductionQcUnitViewModel unit && unit.IsEditingDefectNotes);
+         RefreshWorkflowSteps();
+ 
+         _ = InitializeAsync();
+@@ -185,6 +205,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+     public ObservableCollection<ProductionEmployeeOption> Employees { get; } = [];
+     public ObservableCollection<ProductionEmployeeOption> SelectedEmployees { get; } = [];
+     public ObservableCollection<SelectableEmployeeViewModel> SelectableEmployees { get; } = [];
++    public ObservableCollection<ProductionQcUnitViewModel> QcUnits { get; } = [];
++
++    /// <summary>Có món QC để hiển thị (có sau khi giao NVL).</summary>
++    public bool HasQcUnits => QcUnits.Count > 0;
++
++    /// <summary>Backend chỉ cho ghi QC khi lệnh đang IN_PROGRESS.</summary>
++    public bool CanMarkQc => IsInProgress && !IsBusy;
+ 
+     /// <summary>Tên các thợ đã chọn, cách nhau bởi dấu phẩy (hiển thị trên dropdown).</summary>
+     public string SelectedWorkerDisplayText =>
+@@ -746,6 +773,10 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+     public ICommand PrintSettlementCommand { get; }
+     public ICommand GoToCurrentWorkflowStepCommand { get; }
+     public ICommand SelectWorkflowStepCommand { get; }
++    public ICommand MarkQcPassCommand { get; }
++    public ICommand BeginQcFailCommand { get; }
++    public ICommand ConfirmQcFailCommand { get; }
++    public ICommand CancelQcFailCommand { get; }
+ 
+     private AuthenticatedSession RequireSession() =>
+         _sessionAccessor.Current ?? throw new InvalidOperationException("Phiên đăng nhập đã hết hạn.");
+@@ -1266,6 +1297,11 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+             }
+         }
+ 
++        QcUnits.Clear();
++        foreach (var qcUnit in detail.QcUnits)
++            QcUnits.Add(new ProductionQcUnitViewModel(qcUnit));
++        OnPropertyChanged(nameof(HasQcUnits));
++
+         RefreshCompletionPreview();
+         if (CanIssueMaterials)
+             await LoadStockMaterialsAsync();
+@@ -1498,6 +1534,115 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+         }
+     }
+ 
++    /// <summary>
++    /// QC đơn giản: bấm "Đạt" ghi PASS (trọng lượng/cấu thành/ảnh để trống).
++    /// Backend có thể từ chối nếu thiếu dữ liệu bắt buộc — lỗi hiện ở ErrorMessage.
++    /// </summary>
++    private async Task MarkQcPassAsync(ProductionQcUnitViewModel unit)
++    {
++        try
++        {
++            IsBusy = true;
++            ErrorMessage = string.Empty;
++
++            var draft = new ProductionQcDraft(
++                unit.QcUnitId,
++                unit.RowVersion,
++                ProductionQcResultCodes.Pass,
++                ActualGoldWeight: null,
++                ActualWeightUnitCode: null,
++                GoldPurityCode: null,
++                DefectNotes: null,
++                Components: [],
++                Images: []);
++            await _application.RecordQcAsync(draft, RequireSession());
++            await RefreshQcUnitsAsync();
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = ex.Message;
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
++    /// <summary>Hiện ô nhập ghi chú lỗi trên dòng để chuẩn bị đánh "Không đạt".</summary>
++    private void BeginQcFail(ProductionQcUnitViewModel? unit)
++    {
++        if (unit is null)
++            return;
++        ErrorMessage = string.Empty;
++        unit.DefectNotesDraft = string.Empty;
++        unit.IsEditingDefectNotes = true;
++        NotifyCommands();
++    }
++
++    /// <summary>Hủy nhập ghi chú lỗi, ẩn ô nhập.</summary>
++    private void CancelQcFail(ProductionQcUnitViewModel? unit)
++    {
++        if (unit is null)
++            return;
++        unit.IsEditingDefectNotes = false;
++        unit.DefectNotesDraft = string.Empty;
++        NotifyCommands();
++    }
++
++    /// <summary>QC đơn giản: xác nhận "Không đạt" với ghi chú lỗi bắt buộc.</summary>
++    private async Task ConfirmQcFailAsync(ProductionQcUnitViewModel unit)
++    {
++        if (string.IsNullOrWhiteSpace(unit.DefectNotesDraft))
++        {
++            ErrorMessage = "Nhập lý do lỗi trước khi xác nhận không đạt.";
++            return;
++        }
++
++        try
++        {
++            IsBusy = true;
++            ErrorMessage = string.Empty;
++
++            var draft = new ProductionQcDraft(
++                unit.QcUnitId,
++                unit.RowVersion,
++                ProductionQcResultCodes.Fail,
++                ActualGoldWeight: null,
++                ActualWeightUnitCode: null,
++                GoldPurityCode: null,
++                DefectNotes: unit.DefectNotesDraft.Trim(),
++                Components: [],
++                Images: []);
++            await _application.RecordQcAsync(draft, RequireSession());
++            await RefreshQcUnitsAsync();
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = ex.Message;
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
++    /// <summary>Nạp lại danh sách QC từ detail sau mỗi lần đánh dấu.</summary>
++    private async Task RefreshQcUnitsAsync()
++    {
++        if (_id is not long orderId)
++            return;
++
++        var detail = await _queries.GetOrderDetailAsync(orderId, _branchId);
++        if (detail is null)
++            return;
++
++        QcUnits.Clear();
++        foreach (var qcUnit in detail.QcUnits)
++            QcUnits.Add(new ProductionQcUnitViewModel(qcUnit));
++        OnPropertyChanged(nameof(HasQcUnits));
++        NotifyCommands();
++    }
++
+     /// <summary>
+     /// Lưu draft nội bộ (không hiện MessageBox), trả về true nếu thành công.
+     /// Dùng khi "Xác nhận giao vàng" mà lệnh chưa được lưu.
+@@ -1999,6 +2144,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+         OnPropertyChanged(nameof(CanIssueMaterials));
+         OnPropertyChanged(nameof(CanComplete));
+         OnPropertyChanged(nameof(CanCancel));
++        OnPropertyChanged(nameof(CanMarkQc));
+         OnPropertyChanged(nameof(StockMaterialsHint));
+         RefreshWorkflowSteps();
+         ((AsyncRelayCommand)SaveDraftCommand).NotifyCanExecuteChanged();
+@@ -2015,6 +2161,10 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+         ((AsyncRelayCommand)PrintMaterialIssueCommand).NotifyCanExecuteChanged();
+         ((AsyncRelayCommand)PrintFinishedCommand).NotifyCanExecuteChanged();
+         ((AsyncRelayCommand)PrintSettlementCommand).NotifyCanExecuteChanged();
++        ((ParameterRelayCommand)MarkQcPassCommand).NotifyCanExecuteChanged();
++        ((ParameterRelayCommand)BeginQcFailCommand).NotifyCanExecuteChanged();
++        ((ParameterRelayCommand)ConfirmQcFailCommand).NotifyCanExecuteChanged();
++        ((ParameterRelayCommand)CancelQcFailCommand).NotifyCanExecuteChanged();
+     }
+ }
+ 
+@@ -2078,6 +2228,55 @@ public sealed class ProductionGalleryItemViewModel : ObservableObject
+     }
+ }
+ 
++/// <summary>
++/// Dòng QC trong dialog lệnh sản xuất (QC đơn giản: chỉ đánh Đạt / Không đạt + ghi chú lỗi).
++/// Dữ liệu lấy từ detail.QcUnits (FirebirdProductionQueryRepository.LoadQcUnitsAsync).
++/// </summary>
++public sealed class ProductionQcUnitViewModel : ObservableObject
++{
++    private bool _isEditingDefectNotes;
++    private string _defectNotesDraft = string.Empty;
++
++    public ProductionQcUnitViewModel(ProductionQcUnitDto dto)
++    {
++        QcUnitId = dto.Id;
++        UnitNumber = dto.UnitNumber;
++        ModelName = dto.ModelName;
++        StatusCode = dto.StatusCode;
++        DefectNotes = dto.DefectNotes;
++        RowVersion = dto.RowVersion;
++    }
++
++    public long QcUnitId { get; }
++    public int UnitNumber { get; }
++    public string ModelName { get; }
++    public string StatusCode { get; }
++    public string? DefectNotes { get; }
++    public long RowVersion { get; }
++
++    public string StatusDisplay => ProductionQcUnitStatuses.ToDisplay(StatusCode);
++
++    /// <summary>
++    /// QC đơn giản chỉ cho đánh dấu món chưa Đạt; món đã Đạt cần luồng Điều chỉnh QC riêng.
++    /// </summary>
++    public bool CanMark =>
++        string.Equals(StatusCode, ProductionQcUnitStatuses.Pending, StringComparison.OrdinalIgnoreCase)
++        || string.Equals(StatusCode, ProductionQcUnitStatuses.ReworkRequired, StringComparison.OrdinalIgnoreCase);
++
++    /// <summary>True khi đang hiện ô nhập ghi chú lỗi để xác nhận "Không đạt".</summary>
++    public bool IsEditingDefectNotes
++    {
++        get => _isEditingDefectNotes;
++        set => SetProperty(ref _isEditingDefectNotes, value);
++    }
++
++    public string DefectNotesDraft
++    {
++        get => _defectNotesDraft;
++        set => SetProperty(ref _defectNotesDraft, value);
++    }
++}
++
+ public sealed class ProductionSalesOrderItemViewModel
+ {
+     public ProductionSalesOrderItemViewModel(ProductionSalesOrderOption option)
+-- 
+2.43.0
+
