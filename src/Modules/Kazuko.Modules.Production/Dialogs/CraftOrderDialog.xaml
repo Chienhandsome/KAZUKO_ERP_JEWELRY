@@ -53,47 +53,16 @@
                                 <ColumnDefinition Width="8" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Grid>
-                                <TextBox x:Name="CustomerSearchBox"
-                                         Text="{Binding CustomerSearch, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ProductionDialogFieldStyle}"
-                                         Margin="0"
-                                         ToolTip="Gõ mã, tên hoặc SĐT để xem gợi ý" />
-                                <Popup IsOpen="{Binding IsCustomerSuggestionsOpen}"
-                                       PlacementTarget="{Binding ElementName=CustomerSearchBox}"
-                                       Placement="Bottom"
-                                       StaysOpen="False"
-                                       AllowsTransparency="True"
-                                       PopupAnimation="Fade">
-                                    <Border Background="{DynamicResource SurfaceBrush}"
-                                            BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="1"
-                                            MinWidth="{Binding ActualWidth, ElementName=CustomerSearchBox}"
-                                            MaxHeight="220"
-                                            Padding="0">
-                                        <ListBox ItemsSource="{Binding Customers}"
-                                                 BorderThickness="0"
-                                                 Background="Transparent"
-                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                                 MaxHeight="220">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Button Content="{Binding DisplayText}"
-                                                            Command="{Binding DataContext.SelectCustomerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                            CommandParameter="{Binding}"
-                                                            HorizontalContentAlignment="Left"
-                                                            Background="Transparent"
-                                                            BorderThickness="0"
-                                                            Padding="10,8"
-                                                            Cursor="Hand"
-                                                            FontSize="{DynamicResource FontSize.Body}"
-                                                            Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                        </ListBox>
-                                    </Border>
-                                </Popup>
-                            </Grid>
+                            <ComboBox IsEditable="True"
+                                      IsTextSearchEnabled="False"
+                                      Text="{Binding CustomerSearch, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{Binding Customers}"
+                                      DisplayMemberPath="DisplayText"
+                                      SelectedItem="{Binding SelectedCustomer}"
+                                      IsDropDownOpen="{Binding IsCustomerSuggestionsOpen, Mode=TwoWay}"
+                                      Style="{StaticResource ProductionDialogComboStyle}"
+                                      Margin="0"
+                                      ToolTip="Gõ mã, tên hoặc SĐT để tìm khách hàng" />
                             <Button Grid.Column="2"
                                     Content="+"
                                     Style="{StaticResource ProductionOutlineButtonStyle}"
@@ -120,82 +89,64 @@
                 <Border Style="{StaticResource ProductionCardStyle}" Margin="0,0,0,12">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,8">
-                            <Button DockPanel.Dock="Right" Content="Thêm mẫu"
-                                    Style="{StaticResource ProductionOutlineButtonStyle}"
+                            <Button DockPanel.Dock="Right" Content="+ Thêm mẫu"
                                     Command="{Binding AddLineCommand}"
-                                    MinHeight="32" />
-                            <TextBlock Text="Mẫu báo giá" Style="{StaticResource ProductionSectionHeaderStyle}"
-                                       VerticalAlignment="Center" />
+                                    Style="{StaticResource ProductionPrimaryButtonStyle}"
+                                    MinHeight="36" MinWidth="110" />
+                            <StackPanel>
+                                <TextBlock Text="Mẫu báo giá" Style="{StaticResource ProductionSectionHeaderStyle}" />
+                                <TextBlock Text="Mở cùng biểu mẫu sản phẩm của lệnh sản xuất; hỗ trợ mã mẫu, ảnh và file thiết kế."
+                                           Style="{StaticResource ProductionHintStyle}" />
+                            </StackPanel>
                         </DockPanel>
-                        <ItemsControl ItemsSource="{Binding Lines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,10">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="2*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                <TextBlock Text="Tên mẫu *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                                <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                                <TextBlock Text="Tuổi vàng *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                                <ComboBox ItemsSource="{Binding DataContext.GoldTypes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                          SelectedValue="{Binding GoldPurity}"
-                                                          SelectedValuePath="Code"
-                                                          DisplayMemberPath="Code"
-                                                          Style="{StaticResource ProductionDialogComboStyle}"
-                                                          Margin="0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2" Margin="0,0,8,0" MinWidth="64">
-                                                <TextBlock Text="SL *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                                <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="3" Margin="0,0,8,0">
-                                                <TextBlock Text="TL (chỉ)" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                                <TextBox Text="{Binding EstimatedWeightChi, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="4" Margin="0,0,8,0">
-                                                <TextBlock Text="Giá vàng" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                                <TextBox Text="{Binding GoldUnitPricePerChi, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="5" Margin="0,0,8,0">
-                                                <TextBlock Text="Tiền công" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                                <TextBox Text="{Binding LaborAmountPerUnitVnd, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="6" Margin="0,0,8,0">
-                                                <TextBlock Text="Đá" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                                <TextBox Text="{Binding StoneAmountPerUnitVnd, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="7" VerticalAlignment="Bottom">
-                                                <TextBlock Text="{Binding LineTotalDisplay}" Margin="0,0,0,6"
-                                                           FontWeight="SemiBold" />
+                        <DataGrid ItemsSource="{Binding Lines}"
+                                  Style="{StaticResource ProductionDataGridStyle}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  Margin="0,0,0,8"
+                                  MaxHeight="220">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="STT" Binding="{Binding LineNumber}" Width="50"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="Mã mẫu" Binding="{Binding ModelCode}" Width="105"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="Tên mẫu" Binding="{Binding ModelName}" Width="*"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding GoldTypeCode}" Width="80"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="SL" Binding="{Binding PlannedQuantity}" Width="60"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="TL (chỉ)" Binding="{Binding EstimatedWeightChi}" Width="80"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="Giá vàng" Binding="{Binding GoldUnitPricePerChi, StringFormat=N0}" Width="100"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="Tiền công" Binding="{Binding LaborCostPerUnit, StringFormat=N0}" Width="110"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="Đính kèm" Binding="{Binding AttachmentSummary}" Width="100"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Header="Thành tiền" Binding="{Binding QuoteLineTotal, StringFormat=N0}" Width="120"
+                                                    IsReadOnly="True" />
+                                <DataGridTemplateColumn Header="" Width="120">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="Sửa"
+                                                        Command="{Binding DataContext.EditLineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource ProductionOutlineButtonStyle}"
+                                                        MinHeight="28" Padding="8,2" Margin="0,0,4,0" />
                                                 <Button Content="Xóa"
                                                         Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"
                                                         Style="{StaticResource ProductionOutlineButtonStyle}"
-                                                        MinHeight="32" />
+                                                        MinHeight="28" Padding="8,2" />
                                             </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
                         <TextBlock Text="{Binding QuotedTotalDisplay, StringFormat=Tổng báo giá: {0}}"
                                    FontWeight="SemiBold"
                                    FontSize="{DynamicResource FontSize.Body}" />
@@ -205,31 +156,43 @@
                 <Border Style="{StaticResource ProductionCardStyle}">
                     <StackPanel>
                         <TextBlock Text="Đặt cọc" Style="{StaticResource ProductionSectionHeaderStyle}" />
-                        <TextBlock Text="Số tiền cọc *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                        <TextBox Text="{Binding DepositAmount, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource ProductionDialogFieldStyle}" />
-                        <TextBlock Text="Phương thức" Style="{StaticResource ProductionFieldLabelStyle}" />
-                        <ComboBox ItemsSource="{Binding PaymentMethodOptions}"
-                                  SelectedItem="{Binding SelectedPaymentMethodOption}"
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Tiền mặt (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
+                                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                <TextBlock Text="Chuyển khoản (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
+                                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Thẻ (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
+                                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="{Binding DepositTotalDisplay, StringFormat=Tổng cọc: {0}}"
+                                   FontWeight="SemiBold"
+                                   FontSize="{DynamicResource FontSize.Body}"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="Quỹ tiền mặt" Style="{StaticResource ProductionFieldLabelStyle}" />
+                        <ComboBox ItemsSource="{Binding CashFunds}"
+                                  SelectedItem="{Binding SelectedCashFund}"
+                                  DisplayMemberPath="DisplayName"
+                                  Style="{StaticResource ProductionDialogComboStyle}"
+                                  Margin="0,0,0,8" />
+                        <TextBlock Text="Tài khoản NH" Style="{StaticResource ProductionFieldLabelStyle}" />
+                        <ComboBox ItemsSource="{Binding BankAccounts}"
+                                  SelectedItem="{Binding SelectedBankAccount}"
                                   DisplayMemberPath="DisplayName"
                                   Style="{StaticResource ProductionDialogComboStyle}" />
-                        <StackPanel Visibility="{Binding RequiresCashFund, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="Quỹ tiền mặt *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <ComboBox ItemsSource="{Binding CashFunds}"
-                                      SelectedItem="{Binding SelectedCashFund}"
-                                      DisplayMemberPath="DisplayName"
-                                      Style="{StaticResource ProductionDialogComboStyle}" />
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding RequiresBankAccount, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="Tài khoản NH *" Style="{StaticResource ProductionFieldLabelStyle}" />
-                            <ComboBox ItemsSource="{Binding BankAccounts}"
-                                      SelectedItem="{Binding SelectedBankAccount}"
-                                      DisplayMemberPath="DisplayName"
-                                      Style="{StaticResource ProductionDialogComboStyle}" />
-                        </StackPanel>
-                        <TextBlock Text="Tham chiếu" Style="{StaticResource ProductionFieldLabelStyle}" />
-                        <TextBox Text="{Binding PaymentReference, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource ProductionDialogFieldStyle}" />
                     </StackPanel>
                 </Border>
             </StackPanel>

@@ -1,0 +1,623 @@
+From 79e850f589935744a9ffc736afa03f87a8b5a976 Mon Sep 17 00:00:00 2001
+From: Muse <muse@hatch.local>
+Date: Thu, 15 Oct 2026 07:30:12 +0000
+Subject: [PATCH] feat(production): redesign craft order dialog (customer
+ combobox, draft-line entry, 3-field deposit)
+
+---
+ .../Dialogs/CraftOrderDialog.xaml             | 284 +++++++++---------
+ .../Dialogs/CraftOrderDialogViewModel.cs      | 173 ++++++-----
+ 2 files changed, 239 insertions(+), 218 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml b/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml
+index c7186df..dae25ee 100644
+--- a/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml
+@@ -53,47 +53,16 @@
+                                 <ColumnDefinition Width="8" />
+                                 <ColumnDefinition Width="Auto" />
+                             </Grid.ColumnDefinitions>
+-                            <Grid>
+-                                <TextBox x:Name="CustomerSearchBox"
+-                                         Text="{Binding CustomerSearch, UpdateSourceTrigger=PropertyChanged}"
+-                                         Style="{StaticResource ProductionDialogFieldStyle}"
+-                                         Margin="0"
+-                                         ToolTip="Gõ mã, tên hoặc SĐT để xem gợi ý" />
+-                                <Popup IsOpen="{Binding IsCustomerSuggestionsOpen}"
+-                                       PlacementTarget="{Binding ElementName=CustomerSearchBox}"
+-                                       Placement="Bottom"
+-                                       StaysOpen="False"
+-                                       AllowsTransparency="True"
+-                                       PopupAnimation="Fade">
+-                                    <Border Background="{DynamicResource SurfaceBrush}"
+-                                            BorderBrush="{DynamicResource BorderBrush}"
+-                                            BorderThickness="1"
+-                                            MinWidth="{Binding ActualWidth, ElementName=CustomerSearchBox}"
+-                                            MaxHeight="220"
+-                                            Padding="0">
+-                                        <ListBox ItemsSource="{Binding Customers}"
+-                                                 BorderThickness="0"
+-                                                 Background="Transparent"
+-                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+-                                                 MaxHeight="220">
+-                                            <ListBox.ItemTemplate>
+-                                                <DataTemplate>
+-                                                    <Button Content="{Binding DisplayText}"
+-                                                            Command="{Binding DataContext.SelectCustomerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+-                                                            CommandParameter="{Binding}"
+-                                                            HorizontalContentAlignment="Left"
+-                                                            Background="Transparent"
+-                                                            BorderThickness="0"
+-                                                            Padding="10,8"
+-                                                            Cursor="Hand"
+-                                                            FontSize="{DynamicResource FontSize.Body}"
+-                                                            Foreground="{DynamicResource TextPrimaryBrush}" />
+-                                                </DataTemplate>
+-                                            </ListBox.ItemTemplate>
+-                                        </ListBox>
+-                                    </Border>
+-                                </Popup>
+-                            </Grid>
++                            <ComboBox IsEditable="True"
++                                      IsTextSearchEnabled="False"
++                                      Text="{Binding CustomerSearch, UpdateSourceTrigger=PropertyChanged}"
++                                      ItemsSource="{Binding Customers}"
++                                      DisplayMemberPath="DisplayText"
++                                      SelectedItem="{Binding SelectedCustomer}"
++                                      IsDropDownOpen="{Binding IsCustomerSuggestionsOpen, Mode=TwoWay}"
++                                      Style="{StaticResource ProductionDialogComboStyle}"
++                                      Margin="0"
++                                      ToolTip="Gõ mã, tên hoặc SĐT để tìm khách hàng" />
+                             <Button Grid.Column="2"
+                                     Content="+"
+                                     Style="{StaticResource ProductionOutlineButtonStyle}"
+@@ -119,83 +88,104 @@
+ 
+                 <Border Style="{StaticResource ProductionCardStyle}" Margin="0,0,0,12">
+                     <StackPanel>
+-                        <DockPanel Margin="0,0,0,8">
+-                            <Button DockPanel.Dock="Right" Content="Thêm mẫu"
+-                                    Style="{StaticResource ProductionOutlineButtonStyle}"
+-                                    Command="{Binding AddLineCommand}"
+-                                    MinHeight="32" />
+-                            <TextBlock Text="Mẫu báo giá" Style="{StaticResource ProductionSectionHeaderStyle}"
+-                                       VerticalAlignment="Center" />
+-                        </DockPanel>
+-                        <ItemsControl ItemsSource="{Binding Lines}">
+-                            <ItemsControl.ItemTemplate>
+-                                <DataTemplate>
+-                                    <Border BorderBrush="{DynamicResource BorderBrush}"
+-                                            BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,10">
+-                                        <Grid>
+-                                            <Grid.ColumnDefinitions>
+-                                                <ColumnDefinition Width="2*" />
+-                                                <ColumnDefinition Width="*" />
+-                                                <ColumnDefinition Width="Auto" />
+-                                                <ColumnDefinition Width="*" />
+-                                                <ColumnDefinition Width="*" />
+-                                                <ColumnDefinition Width="*" />
+-                                                <ColumnDefinition Width="*" />
+-                                                <ColumnDefinition Width="Auto" />
+-                                            </Grid.ColumnDefinitions>
+-                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+-                                                <TextBlock Text="Tên mẫu *" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                                <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"
+-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+-                                            </StackPanel>
+-                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+-                                                <TextBlock Text="Tuổi vàng *" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                                <ComboBox ItemsSource="{Binding DataContext.GoldTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+-                                                          SelectedValue="{Binding GoldPurity}"
+-                                                          SelectedValuePath="Code"
+-                                                          DisplayMemberPath="Code"
+-                                                          Style="{StaticResource ProductionDialogComboStyle}"
+-                                                          Margin="0" />
+-                                            </StackPanel>
+-                                            <StackPanel Grid.Column="2" Margin="0,0,8,0" MinWidth="64">
+-                                                <TextBlock Text="SL *" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                                <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}"
+-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+-                                            </StackPanel>
+-                                            <StackPanel Grid.Column="3" Margin="0,0,8,0">
+-                                                <TextBlock Text="TL (chỉ)" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                                <TextBox Text="{Binding EstimatedWeightChi, UpdateSourceTrigger=PropertyChanged}"
+-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+-                                            </StackPanel>
+-                                            <StackPanel Grid.Column="4" Margin="0,0,8,0">
+-                                                <TextBlock Text="Giá vàng" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                                <TextBox Text="{Binding GoldUnitPricePerChi, UpdateSourceTrigger=PropertyChanged}"
+-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+-                                            </StackPanel>
+-                                            <StackPanel Grid.Column="5" Margin="0,0,8,0">
+-                                                <TextBlock Text="Tiền công" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                                <TextBox Text="{Binding LaborAmountPerUnitVnd, UpdateSourceTrigger=PropertyChanged}"
+-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+-                                            </StackPanel>
+-                                            <StackPanel Grid.Column="6" Margin="0,0,8,0">
+-                                                <TextBlock Text="Đá" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                                <TextBox Text="{Binding StoneAmountPerUnitVnd, UpdateSourceTrigger=PropertyChanged}"
+-                                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+-                                            </StackPanel>
+-                                            <StackPanel Grid.Column="7" VerticalAlignment="Bottom">
+-                                                <TextBlock Text="{Binding LineTotalDisplay}" Margin="0,0,0,6"
+-                                                           FontWeight="SemiBold" />
+-                                                <Button Content="Xóa"
+-                                                        Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+-                                                        CommandParameter="{Binding}"
+-                                                        Style="{StaticResource ProductionOutlineButtonStyle}"
+-                                                        MinHeight="32" />
+-                                            </StackPanel>
+-                                        </Grid>
+-                                    </Border>
+-                                </DataTemplate>
+-                            </ItemsControl.ItemTemplate>
+-                        </ItemsControl>
++                        <TextBlock Text="Mẫu báo giá" Style="{StaticResource ProductionSectionHeaderStyle}"
++                                   Margin="0,0,0,8" />
++                        <Grid Margin="0,0,0,8">
++                            <Grid.ColumnDefinitions>
++                                <ColumnDefinition Width="2*" />
++                                <ColumnDefinition Width="*" />
++                                <ColumnDefinition Width="Auto" />
++                                <ColumnDefinition Width="*" />
++                                <ColumnDefinition Width="*" />
++                                <ColumnDefinition Width="*" />
++                                <ColumnDefinition Width="*" />
++                                <ColumnDefinition Width="Auto" />
++                            </Grid.ColumnDefinitions>
++                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
++                                <TextBlock Text="Tên mẫu *" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding DraftLine.ModelName, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
++                                <TextBlock Text="Tuổi vàng *" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <ComboBox ItemsSource="{Binding GoldTypes}"
++                                          SelectedValue="{Binding DraftLine.GoldPurity}"
++                                          SelectedValuePath="Code"
++                                          DisplayMemberPath="Code"
++                                          Style="{StaticResource ProductionDialogComboStyle}"
++                                          Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="2" Margin="0,0,8,0" MinWidth="64">
++                                <TextBlock Text="SL (món) *" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding DraftLine.Quantity, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="3" Margin="0,0,8,0">
++                                <TextBlock Text="TL (chỉ)" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding DraftLine.EstimatedWeightChi, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="4" Margin="0,0,8,0">
++                                <TextBlock Text="Giá vàng" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding DraftLine.GoldUnitPricePerChi, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="5" Margin="0,0,8,0">
++                                <TextBlock Text="Tiền công (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding DraftLine.LaborAmountPerUnitVnd, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="6" Margin="0,0,8,0">
++                                <TextBlock Text="Đá (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding DraftLine.StoneAmountPerUnitVnd, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="7" VerticalAlignment="Bottom">
++                                <Button Content="Thêm"
++                                        Command="{Binding AddLineCommand}"
++                                        Style="{StaticResource ProductionPrimaryButtonStyle}"
++                                        MinHeight="36" MinWidth="80" />
++                            </StackPanel>
++                        </Grid>
++                        <DataGrid ItemsSource="{Binding Lines}"
++                                  Style="{StaticResource ProductionDataGridStyle}"
++                                  AutoGenerateColumns="False"
++                                  CanUserAddRows="False"
++                                  CanUserDeleteRows="False"
++                                  Margin="0,0,0,8"
++                                  MaxHeight="220">
++                            <DataGrid.Columns>
++                                <DataGridTextColumn Header="STT" Binding="{Binding LineNumber}" Width="50"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="Tên mẫu" Binding="{Binding ModelName}" Width="*"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="Tuổi vàng" Binding="{Binding GoldPurity}" Width="80"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="SL" Binding="{Binding Quantity}" Width="60"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="TL (chỉ)" Binding="{Binding EstimatedWeightChi}" Width="80"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="Giá vàng" Binding="{Binding GoldUnitPricePerChi, StringFormat=N0}" Width="100"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="Tiền công" Binding="{Binding LaborAmountPerUnitVnd, StringFormat=N0}" Width="110"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="Đá" Binding="{Binding StoneAmountPerUnitVnd, StringFormat=N0}" Width="100"
++                                                    IsReadOnly="True" />
++                                <DataGridTextColumn Header="Thành tiền" Binding="{Binding LineTotalDisplay}" Width="120"
++                                                    IsReadOnly="True" />
++                                <DataGridTemplateColumn Header="" Width="70">
++                                    <DataGridTemplateColumn.CellTemplate>
++                                        <DataTemplate>
++                                            <Button Content="Xóa"
++                                                    Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
++                                                    CommandParameter="{Binding}"
++                                                    Style="{StaticResource ProductionOutlineButtonStyle}"
++                                                    MinHeight="28" Padding="8,2" />
++                                        </DataTemplate>
++                                    </DataGridTemplateColumn.CellTemplate>
++                                </DataGridTemplateColumn>
++                            </DataGrid.Columns>
++                        </DataGrid>
+                         <TextBlock Text="{Binding QuotedTotalDisplay, StringFormat=Tổng báo giá: {0}}"
+                                    FontWeight="SemiBold"
+                                    FontSize="{DynamicResource FontSize.Body}" />
+@@ -205,31 +195,43 @@
+                 <Border Style="{StaticResource ProductionCardStyle}">
+                     <StackPanel>
+                         <TextBlock Text="Đặt cọc" Style="{StaticResource ProductionSectionHeaderStyle}" />
+-                        <TextBlock Text="Số tiền cọc *" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                        <TextBox Text="{Binding DepositAmount, UpdateSourceTrigger=PropertyChanged}"
+-                                 Style="{StaticResource ProductionDialogFieldStyle}" />
+-                        <TextBlock Text="Phương thức" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                        <ComboBox ItemsSource="{Binding PaymentMethodOptions}"
+-                                  SelectedItem="{Binding SelectedPaymentMethodOption}"
++                        <Grid Margin="0,0,0,8">
++                            <Grid.ColumnDefinitions>
++                                <ColumnDefinition Width="*" />
++                                <ColumnDefinition Width="*" />
++                                <ColumnDefinition Width="*" />
++                            </Grid.ColumnDefinitions>
++                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
++                                <TextBlock Text="Tiền mặt (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
++                                <TextBlock Text="Chuyển khoản (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                            <StackPanel Grid.Column="2">
++                                <TextBlock Text="Thẻ (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
++                                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged}"
++                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
++                            </StackPanel>
++                        </Grid>
++                        <TextBlock Text="{Binding DepositTotalDisplay, StringFormat=Tổng cọc: {0}}"
++                                   FontWeight="SemiBold"
++                                   FontSize="{DynamicResource FontSize.Body}"
++                                   Margin="0,0,0,8" />
++                        <TextBlock Text="Quỹ tiền mặt" Style="{StaticResource ProductionFieldLabelStyle}" />
++                        <ComboBox ItemsSource="{Binding CashFunds}"
++                                  SelectedItem="{Binding SelectedCashFund}"
++                                  DisplayMemberPath="DisplayName"
++                                  Style="{StaticResource ProductionDialogComboStyle}"
++                                  Margin="0,0,0,8" />
++                        <TextBlock Text="Tài khoản NH" Style="{StaticResource ProductionFieldLabelStyle}" />
++                        <ComboBox ItemsSource="{Binding BankAccounts}"
++                                  SelectedItem="{Binding SelectedBankAccount}"
+                                   DisplayMemberPath="DisplayName"
+                                   Style="{StaticResource ProductionDialogComboStyle}" />
+-                        <StackPanel Visibility="{Binding RequiresCashFund, Converter={StaticResource BoolToVis}}">
+-                            <TextBlock Text="Quỹ tiền mặt *" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                            <ComboBox ItemsSource="{Binding CashFunds}"
+-                                      SelectedItem="{Binding SelectedCashFund}"
+-                                      DisplayMemberPath="DisplayName"
+-                                      Style="{StaticResource ProductionDialogComboStyle}" />
+-                        </StackPanel>
+-                        <StackPanel Visibility="{Binding RequiresBankAccount, Converter={StaticResource BoolToVis}}">
+-                            <TextBlock Text="Tài khoản NH *" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                            <ComboBox ItemsSource="{Binding BankAccounts}"
+-                                      SelectedItem="{Binding SelectedBankAccount}"
+-                                      DisplayMemberPath="DisplayName"
+-                                      Style="{StaticResource ProductionDialogComboStyle}" />
+-                        </StackPanel>
+-                        <TextBlock Text="Tham chiếu" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                        <TextBox Text="{Binding PaymentReference, UpdateSourceTrigger=PropertyChanged}"
+-                                 Style="{StaticResource ProductionDialogFieldStyle}" />
+                     </StackPanel>
+                 </Border>
+             </StackPanel>
+diff --git a/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialogViewModel.cs b/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialogViewModel.cs
+index ce66a24..bed9ab8 100644
+--- a/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialogViewModel.cs
+@@ -28,11 +28,11 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+     private CancellationTokenSource? _customerSearchCts;
+     private DateTime _orderDate = DateTime.Today;
+     private string _notes = string.Empty;
+-    private decimal _depositAmount;
+-    private string _paymentMethod = PaymentMethods.Cash;
++    private decimal _cashAmount;
++    private decimal _transferAmount;
++    private decimal _cardAmount;
+     private CashFundOption? _selectedCashFund;
+     private BankAccountOption? _selectedBankAccount;
+-    private string _paymentReference = string.Empty;
+     private string _errorMessage = string.Empty;
+     private string _statusMessage = string.Empty;
+     private bool _isBusy;
+@@ -53,24 +53,20 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+         _goldTypes = goldTypes;
+         _customerEditor = customerEditor;
+ 
+-        SelectCustomerCommand = new ParameterRelayCommand(
+-            p => SelectCustomer(p as CraftCustomerOption),
+-            p => p is CraftCustomerOption && !IsBusy);
+         CreateCustomerCommand = new RelayCommand(CreateCustomer, () => !IsBusy && _customerEditor is not null);
+-        CloseCustomerSuggestionsCommand = new RelayCommand(() => IsCustomerSuggestionsOpen = false);
+         AddLineCommand = new RelayCommand(AddLine, () => !IsBusy);
+         RemoveLineCommand = new ParameterRelayCommand(
+             p =>
+             {
+-                if (p is CraftOrderLineEditorRow row && Lines.Count > 1)
+-                    Lines.Remove(row);
++                if (p is CraftOrderLineEditorRow row && Lines.Remove(row))
++                    RenumberLines();
+                 RecalcTotals();
+             },
+-            p => !IsBusy && Lines.Count > 1 && p is CraftOrderLineEditorRow);
++            p => !IsBusy && Lines.Count > 0 && p is CraftOrderLineEditorRow);
+         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
+         CloseCommand = new RelayCommand(() => RequestClose?.Invoke(_created is not null));
+ 
+-        Lines.Add(new CraftOrderLineEditorRow(RecalcTotals));
++        DraftLine = new CraftOrderLineEditorRow(RecalcTotals);
+         _ = InitializeAsync();
+     }
+ 
+@@ -82,29 +78,9 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+     public ObservableCollection<BankAccountOption> BankAccounts { get; } = [];
+     public ObservableCollection<GoldTypeOption> GoldTypes { get; } = [];
+ 
+-    public IReadOnlyList<CraftPaymentMethodOption> PaymentMethodOptions { get; } =
+-    [
+-        new(PaymentMethods.Cash, "Tiền mặt"),
+-        new(PaymentMethods.BankTransfer, "Chuyển khoản"),
+-        new(PaymentMethods.Card, "Thẻ")
+-    ];
++    public CraftOrderLineEditorRow DraftLine { get; private set; }
+ 
+-    public CraftPaymentMethodOption? SelectedPaymentMethodOption
+-    {
+-        get => PaymentMethodOptions.FirstOrDefault(x =>
+-            string.Equals(x.Code, PaymentMethod, StringComparison.OrdinalIgnoreCase));
+-        set
+-        {
+-            if (value is null)
+-                return;
+-            PaymentMethod = value.Code;
+-            OnPropertyChanged(nameof(SelectedPaymentMethodOption));
+-        }
+-    }
+-
+-    public ICommand SelectCustomerCommand { get; }
+     public ICommand CreateCustomerCommand { get; }
+-    public ICommand CloseCustomerSuggestionsCommand { get; }
+     public ICommand AddLineCommand { get; }
+     public ICommand RemoveLineCommand { get; }
+     public ICommand SaveCommand { get; }
+@@ -140,8 +116,15 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+         get => _selectedCustomer;
+         set
+         {
++            if (value is not null && value.IsWalkIn)
++            {
++                ErrorMessage = "Đơn đặt không dùng khách lẻ. Chọn khách có hồ sơ.";
++                OnPropertyChanged(nameof(SelectedCustomer));
++                return;
++            }
+             if (!SetProperty(ref _selectedCustomer, value))
+                 return;
++            ErrorMessage = string.Empty;
+             OnPropertyChanged(nameof(SelectedCustomerHint));
+             OnPropertyChanged(nameof(HasSelectedCustomer));
+             if (value is null)
+@@ -182,35 +165,51 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+ 
+     public string QuotedTotalDisplay => QuotedTotal.ToString("N0", Vi) + " đ";
+ 
+-    public decimal DepositAmount
++    public decimal CashAmount
++    {
++        get => _cashAmount;
++        set
++        {
++            if (SetProperty(ref _cashAmount, value))
++            {
++                OnPropertyChanged(nameof(DepositTotal));
++                OnPropertyChanged(nameof(DepositTotalDisplay));
++                NotifyCommands();
++            }
++        }
++    }
++
++    public decimal TransferAmount
+     {
+-        get => _depositAmount;
++        get => _transferAmount;
+         set
+         {
+-            if (SetProperty(ref _depositAmount, value))
++            if (SetProperty(ref _transferAmount, value))
++            {
++                OnPropertyChanged(nameof(DepositTotal));
++                OnPropertyChanged(nameof(DepositTotalDisplay));
+                 NotifyCommands();
++            }
+         }
+     }
+ 
+-    public string PaymentMethod
++    public decimal CardAmount
+     {
+-        get => _paymentMethod;
++        get => _cardAmount;
+         set
+         {
+-            if (!SetProperty(ref _paymentMethod, value))
+-                return;
+-            OnPropertyChanged(nameof(RequiresCashFund));
+-            OnPropertyChanged(nameof(RequiresBankAccount));
+-            OnPropertyChanged(nameof(SelectedPaymentMethodOption));
++            if (SetProperty(ref _cardAmount, value))
++            {
++                OnPropertyChanged(nameof(DepositTotal));
++                OnPropertyChanged(nameof(DepositTotalDisplay));
++                NotifyCommands();
++            }
+         }
+     }
+ 
+-    public bool RequiresCashFund =>
+-        string.Equals(PaymentMethod, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase);
++    public decimal DepositTotal => CashAmount + TransferAmount + CardAmount;
+ 
+-    public bool RequiresBankAccount =>
+-        string.Equals(PaymentMethod, PaymentMethods.BankTransfer, StringComparison.OrdinalIgnoreCase)
+-        || string.Equals(PaymentMethod, PaymentMethods.Card, StringComparison.OrdinalIgnoreCase);
++    public string DepositTotalDisplay => DepositTotal.ToString("N0", Vi) + " đ";
+ 
+     public CashFundOption? SelectedCashFund
+     {
+@@ -224,12 +223,6 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+         set => SetProperty(ref _selectedBankAccount, value);
+     }
+ 
+-    public string PaymentReference
+-    {
+-        get => _paymentReference;
+-        set => SetProperty(ref _paymentReference, value);
+-    }
+-
+     public string ErrorMessage
+     {
+         get => _errorMessage;
+@@ -338,20 +331,6 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+         }
+     }
+ 
+-    private void SelectCustomer(CraftCustomerOption? customer)
+-    {
+-        if (customer is null)
+-            return;
+-        if (customer.IsWalkIn)
+-        {
+-            ErrorMessage = "Đơn đặt không dùng khách lẻ. Chọn khách có hồ sơ.";
+-            return;
+-        }
+-
+-        ErrorMessage = string.Empty;
+-        SelectedCustomer = customer;
+-    }
+-
+     private void CreateCustomer()
+     {
+         if (_customerEditor is null)
+@@ -394,17 +373,45 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+ 
+     private void AddLine()
+     {
+-        Lines.Add(new CraftOrderLineEditorRow(RecalcTotals));
++        var draft = DraftLine.ToDraft();
++        if (string.IsNullOrWhiteSpace(draft.ModelName))
++        {
++            ErrorMessage = "Nhập tên mẫu.";
++            return;
++        }
++        if (string.IsNullOrWhiteSpace(draft.GoldPurity))
++        {
++            ErrorMessage = "Chọn tuổi vàng.";
++            return;
++        }
++        if (draft.Quantity <= 0)
++        {
++            ErrorMessage = "Số lượng phải > 0.";
++            return;
++        }
++
++        ErrorMessage = string.Empty;
++        Lines.Add(DraftLine);
++        DraftLine = new CraftOrderLineEditorRow(RecalcTotals);
++        OnPropertyChanged(nameof(DraftLine));
++        RenumberLines();
+         RecalcTotals();
+     }
+ 
++    private void RenumberLines()
++    {
++        var no = 0;
++        foreach (var line in Lines)
++            line.LineNumber = ++no;
++    }
++
+     private void RecalcTotals()
+     {
+         QuotedTotal = Lines.Sum(x => x.LineTotal);
+         OnPropertyChanged(nameof(QuotedTotal));
+         OnPropertyChanged(nameof(QuotedTotalDisplay));
+-        if (DepositAmount <= 0 && QuotedTotal > 0)
+-            DepositAmount = Math.Round(QuotedTotal * 0.3m, 0, MidpointRounding.AwayFromZero);
++        if (DepositTotal <= 0 && QuotedTotal > 0)
++            CashAmount = Math.Round(QuotedTotal * 0.3m, 0, MidpointRounding.AwayFromZero);
+     }
+ 
+     private async Task SaveAsync()
+@@ -419,19 +426,24 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
+                 throw new InvalidOperationException("Chọn khách hàng đặt hàng.");
+ 
+             var lineDrafts = Lines.Select(x => x.ToDraft()).ToList();
+-            var allocation = new PaymentAllocationDraft(
+-                PaymentMethod,
+-                DepositAmount,
+-                RequiresCashFund ? SelectedCashFund?.Id : null,
+-                RequiresBankAccount ? SelectedBankAccount?.Id : null,
+-                string.IsNullOrWhiteSpace(PaymentReference) ? null : PaymentReference.Trim());
++
++            var allocations = new List<PaymentAllocationDraft>();
++            if (CashAmount > 0)
++                allocations.Add(new PaymentAllocationDraft(
++                    PaymentMethods.Cash, CashAmount, SelectedCashFund?.Id, null, null));
++            if (TransferAmount > 0)
++                allocations.Add(new PaymentAllocationDraft(
++                    PaymentMethods.BankTransfer, TransferAmount, null, SelectedBankAccount?.Id, null));
++            if (CardAmount > 0)
++                allocations.Add(new PaymentAllocationDraft(
++                    PaymentMethods.Card, CardAmount, null, SelectedBankAccount?.Id, null));
+ 
+             var draft = new CraftOrderDraft(
+                 SelectedCustomer.Id,
+                 OrderDate,
+                 session.UserId > 0 ? session.UserId : null,
+                 lineDrafts,
+-                [allocation],
++                allocations,
+                 string.IsNullOrWhiteSpace(Notes) ? null : Notes.Trim());
+ 
+             _created = await _craftOrders.CreateWithDepositAsync(draft, session);
+@@ -466,6 +478,7 @@ public sealed record CraftPaymentMethodOption(string Code, string DisplayName);
+ public sealed class CraftOrderLineEditorRow : ObservableObject
+ {
+     private readonly Action _onChanged;
++    private int _lineNumber;
+     private string _modelName = string.Empty;
+     private string _goldPurity = string.Empty;
+     private int _quantity = 1;
+@@ -476,6 +489,12 @@ public sealed class CraftOrderLineEditorRow : ObservableObject
+ 
+     public CraftOrderLineEditorRow(Action onChanged) => _onChanged = onChanged;
+ 
++    public int LineNumber
++    {
++        get => _lineNumber;
++        set => SetProperty(ref _lineNumber, value);
++    }
++
+     public string ModelName
+     {
+         get => _modelName;
+-- 
+2.43.0
+

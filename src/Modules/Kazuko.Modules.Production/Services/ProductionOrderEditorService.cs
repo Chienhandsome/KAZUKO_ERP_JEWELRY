@@ -33,7 +33,9 @@ public sealed class ProductionOrderEditorService : IProductionOrderEditorService
             var craftViewModel = new CraftOrderDialogViewModel(
                 Require<ICraftOrderApplicationService>(), sessionAccessor,
                 Require<ICashFundRepository>(), Require<IBankAccountRepository>(),
-                Require<IGoldTypeCatalogService>(), Require<ICustomerEditorService>());
+                Require<IGoldTypeCatalogService>(), Require<ICustomerEditorService>(),
+                Require<IProductionQueryRepository>(), Require<IProductionAttachmentStore>(),
+                session.BranchId);
             var craftDialog = new CraftOrderDialog
             {
                 Owner = ResolveOwner(),

@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.PriceBoard;
+using Kazuko.Core.Production;
 using Kazuko.Core.Sales;
 
 namespace Kazuko.Modules.Production.Dialogs;
@@ -20,6 +22,10 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
     private readonly IBankAccountRepository _bankAccounts;
     private readonly IGoldTypeCatalogService _goldTypes;
     private readonly ICustomerEditorService? _customerEditor;
+    private readonly IProductionQueryRepository _productionQueries;
+    private readonly IProductionAttachmentStore _attachments;
+    private readonly long _branchId;
+    private long _sourceLocationId;
 
     private string _customerSearch = string.Empty;
     private CraftCustomerOption? _selectedCustomer;
@@ -28,11 +34,11 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
     private CancellationTokenSource? _customerSearchCts;
     private DateTime _orderDate = DateTime.Today;
     private string _notes = string.Empty;
-    private decimal _depositAmount;
-    private string _paymentMethod = PaymentMethods.Cash;
+    private decimal _cashAmount;
+    private decimal _transferAmount;
+    private decimal _cardAmount;
     private CashFundOption? _selectedCashFund;
     private BankAccountOption? _selectedBankAccount;
-    private string _paymentReference = string.Empty;
     private string _errorMessage = string.Empty;
     private string _statusMessage = string.Empty;
     private bool _isBusy;
@@ -44,7 +50,10 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
         ICashFundRepository cashFunds,
         IBankAccountRepository bankAccounts,
         IGoldTypeCatalogService goldTypes,
-        ICustomerEditorService? customerEditor = null)
+        ICustomerEditorService? customerEditor,
+        IProductionQueryRepository productionQueries,
+        IProductionAttachmentStore attachments,
+        long branchId)
     {
         _craftOrders = craftOrders;
         _sessionAccessor = sessionAccessor;
@@ -52,60 +61,44 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
         _bankAccounts = bankAccounts;
         _goldTypes = goldTypes;
         _customerEditor = customerEditor;
+        _productionQueries = productionQueries;
+        _attachments = attachments;
+        _branchId = branchId;
 
-        SelectCustomerCommand = new ParameterRelayCommand(
-            p => SelectCustomer(p as CraftCustomerOption),
-            p => p is CraftCustomerOption && !IsBusy);
         CreateCustomerCommand = new RelayCommand(CreateCustomer, () => !IsBusy && _customerEditor is not null);
-        CloseCustomerSuggestionsCommand = new RelayCommand(() => IsCustomerSuggestionsOpen = false);
-        AddLineCommand = new RelayCommand(AddLine, () => !IsBusy);
+        AddLineCommand = new AsyncRelayCommand(AddLineAsync, () => !IsBusy);
+        EditLineCommand = new ParameterRelayCommand(
+            p => _ = EditLineAsync(p as ProductionLineEditorViewModel),
+            p => !IsBusy && p is ProductionLineEditorViewModel);
         RemoveLineCommand = new ParameterRelayCommand(
             p =>
             {
-                if (p is CraftOrderLineEditorRow row && Lines.Count > 1)
-                    Lines.Remove(row);
+                if (p is ProductionLineEditorViewModel row && Lines.Remove(row))
+                {
+                    foreach (var attachment in row.Attachments)
+                        _attachments.TryDeleteStagingFile(attachment.StagingPath);
+                    RenumberLines();
+                }
                 RecalcTotals();
             },
-            p => !IsBusy && Lines.Count > 1 && p is CraftOrderLineEditorRow);
+            p => !IsBusy && Lines.Count > 0 && p is ProductionLineEditorViewModel);
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke(_created is not null));
 
-        Lines.Add(new CraftOrderLineEditorRow(RecalcTotals));
         _ = InitializeAsync();
     }
 
     public event Action<bool>? RequestClose;
 
     public ObservableCollection<CraftCustomerOption> Customers { get; } = [];
-    public ObservableCollection<CraftOrderLineEditorRow> Lines { get; } = [];
+    public ObservableCollection<ProductionLineEditorViewModel> Lines { get; } = [];
     public ObservableCollection<CashFundOption> CashFunds { get; } = [];
     public ObservableCollection<BankAccountOption> BankAccounts { get; } = [];
     public ObservableCollection<GoldTypeOption> GoldTypes { get; } = [];
 
-    public IReadOnlyList<CraftPaymentMethodOption> PaymentMethodOptions { get; } =
-    [
-        new(PaymentMethods.Cash, "Tiền mặt"),
-        new(PaymentMethods.BankTransfer, "Chuyển khoản"),
-        new(PaymentMethods.Card, "Thẻ")
-    ];
-
-    public CraftPaymentMethodOption? SelectedPaymentMethodOption
-    {
-        get => PaymentMethodOptions.FirstOrDefault(x =>
-            string.Equals(x.Code, PaymentMethod, StringComparison.OrdinalIgnoreCase));
-        set
-        {
-            if (value is null)
-                return;
-            PaymentMethod = value.Code;
-            OnPropertyChanged(nameof(SelectedPaymentMethodOption));
-        }
-    }
-
-    public ICommand SelectCustomerCommand { get; }
     public ICommand CreateCustomerCommand { get; }
-    public ICommand CloseCustomerSuggestionsCommand { get; }
     public ICommand AddLineCommand { get; }
+    public ICommand EditLineCommand { get; }
     public ICommand RemoveLineCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CloseCommand { get; }
@@ -140,8 +133,15 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
         get => _selectedCustomer;
         set
         {
+            if (value is not null && value.IsWalkIn)
+            {
+                ErrorMessage = "Đơn đặt không dùng khách lẻ. Chọn khách có hồ sơ.";
+                OnPropertyChanged(nameof(SelectedCustomer));
+                return;
+            }
             if (!SetProperty(ref _selectedCustomer, value))
                 return;
+            ErrorMessage = string.Empty;
             OnPropertyChanged(nameof(SelectedCustomerHint));
             OnPropertyChanged(nameof(HasSelectedCustomer));
             if (value is null)
@@ -182,35 +182,51 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
 
     public string QuotedTotalDisplay => QuotedTotal.ToString("N0", Vi) + " đ";
 
-    public decimal DepositAmount
+    public decimal CashAmount
     {
-        get => _depositAmount;
+        get => _cashAmount;
         set
         {
-            if (SetProperty(ref _depositAmount, value))
+            if (SetProperty(ref _cashAmount, value))
+            {
+                OnPropertyChanged(nameof(DepositTotal));
+                OnPropertyChanged(nameof(DepositTotalDisplay));
                 NotifyCommands();
+            }
         }
     }
 
-    public string PaymentMethod
+    public decimal TransferAmount
     {
-        get => _paymentMethod;
+        get => _transferAmount;
         set
         {
-            if (!SetProperty(ref _paymentMethod, value))
-                return;
-            OnPropertyChanged(nameof(RequiresCashFund));
-            OnPropertyChanged(nameof(RequiresBankAccount));
-            OnPropertyChanged(nameof(SelectedPaymentMethodOption));
+            if (SetProperty(ref _transferAmount, value))
+            {
+                OnPropertyChanged(nameof(DepositTotal));
+                OnPropertyChanged(nameof(DepositTotalDisplay));
+                NotifyCommands();
+            }
         }
     }
 
-    public bool RequiresCashFund =>
-        string.Equals(PaymentMethod, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase);
+    public decimal CardAmount
+    {
+        get => _cardAmount;
+        set
+        {
+            if (SetProperty(ref _cardAmount, value))
+            {
+                OnPropertyChanged(nameof(DepositTotal));
+                OnPropertyChanged(nameof(DepositTotalDisplay));
+                NotifyCommands();
+            }
+        }
+    }
 
-    public bool RequiresBankAccount =>
-        string.Equals(PaymentMethod, PaymentMethods.BankTransfer, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(PaymentMethod, PaymentMethods.Card, StringComparison.OrdinalIgnoreCase);
+    public decimal DepositTotal => CashAmount + TransferAmount + CardAmount;
+
+    public string DepositTotalDisplay => DepositTotal.ToString("N0", Vi) + " đ";
 
     public CashFundOption? SelectedCashFund
     {
@@ -222,12 +238,6 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
     {
         get => _selectedBankAccount;
         set => SetProperty(ref _selectedBankAccount, value);
-    }
-
-    public string PaymentReference
-    {
-        get => _paymentReference;
-        set => SetProperty(ref _paymentReference, value);
     }
 
     public string ErrorMessage
@@ -271,6 +281,15 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
             foreach (var gold in await _goldTypes.ListAsync(activeOnly: true))
                 GoldTypes.Add(gold);
 
+            var locations = await _productionQueries.GetLocationsAsync(_branchId);
+            _sourceLocationId = locations.FirstOrDefault(x =>
+                string.Equals(x.InventoryScope, Kazuko.Core.Warehouse.InventoryScopes.RawMaterial,
+                    StringComparison.OrdinalIgnoreCase))?.Id ?? 0;
+
+            // Nạp sẵn khách hàng để ComboBox có thể mở danh sách ngay cả khi
+            // người dùng chưa gõ từ khóa.
+            await SearchCustomersAsync(string.Empty, openSuggestions: false);
+
             SelectedCashFund = CashFunds.FirstOrDefault(x => x.IsDefault) ?? CashFunds.FirstOrDefault();
             SelectedBankAccount = BankAccounts.FirstOrDefault();
         }
@@ -295,8 +314,8 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(searchText))
             {
-                Customers.Clear();
-                IsCustomerSuggestionsOpen = false;
+                await Task.Delay(100, cts.Token);
+                await SearchCustomersAsync(string.Empty, openSuggestions: true, cts.Token);
                 return;
             }
 
@@ -336,20 +355,6 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
             ErrorMessage = ex.Message;
             IsCustomerSuggestionsOpen = false;
         }
-    }
-
-    private void SelectCustomer(CraftCustomerOption? customer)
-    {
-        if (customer is null)
-            return;
-        if (customer.IsWalkIn)
-        {
-            ErrorMessage = "Đơn đặt không dùng khách lẻ. Chọn khách có hồ sơ.";
-            return;
-        }
-
-        ErrorMessage = string.Empty;
-        SelectedCustomer = customer;
     }
 
     private void CreateCustomer()
@@ -392,19 +397,100 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
         }
     }
 
-    private void AddLine()
+    private async Task AddLineAsync()
     {
-        Lines.Add(new CraftOrderLineEditorRow(RecalcTotals));
-        RecalcTotals();
+        var line = new ProductionLineEditorViewModel(Lines.Count + 1);
+        if (await ShowLineDialogAsync(line, isNew: true))
+        {
+            Lines.Add(line);
+            RenumberLines();
+            RecalcTotals();
+        }
+    }
+
+    private async Task EditLineAsync(ProductionLineEditorViewModel? line)
+    {
+        if (line is null)
+            return;
+        if (await ShowLineDialogAsync(line, isNew: false))
+            RecalcTotals();
+    }
+
+    private async Task<bool> ShowLineDialogAsync(ProductionLineEditorViewModel line, bool isNew)
+    {
+        if (_sourceLocationId <= 0)
+        {
+            ErrorMessage = "Chưa cấu hình kho nguyên liệu cho chi nhánh.";
+            return false;
+        }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            var stock = await _productionQueries.SearchMaterialStockAsync(
+                _branchId, _sourceLocationId, null);
+            var goldStock = stock
+                .Where(x => string.Equals(x.MaterialType, Kazuko.Core.Inventory.MaterialTypes.Gold,
+                    StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var sellPrices = new Dictionary<long, decimal>();
+            foreach (var option in await _goldTypes.ListAsync(activeOnly: true))
+            {
+                var detail = await _goldTypes.GetByIdAsync(option.Id);
+                if (detail is not null && detail.MaterialId > 0 && detail.SellPricePerChi > 0)
+                    sellPrices[detail.MaterialId] = detail.SellPricePerChi;
+            }
+
+            var dialogVm = new ProductionLineEditDialogViewModel(
+                _attachments, line.LineNumber, true, goldStock,
+                isNew ? null : line, sellPrices);
+            var dialog = new ProductionLineEditDialog
+            {
+                Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(x => x.IsActive)
+                    ?? Application.Current.MainWindow,
+                DataContext = dialogVm
+            };
+            if (dialog.ShowDialog() != true)
+                return false;
+
+            var previousAttachments = line.Attachments.ToList();
+            dialogVm.ApplyTo(line);
+            foreach (var old in previousAttachments.Where(old =>
+                         old.Id is null
+                         && !string.IsNullOrWhiteSpace(old.StagingPath)
+                         && line.Attachments.All(current => current.StagingPath != old.StagingPath)))
+            {
+                _attachments.TryDeleteStagingFile(old.StagingPath);
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void RenumberLines()
+    {
+        var no = 0;
+        foreach (var line in Lines)
+            line.LineNumber = ++no;
     }
 
     private void RecalcTotals()
     {
-        QuotedTotal = Lines.Sum(x => x.LineTotal);
+        QuotedTotal = Lines.Sum(x => x.QuoteLineTotal);
         OnPropertyChanged(nameof(QuotedTotal));
         OnPropertyChanged(nameof(QuotedTotalDisplay));
-        if (DepositAmount <= 0 && QuotedTotal > 0)
-            DepositAmount = Math.Round(QuotedTotal * 0.3m, 0, MidpointRounding.AwayFromZero);
+        if (DepositTotal <= 0 && QuotedTotal > 0)
+            CashAmount = Math.Round(QuotedTotal * 0.3m, 0, MidpointRounding.AwayFromZero);
     }
 
     private async Task SaveAsync()
@@ -418,20 +504,25 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
             if (SelectedCustomer is null)
                 throw new InvalidOperationException("Chọn khách hàng đặt hàng.");
 
-            var lineDrafts = Lines.Select(x => x.ToDraft()).ToList();
-            var allocation = new PaymentAllocationDraft(
-                PaymentMethod,
-                DepositAmount,
-                RequiresCashFund ? SelectedCashFund?.Id : null,
-                RequiresBankAccount ? SelectedBankAccount?.Id : null,
-                string.IsNullOrWhiteSpace(PaymentReference) ? null : PaymentReference.Trim());
+            var lineDrafts = Lines.Select(x => x.ToCraftLineDraft()).ToList();
+
+            var allocations = new List<PaymentAllocationDraft>();
+            if (CashAmount > 0)
+                allocations.Add(new PaymentAllocationDraft(
+                    PaymentMethods.Cash, CashAmount, SelectedCashFund?.Id, null, null));
+            if (TransferAmount > 0)
+                allocations.Add(new PaymentAllocationDraft(
+                    PaymentMethods.BankTransfer, TransferAmount, null, SelectedBankAccount?.Id, null));
+            if (CardAmount > 0)
+                allocations.Add(new PaymentAllocationDraft(
+                    PaymentMethods.Card, CardAmount, null, SelectedBankAccount?.Id, null));
 
             var draft = new CraftOrderDraft(
                 SelectedCustomer.Id,
                 OrderDate,
                 session.UserId > 0 ? session.UserId : null,
                 lineDrafts,
-                [allocation],
+                allocations,
                 string.IsNullOrWhiteSpace(Notes) ? null : Notes.Trim());
 
             _created = await _craftOrders.CreateWithDepositAsync(draft, session);
@@ -457,91 +548,9 @@ public sealed class CraftOrderDialogViewModel : ObservableObject
     {
         (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
         (CreateCustomerCommand as RelayCommand)?.NotifyCanExecuteChanged();
+        (AddLineCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
         CommandManager.InvalidateRequerySuggested();
     }
 }
 
 public sealed record CraftPaymentMethodOption(string Code, string DisplayName);
-
-public sealed class CraftOrderLineEditorRow : ObservableObject
-{
-    private readonly Action _onChanged;
-    private string _modelName = string.Empty;
-    private string _goldPurity = string.Empty;
-    private int _quantity = 1;
-    private decimal _estimatedWeightChi;
-    private decimal _goldUnitPricePerChi;
-    private decimal _laborAmountPerUnitVnd;
-    private decimal _stoneAmountPerUnitVnd;
-
-    public CraftOrderLineEditorRow(Action onChanged) => _onChanged = onChanged;
-
-    public string ModelName
-    {
-        get => _modelName;
-        set { if (SetProperty(ref _modelName, value)) Notify(); }
-    }
-
-    public string GoldPurity
-    {
-        get => _goldPurity;
-        set { if (SetProperty(ref _goldPurity, value)) Notify(); }
-    }
-
-    public GoldTypeOption? SelectedGoldType
-    {
-        get => null;
-        set
-        {
-            if (value is not null)
-                GoldPurity = value.Code;
-        }
-    }
-
-    public int Quantity
-    {
-        get => _quantity;
-        set { if (SetProperty(ref _quantity, value)) Notify(); }
-    }
-
-    public decimal EstimatedWeightChi
-    {
-        get => _estimatedWeightChi;
-        set { if (SetProperty(ref _estimatedWeightChi, value)) Notify(); }
-    }
-
-    public decimal GoldUnitPricePerChi
-    {
-        get => _goldUnitPricePerChi;
-        set { if (SetProperty(ref _goldUnitPricePerChi, value)) Notify(); }
-    }
-
-    public decimal LaborAmountPerUnitVnd
-    {
-        get => _laborAmountPerUnitVnd;
-        set { if (SetProperty(ref _laborAmountPerUnitVnd, value)) Notify(); }
-    }
-
-    public decimal StoneAmountPerUnitVnd
-    {
-        get => _stoneAmountPerUnitVnd;
-        set { if (SetProperty(ref _stoneAmountPerUnitVnd, value)) Notify(); }
-    }
-
-    public decimal LineTotal =>
-        CraftOrderValidator.LineTotal(ToDraft());
-
-    public string LineTotalDisplay =>
-        LineTotal.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " đ";
-
-    public CraftOrderLineDraft ToDraft() =>
-        new(ModelName, GoldPurity, Quantity, EstimatedWeightChi,
-            GoldUnitPricePerChi, LaborAmountPerUnitVnd, StoneAmountPerUnitVnd, null);
-
-    private void Notify()
-    {
-        OnPropertyChanged(nameof(LineTotal));
-        OnPropertyChanged(nameof(LineTotalDisplay));
-        _onChanged();
-    }
-}

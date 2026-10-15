@@ -28,7 +28,6 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
     private string _laborCostPerUnitText = "0";
     private string _estimatedWeightChiText = "0";
     private string _goldUnitPricePerChiText = "0";
-    private string _stoneAmountPerUnitVndText = "0";
     private string? _description;
     private string? _notes;
     private string _errorMessage = string.Empty;
@@ -75,7 +74,6 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             LaborCostPerUnitText = FormatLaborCost(source.LaborCostPerUnit);
             EstimatedWeightChiText = FormatDecimal(source.EstimatedWeightChi, "0.###");
             GoldUnitPricePerChiText = FormatLaborCost(source.GoldUnitPricePerChi);
-            StoneAmountPerUnitVndText = FormatLaborCost(source.StoneAmountPerUnitVnd);
             Description = source.Description;
             Notes = source.Notes;
 
@@ -261,33 +259,14 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         }
     }
 
-    public string StoneAmountPerUnitVndText
-    {
-        get => _stoneAmountPerUnitVndText;
-        set
-        {
-            var raw = value ?? string.Empty;
-            if (decimal.TryParse(raw.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var stone)
-                && stone >= 0)
-            {
-                if (SetProperty(ref _stoneAmountPerUnitVndText, FormatLaborCost(stone)))
-                    OnPropertyChanged(nameof(QuotePreviewText));
-            }
-            else
-            {
-                SetProperty(ref _stoneAmountPerUnitVndText, raw);
-            }
-        }
-    }
-
     public string QuotePreviewText
     {
         get
         {
-            if (!TryParseQuoteInputs(out var qty, out var weight, out var goldPrice, out var labor, out var stone))
-                return "Nhập TL vàng, giá vàng/chỉ, tiền công và đá để xem thành tiền.";
-            var line = (weight * goldPrice + labor + stone) * qty;
-            return $"Thành tiền dòng ≈ {line:N0} đ  (vàng {weight * goldPrice * qty:N0} + công {labor * qty:N0} + đá {stone * qty:N0}).";
+            if (!TryParseQuoteInputs(out var qty, out var weight, out var goldPrice, out var labor))
+                return "Nhập TL vàng, giá vàng/chỉ và tiền công để xem thành tiền.";
+            var line = (weight * goldPrice + labor) * qty;
+            return $"Thành tiền dòng ≈ {line:N0} đ  (vàng {weight * goldPrice * qty:N0} + công {labor * qty:N0}).";
         }
     }
 
@@ -332,19 +311,15 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         if (decimal.TryParse(GoldUnitPricePerChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var gold)
             && gold >= 0)
             GoldUnitPricePerChiText = FormatLaborCost(gold);
-        if (decimal.TryParse(StoneAmountPerUnitVndText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var stone)
-            && stone >= 0)
-            StoneAmountPerUnitVndText = FormatLaborCost(stone);
     }
 
     private bool TryParseQuoteInputs(
-        out int qty, out decimal weight, out decimal goldPrice, out decimal labor, out decimal stone)
+        out int qty, out decimal weight, out decimal goldPrice, out decimal labor)
     {
         qty = 0;
         weight = 0;
         goldPrice = 0;
         labor = 0;
-        stone = 0;
         return int.TryParse(PlannedQuantityText.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out qty)
             && qty >= 1
             && decimal.TryParse(EstimatedWeightChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out weight)
@@ -352,9 +327,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             && decimal.TryParse(GoldUnitPricePerChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out goldPrice)
             && goldPrice >= 0
             && decimal.TryParse(LaborCostPerUnitText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out labor)
-            && labor >= 0
-            && decimal.TryParse(StoneAmountPerUnitVndText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out stone)
-            && stone >= 0;
+            && labor >= 0;
     }
 
     public string? Description
@@ -400,8 +373,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             EstimatedWeightChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture);
         target.GoldUnitPricePerChi = decimal.Parse(
             GoldUnitPricePerChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture);
-        target.StoneAmountPerUnitVnd = decimal.Parse(
-            StoneAmountPerUnitVndText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture);
+        target.StoneAmountPerUnitVnd = 0m;
         target.Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
         target.Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes.Trim();
 
@@ -446,9 +418,9 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             return;
         }
 
-        if (!TryParseQuoteInputs(out _, out _, out _, out _, out _))
+        if (!TryParseQuoteInputs(out _, out _, out _, out _))
         {
-            ErrorMessage = "TL vàng, giá vàng/chỉ, tiền công và đá phải là số ≥ 0; số lượng ≥ 1.";
+            ErrorMessage = "TL vàng, giá vàng/chỉ và tiền công phải là số ≥ 0; số lượng ≥ 1.";
             return;
         }
 

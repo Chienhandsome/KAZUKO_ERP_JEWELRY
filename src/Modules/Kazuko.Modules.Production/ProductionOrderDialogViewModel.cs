@@ -32,6 +32,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private long? _id;
     private string _code = string.Empty;
     private string _orderSource = ProductionOrderSources.Stock;
+    private int _salesOrderSelectionVersion;
     private long? _salesOrderId;
     private string _executionType = ProductionExecutionTypes.InHouse;
     private long? _externalWorkerId;
@@ -376,6 +377,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             SalesOrderId = value?.Id;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedSalesOrderCustomer));
+            if (_id is null)
+                _ = LoadSelectedSalesOrderAsync(value?.Id);
         }
     }
 
@@ -831,6 +834,76 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             SalesOrderOptions.Add(item);
         OnPropertyChanged(nameof(SelectedSalesOrder));
     }
+
+    private async Task LoadSelectedSalesOrderAsync(long? salesOrderId)
+    {
+        var version = ++_salesOrderSelectionVersion;
+        if (salesOrderId is not > 0 || _craftOrders is null)
+        {
+            if (_id is null)
+            {
+                Lines.Clear();
+                SelectedLine = null;
+                RefreshGalleryImages();
+                NotifyQuoteChanged();
+            }
+            await LoadCraftOrderContextAsync(null);
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            var orderLines = await _craftOrders.GetLinesAsync(salesOrderId.Value, RequireSession());
+            if (version != _salesOrderSelectionVersion || SalesOrderId != salesOrderId)
+                return;
+
+            await LoadCraftOrderContextAsync(salesOrderId);
+            if (version != _salesOrderSelectionVersion || SalesOrderId != salesOrderId)
+                return;
+
+            Lines.Clear();
+            foreach (var item in orderLines)
+            {
+                var line = new ProductionLineEditorViewModel(item.LineNumber)
+                {
+                    ModelCode = string.IsNullOrWhiteSpace(item.ModelCode) ? GenerateModelCode() : item.ModelCode,
+                    ModelName = item.ProductName,
+                    GoldTypeCode = item.GoldPurity,
+                    GoldTypeName = item.GoldPurity,
+                    PlannedQuantity = item.Quantity,
+                    EstimatedWeightChi = item.EstimatedWeightChi,
+                    GoldUnitPricePerChi = item.GoldUnitPricePerChi,
+                    LaborCostPerUnit = item.LaborAmountPerUnitVnd,
+                    StoneAmountPerUnitVnd = 0m,
+                    Description = item.Description,
+                    Notes = item.Notes
+                };
+                foreach (var attachment in item.Attachments)
+                    line.Attachments.Add(new ProductionAttachmentEditorViewModel(attachment));
+                line.NotifyAttachmentSummaryChanged();
+                Lines.Add(line);
+            }
+
+            SelectedLine = Lines.FirstOrDefault();
+            RefreshGalleryImages();
+            NotifyQuoteChanged();
+        }
+        catch (Exception ex)
+        {
+            if (version == _salesOrderSelectionVersion)
+                ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            if (version == _salesOrderSelectionVersion)
+                IsBusy = false;
+        }
+    }
+
+    private static string GenerateModelCode() =>
+        $"M-{DateTime.Now:yyMMddHHmmssfff}-{Guid.NewGuid():N}"[..22].ToUpperInvariant();
 
     private async Task LoadPaymentAccountsAsync()
     {
@@ -2287,13 +2360,23 @@ public sealed class ProductionLineEditorViewModel : ObservableObject
             EstimatedWeightChi,
             GoldUnitPricePerChi,
             LaborCostPerUnit,
-            StoneAmountPerUnitVnd,
-            Notes);
+            0m,
+            Notes,
+            ModelCode,
+            Description,
+            Attachments.Select((attachment, index) => new CraftOrderAttachmentDraft(
+                attachment.AttachmentKind,
+                attachment.StagingPath,
+                attachment.StoredPath,
+                attachment.OriginalFileName,
+                attachment.MimeType,
+                attachment.Caption,
+                index)).ToList());
 
     public ProductionOrderLineDraft ToDraft() =>
         new(Id, LineNumber, ModelCode, ModelName, GoldTypeCode, GoldTypeName,
             PlannedQuantity, LaborCostPerUnit,
-            EstimatedWeightChi, GoldUnitPricePerChi, StoneAmountPerUnitVnd,
+            EstimatedWeightChi, GoldUnitPricePerChi, 0m,
             Description, Notes);
 }
 
@@ -2316,6 +2399,17 @@ public sealed class ProductionAttachmentEditorViewModel
         Caption = dto.Caption;
         DisplayOrder = dto.DisplayOrder;
         LineNumber = dto.LineNumber;
+    }
+
+    public ProductionAttachmentEditorViewModel(CraftOrderAttachmentItem dto)
+    {
+        Id = null;
+        AttachmentKind = dto.AttachmentKind;
+        StoredPath = dto.StoredPath;
+        OriginalFileName = dto.OriginalFileName;
+        MimeType = dto.MimeType;
+        Caption = dto.Caption;
+        DisplayOrder = dto.DisplayOrder;
     }
 
     private ProductionAttachmentEditorViewModel(

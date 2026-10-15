@@ -173,7 +173,7 @@
                                     <ComboBox Grid.Column="1"
                                               ItemsSource="{Binding SalesOrderOptions}"
                                               SelectedItem="{Binding SelectedSalesOrder}"
-                                              DisplayMemberPath="Code"
+                                              DisplayMemberPath="DisplayText"
                                               Style="{StaticResource ProductionCompactComboStyle}"
                                               IsEnabled="{Binding IsDraft}" />
                                     <TextBlock Grid.Column="3" Text="Khách hàng" Style="{StaticResource ProductionCompactRowLabelStyle}" />
@@ -382,8 +382,6 @@
                                                     grid:DataGridColumnLayout.Key="GoldPrice" />
                                 <DataGridTextColumn Header="Công/món" Binding="{Binding LaborCostPerUnit, Mode=OneWay, StringFormat=N0}" Width="90"
                                                     grid:DataGridColumnLayout.Key="Labor" />
-                                <DataGridTextColumn Header="Đá/món" Binding="{Binding StoneAmountPerUnitVnd, Mode=OneWay, StringFormat=N0}" Width="80"
-                                                    grid:DataGridColumnLayout.Key="Stone" />
                                 <DataGridTextColumn Header="Thành tiền" Binding="{Binding QuoteLineTotal, Mode=OneWay, StringFormat=N0}" Width="110"
                                                     grid:DataGridColumnLayout.Key="QuoteTotal" />
                                 <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, Mode=OneWay}" Width="160" MinWidth="100"

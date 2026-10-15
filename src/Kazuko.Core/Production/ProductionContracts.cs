@@ -284,7 +284,12 @@ public sealed record ProductionSalesOrderOption(
     string Code,
     string CustomerName,
     string StatusCode,
-    DateTime OrderDate);
+    DateTime OrderDate)
+{
+    public string DisplayText => $"{Code} — {CustomerName} ({StatusCode})";
+
+    public override string ToString() => DisplayText;
+}
 
 public sealed record ProductionEmployeeOption(
     long Id,

@@ -1,6 +1,7 @@
 using FirebirdSql.Data.FirebirdClient;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
+using Kazuko.Core.Production;
 using Kazuko.Core.Sales;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Data;
@@ -12,6 +13,12 @@ namespace Kazuko.Infrastructure.Sales;
 public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicationService
 {
     private readonly FirebirdFinancialSettlementService _settlements = new();
+    private readonly IProductionAttachmentStore _attachmentStore;
+
+    public FirebirdCraftOrderApplicationService(IProductionAttachmentStore attachmentStore)
+    {
+        _attachmentStore = attachmentStore ?? throw new ArgumentNullException(nameof(attachmentStore));
+    }
 
     public async Task<IReadOnlyList<CraftCustomerOption>> SearchCustomersAsync(
         string? searchText,
@@ -110,18 +117,35 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
         var result = new List<CraftOrderLineItem>();
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new FbCommand("""
+        var hasSampleDetails = await HasCraftSampleDetailsAsync(connection, null, cancellationToken);
+        var lineSql = hasSampleDetails
+            ? """
             SELECT I.LINE_NUMBER, I.PRODUCT_NAME, COALESCE(I.GOLD_PURITY, ''),
                    I.QUANTITY, COALESCE(I.ESTIMATED_WEIGHT, 0),
                    COALESCE(I.GOLD_UNIT_PRICE, 0), COALESCE(I.LABOR_AMOUNT, 0),
-                   COALESCE(I.STONE_AMOUNT, 0), COALESCE(I.LINE_TOTAL, 0)
+                   COALESCE(I.STONE_AMOUNT, 0), COALESCE(I.LINE_TOTAL, 0),
+                   I.MODEL_CODE, I.DESCRIPTION, I.NOTES
             FROM SALES_ORDER_ITEMS I
             JOIN SALES_ORDERS O ON O.ID = I.ORDER_ID
             WHERE I.ORDER_ID = @ID
               AND O.BRANCH_ID = @BID
               AND O.ORDER_TYPE = 'CUSTOM'
             ORDER BY I.LINE_NUMBER
-            """, connection);
+            """
+            : """
+            SELECT I.LINE_NUMBER, I.PRODUCT_NAME, COALESCE(I.GOLD_PURITY, ''),
+                   I.QUANTITY, COALESCE(I.ESTIMATED_WEIGHT, 0),
+                   COALESCE(I.GOLD_UNIT_PRICE, 0), COALESCE(I.LABOR_AMOUNT, 0),
+                   COALESCE(I.STONE_AMOUNT, 0), COALESCE(I.LINE_TOTAL, 0),
+                   CAST(NULL AS VARCHAR(40)), CAST(NULL AS VARCHAR(1000)), CAST(NULL AS VARCHAR(1000))
+            FROM SALES_ORDER_ITEMS I
+            JOIN SALES_ORDERS O ON O.ID = I.ORDER_ID
+            WHERE I.ORDER_ID = @ID
+              AND O.BRANCH_ID = @BID
+              AND O.ORDER_TYPE = 'CUSTOM'
+            ORDER BY I.LINE_NUMBER
+            """;
+        await using var command = new FbCommand(lineSql, connection);
         command.Parameters.Add("@ID", FbDbType.BigInt).Value = salesOrderId;
         command.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -136,10 +160,50 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
                 reader.GetDecimal(5),
                 reader.GetDecimal(6),
                 reader.GetDecimal(7),
-                reader.GetDecimal(8)));
+                reader.GetDecimal(8),
+                reader.IsDBNull(9) ? null : reader.GetString(9),
+                reader.IsDBNull(10) ? null : reader.GetString(10),
+                reader.IsDBNull(11) ? null : reader.GetString(11),
+                Array.Empty<CraftOrderAttachmentItem>()));
         }
 
-        return result;
+        var attachmentsByLine = new Dictionary<int, List<CraftOrderAttachmentItem>>();
+        if (hasSampleDetails)
+        {
+            await using var attachmentCommand = new FbCommand("""
+            SELECT ID, LINE_NUMBER, ATTACHMENT_KIND, STORED_PATH, ORIGINAL_FILE_NAME,
+                   MIME_TYPE, CAPTION, DISPLAY_ORDER
+            FROM CRAFT_ORDER_ATTACHMENTS
+            WHERE SALES_ORDER_ID = @ID
+            ORDER BY LINE_NUMBER, DISPLAY_ORDER, ID
+            """, connection);
+            attachmentCommand.Parameters.Add("@ID", FbDbType.BigInt).Value = salesOrderId;
+            await using var attachmentReader = await attachmentCommand.ExecuteReaderAsync(cancellationToken);
+            while (await attachmentReader.ReadAsync(cancellationToken))
+            {
+                var lineNumber = attachmentReader.GetInt32(1);
+                if (!attachmentsByLine.TryGetValue(lineNumber, out var list))
+                {
+                    list = [];
+                    attachmentsByLine[lineNumber] = list;
+                }
+                list.Add(new CraftOrderAttachmentItem(
+                    attachmentReader.GetInt64(0),
+                    attachmentReader.GetString(2),
+                    attachmentReader.GetString(3),
+                    attachmentReader.GetString(4),
+                    attachmentReader.IsDBNull(5) ? null : attachmentReader.GetString(5),
+                    attachmentReader.IsDBNull(6) ? null : attachmentReader.GetString(6),
+                    attachmentReader.GetInt32(7)));
+            }
+        }
+
+        return result.Select(line => line with
+        {
+            Attachments = attachmentsByLine.TryGetValue(line.LineNumber, out var list)
+                ? list
+                : Array.Empty<CraftOrderAttachmentItem>()
+        }).ToList();
     }
 
     public async Task<CraftOrderCreateResult> CreateWithDepositAsync(
@@ -162,11 +226,13 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var fbTx = (FbTransaction)transaction;
+        var finalizedAttachmentPaths = new List<string>();
 
         try
         {
             var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
             await EnsureNamedCustomerAsync(connection, fbTx, companyId, draft.CustomerId, cancellationToken);
+            var hasSampleDetails = await HasCraftSampleDetailsAsync(connection, fbTx, cancellationToken);
 
             var code = await StockPostingSupport.NextDocumentCodeAsync(
                 connection, fbTx, "CRAFT_ORDER", session.BranchId, "DH", cancellationToken);
@@ -207,7 +273,20 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
             {
                 lineNumber++;
                 var lineTotal = CraftOrderValidator.LineTotal(line);
-                await using var insertLine = new FbCommand("""
+                var insertLineSql = hasSampleDetails
+                    ? """
+                    INSERT INTO SALES_ORDER_ITEMS
+                        (ORDER_ID, LINE_NUMBER, PRODUCT_NAME, GOLD_PURITY, QUANTITY, ESTIMATED_WEIGHT,
+                         GOLD_UNIT_PRICE, LABOR_AMOUNT, STONE_AMOUNT, LINE_SUBTOTAL, LINE_TOTAL,
+                         MODEL_CODE, DESCRIPTION, NOTES,
+                         FINISHED_PRODUCT_ID, IS_PRICE_OVERRIDE)
+                    VALUES
+                        (@ORDER_ID, @LINE, @NAME, @PURITY, @QTY, @WEIGHT,
+                         @GOLD_PRICE, @LABOR, @STONE, @TOTAL, @TOTAL,
+                         @MODEL, @DESCRIPTION, @NOTES,
+                         NULL, FALSE)
+                    """
+                    : """
                     INSERT INTO SALES_ORDER_ITEMS
                         (ORDER_ID, LINE_NUMBER, PRODUCT_NAME, GOLD_PURITY, QUANTITY, ESTIMATED_WEIGHT,
                          GOLD_UNIT_PRICE, LABOR_AMOUNT, STONE_AMOUNT, LINE_SUBTOTAL, LINE_TOTAL,
@@ -216,7 +295,8 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
                         (@ORDER_ID, @LINE, @NAME, @PURITY, @QTY, @WEIGHT,
                          @GOLD_PRICE, @LABOR, @STONE, @TOTAL, @TOTAL,
                          NULL, FALSE)
-                    """, connection, fbTx);
+                    """;
+                await using var insertLine = new FbCommand(insertLineSql, connection, fbTx);
                 insertLine.Parameters.Add("@ORDER_ID", FbDbType.BigInt).Value = orderId;
                 insertLine.Parameters.Add("@LINE", FbDbType.Integer).Value = lineNumber;
                 insertLine.Parameters.Add("@NAME", FbDbType.VarChar, 255).Value = line.ModelName.Trim();
@@ -227,7 +307,57 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
                 insertLine.Parameters.Add("@LABOR", FbDbType.Decimal).Value = line.LaborAmountPerUnitVnd;
                 insertLine.Parameters.Add("@STONE", FbDbType.Decimal).Value = line.StoneAmountPerUnitVnd;
                 insertLine.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = lineTotal;
+                if (hasSampleDetails)
+                {
+                    insertLine.Parameters.Add("@MODEL", FbDbType.VarChar, 40).Value =
+                        string.IsNullOrWhiteSpace(line.ModelCode) ? DBNull.Value : line.ModelCode.Trim();
+                    insertLine.Parameters.Add("@DESCRIPTION", FbDbType.VarChar, 1000).Value =
+                        string.IsNullOrWhiteSpace(line.Description) ? DBNull.Value : line.Description.Trim();
+                    insertLine.Parameters.Add("@NOTES", FbDbType.VarChar, 1000).Value =
+                        string.IsNullOrWhiteSpace(line.Notes) ? DBNull.Value : line.Notes.Trim();
+                }
                 await insertLine.ExecuteNonQueryAsync(cancellationToken);
+
+                if (!hasSampleDetails)
+                    continue;
+
+                var displayOrder = 0;
+                foreach (var attachment in line.Attachments ?? Array.Empty<CraftOrderAttachmentDraft>())
+                {
+                    var storedPath = attachment.StoredPath;
+                    if (!string.IsNullOrWhiteSpace(attachment.StagingPath))
+                    {
+                        storedPath = await _attachmentStore.FinalizeAsync(
+                            attachment.StagingPath, code, cancellationToken);
+                        finalizedAttachmentPaths.Add(storedPath);
+                    }
+                    if (string.IsNullOrWhiteSpace(storedPath))
+                        continue;
+
+                    await using var insertAttachment = new FbCommand("""
+                        INSERT INTO CRAFT_ORDER_ATTACHMENTS
+                            (SALES_ORDER_ID, LINE_NUMBER, ATTACHMENT_KIND, STORED_PATH,
+                             ORIGINAL_FILE_NAME, MIME_TYPE, CAPTION, DISPLAY_ORDER,
+                             CREATED_BY, CREATED_AT)
+                        VALUES
+                            (@ORDER_ID, @LINE, @KIND, @PATH,
+                             @ORIGINAL, @MIME, @CAPTION, @DISPLAY_ORDER,
+                             @BY, CURRENT_TIMESTAMP)
+                        """, connection, fbTx);
+                    insertAttachment.Parameters.Add("@ORDER_ID", FbDbType.BigInt).Value = orderId;
+                    insertAttachment.Parameters.Add("@LINE", FbDbType.Integer).Value = lineNumber;
+                    insertAttachment.Parameters.Add("@KIND", FbDbType.VarChar, 30).Value = attachment.AttachmentKind;
+                    insertAttachment.Parameters.Add("@PATH", FbDbType.VarChar, 500).Value = storedPath;
+                    insertAttachment.Parameters.Add("@ORIGINAL", FbDbType.VarChar, 260).Value = attachment.OriginalFileName;
+                    insertAttachment.Parameters.Add("@MIME", FbDbType.VarChar, 100).Value =
+                        string.IsNullOrWhiteSpace(attachment.MimeType) ? DBNull.Value : attachment.MimeType;
+                    insertAttachment.Parameters.Add("@CAPTION", FbDbType.VarChar, 300).Value =
+                        string.IsNullOrWhiteSpace(attachment.Caption) ? DBNull.Value : attachment.Caption;
+                    insertAttachment.Parameters.Add("@DISPLAY_ORDER", FbDbType.Integer).Value = displayOrder++;
+                    insertAttachment.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                        session.UserId > 0 ? session.UserId : DBNull.Value;
+                    await insertAttachment.ExecuteNonQueryAsync(cancellationToken);
+                }
             }
 
             var settlement = await _settlements.PostInTransactionAsync(
@@ -261,6 +391,8 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            foreach (var path in finalizedAttachmentPaths)
+                _attachmentStore.TryDeleteManagedFile(path);
             throw;
         }
     }
@@ -617,6 +749,28 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
             reader.GetDecimal(3),
             reader.GetDecimal(4),
             reader.GetInt32(5) == 1);
+    }
+
+    private static async Task<bool> HasCraftSampleDetailsAsync(
+        FbConnection connection,
+        FbTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new FbCommand("""
+            SELECT
+                (SELECT COUNT(*)
+                   FROM RDB$RELATION_FIELDS
+                  WHERE RDB$RELATION_NAME = 'SALES_ORDER_ITEMS'
+                    AND RDB$FIELD_NAME IN ('MODEL_CODE', 'DESCRIPTION', 'NOTES')),
+                (SELECT COUNT(*)
+                   FROM RDB$RELATIONS
+                  WHERE RDB$RELATION_NAME = 'CRAFT_ORDER_ATTACHMENTS')
+            FROM RDB$DATABASE
+            """, connection, transaction);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+               && Convert.ToInt32(reader.GetValue(0)) == 3
+               && Convert.ToInt32(reader.GetValue(1)) == 1;
     }
 
     private sealed record CraftOrderLockInfo(

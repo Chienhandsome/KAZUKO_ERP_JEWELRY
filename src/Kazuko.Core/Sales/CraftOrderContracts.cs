@@ -41,7 +41,28 @@ public sealed record CraftOrderLineDraft(
     decimal GoldUnitPricePerChi,
     decimal LaborAmountPerUnitVnd,
     decimal StoneAmountPerUnitVnd,
-    string? Notes);
+    string? Notes,
+    string? ModelCode = null,
+    string? Description = null,
+    IReadOnlyList<CraftOrderAttachmentDraft>? Attachments = null);
+
+public sealed record CraftOrderAttachmentDraft(
+    string AttachmentKind,
+    string? StagingPath,
+    string? StoredPath,
+    string OriginalFileName,
+    string? MimeType,
+    string? Caption,
+    int DisplayOrder);
+
+public sealed record CraftOrderAttachmentItem(
+    long Id,
+    string AttachmentKind,
+    string StoredPath,
+    string OriginalFileName,
+    string? MimeType,
+    string? Caption,
+    int DisplayOrder);
 
 public sealed record CraftOrderDraft(
     long CustomerId,
@@ -94,7 +115,11 @@ public sealed record CraftOrderLineItem(
     decimal GoldUnitPricePerChi,
     decimal LaborAmountPerUnitVnd,
     decimal StoneAmountPerUnitVnd,
-    decimal LineTotalVnd);
+    decimal LineTotalVnd,
+    string? ModelCode,
+    string? Description,
+    string? Notes,
+    IReadOnlyList<CraftOrderAttachmentItem> Attachments);
 
 public sealed record CraftOrderListItem(
     long Id,

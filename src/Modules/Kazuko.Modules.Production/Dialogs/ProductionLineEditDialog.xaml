@@ -123,11 +123,7 @@
                              Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
                              LostFocus="MoneyField_OnLostFocus" />
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Đá / món" Style="{StaticResource LineCompactLabelStyle}" />
-                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StoneAmountPerUnitVndText, UpdateSourceTrigger=LostFocus}"
-                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
-                             LostFocus="MoneyField_OnLostFocus" />
-                    <TextBlock Grid.Row="4" Grid.Column="3" Grid.ColumnSpan="2"
+                    <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5"
                                Text="{Binding QuotePreviewText, Mode=OneWay}"
                                Style="{StaticResource ProductionHintStyle}"
                                FontWeight="SemiBold"

@@ -115,7 +115,7 @@ public partial class App : Application
         ISalesQueryRepository salesQueries = new FirebirdSalesQueryRepository();
         ISalesAuthorizationService salesAuthorization = new FirebirdSalesAuthorizationService();
         ISalesPrintDataService salesPrintData = new FirebirdSalesPrintDataService(salesQueries);
-        ICraftOrderApplicationService craftOrders = new FirebirdCraftOrderApplicationService();
+        ICraftOrderApplicationService craftOrders = new FirebirdCraftOrderApplicationService(productionAttachments);
         IWholesaleSalesApplicationService wholesaleSales = new FirebirdWholesaleSalesApplicationService();
 
         _services.AddSingleton(preferences);
