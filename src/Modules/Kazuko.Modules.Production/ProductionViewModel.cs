@@ -16,6 +16,7 @@ namespace Kazuko.Modules.Production;
 public sealed class ProductionViewModel : ObservableObject
 {
     private static readonly CultureInfo ViCulture = CultureInfo.GetCultureInfo("vi-VN");
+    private const string FilterAll = "Tất cả";
 
     private readonly IProductionQueryRepository _queries;
     private readonly IProductionApplicationService _application;
@@ -35,10 +36,9 @@ public sealed class ProductionViewModel : ObservableObject
     private DateTime? _toDate;
     // Redesign 14/10: filter theo target UI
     private string _orderCodeFilterText = string.Empty;
-    private string _customerFilterText = string.Empty;
-    private string _salesOrderFilterText = string.Empty;
-    private string _workerFilterText = string.Empty;
-    private string _modelFilterText = string.Empty;
+    private string _customerFilterText = FilterAll;
+    private string _salesOrderFilterText = FilterAll;
+    private string _workerFilterText = FilterAll;
     private string _statusMessage = string.Empty;
     private string _errorMessage = string.Empty;
     private bool _isLoading;
@@ -85,6 +85,10 @@ public sealed class ProductionViewModel : ObservableObject
         StatusFilterOptions.Add("Hoàn thành");
         StatusFilterOptions.Add("Đã hủy");
 
+        WorkerFilterOptions.Add(FilterAll);
+        CustomerFilterOptions.Add(FilterAll);
+        SalesOrderFilterOptions.Add(FilterAll);
+
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
         ResetFiltersCommand = new AsyncRelayCommand(ResetFiltersAsync);
         CreateOrderCommand = new AsyncRelayCommand(CreateOrderAsync);
@@ -111,6 +115,9 @@ public sealed class ProductionViewModel : ObservableObject
 
     public ObservableCollection<ProductionOrderRowViewModel> Orders { get; } = [];
     public ObservableCollection<string> StatusFilterOptions { get; } = [];
+    public ObservableCollection<string> WorkerFilterOptions { get; } = [];
+    public ObservableCollection<string> CustomerFilterOptions { get; } = [];
+    public ObservableCollection<string> SalesOrderFilterOptions { get; } = [];
 
     private bool _suppressAutoSearch;
 
@@ -119,6 +126,9 @@ public sealed class ProductionViewModel : ObservableObject
         if (!_suppressAutoSearch)
             _ = LoadAsync();
     }
+
+    private static bool IsFilterAll(string? value) =>
+        string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), FilterAll, StringComparison.OrdinalIgnoreCase);
 
     public string OrderCodeFilterText
     {
@@ -135,7 +145,7 @@ public sealed class ProductionViewModel : ObservableObject
         get => _customerFilterText;
         set
         {
-            if (SetProperty(ref _customerFilterText, value))
+            if (SetProperty(ref _customerFilterText, value ?? FilterAll))
                 TriggerFilterSearch();
         }
     }
@@ -145,7 +155,7 @@ public sealed class ProductionViewModel : ObservableObject
         get => _salesOrderFilterText;
         set
         {
-            if (SetProperty(ref _salesOrderFilterText, value))
+            if (SetProperty(ref _salesOrderFilterText, value ?? FilterAll))
                 TriggerFilterSearch();
         }
     }
@@ -155,17 +165,7 @@ public sealed class ProductionViewModel : ObservableObject
         get => _workerFilterText;
         set
         {
-            if (SetProperty(ref _workerFilterText, value))
-                TriggerFilterSearch();
-        }
-    }
-
-    public string ModelFilterText
-    {
-        get => _modelFilterText;
-        set
-        {
-            if (SetProperty(ref _modelFilterText, value))
+            if (SetProperty(ref _workerFilterText, value ?? FilterAll))
                 TriggerFilterSearch();
         }
     }
@@ -207,17 +207,31 @@ public sealed class ProductionViewModel : ObservableObject
         try
         {
             OrderCodeFilterText = order.Code ?? string.Empty;
-            CustomerFilterText = order.CustomerName ?? string.Empty;
-            SalesOrderFilterText = order.SalesOrderCode ?? string.Empty;
-            WorkerFilterText = order.WorkerDisplayName ?? string.Empty;
-            ModelFilterText = order.ModelSummary ?? string.Empty;
+            CustomerFilterText = NormalizeFilterOption(order.CustomerName);
+            SalesOrderFilterText = NormalizeFilterOption(order.SalesOrderCode);
+            WorkerFilterText = NormalizeFilterOption(order.WorkerDisplayName);
+            EnsureFilterOption(CustomerFilterOptions, CustomerFilterText);
+            EnsureFilterOption(SalesOrderFilterOptions, SalesOrderFilterText);
+            EnsureFilterOption(WorkerFilterOptions, WorkerFilterText);
         }
         finally
         {
             _suppressAutoSearch = false;
         }
-        // Không tự đổi Từ/Đến ngày và Trạng thái để tránh làm hẹp kết quả lọc bất ngờ
-        // Không tự kích hoạt tìm kiếm — người dùng bấm "Tìm kiếm" khi cần
+    }
+
+    private static string NormalizeFilterOption(string? value)
+    {
+        var text = (value ?? string.Empty).Trim();
+        return text.Length == 0 || text == "—" ? FilterAll : text;
+    }
+
+    private static void EnsureFilterOption(ObservableCollection<string> options, string value)
+    {
+        if (IsFilterAll(value))
+            return;
+        if (!options.Contains(value, StringComparer.OrdinalIgnoreCase))
+            options.Add(value);
     }
 
     public string StatusMessage
@@ -299,6 +313,7 @@ public sealed class ProductionViewModel : ObservableObject
             foreach (var item in items)
                 Orders.Add(new ProductionOrderRowViewModel(item, index++));
 
+            RebuildFilterOptions(items);
             StatusMessage = string.Empty;
         }
         catch (OperationCanceledException)
@@ -334,10 +349,64 @@ public sealed class ProductionViewModel : ObservableObject
             ToDate: _toDate,
             IncludeDrafts: true,
             OrderCode: string.IsNullOrWhiteSpace(OrderCodeFilterText) ? null : OrderCodeFilterText.Trim(),
-            CustomerName: string.IsNullOrWhiteSpace(CustomerFilterText) ? null : CustomerFilterText.Trim(),
-            SalesOrderCode: string.IsNullOrWhiteSpace(SalesOrderFilterText) ? null : SalesOrderFilterText.Trim(),
-            WorkerName: string.IsNullOrWhiteSpace(WorkerFilterText) ? null : WorkerFilterText.Trim(),
-            ModelName: string.IsNullOrWhiteSpace(ModelFilterText) ? null : ModelFilterText.Trim());
+            CustomerName: IsFilterAll(CustomerFilterText) ? null : CustomerFilterText.Trim(),
+            SalesOrderCode: IsFilterAll(SalesOrderFilterText) ? null : SalesOrderFilterText.Trim(),
+            WorkerName: IsFilterAll(WorkerFilterText) ? null : WorkerFilterText.Trim(),
+            ModelName: null);
+    }
+
+    private void RebuildFilterOptions(IReadOnlyList<ProductionOrderListItem> items)
+    {
+        _suppressAutoSearch = true;
+        try
+        {
+            var previousWorker = WorkerFilterText;
+            var previousCustomer = CustomerFilterText;
+            var previousSalesOrder = SalesOrderFilterText;
+
+            ReplaceFilterOptions(
+                WorkerFilterOptions,
+                items.Select(x => x.WorkerDisplayName),
+                previousWorker);
+            ReplaceFilterOptions(
+                CustomerFilterOptions,
+                items.Select(x => x.CustomerName),
+                previousCustomer);
+            ReplaceFilterOptions(
+                SalesOrderFilterOptions,
+                items.Select(x => x.SalesOrderCode),
+                previousSalesOrder);
+
+            WorkerFilterText = WorkerFilterOptions.Contains(previousWorker) ? previousWorker : FilterAll;
+            CustomerFilterText = CustomerFilterOptions.Contains(previousCustomer) ? previousCustomer : FilterAll;
+            SalesOrderFilterText = SalesOrderFilterOptions.Contains(previousSalesOrder) ? previousSalesOrder : FilterAll;
+        }
+        finally
+        {
+            _suppressAutoSearch = false;
+        }
+    }
+
+    private static void ReplaceFilterOptions(
+        ObservableCollection<string> target,
+        IEnumerable<string?> values,
+        string currentSelection)
+    {
+        var distinct = values
+            .Select(NormalizeFilterOption)
+            .Where(v => !IsFilterAll(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(v => v, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        target.Clear();
+        target.Add(FilterAll);
+        foreach (var value in distinct)
+            target.Add(value);
+
+        if (!IsFilterAll(currentSelection)
+            && !target.Contains(currentSelection, StringComparer.OrdinalIgnoreCase))
+            target.Add(currentSelection);
     }
 
     private async Task ResetFiltersAsync()
@@ -345,12 +414,19 @@ public sealed class ProductionViewModel : ObservableObject
         var today = DateTime.Today;
         _fromDate = new DateTime(today.Year, today.Month, 1);
         _toDate = today;
-        SelectedStatusFilter = "Tất cả trạng thái";
-        OrderCodeFilterText = string.Empty;
-        CustomerFilterText = string.Empty;
-        SalesOrderFilterText = string.Empty;
-        WorkerFilterText = string.Empty;
-        ModelFilterText = string.Empty;
+        _suppressAutoSearch = true;
+        try
+        {
+            SelectedStatusFilter = "Tất cả trạng thái";
+            OrderCodeFilterText = string.Empty;
+            CustomerFilterText = FilterAll;
+            SalesOrderFilterText = FilterAll;
+            WorkerFilterText = FilterAll;
+        }
+        finally
+        {
+            _suppressAutoSearch = false;
+        }
         await LoadAsync();
     }
 

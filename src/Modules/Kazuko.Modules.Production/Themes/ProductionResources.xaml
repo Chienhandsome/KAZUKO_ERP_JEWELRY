@@ -124,8 +124,9 @@
     </Style>
 
     <Style x:Key="ProductionFilterFieldStyle" TargetType="TextBox" BasedOn="{StaticResource ProductionRoundedTextBoxStyle}">
-        <Setter Property="Margin" Value="0,0,8,8" />
-        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Padding" Value="10,3" />
     </Style>
 
     <Style x:Key="ProductionDialogFieldStyle" TargetType="TextBox" BasedOn="{StaticResource ProductionRoundedTextBoxStyle}">
@@ -245,7 +246,9 @@
     </Style>
 
     <Style x:Key="ProductionFilterComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ProductionComboStyle}">
-        <Setter Property="Margin" Value="0,0,8,8" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Padding" Value="10,3" />
     </Style>
 
     <Style x:Key="ProductionDialogComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ProductionComboStyle}">

@@ -41,11 +41,11 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Cột trái: dropdown + text -->
+                    <!-- Cột trái -->
                     <StackPanel Grid.Column="0">
-                        <Grid Margin="0,0,0,10">
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="95" />
+                                <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Trạng thái" VerticalAlignment="Center"
@@ -55,37 +55,22 @@
                                       ItemsSource="{Binding StatusFilterOptions}"
                                       SelectedItem="{Binding SelectedStatusFilter}" />
                         </Grid>
-                        <Grid Margin="0,0,0,10">
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="95" />
+                                <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Thợ sản xuất" VerticalAlignment="Center"
                                        Style="{StaticResource ProductionFilterLabelStyle}" />
-                            <TextBox Grid.Column="1"
-                                     Style="{StaticResource ProductionFilterFieldStyle}"
-                                     Text="{Binding WorkerFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Lọc theo tên thợ" />
+                            <ComboBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterComboStyle}"
+                                      ItemsSource="{Binding WorkerFilterOptions}"
+                                      SelectedItem="{Binding WorkerFilterText}"
+                                      ToolTip="Lọc theo thợ sản xuất" />
                         </Grid>
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="95" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Loại sản phẩm" VerticalAlignment="Center"
-                                       Style="{StaticResource ProductionFilterLabelStyle}" />
-                            <TextBox Grid.Column="1"
-                                     Style="{StaticResource ProductionFilterFieldStyle}"
-                                     Text="{Binding ModelFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Lọc theo tên sản phẩm" />
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- Cột phải: search + nút -->
-                    <StackPanel Grid.Column="2">
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="85" />
+                                <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Mã phiếu" VerticalAlignment="Center"
@@ -95,47 +80,49 @@
                                      Text="{Binding OrderCodeFilterText, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="Nhập mã phiếu..." />
                         </Grid>
-                        <Grid Margin="0,0,0,10">
+                    </StackPanel>
+
+                    <!-- Cột phải -->
+                    <StackPanel Grid.Column="2">
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="85" />
+                                <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Khách hàng" VerticalAlignment="Center"
                                        Style="{StaticResource ProductionFilterLabelStyle}" />
-                            <TextBox Grid.Column="1"
-                                     Style="{StaticResource ProductionFilterFieldStyle}"
-                                     Text="{Binding CustomerFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Nhập khách hàng..." />
+                            <ComboBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterComboStyle}"
+                                      ItemsSource="{Binding CustomerFilterOptions}"
+                                      SelectedItem="{Binding CustomerFilterText}"
+                                      ToolTip="Lọc theo khách hàng" />
                         </Grid>
-                        <Grid Margin="0,0,0,12">
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="85" />
+                                <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Đơn đặt hàng" VerticalAlignment="Center"
                                        Style="{StaticResource ProductionFilterLabelStyle}" />
-                            <TextBox Grid.Column="1"
-                                     Style="{StaticResource ProductionFilterFieldStyle}"
-                                     Text="{Binding SalesOrderFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Nhập mã đơn đặt..." />
+                            <ComboBox Grid.Column="1"
+                                      Style="{StaticResource ProductionFilterComboStyle}"
+                                      ItemsSource="{Binding SalesOrderFilterOptions}"
+                                      SelectedItem="{Binding SalesOrderFilterText}"
+                                      ToolTip="Lọc theo mã đơn đặt hàng" />
                         </Grid>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                            <Button Content="Tìm kiếm"
-                                    Style="{StaticResource ProductionPrimaryButtonStyle}"
-                                    Command="{Binding RefreshCommand}"
-                                    MinWidth="110" Margin="0,0,8,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,4">
                             <Button Content="Làm mới"
                                     Style="{StaticResource ProductionOutlineButtonStyle}"
                                     Command="{Binding ResetFiltersCommand}"
-                                    MinWidth="110" />
+                                    MinWidth="110" MinHeight="30" />
                         </StackPanel>
                         <TextBlock Text="{Binding ErrorMessage}"
                                    Style="{StaticResource ProductionErrorStyle}"
                                    Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}"
-                                   Margin="0,8,0,0" TextWrapping="Wrap" />
+                                   Margin="0,4,0,0" TextWrapping="Wrap" />
                         <TextBlock Text="{Binding StatusMessage}"
                                    Style="{StaticResource ProductionHintStyle}"
-                                   Margin="0,4,0,0" TextWrapping="Wrap" />
+                                   Margin="0,2,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </Grid>
             </Border>

@@ -1245,10 +1245,23 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 connection, fbTx, request.LocationId, session.BranchId, cancellationToken);
 
             string? orderCode = null;
+            long? salesOrderId = null;
+            long? productionOrderRowVersion = null;
             if (request.ProductionOrderId is > 0)
-                orderCode = await LoadProductionOrderCodeAsync(
+            {
+                var orderLink = await LoadProductionOrderLinkAsync(
                     connection, fbTx, companyId, session.BranchId,
                     request.ProductionOrderId.Value, cancellationToken);
+                orderCode = orderLink.Code;
+                salesOrderId = orderLink.SalesOrderId;
+                productionOrderRowVersion = orderLink.RowVersion;
+                if (orderLink.FinishedReceiptDocumentId is > 0)
+                    throw new InvalidOperationException(
+                        $"Lệnh {orderCode} đã có phiếu nhập kho thành phẩm — không nhập lại.");
+                if (!string.Equals(orderLink.StatusCode, ProductionOrderStatuses.Completed, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"Chỉ nhập kho thành phẩm cho lệnh đã hoàn thành. Lệnh {orderCode} đang {orderLink.StatusCode}.");
+            }
 
             var docCode = await StockPostingSupport.NextDocumentCodeAsync(
                 connection, fbTx, ProductionStockDocumentTypes.FinishedReceipt,
@@ -1318,7 +1331,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                          LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT,
                          FINISHED_PRODUCT_GROUP_ID)
                     VALUES
-                        (@CID, @BID, @PO, NULL, NULL,
+                        (@CID, @BID, @PO, @SO, NULL,
                          @CODE, @BARCODE, @QR, @NAME, @PURITY, @TW, @GW,
                          @MAT, @LABOR, 0, @TOTAL,
                          @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP,
@@ -1330,6 +1343,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                     insertFp.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
                     insertFp.Parameters.Add("@PO", FbDbType.BigInt).Value =
                         request.ProductionOrderId is > 0 ? request.ProductionOrderId.Value : DBNull.Value;
+                    insertFp.Parameters.Add("@SO", FbDbType.BigInt).Value =
+                        salesOrderId is > 0 ? salesOrderId.Value : DBNull.Value;
                     insertFp.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = code;
                     insertFp.Parameters.Add("@BARCODE", FbDbType.VarChar, 80).Value = barcode;
                     insertFp.Parameters.Add("@QR", FbDbType.VarChar, 80).Value = barcode;
@@ -1359,6 +1374,31 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                     "IN", ProductionStockDocumentTypes.FinishedReceipt, documentId, 1, costPrice,
                     request.LocationId, null, request.LocationId,
                     "NEW", "IN_STOCK", session.UserId, cancellationToken);
+            }
+
+            if (request.ProductionOrderId is > 0 && productionOrderRowVersion is not null)
+            {
+                await using var updateOrder = new FbCommand("""
+                    UPDATE PRODUCTION_ORDERS
+                       SET FINISHED_RECEIPT_DOCUMENT_ID = @DOC,
+                           UPDATED_BY = @BY,
+                           UPDATED_AT = CURRENT_TIMESTAMP,
+                           ROW_VERSION = ROW_VERSION + 1
+                     WHERE ID = @ID
+                       AND STATUS_CODE = 'COMPLETED'
+                       AND FINISHED_RECEIPT_DOCUMENT_ID IS NULL
+                       AND ROW_VERSION = @VERSION
+                    RETURNING ROW_VERSION
+                    """, connection, fbTx);
+                updateOrder.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+                updateOrder.Parameters.Add("@BY", FbDbType.BigInt).Value =
+                    session.UserId > 0 ? session.UserId : DBNull.Value;
+                updateOrder.Parameters.Add("@ID", FbDbType.BigInt).Value = request.ProductionOrderId.Value;
+                updateOrder.Parameters.Add("@VERSION", FbDbType.BigInt).Value = productionOrderRowVersion.Value;
+                var updated = await updateOrder.ExecuteScalarAsync(cancellationToken);
+                if (updated is null or DBNull)
+                    throw new InvalidOperationException(
+                        $"Không gắn phiếu nhập cho lệnh {orderCode}. Dữ liệu lệnh đã thay đổi.");
             }
 
             await AuditLogWriter.WriteAsync(
@@ -2597,18 +2637,45 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         long productionOrderId,
         CancellationToken cancellationToken)
     {
+        var link = await LoadProductionOrderLinkAsync(
+            connection, transaction, companyId, branchId, productionOrderId, cancellationToken);
+        return link.Code;
+    }
+
+    private static async Task<ProductionOrderReceiptLink> LoadProductionOrderLinkAsync(
+        FbConnection connection,
+        FbTransaction transaction,
+        long companyId,
+        long branchId,
+        long productionOrderId,
+        CancellationToken cancellationToken)
+    {
         await using var command = new FbCommand("""
-            SELECT CODE FROM PRODUCTION_ORDERS
+            SELECT CODE, STATUS_CODE, SALES_ORDER_ID, FINISHED_RECEIPT_DOCUMENT_ID, ROW_VERSION
+            FROM PRODUCTION_ORDERS
             WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
             """, connection, transaction);
         command.Parameters.Add("@ID", FbDbType.BigInt).Value = productionOrderId;
         command.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
         command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
-        var scalar = await command.ExecuteScalarAsync(cancellationToken);
-        if (scalar is null or DBNull)
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
             throw new InvalidOperationException("Không tìm thấy lệnh sản xuất.");
-        return Convert.ToString(scalar) ?? string.Empty;
+
+        return new ProductionOrderReceiptLink(
+            Convert.ToString(reader.GetValue(0)) ?? string.Empty,
+            Convert.ToString(reader.GetValue(1)) ?? string.Empty,
+            reader.IsDBNull(2) ? null : reader.GetInt64(2),
+            reader.IsDBNull(3) ? null : reader.GetInt64(3),
+            reader.GetInt64(4));
     }
+
+    private sealed record ProductionOrderReceiptLink(
+        string Code,
+        string StatusCode,
+        long? SalesOrderId,
+        long? FinishedReceiptDocumentId,
+        long RowVersion);
 
     private static bool IsMissingTableViolation(FbException ex, string tableName) =>
         (ex.Message?.Contains("Table unknown", StringComparison.OrdinalIgnoreCase) ?? false)
