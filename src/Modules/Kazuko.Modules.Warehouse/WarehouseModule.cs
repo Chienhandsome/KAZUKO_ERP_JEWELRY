@@ -82,7 +82,7 @@ public sealed class WarehouseModule : IKazukoModule
             AssetRoot + "KHO.png",
             "Cập nhật giá mua và\ngiá bán vàng trong kho",
             ShowInSidebar: false,
-            ShowOnHome: true,
+            ShowOnHome: false,
             IsPlaceholder: false));
 
         navigation.Register(new NavigationItem(
