@@ -441,7 +441,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 
             var locations = await _warehouse.GetLocationsAsync(_session);
             Locations.Clear();
-            foreach (var location in locations)
+            foreach (var location in locations.Where(location =>
+                         string.Equals(
+                             location.InventoryScope,
+                             InventoryScopes.FinishedGoods,
+                             StringComparison.OrdinalIgnoreCase)))
                 Locations.Add(location);
             SelectedLocation = Locations.FirstOrDefault();
 
@@ -452,7 +456,9 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             SelectedProductGroup = ProductGroups.FirstOrDefault();
             OnPropertyChanged(nameof(PreviewProductCode));
 
-            if (Orders.Count == 0)
+            if (Locations.Count == 0)
+                ErrorMessage = "Chưa cấu hình kho thành phẩm cho chi nhánh.";
+            else if (Orders.Count == 0)
                 ErrorMessage = "Không có lệnh đã hoàn thành đang chờ nhập kho.";
         }
         catch (Exception ex)
