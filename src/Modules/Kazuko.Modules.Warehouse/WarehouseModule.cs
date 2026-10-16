@@ -96,7 +96,7 @@ public sealed class WarehouseModule : IKazukoModule
             null,
             () => new ExternalWorkerLaunchView(workerEditor, navigationService),
             AssetRoot + "KHO.png",
-            "Quản lý danh mục thợ ngoài\ncho lệnh sản xuất OUTSOURCED",
+            "Quản lý danh mục thợ ngoài\ncho lệnh sản xuất",
             ShowInSidebar: false,
             ShowOnHome: true,
             IsPlaceholder: false));

@@ -268,7 +268,7 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
         {
             if (!SetProperty(ref _oldBuyPriceText, value))
                 return;
-            if (SalesDecimalText.TryParse(value, out var parsed))
+            if (SalesDecimalText.TryParseGrouped(value, out var parsed))
             {
                 _oldBuyPrice = Math.Max(0m, parsed);
                 RecalculateOldGoldPreview();
@@ -295,7 +295,7 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
         {
             if (!SetProperty(ref _oldQuantityText, value))
                 return;
-            if (SalesDecimalText.TryParse(value, out var parsed) && parsed > 0m)
+            if (SalesDecimalText.TryParseGrouped(value, out var parsed) && parsed > 0m)
                 _oldQuantity = parsed;
         }
     }
@@ -310,7 +310,7 @@ public sealed class BuySellWorkspaceViewModel : ObservableObject
     private void SetOldBuyPrice(decimal value)
     {
         _oldBuyPrice = value;
-        _oldBuyPriceText = SalesDecimalText.Format(value, "0.##");
+        _oldBuyPriceText = SalesDecimalText.FormatGrouped(value);
         OnPropertyChanged(nameof(OldBuyPriceText));
     }
 

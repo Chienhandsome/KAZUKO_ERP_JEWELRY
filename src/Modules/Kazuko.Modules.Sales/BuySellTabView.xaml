@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Kazuko.Modules.Sales"
-             xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI">
+             xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
+             xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -270,12 +271,14 @@
                                          ToolTip="Tự tính: TL vàng × Giá trị % / 100 (chỉ)" />
                                 <TextBox Grid.Row="1" Grid.Column="6" Text="{Binding OldBuyPriceText, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0"
+                                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
                                          ToolTip="VND / chỉ quy đổi" />
                                 <TextBox Grid.Row="1" Grid.Column="7" Text="{Binding OldOverrideReason, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource SalesRoundedTextBoxStyle}" Margin="0,0,6,0"
                                          ToolTip="Lý do điều chỉnh giá (nếu có)" />
                                 <TextBox Grid.Row="1" Grid.Column="8" Text="{Binding OldQuantityText, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0,0,6,0"
+                                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
                                          ToolTip="Số món mô tả; không nhân vào thành tiền" />
                                 <Button Grid.Row="1" Grid.Column="9" Content="Nhập"
                                         Style="{StaticResource SalesPrimaryButtonStyle}"
@@ -355,8 +358,9 @@
                         <TextBlock Text="Cộng" Style="{StaticResource SalesFieldLabelStyle}" />
                         <TextBox Style="{StaticResource SalesSummaryValueStyle}" Text="{Binding SubtotalText, Mode=OneWay}" />
                         <TextBlock Text="Tiền bớt" Style="{StaticResource SalesFieldLabelStyle}" />
-                        <TextBox Text="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Text="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
                                  Style="{StaticResource SalesNumericTextBoxStyle}"
+                                 behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
                                  Margin="0,0,0,10" />
                     </StackPanel>
                 </DockPanel>

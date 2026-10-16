@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Sales.Dialogs.SalesPaymentDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="Thanh toán bán hàng"
         Width="864" Height="768" MinWidth="768" MinHeight="672"
         WindowStartupLocation="CenterOwner"
@@ -105,8 +106,9 @@
                                 <TextBlock Grid.Row="0" Grid.Column="3" Text="Quỹ tiền mặt"
                                            Style="{StaticResource SalesFieldLabelStyle}" />
                                 <TextBox Grid.Row="1" Grid.Column="1"
-                                         Text="{Binding CashAllocation.AmountVnd, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                                         Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0" />
+                                         Text="{Binding CashAllocation.AmountVnd, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                                         Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0"
+                                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                                 <ComboBox Grid.Row="1" Grid.Column="3"
                                           ItemsSource="{Binding CashFunds}"
                                           SelectedItem="{Binding CashAllocation.CashFund, UpdateSourceTrigger=PropertyChanged}"
@@ -140,8 +142,9 @@
                                 <TextBlock Grid.Row="0" Grid.Column="5" Text="Mã GD (tuỳ chọn)"
                                            Style="{StaticResource SalesFieldLabelStyle}" />
                                 <TextBox Grid.Row="1" Grid.Column="1"
-                                         Text="{Binding BankTransferAllocation.AmountVnd, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                                         Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0" />
+                                         Text="{Binding BankTransferAllocation.AmountVnd, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                                         Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0"
+                                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                                 <ComboBox Grid.Row="1" Grid.Column="3"
                                           ItemsSource="{Binding BankAccounts}"
                                           SelectedItem="{Binding BankTransferAllocation.BankAccount, UpdateSourceTrigger=PropertyChanged}"
@@ -180,8 +183,9 @@
                                 <TextBlock Grid.Row="0" Grid.Column="5" Text="Mã GD (tuỳ chọn)"
                                            Style="{StaticResource SalesFieldLabelStyle}" />
                                 <TextBox Grid.Row="1" Grid.Column="1"
-                                         Text="{Binding CardAllocation.AmountVnd, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                                         Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0" />
+                                         Text="{Binding CardAllocation.AmountVnd, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                                         Style="{StaticResource SalesNumericTextBoxStyle}" Margin="0"
+                                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                                 <ComboBox Grid.Row="1" Grid.Column="3"
                                           ItemsSource="{Binding BankAccounts}"
                                           SelectedItem="{Binding CardAllocation.BankAccount, UpdateSourceTrigger=PropertyChanged}"
@@ -214,9 +218,10 @@
                         <TextBlock Text="Công nợ phải thu"
                                    Style="{StaticResource SalesFieldLabelStyle}"
                                    IsEnabled="{Binding CanUseReceivable}" />
-                        <TextBox Text="{Binding ReceivableAmountVnd, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Text="{Binding ReceivableAmountVnd, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
                                  Style="{StaticResource SalesNumericTextBoxStyle}"
                                  Width="180" HorizontalAlignment="Left" Margin="0"
+                                 behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
                                  IsEnabled="{Binding CanUseReceivable}" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" VerticalAlignment="Center">

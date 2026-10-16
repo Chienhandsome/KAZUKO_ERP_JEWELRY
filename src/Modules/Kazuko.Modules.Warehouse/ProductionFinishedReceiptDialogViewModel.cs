@@ -52,7 +52,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private string _quantityText = "1";
     private string _costPriceText = string.Empty;
     private string _salePriceText = string.Empty;
-    private string _craftLaborCostText = string.Empty;
     private string _saleLaborCostText = string.Empty;
     private string _purchaseLaborCostText = string.Empty;
     private string _supplierName = string.Empty;
@@ -252,12 +251,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         set => SetProperty(ref _salePriceText, value);
     }
 
-    public string CraftLaborCostText
-    {
-        get => _craftLaborCostText;
-        set => SetProperty(ref _craftLaborCostText, value);
-    }
-
     public string SaleLaborCostText
     {
         get => _saleLaborCostText;
@@ -368,7 +361,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public string FooterTotalWeightText => $"{Products.Sum(x => x.TotalWeight):0.###} Chỉ";
     public string FooterGoldWeightText => $"{Products.Sum(x => x.GoldWeight):0.###} Chỉ";
     public string FooterStoneWeightText => $"{Products.Sum(x => x.StoneWeight):0.###} Chỉ";
-    public string FooterCraftLaborText => $"{Products.Sum(x => x.CraftLaborCost ?? 0):N0}";
+    public string FooterCraftLaborText => $"{Products.Sum(x => x.PurchaseLaborCost ?? x.CraftLaborCost ?? 0):N0}";
     public string FooterCostPriceText => Products.Count == 0
         ? "—" : $"{Products.Sum(x => x.CostPrice ?? 0):N0}";
     public string FooterSalePriceText => $"{Products.Sum(x => x.SalePrice ?? 0):N0}";
@@ -716,11 +709,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 
         TryParseDecimal(TotalWeightText, out var totalWeight);
         TryParseDecimal(StoneWeightText, out var stoneWeight);
-        TryParseDecimal(CostPriceText, out var costPrice);
-        TryParseDecimal(SalePriceText, out var salePrice);
-        TryParseDecimal(CraftLaborCostText, out var craftLabor);
-        TryParseDecimal(SaleLaborCostText, out var saleLabor);
-        TryParseDecimal(PurchaseLaborCostText, out var purchaseLabor);
+        TryParseMoney(CostPriceText, out var costPrice);
+        TryParseMoney(SalePriceText, out var salePrice);
+        TryParseMoney(SaleLaborCostText, out var saleLabor);
+        TryParseMoney(PurchaseLaborCostText, out var purchaseLabor);
+        var hasPurchaseLabor = !string.IsNullOrWhiteSpace(PurchaseLaborCostText);
 
         var items = new List<ManualFinishedProductItem>(quantity);
         // Bỏ check "Tạo mã riêng cho từng món" → cả N dòng dùng chung 1 mã.
@@ -753,9 +746,9 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 GoldWeight: goldWeight,
                 CostPrice: string.IsNullOrWhiteSpace(CostPriceText) ? null : costPrice,
                 SalePrice: string.IsNullOrWhiteSpace(SalePriceText) ? null : salePrice,
-                CraftLaborCost: string.IsNullOrWhiteSpace(CraftLaborCostText) ? null : craftLabor,
+                CraftLaborCost: hasPurchaseLabor ? purchaseLabor : null,
                 SaleLaborCost: string.IsNullOrWhiteSpace(SaleLaborCostText) ? null : saleLabor,
-                PurchaseLaborCost: string.IsNullOrWhiteSpace(PurchaseLaborCostText) ? null : purchaseLabor,
+                PurchaseLaborCost: hasPurchaseLabor ? purchaseLabor : null,
                 SupplierName: string.IsNullOrWhiteSpace(SupplierName) ? null : SupplierName.Trim(),
                 ModelCode: string.IsNullOrWhiteSpace(ModelCode) ? null : ModelCode.Trim(),
                 SymbolCode: string.IsNullOrWhiteSpace(SymbolCode) ? null : SymbolCode.Trim(),
@@ -798,9 +791,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         QuantityText = "1";
         CostPriceText = item.CostPrice?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
         SalePriceText = item.SalePrice?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
-        CraftLaborCostText = item.CraftLaborCost?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
         SaleLaborCostText = item.SaleLaborCost?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
-        PurchaseLaborCostText = item.PurchaseLaborCost?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
+        PurchaseLaborCostText = (item.PurchaseLaborCost ?? item.CraftLaborCost)?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
         SupplierName = item.SupplierName ?? string.Empty;
         ModelCode = item.ModelCode ?? string.Empty;
         SymbolCode = item.SymbolCode ?? string.Empty;
@@ -846,7 +838,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         QuantityText = "1";
         CostPriceText = string.Empty;
         SalePriceText = string.Empty;
-        CraftLaborCostText = string.Empty;
         SaleLaborCostText = string.Empty;
         PurchaseLaborCostText = string.Empty;
         SupplierName = string.Empty;
@@ -1017,12 +1008,24 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             || decimal.TryParse(text.Trim(), styles, CultureInfo.InvariantCulture, out value);
     }
 
+    private static bool TryParseMoney(string? text, out decimal value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        var digits = new string(text.Where(char.IsDigit).ToArray());
+        return digits.Length > 0
+            && decimal.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out value);
+    }
+
     private static bool TryParseInt(string? text, out int value)
     {
         value = 0;
         if (string.IsNullOrWhiteSpace(text))
             return false;
-        return int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out value)
+        var vi = CultureInfo.GetCultureInfo("vi-VN");
+        var grouped = NumberStyles.Integer | NumberStyles.AllowThousands;
+        return int.TryParse(text.Trim(), grouped, vi, out value)
             || int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
     }
 

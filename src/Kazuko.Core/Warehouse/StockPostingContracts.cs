@@ -68,7 +68,10 @@ public sealed record MaterialReceiptDraft(
     string? Notes,
     IReadOnlyList<MaterialReceiptLineDraft> Lines,
     decimal PaidAmountVnd,
-    IReadOnlyList<PaymentAllocationDraft> Payments);
+    IReadOnlyList<PaymentAllocationDraft> Payments,
+    decimal DiscountAmountVnd = 0,
+    decimal TaxAmountVnd = 0,
+    decimal ShippingFeeVnd = 0);
 
 public sealed record MaterialReceiptPostResult(
     long DocumentId,

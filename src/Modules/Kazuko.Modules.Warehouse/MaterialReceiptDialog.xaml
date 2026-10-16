@@ -1,6 +1,7 @@
-<Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
+﻿<Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Nhập kho NVL"
         Width="980" Height="780"
@@ -212,8 +213,6 @@
                       <ColumnDefinition Width="8" />
                       <ColumnDefinition Width="*" />
                       <ColumnDefinition Width="8" />
-                      <ColumnDefinition Width="0.8*" />
-                      <ColumnDefinition Width="8" />
                       <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -224,7 +223,6 @@
                     <TextBlock Grid.Column="0" Text="Nguyên vật liệu *" Style="{StaticResource WhFieldLabelStyle}" />
                     <TextBlock Grid.Column="2" Text="Số lượng (chỉ) *" Style="{StaticResource WhFieldLabelStyle}" />
                     <TextBlock Grid.Column="4" Text="{Binding UnitPriceLabel}" Style="{StaticResource WhFieldLabelStyle}" />
-                    <TextBlock Grid.Column="6" Text="Tỷ giá" Style="{StaticResource WhFieldLabelStyle}" />
 
                     <Grid Grid.Row="1" Grid.Column="0">
                       <Grid.ColumnDefinitions>
@@ -245,16 +243,15 @@
                               ToolTip="Thêm loại vàng mới vào danh mục và giá mua/bán lẻ" />
                     </Grid>
                     <TextBox Grid.Row="1" Grid.Column="2"
-                             Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource WhRoundedTextBoxStyle}" />
-                    <TextBox Grid.Row="1" Grid.Column="4"
-                             Text="{Binding LineUnitPrice, UpdateSourceTrigger=LostFocus, StringFormat=N0}"
-                             Style="{StaticResource WhRoundedTextBoxStyle}" />
-                    <TextBox Grid.Row="1" Grid.Column="6"
-                             Text="{Binding LineExchangeRate, UpdateSourceTrigger=PropertyChanged}"
+                             Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViQuantityConverter}}"
                              Style="{StaticResource WhRoundedTextBoxStyle}"
-                             ToolTip="Tỷ giá quy đổi về VNĐ (mặc định 1)" />
-                    <Button Grid.Row="1" Grid.Column="8"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
+                             behaviors:NumericThousandSeparatorBehavior.AllowDecimal="True" />
+                    <TextBox Grid.Row="1" Grid.Column="4"
+                             Text="{Binding LineUnitPrice, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}"
+                             Style="{StaticResource WhRoundedTextBoxStyle}"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
+                    <Button Grid.Row="1" Grid.Column="6"
                             Content="Thêm dòng"
                             Command="{Binding AddLineCommand}"
                             Style="{StaticResource WhPrimaryButtonStyle}"
@@ -274,7 +271,6 @@
                     <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
                     <DataGridTextColumn Header="Số lượng (chỉ)" Binding="{Binding Quantity, Mode=OneWay, StringFormat={}{0:0.####}}" Width="100" />
                     <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPrice, Mode=OneWay, StringFormat=N0}" Width="110" />
-                    <DataGridTextColumn Header="Tỷ giá" Binding="{Binding ExchangeRate, Mode=OneWay, StringFormat=N4}" Width="80" />
                     <DataGridTextColumn Header="Thành tiền" Binding="{Binding AmountVnd, Mode=OneWay, StringFormat=N0}" Width="120" />
                   </DataGrid.Columns>
                 </DataGrid>
@@ -309,33 +305,31 @@
 
               <StackPanel Grid.Column="2">
                 <TextBlock Text="Giảm giá" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                         Style="{StaticResource WhRoundedTextBoxStyle}" />
+                <TextBox Text="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                         Style="{StaticResource WhRoundedTextBoxStyle}"
+                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
               </StackPanel>
 
               <StackPanel Grid.Column="4">
                 <TextBlock Text="Thuế" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="{Binding TaxAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                         Style="{StaticResource WhRoundedTextBoxStyle}" />
+                <TextBox Text="{Binding TaxAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                         Style="{StaticResource WhRoundedTextBoxStyle}"
+                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
               </StackPanel>
 
               <StackPanel Grid.Row="2">
                 <TextBlock Text="Phí vận chuyển" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="{Binding ShippingFee, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                         Style="{StaticResource WhRoundedTextBoxStyle}" />
+                <TextBox Text="{Binding ShippingFee, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                         Style="{StaticResource WhRoundedTextBoxStyle}"
+                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
               </StackPanel>
 
               <StackPanel Grid.Row="2" Grid.Column="2">
                 <TextBlock Text="Tổng cộng" Style="{StaticResource WhFieldLabelStyle}" />
                 <TextBlock Text="{Binding GrandTotal, StringFormat={}{0:N0} đ}"
                            Style="{StaticResource WhSummaryValueStyle}"
-                           Foreground="{DynamicResource PrimaryBrush}" />
-              </StackPanel>
-
-              <StackPanel Grid.Row="2" Grid.Column="4">
-                <TextBlock Text="Tiền thanh toán" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBlock Text="{Binding GrandTotal, StringFormat={}{0:N0} đ}"
-                           Style="{StaticResource WhSummaryValueStyle}" />
+                           Foreground="{DynamicResource PrimaryBrush}"
+                           ToolTip="Tiền hàng - giảm giá + thuế + phí vận chuyển" />
               </StackPanel>
             </Grid>
           </StackPanel>
@@ -359,20 +353,23 @@
 
               <StackPanel>
                 <TextBlock Text="Tiền mặt" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                         Style="{StaticResource WhRoundedTextBoxStyle}" />
+                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                         Style="{StaticResource WhRoundedTextBoxStyle}"
+                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
               </StackPanel>
 
               <StackPanel Grid.Column="2">
                 <TextBlock Text="Chuyển khoản" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
-                         Style="{StaticResource WhRoundedTextBoxStyle}" />
+                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                         Style="{StaticResource WhRoundedTextBoxStyle}"
+                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
               </StackPanel>
 
               <StackPanel Grid.Column="4">
                 <TextBlock Text="Thẻ" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
+                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
                          Style="{StaticResource WhRoundedTextBoxStyle}"
+                         behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
                          ToolTip="Nhập số tiền hoặc quét thẻ" />
               </StackPanel>
             </Grid>
@@ -385,6 +382,15 @@
               </Grid.ColumnDefinitions>
 
               <StackPanel>
+                <TextBlock Text="Quỹ tiền mặt" Style="{StaticResource WhFieldLabelStyle}" />
+                <ComboBox ItemsSource="{Binding Funds}"
+                          SelectedItem="{Binding SelectedFund}"
+                          DisplayMemberPath="Name"
+                          Style="{StaticResource WhComboStyle}"
+                          ToolTip="Quỹ ghi phiếu chi tiền mặt" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="2">
                 <TextBlock Text="Tài khoản ngân hàng" Style="{StaticResource WhFieldLabelStyle}" />
                 <ComboBox ItemsSource="{Binding Banks}"
                           SelectedItem="{Binding SelectedBankAccount}"

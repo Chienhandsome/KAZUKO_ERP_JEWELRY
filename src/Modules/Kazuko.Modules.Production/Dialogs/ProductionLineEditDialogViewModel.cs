@@ -14,6 +14,11 @@ namespace Kazuko.Modules.Production.Dialogs;
 
 public sealed class ProductionLineEditDialogViewModel : ObservableObject
 {
+    // Parse/format số luôn dùng vi-VN, không theo regional settings của máy:
+    // máy để en-US thì nhập "7.300.000" (kiểu VN) sẽ parse lỗi -> báo validate sai.
+    // (module Khách hàng / Nhân sự đã làm theo cách này)
+    private static readonly CultureInfo ViVn = CultureInfo.GetCultureInfo("vi-VN");
+
     private readonly IProductionAttachmentStore _attachments;
     private readonly bool _isEditable;
     private readonly List<string> _sessionStagingPaths = [];
@@ -70,7 +75,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             ModelName = source.ModelName;
             GoldTypeCode = source.GoldTypeCode;
             GoldTypeName = source.GoldTypeName;
-            PlannedQuantityText = source.PlannedQuantity.ToString(CultureInfo.CurrentCulture);
+            PlannedQuantityText = source.PlannedQuantity.ToString("N0", ViVn);
             LaborCostPerUnitText = FormatLaborCost(source.LaborCostPerUnit);
             EstimatedWeightChiText = FormatDecimal(source.EstimatedWeightChi, "0.###");
             GoldUnitPricePerChiText = FormatLaborCost(source.GoldUnitPricePerChi);
@@ -216,7 +221,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         set
         {
             var raw = value ?? string.Empty;
-            if (decimal.TryParse(raw.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var labor)
+            if (decimal.TryParse(raw.Trim(), NumberStyles.Number, ViVn, out var labor)
                 && labor >= 0)
             {
                 // On set: keep thousand-separated display when value is a valid amount.
@@ -246,7 +251,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         set
         {
             var raw = value ?? string.Empty;
-            if (decimal.TryParse(raw.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var price)
+            if (decimal.TryParse(raw.Trim(), NumberStyles.Number, ViVn, out var price)
                 && price >= 0)
             {
                 if (SetProperty(ref _goldUnitPricePerChiText, FormatLaborCost(price)))
@@ -276,7 +281,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         if (decimal.TryParse(
                 _laborCostPerUnitText.Trim(),
                 NumberStyles.Number,
-                CultureInfo.CurrentCulture,
+                ViVn,
                 out var labor)
             && labor >= 0)
         {
@@ -290,10 +295,10 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
     }
 
     private static string FormatLaborCost(decimal value) =>
-        value.ToString("N0", CultureInfo.CurrentCulture);
+        value.ToString("N0", ViVn);
 
     private static string FormatDecimal(decimal value, string format) =>
-        value.ToString(format, CultureInfo.CurrentCulture);
+        value.ToString(format, ViVn);
 
     private void ApplyDefaultGoldPriceFromSelection()
     {
@@ -305,10 +310,10 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
 
     public void FormatMoneyFieldsOnLostFocus()
     {
-        if (decimal.TryParse(LaborCostPerUnitText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var labor)
+        if (decimal.TryParse(LaborCostPerUnitText.Trim(), NumberStyles.Number, ViVn, out var labor)
             && labor >= 0)
             LaborCostPerUnitText = FormatLaborCost(labor);
-        if (decimal.TryParse(GoldUnitPricePerChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out var gold)
+        if (decimal.TryParse(GoldUnitPricePerChiText.Trim(), NumberStyles.Number, ViVn, out var gold)
             && gold >= 0)
             GoldUnitPricePerChiText = FormatLaborCost(gold);
     }
@@ -320,13 +325,13 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         weight = 0;
         goldPrice = 0;
         labor = 0;
-        return int.TryParse(PlannedQuantityText.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out qty)
+        return int.TryParse(PlannedQuantityText.Trim(), NumberStyles.Integer | NumberStyles.AllowThousands, ViVn, out qty)
             && qty >= 1
-            && decimal.TryParse(EstimatedWeightChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out weight)
+            && decimal.TryParse(EstimatedWeightChiText.Trim(), NumberStyles.Number, ViVn, out weight)
             && weight >= 0
-            && decimal.TryParse(GoldUnitPricePerChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out goldPrice)
+            && decimal.TryParse(GoldUnitPricePerChiText.Trim(), NumberStyles.Number, ViVn, out goldPrice)
             && goldPrice >= 0
-            && decimal.TryParse(LaborCostPerUnitText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out labor)
+            && decimal.TryParse(LaborCostPerUnitText.Trim(), NumberStyles.Number, ViVn, out labor)
             && labor >= 0;
     }
 
@@ -366,13 +371,16 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         target.GoldTypeCode = GoldTypeCode.Trim();
         target.GoldTypeName = GoldTypeName.Trim();
         target.GoldMaterialId = SelectedGoldStock?.MaterialId;
-        target.PlannedQuantity = int.Parse(PlannedQuantityText.Trim(), CultureInfo.CurrentCulture);
+        target.PlannedQuantity = int.Parse(
+            PlannedQuantityText.Trim(),
+            NumberStyles.Integer | NumberStyles.AllowThousands,
+            ViVn);
         target.LaborCostPerUnit = decimal.Parse(
-            LaborCostPerUnitText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture);
+            LaborCostPerUnitText.Trim(), NumberStyles.Number, ViVn);
         target.EstimatedWeightChi = decimal.Parse(
-            EstimatedWeightChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture);
+            EstimatedWeightChiText.Trim(), NumberStyles.Number, ViVn);
         target.GoldUnitPricePerChi = decimal.Parse(
-            GoldUnitPricePerChiText.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture);
+            GoldUnitPricePerChiText.Trim(), NumberStyles.Number, ViVn);
         target.StoneAmountPerUnitVnd = 0m;
         target.Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
         target.Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes.Trim();
@@ -411,7 +419,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             return;
         }
 
-        if (!int.TryParse(PlannedQuantityText.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out var qty)
+        if (!int.TryParse(PlannedQuantityText.Trim(), NumberStyles.Integer | NumberStyles.AllowThousands, ViVn, out var qty)
             || qty < 1)
         {
             ErrorMessage = "Số lượng cần làm phải là số nguyên ≥ 1.";

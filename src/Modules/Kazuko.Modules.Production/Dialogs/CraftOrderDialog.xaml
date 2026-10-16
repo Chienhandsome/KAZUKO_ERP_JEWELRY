@@ -1,6 +1,7 @@
-<Window x:Class="Kazuko.Modules.Production.Dialogs.CraftOrderDialog"
+﻿<Window x:Class="Kazuko.Modules.Production.Dialogs.CraftOrderDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
         Title="Tạo đơn đặt chế tác"
         Width="920" Height="780"
@@ -164,18 +165,21 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                 <TextBlock Text="Tiền mặt (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+                                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="0,0,8,0">
                                 <TextBlock Text="Chuyển khoản (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+                                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Thẻ (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
-                                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0" />
+                                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
+                                         Style="{StaticResource ProductionDialogFieldStyle}" Margin="0"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                             </StackPanel>
                         </Grid>
                         <TextBlock Text="{Binding DepositTotalDisplay, StringFormat=Tổng cọc: {0}}"

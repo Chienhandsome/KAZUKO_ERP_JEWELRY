@@ -26,6 +26,27 @@ public sealed class StockPostingValidatorTests
     }
 
     [Fact]
+    public void MaterialReceipt_GrandTotal_IncludesTaxAndShipping()
+    {
+        var draft = new MaterialReceiptDraft(
+            DateTime.Today,
+            1,
+            StockSourceTypes.Supplier,
+            5,
+            null,
+            null,
+            [new MaterialReceiptLineDraft(1, 1, 1_000_000, "VND", 1, null)],
+            1_150_000,
+            [new PaymentAllocationDraft(PaymentMethods.Cash, 1_150_000, 1, null, null)],
+            DiscountAmountVnd: 50_000,
+            TaxAmountVnd: 100_000,
+            ShippingFeeVnd: 100_000);
+
+        var errors = MaterialReceiptValidator.Validate(draft);
+        Assert.DoesNotContain(errors, e => e.Contains("vượt tổng", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void MaterialReceipt_RejectsPaymentOverTotal()
     {
         var draft = new MaterialReceiptDraft(

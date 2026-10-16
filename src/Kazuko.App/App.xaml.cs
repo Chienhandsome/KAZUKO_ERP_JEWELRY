@@ -44,6 +44,7 @@ using Kazuko.Modules.Reports;
 using Kazuko.Modules.Sales;
 using Kazuko.Modules.Suppliers;
 using Kazuko.Modules.Warehouse;
+using Kazuko.Shared.UI.Behaviors;
 using Kazuko.Shared.UI.Services;
 
 namespace Kazuko.App;
@@ -57,6 +58,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        TextBoxSelectAllBehavior.Register();
         RegisterFoundation();
         RegisterModules();
         ApplySavedAppearance();

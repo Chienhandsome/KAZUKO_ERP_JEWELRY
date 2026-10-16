@@ -25,7 +25,9 @@ public sealed class FirebirdMaterialReceiptService : IMaterialReceiptService
         if (errors.Count > 0)
             throw new InvalidOperationException(string.Join(" ", errors));
 
-        var total = MaterialReceiptValidator.ComputeTotalAmountVnd(draft.Lines);
+        var goods = MaterialReceiptValidator.ComputeTotalAmountVnd(draft.Lines);
+        var total = MaterialReceiptValidator.ComputeGrandTotal(
+            goods, draft.DiscountAmountVnd, draft.TaxAmountVnd, draft.ShippingFeeVnd);
         var debt = total - draft.PaidAmountVnd;
         var source = draft.SourceType.Trim().ToUpperInvariant();
         var purpose = source == StockSourceTypes.OldGoldCustomer ? "OLD_GOLD_PURCHASE" : "SUPPLIER_PURCHASE";

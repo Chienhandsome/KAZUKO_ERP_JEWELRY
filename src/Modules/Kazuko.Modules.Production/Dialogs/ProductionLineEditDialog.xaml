@@ -1,6 +1,7 @@
-<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
+﻿<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="984" Height="620"
@@ -108,7 +109,8 @@
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Số lượng *" Style="{StaticResource LineCompactLabelStyle}"
                                ToolTip="Số lượng cần làm" />
                     <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding PlannedQuantityText, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}" />
+                             Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                     <TextBlock Grid.Row="2" Grid.Column="3" Text="TL vàng (chỉ) *" Style="{StaticResource LineCompactLabelStyle}"
                                ToolTip="TL vàng ước tính (chỉ)" />
                     <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding EstimatedWeightChiText, UpdateSourceTrigger=PropertyChanged}"
@@ -117,11 +119,13 @@
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Giá vàng / chỉ *" Style="{StaticResource LineCompactLabelStyle}" />
                     <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding GoldUnitPricePerChiText, UpdateSourceTrigger=LostFocus}"
                              Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
-                             LostFocus="MoneyField_OnLostFocus" />
+                             LostFocus="MoneyField_OnLostFocus"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
                     <TextBlock Grid.Row="3" Grid.Column="3" Text="Tiền công / món" Style="{StaticResource LineCompactLabelStyle}" />
                     <TextBox Grid.Row="3" Grid.Column="4" Text="{Binding LaborCostPerUnitText, UpdateSourceTrigger=LostFocus}"
                              Style="{StaticResource LineCompactFieldStyle}" IsEnabled="{Binding IsEditable}"
-                             LostFocus="MoneyField_OnLostFocus" />
+                             LostFocus="MoneyField_OnLostFocus"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5"
                                Text="{Binding QuotePreviewText, Mode=OneWay}"

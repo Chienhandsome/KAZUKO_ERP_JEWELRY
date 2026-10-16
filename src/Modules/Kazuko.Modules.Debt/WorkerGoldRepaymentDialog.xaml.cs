@@ -27,7 +27,7 @@ public partial class WorkerGoldRepaymentDialog : Window
         WorkerNameBox.Text = debt.WorkerDisplayName;
         PurityBox.Text = debt.GoldPurityText;
         RemainingBox.Text = debt.RemainingText;
-        AmountBox.Text = debt.RemainingChi.ToString("N3", CultureInfo.CurrentCulture);
+        AmountBox.Text = debt.RemainingChi.ToString("#,0.###", CultureInfo.GetCultureInfo("vi-VN"));
         PaidDatePicker.SelectedDate = DateTime.Today;
 
         AmountBox.Focus();
@@ -87,7 +87,8 @@ public partial class WorkerGoldRepaymentDialog : Window
 
         // Chấp nhận cả dấu phân cách theo máy (vi-VN: 1.250,5) lẫn dạng 1,250.5.
         var normalized = text.Trim().Replace(" ", string.Empty);
-        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.CurrentCulture, out amount)
+        var vi = CultureInfo.GetCultureInfo("vi-VN");
+        return decimal.TryParse(normalized, NumberStyles.Number, vi, out amount)
             || decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
     }
 }

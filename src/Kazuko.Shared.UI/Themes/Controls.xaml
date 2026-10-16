@@ -1,7 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:conv="clr-namespace:Kazuko.Shared.UI.Converters">
+                    xmlns:conv="clr-namespace:Kazuko.Shared.UI.Converters"
+                    xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors">
     <conv:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
+    <conv:VietnameseMoneyConverter x:Key="ViMoneyConverter" />
+    <conv:VietnameseQuantityConverter x:Key="ViQuantityConverter" />
 
     <Style TargetType="Window">
         <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
@@ -23,6 +26,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="behaviors:TextBoxSelectAllBehavior.SelectAllOnFocus" Value="True" />
     </Style>
 
     <Style TargetType="PasswordBox">
@@ -33,6 +37,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="behaviors:TextBoxSelectAllBehavior.SelectAllOnFocus" Value="True" />
     </Style>
 
     <Style x:Key="PrimaryButtonStyle" TargetType="Button">

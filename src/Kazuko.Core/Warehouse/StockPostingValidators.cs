@@ -54,9 +54,20 @@ public static class MaterialReceiptValidator
             total += amount;
         }
 
+        if (draft.DiscountAmountVnd < 0)
+            errors.Add("Giảm giá không được âm.");
+        if (draft.TaxAmountVnd < 0)
+            errors.Add("Thuế không được âm.");
+        if (draft.ShippingFeeVnd < 0)
+            errors.Add("Phí vận chuyển không được âm.");
+
+        var grandTotal = ComputeGrandTotal(total, draft.DiscountAmountVnd, draft.TaxAmountVnd, draft.ShippingFeeVnd);
+        if (grandTotal < 0)
+            errors.Add("Giảm giá không được lớn hơn tiền hàng cộng thuế và phí vận chuyển.");
+
         if (draft.PaidAmountVnd < 0)
             errors.Add("Số đã thanh toán không được âm.");
-        if (draft.PaidAmountVnd > total)
+        if (draft.PaidAmountVnd > grandTotal)
             errors.Add("Số đã thanh toán không được vượt tổng tiền phiếu.");
 
         errors.AddRange(PaymentAllocationValidator.Validate(draft.Payments ?? Array.Empty<PaymentAllocationDraft>(), draft.PaidAmountVnd));
@@ -68,6 +79,14 @@ public static class MaterialReceiptValidator
 
     public static decimal ComputeTotalAmountVnd(IEnumerable<MaterialReceiptLineDraft> lines) =>
         lines.Sum(ComputeLineAmountVnd);
+
+    /// <summary>Tổng phải trả = tiền hàng - giảm giá + thuế + phí vận chuyển.</summary>
+    public static decimal ComputeGrandTotal(
+        decimal goodsAmountVnd,
+        decimal discountAmountVnd,
+        decimal taxAmountVnd,
+        decimal shippingFeeVnd) =>
+        goodsAmountVnd - discountAmountVnd + taxAmountVnd + shippingFeeVnd;
 }
 
 public static class OutsourcedCraftIssueValidator

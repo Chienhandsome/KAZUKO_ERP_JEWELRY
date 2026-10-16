@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Warehouse.WarehouseGoldPriceDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="BẢNG GIÁ VÀNG KHO - KAZUKO ERP JEWELRY"
         Width="980" Height="650"
         MinWidth="880" MinHeight="560"
@@ -187,7 +188,7 @@
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
                 <DataGridTextColumn Header="Giá mua trong kho / chỉ"
-                                  Binding="{Binding BuyPricePerChi, UpdateSourceTrigger=LostFocus, StringFormat=N0}"
+                                  Binding="{Binding BuyPricePerChi, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}"
                                   Width="150">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
@@ -203,11 +204,12 @@
                             <Setter Property="FontWeight" Value="Bold" />
                             <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                             <Setter Property="HorizontalContentAlignment" Value="Right" />
+                            <Setter Property="behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator" Value="True" />
                         </Style>
                     </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>
                 <DataGridTextColumn Header="Giá bán trong kho / chỉ"
-                                  Binding="{Binding SellPricePerChi, UpdateSourceTrigger=LostFocus, StringFormat=N0}"
+                                  Binding="{Binding SellPricePerChi, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}"
                                   Width="150">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
@@ -223,6 +225,7 @@
                             <Setter Property="FontWeight" Value="Bold" />
                             <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
                             <Setter Property="HorizontalContentAlignment" Value="Right" />
+                            <Setter Property="behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator" Value="True" />
                         </Style>
                     </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>

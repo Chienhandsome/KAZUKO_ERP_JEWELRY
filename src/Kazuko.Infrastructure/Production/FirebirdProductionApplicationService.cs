@@ -1316,7 +1316,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                     barcode = code;
 
                 var costPrice = item.CostPrice ?? 0;
-                var laborCost = item.CraftLaborCost ?? 0;
+                var laborCost = item.PurchaseLaborCost ?? item.CraftLaborCost ?? 0;
                 var materialCost = Math.Max(0, costPrice - laborCost);
                 var groupId = await ResolveFinishedProductGroupIdAsync(
                     connection, fbTx, companyId, item.ProductGroup, cancellationToken);
@@ -2580,9 +2580,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         {
             ("Giá vốn", item.CostPrice),
             ("Giá bán", item.SalePrice),
-            ("Công chế tác", item.CraftLaborCost),
             ("Công bán", item.SaleLaborCost),
-            ("Công nhập", item.PurchaseLaborCost)
+            ("Công nhập", item.PurchaseLaborCost ?? item.CraftLaborCost)
         };
         foreach (var (label, value) in moneyFields)
         {

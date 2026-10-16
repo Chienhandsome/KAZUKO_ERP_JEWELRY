@@ -26,7 +26,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private MaterialOption? _selectedMaterial;
     private decimal _lineQuantity = 1;
     private decimal _lineUnitPrice;
-    private decimal _lineExchangeRate = 1;
+    private const decimal VndExchangeRate = 1m;
     private string _notes = string.Empty;
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
@@ -83,7 +83,15 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set => SetProperty(ref _selectedSupplier, value);
     }
 
+    private CashFundOption? _selectedFund;
     private BankAccountOption? _selectedBankAccount;
+
+    /// <summary>Quỹ tiền mặt cho khoản thanh toán tiền mặt.</summary>
+    public CashFundOption? SelectedFund
+    {
+        get => _selectedFund;
+        set => SetProperty(ref _selectedFund, value);
+    }
 
     /// <summary>Tài khoản ngân hàng cho chuyển khoản/thẻ.</summary>
     public BankAccountOption? SelectedBankAccount
@@ -134,12 +142,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set => SetProperty(ref _lineUnitPrice, value);
     }
 
-    public decimal LineExchangeRate
-    {
-        get => _lineExchangeRate;
-        set => SetProperty(ref _lineExchangeRate, value);
-    }
-
     public ReceiptLineRow? SelectedLine { get; set; }
 
     private decimal _cashAmount;
@@ -149,7 +151,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _cashAmount, value))
-                OnPropertyChanged(nameof(PaidAmount));
+                NotifyPaymentChanged();
         }
     }
 
@@ -160,7 +162,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _transferAmount, value))
-                OnPropertyChanged(nameof(PaidAmount));
+                NotifyPaymentChanged();
         }
     }
 
@@ -171,12 +173,18 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _cardAmount, value))
-                OnPropertyChanged(nameof(PaidAmount));
+                NotifyPaymentChanged();
         }
     }
 
     /// <summary>Tổng số tiền thanh toán (Tiền mặt + Chuyển khoản + Thẻ).</summary>
     public decimal PaidAmount => CashAmount + TransferAmount + CardAmount;
+
+    private void NotifyPaymentChanged()
+    {
+        OnPropertyChanged(nameof(PaidAmount));
+        OnPropertyChanged(nameof(DebtAmount));
+    }
 
     public string Notes
     {
@@ -298,8 +306,10 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             Materials.Add(material);
         foreach (var fund in await _funds.GetActiveFundsAsync(_session))
             Funds.Add(fund);
+        SelectedFund = Funds.FirstOrDefault(x => x.IsDefault) ?? Funds.FirstOrDefault();
         foreach (var bank in await _banks.GetActiveAccountsAsync(_session))
             Banks.Add(bank);
+        SelectedBankAccount = Banks.FirstOrDefault();
     }
 
     private void AddLine()
@@ -317,8 +327,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             SelectedMaterial.MaterialType,
             SelectedMaterial.UnitCode,
             LineQuantity,
-            LineUnitPrice,
-            LineExchangeRate));
+            LineUnitPrice));
         OnPropertyChanged(nameof(TotalAmount));
         NotifyTotalsChanged();
         ErrorMessage = string.Empty;
@@ -390,11 +399,26 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
 
             var payments = new List<PaymentAllocationDraft>();
             if (CashAmount > 0)
-                payments.Add(new PaymentAllocationDraft(PaymentMethods.Cash, CashAmount, null, null, null));
+            {
+                if (SelectedFund is null)
+                    throw new InvalidOperationException("Chọn quỹ tiền mặt trước khi ghi khoản tiền mặt.");
+                payments.Add(new PaymentAllocationDraft(
+                    PaymentMethods.Cash, CashAmount, SelectedFund.Id, null, null));
+            }
             if (TransferAmount > 0)
-                payments.Add(new PaymentAllocationDraft(PaymentMethods.BankTransfer, TransferAmount, null, SelectedBankAccount?.Id, null));
+            {
+                if (SelectedBankAccount is null)
+                    throw new InvalidOperationException("Chọn tài khoản ngân hàng trước khi ghi chuyển khoản.");
+                payments.Add(new PaymentAllocationDraft(
+                    PaymentMethods.BankTransfer, TransferAmount, null, SelectedBankAccount.Id, null));
+            }
             if (CardAmount > 0)
-                payments.Add(new PaymentAllocationDraft(PaymentMethods.Card, CardAmount, null, SelectedBankAccount?.Id, null));
+            {
+                if (SelectedBankAccount is null)
+                    throw new InvalidOperationException("Chọn tài khoản ngân hàng trước khi ghi thanh toán thẻ.");
+                payments.Add(new PaymentAllocationDraft(
+                    PaymentMethods.Card, CardAmount, null, SelectedBankAccount.Id, null));
+            }
 
             var draft = new MaterialReceiptDraft(
                 DocumentDate,
@@ -404,9 +428,12 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
                 null,
                 Notes,
                 Lines.Select(l => new MaterialReceiptLineDraft(
-                    l.MaterialId, l.Quantity, l.UnitPrice, "VND", l.ExchangeRate, null)).ToList(),
+                    l.MaterialId, l.Quantity, l.UnitPrice, "VND", VndExchangeRate, null)).ToList(),
                 PaidAmount,
-                payments);
+                payments,
+                DiscountAmount,
+                TaxAmount,
+                ShippingFee);
 
             await _receiptService.CreateDraftAndPostAsync(draft, _session);
             DialogResult = true;
@@ -428,8 +455,7 @@ public sealed class ReceiptLineRow
         string materialType,
         string unitCode,
         decimal quantity,
-        decimal unitPrice,
-        decimal exchangeRate)
+        decimal unitPrice)
     {
         MaterialId = materialId;
         Code = code;
@@ -438,7 +464,6 @@ public sealed class ReceiptLineRow
         UnitCode = unitCode;
         Quantity = quantity;
         UnitPrice = unitPrice;
-        ExchangeRate = exchangeRate;
     }
 
     public long MaterialId { get; }
@@ -448,8 +473,7 @@ public sealed class ReceiptLineRow
     public string UnitCode { get; }
     public decimal Quantity { get; }
     public decimal UnitPrice { get; }
-    public decimal ExchangeRate { get; }
-    public decimal AmountVnd => Math.Round(Quantity * UnitPrice * ExchangeRate, 2, MidpointRounding.AwayFromZero);
+    public decimal AmountVnd => Math.Round(Quantity * UnitPrice, 2, MidpointRounding.AwayFromZero);
 }
 
 public sealed record ReceiptPaymentMethodOption(string Code, string Label);

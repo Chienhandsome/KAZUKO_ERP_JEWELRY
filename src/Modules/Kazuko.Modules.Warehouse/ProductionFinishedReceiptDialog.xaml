@@ -1,6 +1,7 @@
-<Window x:Class="Kazuko.Modules.Warehouse.ProductionFinishedReceiptDialog"
+﻿<Window x:Class="Kazuko.Modules.Warehouse.ProductionFinishedReceiptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Nhập kho thành phẩm" Width="1520" Height="920"
         MinWidth="1300" MinHeight="820" WindowStartupLocation="CenterOwner"
@@ -224,6 +225,7 @@
           <TextBlock Text="Số lượng (món):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
                    Style="{StaticResource ReceiptFieldStyle}"
+                   behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
                    ToolTip="Số lượng = N sẽ thêm N dòng, mỗi dòng 1 mã riêng." />
         </Grid>
         <Grid Margin="0,0,0,6">
@@ -233,7 +235,8 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="Giá vốn (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding CostPriceText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+                   Style="{StaticResource ReceiptFieldStyle}"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
@@ -242,16 +245,8 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="Giá bán (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding SalePriceText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
-        </Grid>
-        <Grid Margin="0,0,0,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Công chế tác:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding CraftLaborCostText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+                   Style="{StaticResource ReceiptFieldStyle}"
+                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
         </Grid>
       </StackPanel>
 
@@ -264,7 +259,8 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="Công bán (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding SaleLaborCostText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+                   Style="{StaticResource ReceiptFieldStyle}"
+                   behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
@@ -273,7 +269,8 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="Công nhập (VND):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding PurchaseLaborCostText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+                   Style="{StaticResource ReceiptFieldStyle}"
+                   behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>

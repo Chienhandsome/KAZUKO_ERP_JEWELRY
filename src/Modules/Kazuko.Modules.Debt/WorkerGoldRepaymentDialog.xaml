@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Debt.WorkerGoldRepaymentDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="Ghi nhận trả vàng"
         Width="440"
         SizeToContent="Height"
@@ -85,7 +86,9 @@
     </Grid>
 
     <TextBlock Text="Số chỉ trả *" Style="{StaticResource RepayLabelStyle}" />
-    <TextBox x:Name="AmountBox" Style="{StaticResource RepayFieldStyle}" />
+    <TextBox x:Name="AmountBox" Style="{StaticResource RepayFieldStyle}"
+             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
+             behaviors:NumericThousandSeparatorBehavior.AllowDecimal="True" />
 
     <TextBlock Text="Ngày trả" Style="{StaticResource RepayLabelStyle}" />
     <DatePicker x:Name="PaidDatePicker" MinHeight="36" Margin="0,0,0,10"
