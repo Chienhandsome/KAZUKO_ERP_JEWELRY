@@ -929,8 +929,21 @@
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="*" />
                                             </Grid.RowDefinitions>
-                                            <TextBlock Text="Biểu đồ giá trị tồn kho theo loại vàng"
-                                                       Style="{StaticResource PanelTitleStyle}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Biểu đồ giá trị tồn kho theo loại vàng"
+                                                           Style="{StaticResource PanelTitleStyle}" TextWrapping="Wrap"
+                                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                <Button Grid.Column="1" Content="Cột"
+                                                        ToolTip="Cấu hình loại vàng hiển thị"
+                                                        Command="{Binding ConfigureGoldTypeChartCommand}"
+                                                        Style="{StaticResource LinkButtonStyle}"
+                                                        Padding="4,0"
+                                                        VerticalAlignment="Center" />
+                                            </Grid>
                                             <charts:BarChart Grid.Row="1"
                                                              ItemsSource="{Binding GoldTypeBars}" />
                                         </Grid>

@@ -1,3 +1,4 @@
+using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
@@ -42,6 +43,7 @@ public sealed class WarehouseModule : IKazukoModule
         var productionQueries = GetRequiredService<IProductionQueryRepository>(services);
         var productionApplication = GetRequiredService<IProductionApplicationService>(services);
         var workerEditor = GetRequiredService<IExternalWorkerEditorService>(services);
+        var preferences = GetRequiredService<IPreferencesService>(services);
 
         navigation.Register(new NavigationItem(
             "WAREHOUSE",
@@ -64,7 +66,8 @@ public sealed class WarehouseModule : IKazukoModule
                     banks,
                     goldTypes,
                     productionQueries,
-                    productionApplication)
+                    productionApplication,
+                    preferences)
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",

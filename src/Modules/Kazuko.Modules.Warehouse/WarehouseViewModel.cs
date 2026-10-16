@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
+using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
@@ -30,8 +31,10 @@ public sealed class WarehouseViewModel : ObservableObject
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
     private readonly IGoldTypeCatalogService _goldTypes;
+    private IReadOnlyList<GoldTypeOption> _goldTypeCatalog = Array.Empty<GoldTypeOption>();
     private readonly IProductionQueryRepository _productionQueries;
     private readonly IProductionApplicationService _productionApplication;
+    private readonly IPreferencesService _preferences;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
     private bool _suppressTabSideEffects;
@@ -123,7 +126,8 @@ public sealed class WarehouseViewModel : ObservableObject
         IBankAccountRepository banks,
         IGoldTypeCatalogService goldTypes,
         IProductionQueryRepository productionQueries,
-        IProductionApplicationService productionApplication)
+        IProductionApplicationService productionApplication,
+        IPreferencesService preferences)
     {
         _repository = repository;
         _warehouseGoldPrices = warehouseGoldPrices;
@@ -138,6 +142,7 @@ public sealed class WarehouseViewModel : ObservableObject
         _goldTypes = goldTypes;
         _productionQueries = productionQueries;
         _productionApplication = productionApplication;
+        _preferences = preferences;
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
         MovementLocations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -212,6 +217,7 @@ public sealed class WarehouseViewModel : ObservableObject
         ViewAllFinishedProductsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.FinishedProducts));
         ViewAllSalesGoodsCommand = new RelayCommand(() => NavigateToTab(WarehouseTabs.SalesGoods));
         ViewAllRecentHistoryCommand = new RelayCommand(() => OpenDocumentTab("TRANSFER", WarehouseTabs.Transfer));
+        ConfigureGoldTypeChartCommand = new AsyncRelayCommand(OpenGoldTypeChartConfigAsync);
         ApplyOverviewRawFiltersCommand = new RelayCommand(ApplyOverviewRawFilters);
         ApplyOverviewFinishedFiltersCommand = new RelayCommand(ApplyOverviewFinishedFilters);
         ApplyOverviewSaleFiltersCommand = new RelayCommand(ApplyOverviewSaleFilters);
@@ -766,6 +772,7 @@ public sealed class WarehouseViewModel : ObservableObject
     public ICommand ViewAllFinishedProductsCommand { get; }
     public ICommand ViewAllSalesGoodsCommand { get; }
     public ICommand ViewAllRecentHistoryCommand { get; }
+    public ICommand ConfigureGoldTypeChartCommand { get; }
     public ICommand ApplyOverviewRawFiltersCommand { get; }
     public ICommand ApplyOverviewFinishedFiltersCommand { get; }
     public ICommand ApplyOverviewSaleFiltersCommand { get; }
@@ -1245,45 +1252,163 @@ public sealed class WarehouseViewModel : ObservableObject
         CompositionSlices.Clear();
         CompositionSlices.Add(new ChartSliceViewModel("NVL", RawMaterialStockValue, "ChartBrush.Raw", "Nguyên liệu"));
         CompositionSlices.Add(new ChartSliceViewModel("Thành phẩm", FinishedProductStockValue, "ChartBrush.Finished"));
-        CompositionSlices.Add(new ChartSliceViewModel("Bán hàng", SalesGoodsStockValue, "ChartBrush.Sale"));
+        CompositionSlices.Add(new ChartSliceViewModel("Trưng bày", SalesGoodsStockValue, "ChartBrush.Sale", "Trưng bày"));
 
         var millions = TotalStockValue / 1_000_000m;
         DonutCenterText = millions.ToString("N0", ViCulture);
         DonutCenterSubText = "Triệu VNĐ";
 
+        // Phân loại theo mã danh mục GOLD_TYPES + Bạc/Đá quý/Khác.
         var goldGroups = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var knownCodes = new HashSet<string>(
+            _goldTypeCatalog.Select(t => t.Code), StringComparer.OrdinalIgnoreCase);
         foreach (var row in Balances)
         {
-            var key = ClassifyGoldType(row.PurityCode, row.MaterialType);
+            var key = ClassifyGoldTypeKey(row.PurityCode, row.MaterialType, knownCodes);
             goldGroups[key] = goldGroups.GetValueOrDefault(key) + row.StockValue;
         }
 
         foreach (var row in FinishedProducts)
         {
-            var key = ClassifyGoldType(row.GoldPurity, string.Empty);
+            var key = ClassifyGoldTypeKey(row.GoldPurity, string.Empty, knownCodes);
             goldGroups[key] = goldGroups.GetValueOrDefault(key) + row.StockValue;
         }
 
         foreach (var row in SaleItems)
         {
-            var key = ClassifyGoldType(row.GoldPurity, string.Empty);
+            var key = ClassifyGoldTypeKey(row.GoldPurity, string.Empty, knownCodes);
             goldGroups[key] = goldGroups.GetValueOrDefault(key) + row.StockValue;
         }
 
         GoldTypeBars.Clear();
-        var ordered = new[]
+        // Thứ tự cột: danh mục loại vàng (theo DisplayOrder) rồi Bạc, Đá quý.
+        var orderedTypes = new List<(string Key, string Label)>();
+        foreach (var t in _goldTypeCatalog)
+            orderedTypes.Add((t.Code, t.DisplayName));
+        orderedTypes.Add(("Bạc", "Bạc"));
+        orderedTypes.Add(("Đá quý", "Đá quý"));
+
+        var brushCycle = new[] { "ChartBrush.Raw", "ChartBrush.Finished", "ChartBrush.Sale", "ChartBrush.Purple" };
+        var visibleKeys = GetVisibleGoldTypeKeys();
+        decimal otherTotal = 0;
+        var brushIndex = 0;
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, label) in orderedTypes)
         {
-            ("Vàng 24K", "24K", "ChartBrush.Raw"),
-            ("Vàng 18K", "18K", "ChartBrush.Finished"),
-            ("Bạc", "Bạc", "ChartBrush.Sale"),
-            ("Đá quý", "Đá quý", "ChartBrush.Purple"),
-            ("Khác", "Khác", "ChartBrush.Muted")
-        };
-        foreach (var (label, key, brush) in ordered)
-        {
+            seenKeys.Add(key);
             goldGroups.TryGetValue(key, out var value);
-            GoldTypeBars.Add(new ChartSliceViewModel(label, value, brush));
+            if (visibleKeys.Contains(key))
+            {
+                GoldTypeBars.Add(new ChartSliceViewModel(
+                    label, value, brushCycle[brushIndex % brushCycle.Length]));
+                brushIndex++;
+            }
+            else
+            {
+                otherTotal += value;
+            }
         }
+        // Các key trong dữ liệu nhưng không thuộc danh mục cũng gộp vào "Khác".
+        foreach (var kvp in goldGroups)
+        {
+            if (!seenKeys.Contains(kvp.Key))
+                otherTotal += kvp.Value;
+        }
+        // Cột "Khác" = tổng các loại không được chọn hiển thị (luôn hiện khi > 0).
+        if (otherTotal > 0)
+        {
+            GoldTypeBars.Add(new ChartSliceViewModel("Khác", otherTotal, "ChartBrush.Muted"));
+        }
+    }
+
+    /// <summary>
+    /// Phân loại một dòng tồn kho thành key loại vàng: mã danh mục GOLD_TYPES,
+    /// "Bạc" (bạc), "Đá quý" (đá), hoặc "Khác".
+    /// </summary>
+    private static string ClassifyGoldTypeKey(
+        string purityOrType, string materialType, HashSet<string> knownCodes)
+    {
+        var text = $"{purityOrType} {materialType}".ToUpperInvariant();
+        if (text.Contains("SILVER", StringComparison.Ordinal)
+            || text.Contains("BẠC", StringComparison.Ordinal)
+            || text.Contains("BAC", StringComparison.Ordinal)
+            || text.Contains("925", StringComparison.Ordinal)
+            || text.Contains("950", StringComparison.Ordinal))
+            return "Bạc";
+        if (text.Contains("STONE", StringComparison.Ordinal)
+            || text.Contains("ĐÁ", StringComparison.Ordinal)
+            || materialType.Equals("STONE", StringComparison.OrdinalIgnoreCase))
+            return "Đá quý";
+
+        var code = (purityOrType ?? string.Empty).Trim().ToUpperInvariant();
+        // Alias phổ biến: 24K → 9999, 18K → 750.
+        if (code is "24K" or "24") code = "9999";
+        else if (code is "18K" or "18") code = "750";
+        if (code.Length > 0 && knownCodes.Contains(code))
+            return code;
+        return "Khác";
+    }
+
+    /// <summary>Tất cả key loại có thể hiển thị: mã danh mục + Bạc + Đá quý.</summary>
+    private List<string> GetAllChartTypeKeys()
+    {
+        var keys = _goldTypeCatalog.Select(t => t.Code).ToList();
+        keys.Add("Bạc");
+        keys.Add("Đá quý");
+        return keys;
+    }
+
+    /// <summary>Lấy danh sách key loại vàng được cấu hình hiển thị trên biểu đồ.</summary>
+    private HashSet<string> GetVisibleGoldTypeKeys()
+    {
+        var allKeys = GetAllChartTypeKeys();
+        var configured = _preferences.Load().ChartVisibleGoldTypes;
+        if (string.IsNullOrWhiteSpace(configured))
+            return new HashSet<string>(allKeys, StringComparer.OrdinalIgnoreCase);
+        var keys = new HashSet<string>(
+            configured.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            StringComparer.OrdinalIgnoreCase);
+        // Migrate định dạng cũ (24K/18K) → hiện tất cả.
+        if (keys.Contains("24K") || keys.Contains("18K"))
+            return new HashSet<string>(allKeys, StringComparer.OrdinalIgnoreCase);
+        return keys;
+    }
+
+    /// <summary>Mở dialog cấu hình loại vàng hiển thị trên biểu đồ cột.</summary>
+    private async Task OpenGoldTypeChartConfigAsync()
+    {
+        var catalog = _goldTypeCatalog;
+        if (catalog.Count == 0)
+        {
+            try
+            {
+                catalog = await _goldTypes.ListAsync(activeOnly: true);
+                _goldTypeCatalog = catalog;
+            }
+            catch
+            {
+                catalog = Array.Empty<GoldTypeOption>();
+            }
+        }
+
+        var items = new List<GoldTypeChartTypeItem>();
+        foreach (var t in catalog)
+            items.Add(new GoldTypeChartTypeItem(t.Code, t.DisplayName));
+        items.Add(new GoldTypeChartTypeItem("Bạc", "Bạc"));
+        items.Add(new GoldTypeChartTypeItem("Đá quý", "Đá quý"));
+
+        var current = GetVisibleGoldTypeKeys();
+        var dialog = new GoldTypeChartConfigDialog(items, current)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true || dialog.SelectedKeys is null)
+            return;
+
+        var prefs = _preferences.Load();
+        var updated = prefs with { ChartVisibleGoldTypes = string.Join(",", dialog.SelectedKeys) };
+        _preferences.Save(updated);
+        RebuildDashboardMetrics();
     }
 
     private void ApplyOverviewRawFilters()
@@ -1671,6 +1796,7 @@ public sealed class WarehouseViewModel : ObservableObject
         try
         {
             var types = await _goldTypes.ListAsync(activeOnly: true);
+            _goldTypeCatalog = types;
             foreach (var type in types)
             {
                 if (!GoldTypeFilterOptions.Contains(type.Code))
@@ -1717,34 +1843,6 @@ public sealed class WarehouseViewModel : ObservableObject
         if (text.Length == 0 || text.StartsWith("Tất cả", StringComparison.OrdinalIgnoreCase))
             return string.Empty;
         return text.ToUpperInvariant();
-    }
-
-    private static string ClassifyGoldType(string purityOrType, string materialType)
-    {
-        var text = $"{purityOrType} {materialType}".ToUpperInvariant();
-        // Purity catalog: 9999/999 → 24K, 750 → 18K (see FirebirdWarehouseGoldPricingSupport).
-        if (text.Contains("9999", StringComparison.Ordinal)
-            || text.Contains("999", StringComparison.Ordinal)
-            || text.Contains("24K", StringComparison.Ordinal)
-            || text.Contains("24", StringComparison.Ordinal))
-            return "24K";
-        if (text.Contains("750", StringComparison.Ordinal)
-            || text.Contains("18K", StringComparison.Ordinal)
-            || text.Contains("18", StringComparison.Ordinal))
-            return "18K";
-        if (text.Contains("SILVER", StringComparison.Ordinal)
-            || text.Contains("BẠC", StringComparison.Ordinal)
-            || text.Contains("BAC", StringComparison.Ordinal)
-            || text.Contains("925", StringComparison.Ordinal)
-            || text.Contains("950", StringComparison.Ordinal))
-            return "Bạc";
-        if (text.Contains("STONE", StringComparison.Ordinal)
-            || text.Contains("ĐÁ", StringComparison.Ordinal)
-            || materialType.Equals("STONE", StringComparison.OrdinalIgnoreCase))
-            return "Đá quý";
-        if (materialType.Equals("GOLD", StringComparison.OrdinalIgnoreCase))
-            return "Khác";
-        return "Khác";
     }
 
     private static string FormatSourceType(string? sourceType) =>

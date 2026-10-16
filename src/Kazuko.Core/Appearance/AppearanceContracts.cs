@@ -9,7 +9,8 @@ public enum AppTheme
 public sealed record AppPreferences(
     AppTheme Theme = AppTheme.Light,
     double FontScale = 1.0,
-    bool AutoBackupEnabled = true);
+    bool AutoBackupEnabled = true,
+    string ChartVisibleGoldTypes = "24K,18K,Bạc,Đá quý,Khác");
 
 public interface IPreferencesService
 {
