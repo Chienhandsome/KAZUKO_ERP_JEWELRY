@@ -30,7 +30,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private readonly long _branchId;
 
     private long? _id;
-    private string _code = string.Empty;
+    private string _code = $"SX-{DateTime.Today:yyyy}-XXXX";
     private string _orderSource = ProductionOrderSources.Stock;
     private int _salesOrderSelectionVersion;
     private long? _salesOrderId;

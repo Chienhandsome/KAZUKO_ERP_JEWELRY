@@ -31,6 +31,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
     private DateTime _documentDate = DateTime.Today;
+    private string _documentNumberPreview = $"PNK-{DateTime.Today:yyyy}-XXXX";
     private string _description = string.Empty;
     private string _receivedByName = string.Empty;
     private decimal _discountAmount;
@@ -80,6 +81,15 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     {
         get => _selectedSupplier;
         set => SetProperty(ref _selectedSupplier, value);
+    }
+
+    private BankAccountOption? _selectedBankAccount;
+
+    /// <summary>Tài khoản ngân hàng cho chuyển khoản/thẻ.</summary>
+    public BankAccountOption? SelectedBankAccount
+    {
+        get => _selectedBankAccount;
+        set => SetProperty(ref _selectedBankAccount, value);
     }
 
     public WarehouseLocationOption? SelectedLocation
@@ -193,7 +203,18 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public DateTime DocumentDate
     {
         get => _documentDate;
-        set => SetProperty(ref _documentDate, value);
+        set
+        {
+            if (SetProperty(ref _documentDate, value))
+                DocumentNumberPreview = $"PNK-{value:yyyy}-XXXX";
+        }
+    }
+
+    /// <summary>Mã phiếu preview (sinh thật khi ghi sổ).</summary>
+    public string DocumentNumberPreview
+    {
+        get => _documentNumberPreview;
+        private set => SetProperty(ref _documentNumberPreview, value);
     }
 
     /// <summary>Diễn giải chứng từ.</summary>
@@ -371,9 +392,9 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             if (CashAmount > 0)
                 payments.Add(new PaymentAllocationDraft(PaymentMethods.Cash, CashAmount, null, null, null));
             if (TransferAmount > 0)
-                payments.Add(new PaymentAllocationDraft(PaymentMethods.BankTransfer, TransferAmount, null, null, null));
+                payments.Add(new PaymentAllocationDraft(PaymentMethods.BankTransfer, TransferAmount, null, SelectedBankAccount?.Id, null));
             if (CardAmount > 0)
-                payments.Add(new PaymentAllocationDraft(PaymentMethods.Card, CardAmount, null, null, null));
+                payments.Add(new PaymentAllocationDraft(PaymentMethods.Card, CardAmount, null, SelectedBankAccount?.Id, null));
 
             var draft = new MaterialReceiptDraft(
                 DocumentDate,

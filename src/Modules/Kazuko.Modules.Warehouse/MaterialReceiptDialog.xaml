@@ -112,7 +112,7 @@
 
               <StackPanel Grid.Column="2">
                 <TextBlock Text="Số phiếu" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="Tự động"
+                <TextBox Text="{Binding DocumentNumberPreview, Mode=OneWay}"
                          Style="{StaticResource WhReadonlyFieldStyle}"
                          ToolTip="Số phiếu được sinh tự động khi ghi sổ" />
               </StackPanel>
@@ -141,8 +141,18 @@
                   </Grid.ColumnDefinitions>
                   <ComboBox Style="{StaticResource WhComboStyle}"
                             ItemsSource="{Binding Suppliers}"
-                            SelectedItem="{Binding SelectedSupplier}"
-                            DisplayMemberPath="Name" />
+                            SelectedItem="{Binding SelectedSupplier}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock>
+                          <Run Text="{Binding Name, Mode=OneWay}" />
+                          <Run Text=" (" />
+                          <Run Text="{Binding Code, Mode=OneWay}" />
+                          <Run Text=")" />
+                        </TextBlock>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                   <Button Grid.Column="2"
                           Content="Tạo mới"
                           Style="{StaticResource WhOutlineButtonStyle}"
@@ -212,7 +222,7 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Column="0" Text="Nguyên vật liệu *" Style="{StaticResource WhFieldLabelStyle}" />
-                    <TextBlock Grid.Column="2" Text="Số lượng *" Style="{StaticResource WhFieldLabelStyle}" />
+                    <TextBlock Grid.Column="2" Text="Số lượng (chỉ) *" Style="{StaticResource WhFieldLabelStyle}" />
                     <TextBlock Grid.Column="4" Text="{Binding UnitPriceLabel}" Style="{StaticResource WhFieldLabelStyle}" />
                     <TextBlock Grid.Column="6" Text="Tỷ giá" Style="{StaticResource WhFieldLabelStyle}" />
 
@@ -238,7 +248,7 @@
                              Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource WhRoundedTextBoxStyle}" />
                     <TextBox Grid.Row="1" Grid.Column="4"
-                             Text="{Binding LineUnitPrice, UpdateSourceTrigger=PropertyChanged}"
+                             Text="{Binding LineUnitPrice, UpdateSourceTrigger=LostFocus, StringFormat=N0}"
                              Style="{StaticResource WhRoundedTextBoxStyle}" />
                     <TextBox Grid.Row="1" Grid.Column="6"
                              Text="{Binding LineExchangeRate, UpdateSourceTrigger=PropertyChanged}"
@@ -262,7 +272,7 @@
                     <DataGridTextColumn Header="Mã" Binding="{Binding Code, Mode=OneWay}" Width="90" />
                     <DataGridTextColumn Header="Tên NVL" Binding="{Binding Name, Mode=OneWay}" Width="*" />
                     <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" />
-                    <DataGridTextColumn Header="Số lượng" Binding="{Binding Quantity, Mode=OneWay, StringFormat=N4}" Width="100" />
+                    <DataGridTextColumn Header="Số lượng (chỉ)" Binding="{Binding Quantity, Mode=OneWay, StringFormat={}{0:0.####}}" Width="100" />
                     <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPrice, Mode=OneWay, StringFormat=N0}" Width="110" />
                     <DataGridTextColumn Header="Tỷ giá" Binding="{Binding ExchangeRate, Mode=OneWay, StringFormat=N4}" Width="80" />
                     <DataGridTextColumn Header="Thành tiền" Binding="{Binding AmountVnd, Mode=OneWay, StringFormat=N0}" Width="120" />
@@ -364,6 +374,23 @@
                 <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N0}"
                          Style="{StaticResource WhRoundedTextBoxStyle}"
                          ToolTip="Nhập số tiền hoặc quét thẻ" />
+              </StackPanel>
+            </Grid>
+
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+
+              <StackPanel>
+                <TextBlock Text="Tài khoản ngân hàng" Style="{StaticResource WhFieldLabelStyle}" />
+                <ComboBox ItemsSource="{Binding Banks}"
+                          SelectedItem="{Binding SelectedBankAccount}"
+                          DisplayMemberPath="DisplayName"
+                          Style="{StaticResource WhComboStyle}"
+                          ToolTip="Chọn TK ngân hàng cho chuyển khoản/thẻ" />
               </StackPanel>
             </Grid>
 
