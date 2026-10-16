@@ -21,8 +21,6 @@ public sealed class DebtModule : IKazukoModule
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
     {
         var workbench = GetRequiredService<IDebtWorkbenchRepository>(services);
-        var funds = GetRequiredService<ICashFundRepository>(services);
-        var banks = GetRequiredService<IBankAccountRepository>(services);
         var customers = GetRequiredService<ICustomerRepository>(services);
         var customerEditor = GetRequiredService<ICustomerEditorService>(services);
         var supplierEditor = GetRequiredService<ISupplierEditorService>(services);
@@ -43,7 +41,7 @@ public sealed class DebtModule : IKazukoModule
                 return new DebtView
                 {
                     DataContext = new DebtViewModel(
-                        workbench, funds, banks, customers, customerEditor, supplierEditor, session,
+                        workbench, customers, customerEditor, supplierEditor, session,
                         settlementDialog)
                 };
             },

@@ -245,6 +245,36 @@ public sealed record SingleLedgerSettleRequest(
     IReadOnlyList<PaymentAllocationDraft> Allocations,
     string? Notes);
 
+/// <summary>Một dòng phân bổ trong yêu cầu tất toán N khoản công nợ.</summary>
+/// <param name="SourceType">DebtLedgerSourceTypes.SalesOrder | ReceivableDebt | PayableDebt.</param>
+/// <param name="SourceId">Id của bản ghi gốc (đơn hàng / khoản nợ).</param>
+/// <param name="AmountVnd">Số tiền thanh toán cho dòng này (phải &gt; 0).</param>
+public sealed record DebtAllocationSettleLine(
+    string SourceType,
+    long SourceId,
+    decimal AmountVnd);
+
+/// <summary>
+/// Yêu cầu tất toán N khoản công nợ (1 hoặc nhiều): 1 settlement cho mỗi dòng +
+/// phiếu thu/chi + cập nhật N khoản nợ, tất cả trong 1 transaction.
+/// Tổng 3 ô phương thức phải bằng tổng các dòng.
+/// </summary>
+public sealed record DebtAllocationSettleRequest(
+    IReadOnlyList<DebtAllocationSettleLine> Lines,
+    decimal CashAmountVnd,
+    decimal BankTransferAmountVnd,
+    decimal CardAmountVnd,
+    long? FundId,
+    long? BankAccountId,
+    string? Notes);
+
+/// <summary>Một đơn hàng còn nợ của khách hàng (để tất toán gộp).</summary>
+public sealed record OpenCustomerReceivableLine(
+    long OrderId,
+    string OrderCode,
+    decimal RemainingAmountVnd,
+    DateTime OrderDate);
+
 /// <summary>Một khoản phải thu mở (RECEIVABLE_DEBTS) của một đối tượng.</summary>
 public sealed record ReceivableDebtListItem(
     long Id,
@@ -370,6 +400,22 @@ public interface IDebtWorkbenchRepository
     /// </summary>
     Task SettleSingleLedgerEntryAsync(
         SingleLedgerSettleRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tất toán N khoản công nợ (1 hoặc nhiều): mỗi dòng 1 settlement +
+    /// phiếu thu/chi + cập nhật N khoản nợ, tất cả trong 1 transaction.
+    /// Tổng 3 ô phương thức (tiền mặt/CK/thẻ) phải bằng tổng các dòng.
+    /// </summary>
+    Task SettleDebtAllocationsAsync(
+        DebtAllocationSettleRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Các đơn hàng còn nợ của khách hàng (số dư &gt; 0), FIFO theo ngày đặt.</summary>
+    Task<IReadOnlyList<OpenCustomerReceivableLine>> GetCustomerOpenReceivablesAsync(
+        long customerId,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 }

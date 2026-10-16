@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Kazuko.Modules.Finance"
         Title="{Binding Title}"
-        Width="520" Height="600"
-        MinWidth="480" MinHeight="560"
+        Width="620" Height="700"
+        MinWidth="560" MinHeight="640"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="False"
@@ -16,6 +16,7 @@
       </ResourceDictionary.MergedDictionaries>
 
       <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
+      <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
       <Style x:Key="DialogFieldStyle" TargetType="TextBox" BasedOn="{StaticResource FinanceRoundedTextBoxStyle}">
         <Setter Property="MinHeight" Value="40" />
@@ -53,6 +54,42 @@
                    Margin="0,0,0,8"
                    Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyToVis}}" />
 
+        <!-- Section phân bổ công nợ: chỉ hiện khi mở từ module Công nợ -->
+        <StackPanel Visibility="{Binding IsDebtMode, Converter={StaticResource BoolToVis}}">
+          <TextBlock Text="Phân bổ công nợ" Style="{StaticResource FinanceFieldLabelStyle}" FontWeight="Bold" />
+          <DataGrid ItemsSource="{Binding DebtAllocations}"
+                    AutoGenerateColumns="False"
+                    CanUserAddRows="False" CanUserDeleteRows="False"
+                    HeadersVisibility="Column"
+                    MinHeight="80" MaxHeight="220"
+                    Margin="0,0,0,8">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Khoản nợ" Binding="{Binding DisplayName}" Width="*" IsReadOnly="True" />
+              <DataGridTextColumn Header="Còn lại (VND)" Binding="{Binding RemainingAmountVnd, StringFormat=N0}" Width="130" IsReadOnly="True">
+                <DataGridTextColumn.ElementStyle>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="TextAlignment" Value="Right" />
+                  </Style>
+                </DataGridTextColumn.ElementStyle>
+              </DataGridTextColumn>
+              <DataGridTemplateColumn Header="Thanh toán (VND)" Width="150">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBox Text="{Binding PaymentAmountText, UpdateSourceTrigger=LostFocus}"
+                             IsReadOnly="{Binding IsAmountReadOnly}"
+                             HorizontalContentAlignment="Right" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
+            <TextBlock Text="Tổng phân bổ: " Foreground="{DynamicResource TextSecondaryBrush}" />
+            <TextBlock Text="{Binding TotalAllocationAmount, StringFormat=N0}" FontWeight="Bold" />
+            <TextBlock Text=" VND" Foreground="{DynamicResource TextSecondaryBrush}" />
+          </StackPanel>
+        </StackPanel>
+
         <TextBlock Text="Loại" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding VoucherTypeName, Mode=OneWay}" Style="{StaticResource DialogFieldStyle}"
                  IsReadOnly="True" Background="{DynamicResource SurfaceAltBrush}" />
@@ -61,15 +98,59 @@
         <DatePicker SelectedDate="{Binding VoucherDate}" MinHeight="40" Margin="0,0,0,12"
                     VerticalContentAlignment="Center" />
 
-        <TextBlock Text="Số tiền (VND)" Style="{StaticResource FinanceFieldLabelStyle}" />
-        <TextBox Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource DialogFieldStyle}"
-                 IsReadOnly="{Binding IsAmountReadOnly}" />
+        <!-- 3 ô phương thức thanh toán luôn hiển thị -->
+        <TextBlock Text="Phương thức thanh toán" Style="{StaticResource FinanceFieldLabelStyle}" FontWeight="Bold" />
+        <Grid Margin="0,0,0,4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Margin="0,0,6,0">
+            <TextBlock Text="Tiền mặt (VND)" Style="{StaticResource FinanceFieldLabelStyle}" />
+            <TextBox Text="{Binding CashAmountText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource DialogFieldStyle}"
+                     HorizontalContentAlignment="Right" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="3,0,3,0">
+            <TextBlock Text="Chuyển khoản (VND)" Style="{StaticResource FinanceFieldLabelStyle}" />
+            <TextBox Text="{Binding BankTransferAmountText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource DialogFieldStyle}"
+                     HorizontalContentAlignment="Right" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Margin="6,0,0,0">
+            <TextBlock Text="Thẻ (VND)" Style="{StaticResource FinanceFieldLabelStyle}" />
+            <TextBox Text="{Binding CardAmountText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource DialogFieldStyle}"
+                     HorizontalContentAlignment="Right" />
+          </StackPanel>
+        </Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
+          <TextBlock Text="Tổng thanh toán: " Foreground="{DynamicResource TextSecondaryBrush}" />
+          <TextBlock Text="{Binding TotalPaymentAmount, StringFormat=N0}" FontWeight="Bold" />
+          <TextBlock Text=" VND" Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
 
-        <TextBlock Text="Phương thức" Style="{StaticResource FinanceFieldLabelStyle}" />
-        <ComboBox ItemsSource="{Binding PaymentMethodOptions}" SelectedItem="{Binding SelectedPaymentMethod}"
+        <TextBlock Text="Quỹ tiền mặt (cho tiền mặt)" Style="{StaticResource FinanceFieldLabelStyle}" />
+        <ComboBox ItemsSource="{Binding Funds}" SelectedItem="{Binding SelectedFund}"
+                  DisplayMemberPath="Name"
                   Style="{StaticResource FinanceFilterComboStyle}"
                   MinHeight="40" Margin="0,0,0,12" />
+
+        <TextBlock Text="Tài khoản ngân hàng (cho CK/thẻ)" Style="{StaticResource FinanceFieldLabelStyle}" />
+        <ComboBox ItemsSource="{Binding Banks}" SelectedItem="{Binding SelectedBank}"
+                  Style="{StaticResource FinanceFilterComboStyle}"
+                  MinHeight="40" Margin="0,0,0,12">
+          <ComboBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock>
+                <Run Text="{Binding BankName}" />
+                <Run Text=" - " />
+                <Run Text="{Binding AccountNumber}" />
+              </TextBlock>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
 
         <TextBlock Text="Đối tượng" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding PartyName, UpdateSourceTrigger=PropertyChanged}"

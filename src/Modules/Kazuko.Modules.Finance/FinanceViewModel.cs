@@ -13,11 +13,13 @@ public sealed class FinanceViewModel : ObservableObject
         IFinanceVoucherService voucherService,
         IPayableDebtRepository payables,
         IDebtWorkbenchRepository receivables,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        ICashFundRepository funds,
+        IBankAccountRepository banks)
     {
-        Overview = new FinanceOverviewViewModel(dashboard, voucherService, payables, receivables, sessionAccessor);
-        Income = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, FinancialVoucherTypes.In);
-        Expense = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, FinancialVoucherTypes.Out);
+        Overview = new FinanceOverviewViewModel(dashboard, voucherService, payables, receivables, sessionAccessor, funds, banks);
+        Income = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.In);
+        Expense = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.Out);
     }
 
     public FinanceOverviewViewModel Overview { get; }

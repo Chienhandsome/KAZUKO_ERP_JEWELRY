@@ -19,7 +19,9 @@ public sealed class FinanceModule : IKazukoModule
         services.AddSingleton<IDebtSettlementDialogService>(
             new FinanceDebtSettlementDialogService(
                 services.GetRequiredService<IFinanceVoucherService>(),
-                services.GetRequiredService<ICurrentSessionAccessor>()));
+                services.GetRequiredService<ICurrentSessionAccessor>(),
+                services.GetRequiredService<ICashFundRepository>(),
+                services.GetRequiredService<IBankAccountRepository>()));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
@@ -29,6 +31,8 @@ public sealed class FinanceModule : IKazukoModule
         var payables = GetRequiredService<IPayableDebtRepository>(services);
         var receivables = GetRequiredService<IDebtWorkbenchRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        var funds = GetRequiredService<ICashFundRepository>(services);
+        var banks = GetRequiredService<IBankAccountRepository>(services);
 
         navigation.Register(new NavigationItem(
             "FINANCE",
@@ -38,7 +42,7 @@ public sealed class FinanceModule : IKazukoModule
             null,
             () => new FinanceView
             {
-                DataContext = new FinanceViewModel(dashboard, vouchers, payables, receivables, session)
+                DataContext = new FinanceViewModel(dashboard, vouchers, payables, receivables, session, funds, banks)
             },
             AssetRoot + "TC.png",
             "Thu chi tiền, phiếu thu/chi\nvà tổng quan tài chính",

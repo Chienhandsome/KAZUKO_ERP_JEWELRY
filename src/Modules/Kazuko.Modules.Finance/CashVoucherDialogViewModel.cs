@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
@@ -13,21 +14,83 @@ public sealed class PaymentMethodOption(string code, string name)
     public override string ToString() => Name;
 }
 
+/// <summary>Một dòng phân bổ công nợ trong dialog (hiển thị + nhập số tiền).</summary>
+public sealed class DebtAllocationRowViewModel : ObservableObject
+{
+    private decimal _paymentAmountVnd;
+
+    public DebtAllocationRowViewModel(DebtSettlementAllocationLine line, bool allowEdit)
+    {
+        SourceType = line.SourceType;
+        SourceId = line.SourceId;
+        DisplayName = line.DisplayName;
+        DocumentCode = line.DocumentCode;
+        RemainingAmountVnd = line.RemainingAmountVnd;
+        _paymentAmountVnd = line.PaymentAmountVnd;
+        IsAmountEditable = allowEdit;
+    }
+
+    public string SourceType { get; }
+    public long SourceId { get; }
+    public string DisplayName { get; }
+    public string? DocumentCode { get; }
+    public decimal RemainingAmountVnd { get; }
+    public bool IsAmountEditable { get; }
+    public bool IsAmountReadOnly => !IsAmountEditable;
+
+    public decimal PaymentAmountVnd
+    {
+        get => _paymentAmountVnd;
+        set
+        {
+            if (SetProperty(ref _paymentAmountVnd, value))
+                AmountChanged?.Invoke();
+        }
+    }
+
+    public string PaymentAmountText
+    {
+        get => PaymentAmountVnd.ToString("N0", new CultureInfo("vi-VN"));
+        set
+        {
+            if (TryParseAmount(value, out var amount))
+                PaymentAmountVnd = amount;
+        }
+    }
+
+    public Action? AmountChanged { get; set; }
+
+    public DebtSettlementAllocationLine ToLine() => new(
+        SourceType, SourceId, DisplayName, DocumentCode,
+        RemainingAmountVnd, PaymentAmountVnd);
+
+    private static bool TryParseAmount(string? text, out decimal amount)
+    {
+        amount = 0;
+        if (string.IsNullOrWhiteSpace(text))
+            return true;
+        var normalized = text.Replace(" ", string.Empty).Replace(".", string.Empty).Replace(',', '.');
+        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
+    }
+}
+
 public sealed class CashVoucherDialogViewModel : ObservableObject
 {
     private readonly IFinanceVoucherService _voucherService;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly string _voucherType;
-    private readonly string? _sourceDocumentCode;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
     private DateTime _voucherDate = DateTime.Today;
-    private string _amountText = string.Empty;
-    private PaymentMethodOption? _selectedPaymentMethod;
+    private string _cashAmountText = string.Empty;
+    private string _bankTransferAmountText = string.Empty;
+    private string _cardAmountText = string.Empty;
     private string _partyName = string.Empty;
     private string _notes = string.Empty;
     private string _referenceNumber = string.Empty;
+    private CashFundOption? _selectedFund;
+    private BankAccountOption? _selectedBank;
 
     /// <summary>
     /// Chế độ mở từ module Tài chính: lưu là tạo phiếu ngay (hành vi gốc).
@@ -35,8 +98,11 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     public CashVoucherDialogViewModel(
         IFinanceVoucherService voucherService,
         ICurrentSessionAccessor sessionAccessor,
+        IReadOnlyList<CashFundOption> funds,
+        IReadOnlyList<BankAccountOption> banks,
         string voucherType)
-        : this(voucherService, sessionAccessor, voucherType, createVoucherOnSave: true, prefill: null)
+        : this(voucherService, sessionAccessor, funds, banks, voucherType,
+               createVoucherOnSave: true, prefill: null)
     {
     }
 
@@ -47,14 +113,19 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     public CashVoucherDialogViewModel(
         IFinanceVoucherService voucherService,
         ICurrentSessionAccessor sessionAccessor,
+        IReadOnlyList<CashFundOption> funds,
+        IReadOnlyList<BankAccountOption> banks,
         DebtSettlementDialogRequest request)
-        : this(voucherService, sessionAccessor, request.VoucherType, createVoucherOnSave: false, prefill: request)
+        : this(voucherService, sessionAccessor, funds, banks, request.VoucherType,
+               createVoucherOnSave: false, prefill: request)
     {
     }
 
     private CashVoucherDialogViewModel(
         IFinanceVoucherService voucherService,
         ICurrentSessionAccessor sessionAccessor,
+        IReadOnlyList<CashFundOption> funds,
+        IReadOnlyList<BankAccountOption> banks,
         string voucherType,
         bool createVoucherOnSave,
         DebtSettlementDialogRequest? prefill)
@@ -62,29 +133,34 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
         _voucherService = voucherService;
         _sessionAccessor = sessionAccessor;
         _voucherType = voucherType;
-        _sourceDocumentCode = prefill?.SourceDocumentCode;
+        Funds = funds;
+        Banks = banks;
         CreateVoucherOnSave = createVoucherOnSave;
+        IsDebtMode = prefill is not null;
         IsAmountEditable = prefill?.AllowAmountEdit ?? true;
+
         SubtitleText = createVoucherOnSave
             ? "Phiếu được ghi sổ ngay sau khi lưu."
-            : "Xác nhận thông tin phiếu, công nợ được trừ khi lưu.";
+            : "Xác nhận phân bổ công nợ và phương thức thanh toán.";
 
         if (prefill is not null)
         {
             _partyName = prefill.PartyDisplayName;
-            _referenceNumber = prefill.SourceDocumentCode ?? string.Empty;
-            _amountText = prefill.DefaultAmountVnd.ToString("N0", new CultureInfo("vi-VN"));
             _notes = prefill.DefaultNotes ?? string.Empty;
+            foreach (var line in prefill.Allocations)
+            {
+                var row = new DebtAllocationRowViewModel(line, IsAmountEditable);
+                row.AmountChanged = RefreshTotals;
+                DebtAllocations.Add(row);
+            }
         }
 
         var isIncome = voucherType == FinancialVoucherTypes.In;
         Title = isIncome ? "Phiếu thu tiền" : "Phiếu chi tiền";
         VoucherTypeName = isIncome ? "Thu" : "Chi";
 
-        PaymentMethodOptions.Add(new PaymentMethodOption(FinancePaymentMethods.Cash, "Tiền mặt"));
-        PaymentMethodOptions.Add(new PaymentMethodOption(FinancePaymentMethods.BankTransfer, "Chuyển khoản"));
-        PaymentMethodOptions.Add(new PaymentMethodOption(FinancePaymentMethods.Card, "Thẻ"));
-        SelectedPaymentMethod = PaymentMethodOptions[0];
+        _selectedFund = Funds.FirstOrDefault(x => x.IsDefault) ?? Funds.FirstOrDefault();
+        _selectedBank = Banks.FirstOrDefault();
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(false));
@@ -93,19 +169,21 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     public string Title { get; }
     public string VoucherTypeName { get; }
 
-    /// <summary>
-    /// true = lưu tạo phiếu ngay (module Tài chính); false = chỉ trả input (module Công nợ).
-    /// </summary>
+    /// <summary>true = lưu tạo phiếu ngay (module Tài chính); false = chỉ trả input (module Công nợ).</summary>
     public bool CreateVoucherOnSave { get; }
 
-    /// <summary>false khi request khóa ô số tiền (VD: tất toán đúng số dư).</summary>
-    public bool IsAmountEditable { get; }
+    /// <summary>true khi mở từ module Công nợ (hiện section phân bổ).</summary>
+    public bool IsDebtMode { get; }
 
-    public bool IsAmountReadOnly => !IsAmountEditable;
+    /// <summary>false khi request khóa ô số tiền phân bổ.</summary>
+    public bool IsAmountEditable { get; }
 
     public string SubtitleText { get; }
 
-    public System.Collections.ObjectModel.ObservableCollection<PaymentMethodOption> PaymentMethodOptions { get; } = [];
+    public IReadOnlyList<CashFundOption> Funds { get; }
+    public IReadOnlyList<BankAccountOption> Banks { get; }
+
+    public ObservableCollection<DebtAllocationRowViewModel> DebtAllocations { get; } = [];
 
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
@@ -136,16 +214,34 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
         set => SetProperty(ref _voucherDate, value);
     }
 
-    public string AmountText
+    public string CashAmountText
     {
-        get => _amountText;
-        set => SetProperty(ref _amountText, value);
+        get => _cashAmountText;
+        set { if (SetProperty(ref _cashAmountText, value)) RefreshTotals(); }
     }
 
-    public PaymentMethodOption? SelectedPaymentMethod
+    public string BankTransferAmountText
     {
-        get => _selectedPaymentMethod;
-        set => SetProperty(ref _selectedPaymentMethod, value);
+        get => _bankTransferAmountText;
+        set { if (SetProperty(ref _bankTransferAmountText, value)) RefreshTotals(); }
+    }
+
+    public string CardAmountText
+    {
+        get => _cardAmountText;
+        set { if (SetProperty(ref _cardAmountText, value)) RefreshTotals(); }
+    }
+
+    public CashFundOption? SelectedFund
+    {
+        get => _selectedFund;
+        set => SetProperty(ref _selectedFund, value);
+    }
+
+    public BankAccountOption? SelectedBank
+    {
+        get => _selectedBank;
+        set => SetProperty(ref _selectedBank, value);
     }
 
     public string PartyName
@@ -166,19 +262,63 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
         set => SetProperty(ref _referenceNumber, value);
     }
 
+    public decimal TotalAllocationAmount => DebtAllocations.Sum(x => x.PaymentAmountVnd);
+
+    public decimal TotalPaymentAmount =>
+        ParseAmount(CashAmountText) + ParseAmount(BankTransferAmountText) + ParseAmount(CardAmountText);
+
+    private void RefreshTotals()
+    {
+        OnPropertyChanged(nameof(TotalAllocationAmount));
+        OnPropertyChanged(nameof(TotalPaymentAmount));
+    }
+
     private async Task SaveAsync()
     {
         ErrorMessage = string.Empty;
 
-        if (!TryParseAmount(AmountText, out var amount) || amount <= 0)
+        var cash = ParseAmount(CashAmountText);
+        var bank = ParseAmount(BankTransferAmountText);
+        var card = ParseAmount(CardAmountText);
+        var totalPayment = cash + bank + card;
+
+        if (totalPayment <= 0)
         {
-            ErrorMessage = "Số tiền phải là số dương (VD: 1.250.000).";
+            ErrorMessage = "Tổng thanh toán phải > 0 (nhập ít nhất một ô phương thức).";
             return;
         }
 
-        if (SelectedPaymentMethod is null)
+        if (IsDebtMode)
         {
-            ErrorMessage = "Vui lòng chọn phương thức thanh toán.";
+            var totalAlloc = TotalAllocationAmount;
+            if (totalAlloc <= 0)
+            {
+                ErrorMessage = "Tổng phân bổ công nợ phải > 0.";
+                return;
+            }
+            if (totalPayment != totalAlloc)
+            {
+                ErrorMessage = $"Tổng thanh toán ({totalPayment:N0}) phải bằng tổng phân bổ ({totalAlloc:N0}).";
+                return;
+            }
+            foreach (var row in DebtAllocations)
+            {
+                if (row.PaymentAmountVnd < 0 || row.PaymentAmountVnd > row.RemainingAmountVnd)
+                {
+                    ErrorMessage = $"Số tiền dòng '{row.DisplayName}' phải từ 0 đến {row.RemainingAmountVnd:N0}.";
+                    return;
+                }
+            }
+        }
+
+        if (cash > 0 && SelectedFund is null)
+        {
+            ErrorMessage = "Tiền mặt phải chọn quỹ.";
+            return;
+        }
+        if ((bank > 0 || card > 0) && SelectedBank is null)
+        {
+            ErrorMessage = "Chuyển khoản/thẻ phải chọn tài khoản ngân hàng.";
             return;
         }
 
@@ -192,17 +332,18 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var request = new ManualVoucherRequest(
-                _voucherType,
-                VoucherDate,
-                SelectedPaymentMethod.Code,
-                amount,
-                NullIfEmpty(PartyName),
-                NullIfEmpty(Notes),
-                NullIfEmpty(ReferenceNumber));
-
             if (CreateVoucherOnSave)
             {
+                // Chế độ Tài chính: xác định 1 phương thức (hoặc MIXED nếu nhiều ô).
+                var method = DetermineSingleMethod(cash, bank, card);
+                var request = new ManualVoucherRequest(
+                    _voucherType,
+                    VoucherDate,
+                    method,
+                    totalPayment,
+                    NullIfEmpty(PartyName),
+                    NullIfEmpty(Notes),
+                    NullIfEmpty(ReferenceNumber));
                 SavedVoucher = await _voucherService.CreateManualVoucherAsync(request, session);
             }
             else
@@ -210,12 +351,13 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
                 SettlementResult = new DebtSettlementDialogResult(
                     _voucherType,
                     VoucherDate,
-                    SelectedPaymentMethod.Code,
-                    amount,
+                    DebtAllocations.Select(x => x.ToLine()).ToList(),
+                    cash, bank, card,
+                    SelectedFund?.Id,
+                    SelectedBank?.Id,
                     NullIfEmpty(PartyName),
                     NullIfEmpty(Notes),
-                    NullIfEmpty(ReferenceNumber),
-                    _sourceDocumentCode);
+                    NullIfEmpty(ReferenceNumber));
             }
 
             RequestClose?.Invoke(true);
@@ -230,21 +372,27 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
         }
     }
 
+    private static string DetermineSingleMethod(decimal cash, decimal bank, decimal card)
+    {
+        var count = (cash > 0 ? 1 : 0) + (bank > 0 ? 1 : 0) + (card > 0 ? 1 : 0);
+        if (count > 1)
+            return PaymentMethods.Mixed;
+        if (cash > 0)
+            return PaymentMethods.Cash;
+        if (bank > 0)
+            return PaymentMethods.BankTransfer;
+        return PaymentMethods.Card;
+    }
+
     private static string? NullIfEmpty(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static bool TryParseAmount(string text, out decimal amount)
+    private static decimal ParseAmount(string? text)
     {
-        amount = 0;
         if (string.IsNullOrWhiteSpace(text))
-        {
-            return false;
-        }
-
-        // Chấp nhận "1.250.000" (phân cách nghìn kiểu VN) lẫn "1250000".
-        var normalized = text.Replace(" ", string.Empty)
-                             .Replace(".", string.Empty)
-                             .Replace(',', '.');
-        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
+            return 0;
+        var normalized = text.Replace(" ", string.Empty).Replace(".", string.Empty).Replace(',', '.');
+        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)
+            ? amount : 0;
     }
 }

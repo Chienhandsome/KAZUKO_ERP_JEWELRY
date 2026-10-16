@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
@@ -13,8 +13,6 @@ namespace Kazuko.Modules.Debt;
 public sealed class DebtViewModel : ObservableObject
 {
     private readonly IDebtWorkbenchRepository _workbench;
-    private readonly ICashFundRepository _funds;
-    private readonly IBankAccountRepository _banks;
     private readonly ICustomerRepository _customers;
     private readonly ICustomerEditorService _customerEditor;
     private readonly ISupplierEditorService _supplierEditor;
@@ -48,8 +46,6 @@ public sealed class DebtViewModel : ObservableObject
 
     public DebtViewModel(
         IDebtWorkbenchRepository workbench,
-        ICashFundRepository funds,
-        IBankAccountRepository banks,
         ICustomerRepository customers,
         ICustomerEditorService customerEditor,
         ISupplierEditorService supplierEditor,
@@ -57,8 +53,6 @@ public sealed class DebtViewModel : ObservableObject
         IDebtSettlementDialogService settlementDialog)
     {
         _workbench = workbench;
-        _funds = funds;
-        _banks = banks;
         _customers = customers;
         _customerEditor = customerEditor;
         _supplierEditor = supplierEditor;
@@ -104,8 +98,6 @@ public sealed class DebtViewModel : ObservableObject
     public ObservableCollection<DebtLedgerRowViewModel> LedgerEntries { get; } = new();
     public ObservableCollection<GroupFilterOption> Groups { get; } = new();
     public ObservableCollection<StatusFilterOption> StatusOptions { get; } = new();
-    public ObservableCollection<CashFundOption> Funds { get; } = new();
-    public ObservableCollection<BankAccountOption> Banks { get; } = new();
 
     public int SelectedTabIndex
     {
@@ -333,10 +325,6 @@ public sealed class DebtViewModel : ObservableObject
         {
             IsBusy = true;
             var session = RequireSession();
-            foreach (var fund in await _funds.GetActiveFundsAsync(session))
-                Funds.Add(fund);
-            foreach (var bank in await _banks.GetActiveAccountsAsync(session))
-                Banks.Add(bank);
 
             Groups.Clear();
             Groups.Add(new GroupFilterOption(0, "Tất cả nhóm KH"));
@@ -545,171 +533,130 @@ public sealed class DebtViewModel : ObservableObject
     /// "Thu toàn bộ" KH: giữ nguyên phạm vi Wave 2a — chỉ thu trên SALES_ORDERS
     /// (chưa gộp RECEIVABLE_DEBTS của KH; các khoản lẻ thu qua nút Thu ở lịch sử).
     /// </summary>
+    /// <summary>"Thu toàn bộ" KH: thu các đơn hàng còn nợ, hiển thị N dòng phân bổ.</summary>
     private async Task CollectCustomerAsync(CustomerDebtRowViewModel? row)
     {
         if (IsBusy || row is null || row.RemainingVnd <= 0)
             return;
 
-        var dialogVm = new DebtPaymentDialogViewModel(
-            "Thu tiền khách hàng",
-            $"{row.Code} — {row.Name}",
-            row.RemainingVnd,
-            Funds.ToList(),
-            Banks.ToList());
+        var session = RequireSession();
+        var openLines = await _workbench.GetCustomerOpenReceivablesAsync(row.CustomerId, session);
+        if (openLines.Count == 0)
+        {
+            MessageBox.Show("Không còn khoản phải thu nào.", "Thu tiền", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
 
-        if (!ShowPaymentDialog(dialogVm))
+        var allocations = openLines.Select(x => new DebtSettlementAllocationLine(
+            DebtLedgerSourceTypes.SalesOrder, x.OrderId, x.OrderCode, x.OrderCode,
+            x.RemainingAmountVnd, x.RemainingAmountVnd)).ToList();
+
+        var result = _settlementDialog.ShowDialog(new DebtSettlementDialogRequest(
+            FinancialVoucherTypes.In,
+            $"{row.Code} — {row.Name}",
+            allocations,
+            $"Thu công nợ khách hàng {row.Code}",
+            AllowAmountEdit: true));
+        if (result is null)
             return;
 
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = string.Empty;
-            var session = RequireSession();
-            await _workbench.CollectCustomerPaymentAsync(
-                new CustomerCollectPaymentRequest(
-                    row.CustomerId,
-                    dialogVm.BuildAllocations(),
-                    string.IsNullOrWhiteSpace(dialogVm.Notes) ? null : dialogVm.Notes.Trim()),
-                session);
-            StatusMessage = "Đã thu tiền khách hàng.";
-            await RefreshCoreAsync();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Thu tiền", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        await ExecuteDebtSettlementAsync(result, "Đã thu tiền khách hàng.", "Thu tiền");
     }
 
-    /// <summary>"Chi toàn bộ" KH: chi các khoản DN nợ KH (PAYABLE_DEBTS party=CUSTOMER), FIFO.</summary>
+    /// <summary>"Chi toàn bộ" KH: chi các khoản DN nợ KH (PAYABLE_DEBTS party=CUSTOMER).</summary>
     private async Task PayCustomerAsync(CustomerDebtRowViewModel? row)
     {
         if (IsBusy || row is null || row.PayableRemainingVnd <= 0)
             return;
 
-        var dialogVm = new DebtPaymentDialogViewModel(
-            "Chi tiền khách hàng",
-            $"{row.Code} — {row.Name}",
-            row.PayableRemainingVnd,
-            Funds.ToList(),
-            Banks.ToList());
+        var session = RequireSession();
+        var openDebts = await _workbench.GetCustomerOpenPayablesAsync(row.CustomerId, session);
+        if (openDebts.Count == 0)
+        {
+            MessageBox.Show("Không còn khoản phải trả nào.", "Chi tiền", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
 
-        if (!ShowPaymentDialog(dialogVm))
+        var allocations = openDebts.Select(x => new DebtSettlementAllocationLine(
+            DebtLedgerSourceTypes.PayableDebt, x.Id, x.Code, x.Code,
+            x.RemainingAmountVnd, x.RemainingAmountVnd)).ToList();
+
+        var result = _settlementDialog.ShowDialog(new DebtSettlementDialogRequest(
+            FinancialVoucherTypes.Out,
+            $"{row.Code} — {row.Name}",
+            allocations,
+            $"Chi trả công nợ khách hàng {row.Code}",
+            AllowAmountEdit: true));
+        if (result is null)
             return;
 
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = string.Empty;
-            var session = RequireSession();
-            await _workbench.PayCustomerFifoAsync(
-                row.CustomerId,
-                dialogVm.BuildAllocations(),
-                string.IsNullOrWhiteSpace(dialogVm.Notes) ? null : dialogVm.Notes.Trim(),
-                session);
-            StatusMessage = "Đã chi tiền khách hàng.";
-            await RefreshCoreAsync();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Chi tiền", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        await ExecuteDebtSettlementAsync(result, "Đã chi tiền khách hàng.", "Chi tiền");
     }
 
-    /// <summary>"Thu toàn bộ" NCC: thu các khoản NCC nợ DN (RECEIVABLE_DEBTS party=SUPPLIER), FIFO.</summary>
+    /// <summary>"Thu toàn bộ" NCC: thu các khoản NCC nợ DN (RECEIVABLE_DEBTS party=SUPPLIER).</summary>
     private async Task CollectSupplierAsync(SupplierDebtRowViewModel? row)
     {
         if (IsBusy || row is null || row.ReceivableRemainingVnd <= 0)
             return;
 
-        var dialogVm = new DebtPaymentDialogViewModel(
-            "Thu tiền nhà cung cấp",
-            $"{row.Code} — {row.Name}",
-            row.ReceivableRemainingVnd,
-            Funds.ToList(),
-            Banks.ToList());
+        var session = RequireSession();
+        var openDebts = await _workbench.GetSupplierReceivableDebtsAsync(row.SupplierId, session);
+        if (openDebts.Count == 0)
+        {
+            MessageBox.Show("Không còn khoản phải thu nào.", "Thu tiền", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
 
-        if (!ShowPaymentDialog(dialogVm))
+        var allocations = openDebts.Select(x => new DebtSettlementAllocationLine(
+            DebtLedgerSourceTypes.ReceivableDebt, x.Id, x.Code, x.Code,
+            x.RemainingAmountVnd, x.RemainingAmountVnd)).ToList();
+
+        var result = _settlementDialog.ShowDialog(new DebtSettlementDialogRequest(
+            FinancialVoucherTypes.In,
+            $"{row.Code} — {row.Name}",
+            allocations,
+            $"Thu công nợ nhà cung cấp {row.Code}",
+            AllowAmountEdit: true));
+        if (result is null)
             return;
 
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = string.Empty;
-            var session = RequireSession();
-            await _workbench.CollectSupplierPaymentAsync(
-                new SupplierCollectPaymentRequest(
-                    row.SupplierId,
-                    dialogVm.BuildAllocations(),
-                    string.IsNullOrWhiteSpace(dialogVm.Notes) ? null : dialogVm.Notes.Trim()),
-                session);
-            StatusMessage = "Đã thu tiền nhà cung cấp.";
-            await RefreshCoreAsync();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Thu tiền", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        await ExecuteDebtSettlementAsync(result, "Đã thu tiền nhà cung cấp.", "Thu tiền");
     }
 
+    /// <summary>"Chi toàn bộ" NCC: chi các khoản DN nợ NCC (PAYABLE_DEBTS party=SUPPLIER).</summary>
     private async Task PaySupplierAsync(SupplierDebtRowViewModel? row)
     {
         if (IsBusy || row is null || row.RemainingVnd <= 0)
             return;
 
-        var dialogVm = new DebtPaymentDialogViewModel(
-            "Chi tiền nhà cung cấp",
-            $"{row.Code} — {row.Name}",
-            row.RemainingVnd,
-            Funds.ToList(),
-            Banks.ToList());
+        var session = RequireSession();
+        var openDebts = await _workbench.GetSupplierOpenPayablesAsync(row.SupplierId, session);
+        if (openDebts.Count == 0)
+        {
+            MessageBox.Show("Không còn khoản phải trả nào.", "Chi tiền", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
 
-        if (!ShowPaymentDialog(dialogVm))
+        var allocations = openDebts.Select(x => new DebtSettlementAllocationLine(
+            DebtLedgerSourceTypes.PayableDebt, x.Id, x.Code, x.Code,
+            x.RemainingAmountVnd, x.RemainingAmountVnd)).ToList();
+
+        var result = _settlementDialog.ShowDialog(new DebtSettlementDialogRequest(
+            FinancialVoucherTypes.Out,
+            $"{row.Code} — {row.Name}",
+            allocations,
+            $"Chi trả công nợ nhà cung cấp {row.Code}",
+            AllowAmountEdit: true));
+        if (result is null)
             return;
 
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = string.Empty;
-            var session = RequireSession();
-            await _workbench.PaySupplierFifoAsync(
-                row.SupplierId,
-                dialogVm.BuildAllocations(),
-                string.IsNullOrWhiteSpace(dialogVm.Notes) ? null : dialogVm.Notes.Trim(),
-                session);
-            StatusMessage = "Đã chi tiền nhà cung cấp.";
-            await RefreshCoreAsync();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Chi tiền", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        await ExecuteDebtSettlementAsync(result, "Đã chi tiền nhà cung cấp.", "Chi tiền");
     }
 
     /// <summary>
     /// Tất toán lẻ 1 dòng lịch sử (nút Thu/Chi trong cột Thao tác): mở dialog
-    /// phiếu thu/chi của module Tài chính (chế độ chỉ thu thập input, cho phép
-    /// sửa số tiền = thanh toán một phần), rồi gọi backend settle đúng 1 khoản
-    /// nguồn đó trong 1 transaction. Xong thì tải lại danh sách + lịch sử + KPI.
+    /// phiếu thu/chi dùng chung với 1 dòng phân bổ, cho phép sửa số tiền
+    /// (thanh toán một phần), rồi gọi backend settle trong 1 transaction.
     /// </summary>
     private async Task SettleLedgerEntryAsync(DebtLedgerRowViewModel? row)
     {
@@ -725,47 +672,58 @@ public sealed class DebtViewModel : ObservableObject
         var isReceive = string.Equals(
             entry.Direction, DebtLedgerDirections.Receive, StringComparison.OrdinalIgnoreCase);
 
-        var dialogResult = _settlementDialog.ShowDialog(new DebtSettlementDialogRequest(
-            VoucherType: isReceive ? FinancialVoucherTypes.In : FinancialVoucherTypes.Out,
-            PartyDisplayName: SelectedName,
-            SourceDocumentCode: entry.DocumentCode,
-            DefaultAmountVnd: entry.RemainingAmountVnd,
-            DefaultNotes: $"Thanh toán {entry.DocumentCode}",
-            AllowAmountEdit: true));
-        if (dialogResult is null)
-            return;
-
-        if (dialogResult.AmountVnd <= 0 || dialogResult.AmountVnd > entry.RemainingAmountVnd)
+        var allocations = new List<DebtSettlementAllocationLine>
         {
-            MessageBox.Show(
-                $"Số tiền phải > 0 và không vượt số còn lại ({entry.RemainingAmountVnd:N0} VND).",
-                isReceive ? "Thu tiền" : "Chi tiền",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+            new(entry.SourceType, sourceId,
+                entry.DocumentCode ?? entry.SourceType,
+                entry.DocumentCode,
+                entry.RemainingAmountVnd,
+                entry.RemainingAmountVnd)
+        };
 
+        var result = _settlementDialog.ShowDialog(new DebtSettlementDialogRequest(
+            isReceive ? FinancialVoucherTypes.In : FinancialVoucherTypes.Out,
+            SelectedName,
+            allocations,
+            $"Thanh toán {entry.DocumentCode}",
+            AllowAmountEdit: true));
+        if (result is null)
+            return;
+
+        await ExecuteDebtSettlementAsync(result, isReceive ? "Đã thu tiền." : "Đã chi tiền.", isReceive ? "Thu tiền" : "Chi tiền");
+    }
+
+    /// <summary>
+    /// Thực thi tất toán từ kết quả dialog chung: gọi backend
+    /// SettleDebtAllocationsAsync trong 1 transaction, xong tải lại dữ liệu.
+    /// </summary>
+    private async Task ExecuteDebtSettlementAsync(DebtSettlementDialogResult result, string successMessage, string dialogTitle)
+    {
         try
         {
             IsBusy = true;
             ErrorMessage = string.Empty;
             var session = RequireSession();
-            await _workbench.SettleSingleLedgerEntryAsync(
-                new SingleLedgerSettleRequest(
-                    entry.SourceType,
-                    sourceId,
-                    [BuildSingleAllocation(dialogResult)],
-                    dialogResult.Notes),
+            await _workbench.SettleDebtAllocationsAsync(
+                new DebtAllocationSettleRequest(
+                    result.Allocations
+                        .Where(x => x.PaymentAmountVnd > 0)
+                        .Select(x => new DebtAllocationSettleLine(x.SourceType, x.SourceId, x.PaymentAmountVnd))
+                        .ToList(),
+                    result.CashAmountVnd,
+                    result.BankTransferAmountVnd,
+                    result.CardAmountVnd,
+                    result.FundId,
+                    result.BankAccountId,
+                    string.IsNullOrWhiteSpace(result.Notes) ? null : result.Notes.Trim()),
                 session);
-            StatusMessage = isReceive ? "Đã thu tiền." : "Đã chi tiền.";
-            await SearchAsync(reloadSummary: true);
+            StatusMessage = successMessage;
+            await RefreshCoreAsync();
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
-            MessageBox.Show(
-                ex.Message,
-                isReceive ? "Thu tiền" : "Chi tiền",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, dialogTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
@@ -773,57 +731,6 @@ public sealed class DebtViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Dialog tất toán chỉ chọn phương thức (không chọn quỹ/tài khoản):
-    /// dùng quỹ mặc định cho tiền mặt, tài khoản đầu tiên cho chuyển khoản/thẻ.
-    /// </summary>
-    private PaymentAllocationDraft BuildSingleAllocation(DebtSettlementDialogResult result)
-    {
-        var method = (result.PaymentMethod ?? string.Empty).Trim().ToUpperInvariant();
-        long? fundId = null;
-        long? bankId = null;
-        if (method == PaymentMethods.Cash)
-        {
-            fundId = Funds.FirstOrDefault(f => f.IsDefault)?.Id ?? Funds.FirstOrDefault()?.Id
-                ?? throw new InvalidOperationException(
-                    "Chưa có quỹ tiền mặt đang hoạt động. Hãy tạo quỹ trong module Tài chính.");
-        }
-        else if (method is PaymentMethods.BankTransfer or PaymentMethods.Card)
-        {
-            bankId = Banks.FirstOrDefault()?.Id
-                ?? throw new InvalidOperationException(
-                    "Chưa có tài khoản ngân hàng đang hoạt động. Hãy tạo tài khoản trong module Tài chính.");
-        }
-        else
-        {
-            throw new InvalidOperationException("Phương thức thanh toán không hợp lệ.");
-        }
-
-        return new PaymentAllocationDraft(method, result.AmountVnd, fundId, bankId, result.ReferenceNumber);
-    }
-
-    private static bool ShowPaymentDialog(DebtPaymentDialogViewModel viewModel)
-    {
-        var dialog = new DebtPaymentDialog
-        {
-            Owner = ResolveOwner(),
-            DataContext = viewModel,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
-
-        var accepted = false;
-        viewModel.RequestClose += result =>
-        {
-            accepted = result;
-            if (dialog.IsLoaded)
-                dialog.DialogResult = result;
-            else
-                dialog.Close();
-        };
-
-        dialog.ShowDialog();
-        return accepted && viewModel.Confirmed;
-    }
 
     private static Window? ResolveOwner()
     {

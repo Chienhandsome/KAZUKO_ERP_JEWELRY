@@ -15,6 +15,8 @@ public sealed class VoucherListViewModel : ObservableObject
     private readonly IFinanceDashboardRepository _dashboard;
     private readonly IFinanceVoucherService _voucherService;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly ICashFundRepository _funds;
+    private readonly IBankAccountRepository _banks;
     private readonly string _voucherType;
 
     private bool _isBusy;
@@ -30,11 +32,15 @@ public sealed class VoucherListViewModel : ObservableObject
         IFinanceDashboardRepository dashboard,
         IFinanceVoucherService voucherService,
         ICurrentSessionAccessor sessionAccessor,
+        ICashFundRepository funds,
+        IBankAccountRepository banks,
         string voucherType)
     {
         _dashboard = dashboard;
         _voucherService = voucherService;
         _sessionAccessor = sessionAccessor;
+        _funds = funds;
+        _banks = banks;
         _voucherType = voucherType;
 
         var isIncome = voucherType == FinancialVoucherTypes.In;
@@ -207,7 +213,7 @@ public sealed class VoucherListViewModel : ObservableObject
     private async Task AddAsync()
     {
         var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
-        var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, _voucherType);
+        var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, _funds, _banks, _voucherType);
         if (saved is not null)
         {
             await SearchAsync();

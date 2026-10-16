@@ -93,6 +93,8 @@ public sealed class FinanceOverviewViewModel : ObservableObject
     private readonly IPayableDebtRepository _payables;
     private readonly IDebtWorkbenchRepository _receivables;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly ICashFundRepository _funds;
+    private readonly IBankAccountRepository _banks;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
@@ -119,13 +121,17 @@ public sealed class FinanceOverviewViewModel : ObservableObject
         IFinanceVoucherService voucherService,
         IPayableDebtRepository payables,
         IDebtWorkbenchRepository receivables,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        ICashFundRepository funds,
+        IBankAccountRepository banks)
     {
         _dashboard = dashboard;
         _voucherService = voucherService;
         _payables = payables;
         _receivables = receivables;
         _sessionAccessor = sessionAccessor;
+        _funds = funds;
+        _banks = banks;
 
         VoucherKindOptions.Add(new VoucherKindOption(string.Empty, "Tất cả loại"));
         VoucherKindOptions.Add(new VoucherKindOption(FinancialVoucherTypes.In, "Thu"));
@@ -415,7 +421,7 @@ public sealed class FinanceOverviewViewModel : ObservableObject
         }
 
         var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
-        var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, voucherType);
+        var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, _funds, _banks, voucherType);
         if (saved is not null)
         {
             await LoadAsync();

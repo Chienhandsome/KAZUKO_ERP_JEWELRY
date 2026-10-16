@@ -13,18 +13,25 @@ public sealed class FinanceDebtSettlementDialogService : IDebtSettlementDialogSe
 {
     private readonly IFinanceVoucherService _voucherService;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly ICashFundRepository _fundRepository;
+    private readonly IBankAccountRepository _bankRepository;
 
     public FinanceDebtSettlementDialogService(
         IFinanceVoucherService voucherService,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        ICashFundRepository fundRepository,
+        IBankAccountRepository bankRepository)
     {
         _voucherService = voucherService;
         _sessionAccessor = sessionAccessor;
+        _fundRepository = fundRepository;
+        _bankRepository = bankRepository;
     }
 
     public DebtSettlementDialogResult? ShowDialog(DebtSettlementDialogRequest request)
     {
         var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
-        return CashVoucherDialog.ShowForDebtSettlement(owner, _voucherService, _sessionAccessor, request);
+        return CashVoucherDialog.ShowForDebtSettlement(
+            owner, _voucherService, _sessionAccessor, _fundRepository, _bankRepository, request);
     }
 }

@@ -1108,6 +1108,198 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
         }
     }
 
+    public async Task SettleDebtAllocationsAsync(
+        DebtAllocationSettleRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        var lines = request.Lines ?? Array.Empty<DebtAllocationSettleLine>();
+        if (lines.Count == 0)
+            throw new InvalidOperationException("Phải có ít nhất một khoản công nợ cần tất toán.");
+
+        foreach (var line in lines)
+        {
+            var st = (line.SourceType ?? string.Empty).Trim().ToUpperInvariant();
+            if (st is not (
+                DebtLedgerSourceTypes.SalesOrder or
+                DebtLedgerSourceTypes.ReceivableDebt or
+                DebtLedgerSourceTypes.PayableDebt))
+                throw new InvalidOperationException($"Nguồn công nợ không hỗ trợ: {line.SourceType}.");
+            if (line.SourceId <= 0)
+                throw new InvalidOperationException("Thiếu id khoản công nợ cần tất toán.");
+            if (line.AmountVnd <= 0)
+                throw new InvalidOperationException("Số tiền tất toán mỗi dòng phải > 0.");
+        }
+
+        var totalLines = lines.Sum(x => x.AmountVnd);
+        var totalPayment = request.CashAmountVnd + request.BankTransferAmountVnd + request.CardAmountVnd;
+        if (totalPayment <= 0)
+            throw new InvalidOperationException("Tổng thanh toán phải > 0.");
+        if (totalPayment != totalLines)
+            throw new InvalidOperationException(
+                $"Tổng thanh toán ({totalPayment:N0}) phải bằng tổng phân bổ ({totalLines:N0}).");
+
+        // Dựng danh sách PaymentAllocationDraft từ 3 ô phương thức.
+        var methodAllocations = new List<PaymentAllocationDraft>();
+        if (request.CashAmountVnd > 0)
+        {
+            if (request.FundId is not > 0)
+                throw new InvalidOperationException("Tiền mặt phải chọn quỹ.");
+            methodAllocations.Add(new PaymentAllocationDraft(
+                PaymentMethods.Cash, request.CashAmountVnd, request.FundId, null, null));
+        }
+        if (request.BankTransferAmountVnd > 0)
+        {
+            if (request.BankAccountId is not > 0)
+                throw new InvalidOperationException("Chuyển khoản phải chọn tài khoản ngân hàng.");
+            methodAllocations.Add(new PaymentAllocationDraft(
+                PaymentMethods.BankTransfer, request.BankTransferAmountVnd, null, request.BankAccountId, null));
+        }
+        if (request.CardAmountVnd > 0)
+        {
+            if (request.BankAccountId is not > 0)
+                throw new InvalidOperationException("Thẻ phải chọn tài khoản ngân hàng.");
+            methodAllocations.Add(new PaymentAllocationDraft(
+                PaymentMethods.Card, request.CardAmountVnd, null, request.BankAccountId, null));
+        }
+        var errors = PaymentAllocationValidator.Validate(methodAllocations, totalPayment).ToList();
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(" ", errors));
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTx = (FbTransaction)transaction;
+
+        try
+        {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+            var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+
+            // Chia phương thức thanh toán cho từng dòng theo thứ tự (ưu tiên tiền mặt trước).
+            // Mỗi dòng tạo 1 settlement riêng, tất cả trong 1 transaction.
+            var remainingCash = request.CashAmountVnd;
+            var remainingBank = request.BankTransferAmountVnd;
+            var remainingCard = request.CardAmountVnd;
+
+            foreach (var line in lines)
+            {
+                var lineAllocations = new List<PaymentAllocationDraft>();
+                var need = line.AmountVnd;
+
+                var takeCash = Math.Min(need, remainingCash);
+                if (takeCash > 0)
+                {
+                    lineAllocations.Add(new PaymentAllocationDraft(
+                        PaymentMethods.Cash, takeCash, request.FundId, null, null));
+                    remainingCash -= takeCash;
+                    need -= takeCash;
+                }
+                var takeBank = Math.Min(need, remainingBank);
+                if (takeBank > 0)
+                {
+                    lineAllocations.Add(new PaymentAllocationDraft(
+                        PaymentMethods.BankTransfer, takeBank, null, request.BankAccountId, null));
+                    remainingBank -= takeBank;
+                    need -= takeBank;
+                }
+                var takeCard = Math.Min(need, remainingCard);
+                if (takeCard > 0)
+                {
+                    lineAllocations.Add(new PaymentAllocationDraft(
+                        PaymentMethods.Card, takeCard, null, request.BankAccountId, null));
+                    remainingCard -= takeCard;
+                    need -= takeCard;
+                }
+
+                if (need != 0)
+                    throw new InvalidOperationException("Lỗi chia phương thức thanh toán cho các dòng.");
+
+                var sourceType = (line.SourceType ?? string.Empty).Trim().ToUpperInvariant();
+                var (settlement, auditAction, partyType, partyId) = sourceType switch
+                {
+                    DebtLedgerSourceTypes.SalesOrder => await CollectSingleSalesOrderAsync(
+                        connection, fbTx, companyId, line.SourceId,
+                        lineAllocations, line.AmountVnd, notes, session, cancellationToken),
+                    DebtLedgerSourceTypes.ReceivableDebt => await CollectSingleReceivableDebtAsync(
+                        connection, fbTx, companyId, line.SourceId,
+                        lineAllocations, line.AmountVnd, notes, session, cancellationToken),
+                    _ => await PaySinglePayableDebtAsync(
+                        connection, fbTx, companyId, line.SourceId,
+                        lineAllocations, line.AmountVnd, notes, session, cancellationToken)
+                };
+
+                await AuditLogWriter.WriteAsync(
+                    connection, fbTx, auditAction,
+                    session.UserId, session.Username, session.BranchId,
+                    partyType, partyId.ToString(),
+                    $"{{\"settlementId\":{settlement.SettlementId},\"amount\":{line.AmountVnd},\"sourceId\":{line.SourceId}}}",
+                    cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<OpenCustomerReceivableLine>> GetCustomerOpenReceivablesAsync(
+        long customerId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+        if (customerId <= 0)
+            return Array.Empty<OpenCustomerReceivableLine>();
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, null!, cancellationToken);
+            var rows = await connection.QueryAsync<OpenCustomerReceivableLine>(
+                new CommandDefinition("""
+                    SELECT O.ID AS OrderId,
+                           O.CODE AS OrderCode,
+                           O.GRAND_TOTAL - COALESCE((
+                               SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                               FROM ORDER_PAYMENTS P
+                               WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0) AS RemainingAmountVnd,
+                           O.ORDER_DATE AS OrderDate
+                    FROM SALES_ORDERS O
+                    WHERE O.COMPANY_ID = @CID
+                      AND O.BRANCH_ID = @BID
+                      AND O.CUSTOMER_ID = @CUST
+                      AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+                      AND O.GRAND_TOTAL - COALESCE((
+                          SELECT SUM(CASE P.PAYMENT_TYPE WHEN 'REFUND' THEN -P.AMOUNT ELSE P.AMOUNT END)
+                          FROM ORDER_PAYMENTS P
+                          WHERE P.ORDER_ID = O.ID AND P.IS_VOIDED = FALSE), 0) > 0
+                    ORDER BY O.ORDER_DATE, O.ID
+                    """,
+                    new
+                    {
+                        CID = companyId,
+                        BID = session.BranchId,
+                        CUST = customerId
+                    },
+                    cancellationToken: cancellationToken));
+            return rows.AsList();
+        }
+        finally
+        {
+            await connection.CloseAsync();
+        }
+    }
+
     private async Task<(FinancialSettlementResult Settlement, string AuditAction, string PartyType, long PartyId)> CollectSingleSalesOrderAsync(
         FbConnection connection,
         FbTransaction transaction,
