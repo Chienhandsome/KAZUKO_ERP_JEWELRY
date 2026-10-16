@@ -120,8 +120,10 @@
 
               <StackPanel Grid.Column="4">
                 <TextBlock Text="Nhân viên nhập" Style="{StaticResource WhFieldLabelStyle}" />
-                <TextBox Text="{Binding ReceivedByName, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource WhRoundedTextBoxStyle}" />
+                <TextBox Text="{Binding ReceivedByName, Mode=OneWay}"
+                         Style="{StaticResource WhReadonlyFieldStyle}"
+                         IsReadOnly="True"
+                         ToolTip="Người dùng đang đăng nhập" />
               </StackPanel>
             </Grid>
 

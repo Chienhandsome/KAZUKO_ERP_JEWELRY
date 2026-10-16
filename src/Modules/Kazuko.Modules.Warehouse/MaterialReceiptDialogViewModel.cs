@@ -235,7 +235,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         set => SetProperty(ref _description, value);
     }
 
-    /// <summary>Nhân viên nhập kho (nhập tay).</summary>
+    /// <summary>Nhân viên nhập kho, mặc định theo người dùng đang đăng nhập.</summary>
     public string ReceivedByName
     {
         get => _receivedByName;
