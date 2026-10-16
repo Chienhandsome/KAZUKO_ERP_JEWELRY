@@ -28,7 +28,7 @@ public sealed class AppearanceService : IAppearanceService
 
     public void Apply(AppTheme theme, double fontScale)
     {
-        Current = Normalize(new AppPreferences(theme, fontScale));
+        Current = Normalize(new AppPreferences(theme, fontScale, Current.AutoBackupEnabled));
         ApplyTheme(Current.Theme);
         ApplyFontScale(Current.FontScale);
         _preferences.Save(Current);

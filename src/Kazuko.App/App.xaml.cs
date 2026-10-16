@@ -1,8 +1,10 @@
-using System.Windows;
+﻿using System.Windows;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
 using Kazuko.Core.Printing;
+using Kazuko.Core.Settings;
+using Kazuko.Infrastructure.Data;
 using Kazuko.Infrastructure.Printing;
 using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
@@ -58,7 +60,26 @@ public partial class App : Application
         RegisterFoundation();
         RegisterModules();
         ApplySavedAppearance();
+        _ = RunAutoBackupAsync();
         ShowLogin();
+    }
+
+    /// <summary>
+    /// Backup tự động DB khi khởi động (nếu được bật trong Cài đặt &gt; Cơ sở dữ liệu).
+    /// Chạy nền, không chặn luồng đăng nhập; lỗi được bỏ qua lặng lẽ.
+    /// </summary>
+    private async Task RunAutoBackupAsync()
+    {
+        try
+        {
+            var database = _services.GetService(typeof(IDatabaseManagementService)) as IDatabaseManagementService;
+            if (database is not null)
+                await database.RunAutoBackupIfEnabledAsync();
+        }
+        catch
+        {
+            // Backup tự động không được làm gián đoạn khởi động.
+        }
     }
 
     private void RegisterFoundation()
@@ -145,6 +166,8 @@ public partial class App : Application
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
+        _services.AddSingleton<IDatabaseManagementService>(
+            new FirebirdDatabaseManagementService(preferences));
         _services.AddSingleton(companyProfile);
         _services.AddSingleton(printTemplates);
         _services.AddSingleton(authentication);

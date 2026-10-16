@@ -594,6 +594,129 @@
                             </ComboBox>
                         </StackPanel>
                     </Border>
+
+                    <!-- Cơ sở dữ liệu: chỉ admin mới thấy (DataContext ở StackPanel con để Visibility vẫn bind SettingsViewModel) -->
+                    <Border HorizontalAlignment="Stretch"
+                            Style="{DynamicResource CardBorderStyle}"
+                            Visibility="{Binding IsDatabaseSelected, Converter={StaticResource BoolToVis}}">
+                        <StackPanel DataContext="{Binding Database}">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="IsEnabled" Value="True" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+
+                            <TextBlock Text="Cơ sở dữ liệu"
+                                       FontSize="{DynamicResource FontSize.Subtitle}"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}" />
+                            <TextBlock Text="Thông tin file dữ liệu hiện tại và các thao tác quản trị. Mọi thao tác đổi/tạo mới đều yêu cầu khởi động lại ứng dụng."
+                                       Margin="0,6,0,20"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       Foreground="{DynamicResource DangerBrush}"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ErrorMessage}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Text="{Binding StatusMessage}"
+                                       Foreground="{DynamicResource SuccessBrush}"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StatusMessage}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <Border Background="{DynamicResource SurfaceAltBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="16"
+                                    Margin="0,0,0,16">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Đường dẫn" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FilePath, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Dung lượng" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSize, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Phiên bản" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SchemaVersion, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Chi nhánh" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BranchCount, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" />
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Người dùng" Style="{StaticResource SettingsMetaLabelStyle}" Margin="0,0,12,0" />
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding UserCount, Mode=OneWay}"
+                                               Style="{StaticResource SettingsMetaValueStyle}" Margin="0" />
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                                <Button Content="Thay đổi..."
+                                        Command="{Binding ChangeDatabaseCommand}"
+                                        Style="{StaticResource SettingsPrimaryButtonStyle}"
+                                        MinWidth="130" Margin="0,0,10,0" />
+                                <Button Content="Backup..."
+                                        Command="{Binding BackupCommand}"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
+                                        MinWidth="130" Margin="0,0,10,0" />
+                                <Button Content="Tạo mới..."
+                                        Command="{Binding CreateNewCommand}"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
+                                        MinWidth="130" Margin="0,0,10,0" />
+                                <Button Content="Tải lại"
+                                        Command="{Binding ReloadCommand}"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
+                                        MinWidth="110" />
+                            </StackPanel>
+
+                            <CheckBox Content="Tự động backup khi khởi động ứng dụng (giữ 7 bản gần nhất)"
+                                      IsChecked="{Binding AutoBackupEnabled}"
+                                      FontSize="{DynamicResource FontSize.Body}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}"
+                                      VerticalContentAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </ScrollViewer>
 

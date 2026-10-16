@@ -6,7 +6,10 @@ public enum AppTheme
     Dark
 }
 
-public sealed record AppPreferences(AppTheme Theme = AppTheme.Light, double FontScale = 1.0);
+public sealed record AppPreferences(
+    AppTheme Theme = AppTheme.Light,
+    double FontScale = 1.0,
+    bool AutoBackupEnabled = true);
 
 public interface IPreferencesService
 {

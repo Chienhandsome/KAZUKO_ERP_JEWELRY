@@ -5,6 +5,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Printing;
+using Kazuko.Core.Settings;
 using Microsoft.Win32;
 
 namespace Kazuko.Modules.Dashboard;
@@ -37,20 +38,30 @@ public sealed class SettingsViewModel : ObservableObject
         ICompanyProfileService companyProfile,
         ICurrentSessionAccessor sessionAccessor,
         IAppearanceService appearance,
-        IPrintTemplateStore printTemplates)
+        IPrintTemplateStore printTemplates,
+        IDatabaseManagementService databaseManagement,
+        IPreferencesService preferences)
     {
         _companyProfile = companyProfile ?? throw new ArgumentNullException(nameof(companyProfile));
         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
         _printTemplates = printTemplates ?? throw new ArgumentNullException(nameof(printTemplates));
         Appearance = new AppearanceSettingsViewModel(
             appearance ?? throw new ArgumentNullException(nameof(appearance)));
+        Database = new DatabaseSettingsViewModel(
+            databaseManagement ?? throw new ArgumentNullException(nameof(databaseManagement)),
+            preferences ?? throw new ArgumentNullException(nameof(preferences)),
+            appearance,
+            sessionAccessor);
 
-        Categories =
-        [
-            new SettingsCategory("general", "Thông tin chung"),
-            new SettingsCategory("receipt_template", "Mẫu in bill"),
-            new SettingsCategory("appearance", "Giao diện")
-        ];
+        var categories = new List<SettingsCategory>
+        {
+            new("general", "Thông tin chung"),
+            new("receipt_template", "Mẫu in bill"),
+            new("appearance", "Giao diện")
+        };
+        if (IsAdminUser())
+            categories.Add(new SettingsCategory("database", "Cơ sở dữ liệu"));
+        Categories = categories;
         _selectedCategory = Categories[0];
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy && IsGeneralSelected);
@@ -101,6 +112,18 @@ public sealed class SettingsViewModel : ObservableObject
 
     public AppearanceSettingsViewModel Appearance { get; }
 
+    public DatabaseSettingsViewModel Database { get; }
+
+    /// <summary>Tab Cơ sở dữ liệu chỉ hiện với tài khoản admin.</summary>
+    public bool IsDatabaseVisible => IsAdminUser();
+
+    private bool IsAdminUser()
+    {
+        var session = _sessionAccessor.Current;
+        return session is not null &&
+               string.Equals(session.RoleCode, "ADMIN", StringComparison.OrdinalIgnoreCase);
+    }
+
     public SettingsCategory SelectedCategory
     {
         get => _selectedCategory;
@@ -111,6 +134,7 @@ public sealed class SettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(IsGeneralSelected));
             OnPropertyChanged(nameof(IsAppearanceSelected));
             OnPropertyChanged(nameof(IsReceiptTemplateSelected));
+            OnPropertyChanged(nameof(IsDatabaseSelected));
             NotifyCommands();
             if (IsReceiptTemplateSelected)
                 _ = LoadReceiptTemplateSummaryAsync();
@@ -125,6 +149,9 @@ public sealed class SettingsViewModel : ObservableObject
 
     public bool IsReceiptTemplateSelected =>
         string.Equals(SelectedCategory.Key, "receipt_template", StringComparison.Ordinal);
+
+    public bool IsDatabaseSelected =>
+        string.Equals(SelectedCategory.Key, "database", StringComparison.Ordinal);
 
     public string CompanyName
     {
@@ -317,7 +344,7 @@ public sealed class SettingsViewModel : ObservableObject
 
     private void PickLogo()
     {
-        var dialog = new OpenFileDialog
+        var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Chọn logo doanh nghiệp",
             Filter = "Ảnh|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp|Tất cả|*.*",
@@ -419,7 +446,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             var kind = SelectedReceiptTemplateKind;
             var template = await _printTemplates.GetByCodeAsync(kind.Code, session);
-            var dialog = new SaveFileDialog
+            var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Title = $"Xuất mẫu bill {kind.Label}",
                 Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",
@@ -452,7 +479,7 @@ public sealed class SettingsViewModel : ObservableObject
             return;
         }
 
-        var dialog = new OpenFileDialog
+        var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = $"Import mẫu bill {SelectedReceiptTemplateKind.Label}",
             Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",

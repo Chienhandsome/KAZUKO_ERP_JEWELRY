@@ -4,6 +4,7 @@ using Kazuko.Core.Company;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Printing;
+using Kazuko.Core.Settings;
 
 namespace Kazuko.Modules.Dashboard;
 
@@ -72,6 +73,8 @@ public sealed class DashboardModule : IKazukoModule
         var sessionAccessor = GetRequiredService<ICurrentSessionAccessor>(services);
         var appearanceService = GetRequiredService<IAppearanceService>(services);
         var printTemplates = GetRequiredService<IPrintTemplateStore>(services);
+        var databaseManagement = GetRequiredService<IDatabaseManagementService>(services);
+        var preferences = GetRequiredService<IPreferencesService>(services);
 
         navigation.Register(new NavigationItem(
             "SETTINGS",
@@ -82,7 +85,8 @@ public sealed class DashboardModule : IKazukoModule
             () => new SettingsView
             {
                 DataContext = new SettingsViewModel(
-                    companyProfile, sessionAccessor, appearanceService, printTemplates)
+                    companyProfile, sessionAccessor, appearanceService, printTemplates,
+                    databaseManagement, preferences)
             },
             AssetRoot + "CAIDAT.png"));
     }
