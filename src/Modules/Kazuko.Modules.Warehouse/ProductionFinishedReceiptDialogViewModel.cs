@@ -14,7 +14,7 @@ namespace Kazuko.Modules.Warehouse;
 /// <summary>
 /// Nhập kho thành phẩm luồng mới (14/10/2026): nhập tay từng sản phẩm.
 /// - Form nhập tay: bấm Thêm để đưa vào bảng. SL=N → N dòng, mỗi dòng 1 mã TP riêng.
-/// - Mã TP tự sinh trong phiên: prefix = chữ cái đầu nhóm hàng (N/L/D/B/V) + số thứ tự.
+/// - Mã TP tiếp tục từ mã lớn nhất trong kho: prefix = chữ cái đầu nhóm hàng (N/L/D/B/V) + số thứ tự.
 /// - TL vàng tự tính = TL tổng − TL đá, cho phép sửa tay.
 /// - Lưu: ghi sổ qua <c>PostManualFinishedReceiptAsync</c> (không qua QC).
 /// </summary>
@@ -433,12 +433,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     {
         try
         {
-            var orders = await _queries.GetCompletedUnreceivedOrdersAsync(_session.BranchId);
-            Orders.Clear();
-            foreach (var item in orders)
-                Orders.Add(item);
-            SelectedOrder = Orders.FirstOrDefault();
-
             var locations = await _warehouse.GetLocationsAsync(_session);
             Locations.Clear();
             foreach (var location in locations.Where(location =>
@@ -454,7 +448,16 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             foreach (var group in groups)
                 ProductGroups.Add(group);
             SelectedProductGroup = ProductGroups.FirstOrDefault();
+
+            var existingCodes = await _queries.GetExistingFinishedProductCodesAsync(_session.BranchId);
+            InitializeCodeSequences(existingCodes);
             OnPropertyChanged(nameof(PreviewProductCode));
+
+            var orders = await _queries.GetCompletedUnreceivedOrdersAsync(_session.BranchId);
+            Orders.Clear();
+            foreach (var item in orders)
+                Orders.Add(item);
+            SelectedOrder = Orders.FirstOrDefault();
 
             if (Locations.Count == 0)
                 ErrorMessage = "Chưa cấu hình kho thành phẩm cho chi nhánh.";
@@ -494,6 +497,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             }
             if (_detail is not null)
             {
+                SelectedLocation = Locations.FirstOrDefault(x => x.Id == _detail.FinishedLocationId)
+                    ?? Locations.FirstOrDefault();
                 foreach (var attachment in _detail.Attachments.Where(IsImageAttachment))
                     ImageItems.Add(new ReceiptImageItem(attachment.OriginalFileName, attachment.StoredPath));
                 SelectedImage = ImageItems.FirstOrDefault();
@@ -696,6 +701,24 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         if (!peek)
             _codeSequences[prefix] = next;
         return $"{prefix}-{next:000}";
+    }
+
+    private void InitializeCodeSequences(IEnumerable<string> existingCodes)
+    {
+        _codeSequences.Clear();
+        foreach (var rawCode in existingCodes)
+        {
+            var code = (rawCode ?? string.Empty).Trim();
+            var separator = code.LastIndexOf('-');
+            if (separator <= 0
+                || separator == code.Length - 1
+                || !int.TryParse(code[(separator + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+                continue;
+
+            var prefix = code[..separator];
+            if (!_codeSequences.TryGetValue(prefix, out var current) || number > current)
+                _codeSequences[prefix] = number;
+        }
     }
 
     private void AddOrUpdateProduct()

@@ -101,6 +101,23 @@
             <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
+          <TextBlock Text="Lệnh sản xuất:" Style="{StaticResource ReceiptFormLabelStyle}" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding Orders}"
+                    SelectedItem="{Binding SelectedOrder}"
+                    Style="{StaticResource ReceiptComboStyle}"
+                    ToolTip="Chỉ hiển thị lệnh đã hoàn thành và chưa nhập kho.">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Code}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
           <TextBlock Text="Ngày nhập:" Style="{StaticResource ReceiptFormLabelStyle}" />
           <DatePicker Grid.Column="1" SelectedDate="{Binding ReceiptDate}" MinHeight="30"
                       VerticalContentAlignment="Center" />
@@ -156,23 +173,6 @@
                     IsTextSearchEnabled="True"
                     Style="{StaticResource ReceiptComboStyle}"
                     ToolTip="Chọn loại/tuổi vàng (750, 999…)" />
-        </Grid>
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Text="Lệnh sản xuất:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <ComboBox Grid.Column="1" ItemsSource="{Binding Orders}"
-                    SelectedItem="{Binding SelectedOrder}"
-                    Style="{StaticResource ReceiptComboStyle}"
-                    ToolTip="Chọn lệnh để đối chiếu vàng đã giao / đã nhận.">
-            <ComboBox.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding Code}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
         </Grid>
         <Grid Margin="0,0,0,0">
           <Grid.ColumnDefinitions>

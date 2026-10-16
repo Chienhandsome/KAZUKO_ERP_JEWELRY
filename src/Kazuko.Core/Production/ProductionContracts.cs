@@ -551,6 +551,11 @@ public interface IProductionQueryRepository
     Task<IReadOnlyList<ProductionFinishedReceiptOrderOption>> GetCompletedUnreceivedOrdersAsync(
         long branchId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<string>> GetExistingFinishedProductCodesAsync(
+        long branchId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ProductionSalesOrderOption>> SearchEligibleSalesOrdersAsync(
         long branchId,
         string? searchText,

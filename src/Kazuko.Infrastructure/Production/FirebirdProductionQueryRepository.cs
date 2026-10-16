@@ -227,6 +227,27 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         return rows.AsList();
     }
 
+    public async Task<IReadOnlyList<string>> GetExistingFinishedProductCodesAsync(
+        long branchId,
+        CancellationToken cancellationToken = default)
+    {
+        if (branchId <= 0)
+            return [];
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<string>(
+            new CommandDefinition("""
+                SELECT CODE
+                FROM FINISHED_PRODUCTS
+                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND BRANCH_ID = @BRANCH_ID
+                """,
+                new { BRANCH_ID = branchId },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
     public async Task<ProductionOrderDetail?> GetOrderDetailAsync(
         long orderId,
         long branchId,
