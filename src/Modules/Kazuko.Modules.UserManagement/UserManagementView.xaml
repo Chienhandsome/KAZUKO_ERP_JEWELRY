@@ -1,0 +1,372 @@
+<UserControl x:Class="Kazuko.Modules.UserManagement.UserManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
+             MinWidth="960" MinHeight="560"
+             Background="Transparent">
+  <UserControl.Resources>
+    <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+    <Style x:Key="UmSectionHeaderStyle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="UmFieldLabelStyle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="Margin" Value="0,0,0,3" />
+    </Style>
+
+    <Style x:Key="UmPrimaryButtonStyle" TargetType="Button">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="14,4" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8"
+                    Padding="{TemplateBinding Padding}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="UmOutlineButtonStyle" TargetType="Button">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="14,4" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8"
+                    Padding="{TemplateBinding Padding}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="UmDangerButtonStyle" TargetType="Button" BasedOn="{StaticResource UmOutlineButtonStyle}">
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+
+    <Style x:Key="UmTextBoxStyle" TargetType="TextBox">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="UmDataGridStyle" TargetType="DataGrid">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="SelectionMode" Value="Single" />
+      <Setter Property="SelectionUnit" Value="FullRow" />
+      <Setter Property="CanUserAddRows" Value="False" />
+      <Setter Property="CanUserDeleteRows" Value="False" />
+      <Setter Property="CanUserResizeRows" Value="False" />
+      <Setter Property="AutoGenerateColumns" Value="False" />
+      <Setter Property="RowHeight" Value="30" />
+      <Setter Property="ColumnHeaderHeight" Value="34" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+    </Style>
+
+    <Style x:Key="UmColumnHeaderStyle" TargetType="DataGridColumnHeader">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="UmGroupListItemStyle" TargetType="ListBoxItem">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBoxItem">
+            <Border x:Name="Bd"
+                    Background="Transparent"
+                    CornerRadius="8"
+                    Padding="{TemplateBinding Padding}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid Margin="12">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="280" />
+      <ColumnDefinition Width="12" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- Pane trái: nhóm người dùng -->
+    <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="12">
+      <DockPanel LastChildFill="True">
+        <TextBlock DockPanel.Dock="Top"
+                   Text="NHÓM NGƯỜI DÙNG"
+                   Style="{StaticResource UmSectionHeaderStyle}"
+                   Margin="0,0,0,8" />
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+          <Button Content="Thêm" Style="{StaticResource UmPrimaryButtonStyle}"
+                  Command="{Binding AddGroupCommand}" MinWidth="70" Margin="0,0,6,0" />
+          <Button Content="Sửa" Style="{StaticResource UmOutlineButtonStyle}"
+                  Command="{Binding EditGroupCommand}" MinWidth="60" />
+          <Button Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
+                  Command="{Binding DeleteGroupCommand}" MinWidth="60" Margin="6,0,0,0" />
+        </StackPanel>
+
+        <ListBox ItemsSource="{Binding Groups}"
+                 SelectedItem="{Binding SelectedGroup}"
+                 ItemContainerStyle="{StaticResource UmGroupListItemStyle}"
+                 BorderThickness="0"
+                 Background="Transparent"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel ToolTip="{Binding Description}">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                           FontSize="{DynamicResource FontSize.Body}" />
+                <TextBlock FontSize="{DynamicResource FontSize.Caption}"
+                           Foreground="{DynamicResource TextSecondaryBrush}">
+                  <Run Text="{Binding UserCount, Mode=OneWay}" />
+                  <Run Text=" người dùng" />
+                </TextBlock>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- Pane phải -->
+    <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="0">
+      <TabControl Margin="0" Background="Transparent" BorderThickness="0" Padding="12">
+        <!-- Tab Người dùng -->
+        <TabItem Header="Người dùng">
+          <DockPanel LastChildFill="True">
+            <TextBlock DockPanel.Dock="Top"
+                       Text="{Binding ErrorMessage}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       TextWrapping="Wrap" Margin="0,0,0,8"
+                       Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyToVis}}" />
+
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="False">
+              <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <Button Content="Thêm mới" Style="{StaticResource UmPrimaryButtonStyle}"
+                        Command="{Binding AddUserCommand}" />
+                <Button Content="Chỉnh sửa" Style="{StaticResource UmOutlineButtonStyle}"
+                        Command="{Binding EditUserCommand}" />
+                <Button Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
+                        Command="{Binding DeleteUserCommand}" />
+                <Button Content="In" Style="{StaticResource UmOutlineButtonStyle}"
+                        Command="{Binding PrintCommand}" />
+              </StackPanel>
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBox Width="200" Style="{StaticResource UmTextBoxStyle}"
+                         Text="{Binding Keyword, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Lọc theo họ tên, tài khoản, email">
+                  <TextBox.InputBindings>
+                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
+                  </TextBox.InputBindings>
+                </TextBox>
+                <Button Content="Lọc" Style="{StaticResource UmPrimaryButtonStyle}"
+                        Command="{Binding SearchCommand}" Margin="8,0,0,0" />
+                <Button Content="Làm mới" Style="{StaticResource UmOutlineButtonStyle}"
+                        Command="{Binding RefreshCommand}" Margin="0" />
+              </StackPanel>
+            </DockPanel>
+
+            <DataGrid ItemsSource="{Binding Users}"
+                      SelectedItem="{Binding SelectedUser}"
+                      Style="{StaticResource UmDataGridStyle}"
+                      ColumnHeaderStyle="{StaticResource UmColumnHeaderStyle}"
+                      IsReadOnly="True"
+                      VerticalScrollBarVisibility="Auto">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Email" Binding="{Binding Email, Mode=OneWay}" Width="*" />
+                <DataGridTextColumn Header="Họ tên" Binding="{Binding DisplayName, Mode=OneWay}" Width="*" />
+                <DataGridTextColumn Header="Tài khoản" Binding="{Binding Username, Mode=OneWay}" Width="160" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </TabItem>
+
+        <!-- Tab Quyền sử dụng -->
+        <TabItem Header="Quyền sử dụng">
+          <DockPanel LastChildFill="True">
+            <Border DockPanel.Dock="Top"
+                    Background="{DynamicResource SurfaceAltBrush}"
+                    CornerRadius="8" Padding="12" Margin="0,0,0,10">
+              <TextBlock Text="{Binding InheritanceExplanation}"
+                         TextWrapping="Wrap"
+                         FontSize="{DynamicResource FontSize.Caption}"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+            </Border>
+
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
+              <Button DockPanel.Dock="Right"
+                      Content="Lưu"
+                      Style="{StaticResource UmPrimaryButtonStyle}"
+                      Command="{Binding SavePermissionsCommand}"
+                      MinWidth="140" />
+              <TextBlock Text="{Binding PermissionGroupTitle}"
+                         Style="{StaticResource UmSectionHeaderStyle}"
+                         VerticalAlignment="Center" />
+            </DockPanel>
+
+            <DataGrid ItemsSource="{Binding GroupedPermissions}"
+                      Style="{StaticResource UmDataGridStyle}"
+                      ColumnHeaderStyle="{StaticResource UmColumnHeaderStyle}"
+                      VerticalScrollBarVisibility="Auto">
+              <DataGrid.GroupStyle>
+                <GroupStyle>
+                  <GroupStyle.HeaderTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding Name}"
+                                 FontWeight="Bold"
+                                 FontSize="{DynamicResource FontSize.Body}"
+                                 Foreground="{DynamicResource PrimaryBrush}"
+                                 Padding="8,6" />
+                    </DataTemplate>
+                  </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+              </DataGrid.GroupStyle>
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Chức năng" Binding="{Binding FunctionName, Mode=OneWay}"
+                                    Width="*" IsReadOnly="True" />
+                <DataGridTemplateColumn Header="Bị khóa" Width="80">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding IsLocked, UpdateSourceTrigger=PropertyChanged}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Xem" Width="70">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding CanView, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsCheckEnabled}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Thêm" Width="70">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding CanAdd, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsCheckEnabled}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Sửa" Width="70">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding CanEdit, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsCheckEnabled}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Xóa" Width="70">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding CanDelete, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsCheckEnabled}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Tất cả" Width="80">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding All, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsCheckEnabled}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </TabItem>
+      </TabControl>
+    </Border>
+  </Grid>
+</UserControl>

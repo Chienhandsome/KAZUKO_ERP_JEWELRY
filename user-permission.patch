@@ -1,0 +1,3502 @@
+diff --git a/KAZUKO_ERP_JEWELRY.sln b/KAZUKO_ERP_JEWELRY.sln
+index f0ea73c..3695b25 100644
+--- a/KAZUKO_ERP_JEWELRY.sln
++++ b/KAZUKO_ERP_JEWELRY.sln
+@@ -36,6 +36,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Production",
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Finance", "src\Modules\Kazuko.Modules.Finance\Kazuko.Modules.Finance.csproj", "{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}"
+ EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.UserManagement", "src\Modules\Kazuko.Modules.UserManagement\Kazuko.Modules.UserManagement.csproj", "{69536509-4301-4A79-BB21-776EA5A79733}"
++EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Sales", "src\Modules\Kazuko.Modules.Sales\Kazuko.Modules.Sales.csproj", "{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}"
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Reports", "src\Modules\Kazuko.Modules.Reports\Kazuko.Modules.Reports.csproj", "{B5C6D7E8-F901-4123-A456-7890ABCDEF12}"
+@@ -44,6 +46,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{5E41D1CA
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Sales.Tests", "tests\Kazuko.Modules.Sales.Tests\Kazuko.Modules.Sales.Tests.csproj", "{AFD91FE8-1922-41E1-932D-C316FB90F95C}"
+ EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.UserManagement.Tests", "tests\Kazuko.Modules.UserManagement.Tests\Kazuko.Modules.UserManagement.Tests.csproj", "{E9506461-AC45-4D31-AEA4-6C2DD8DAAEFC}"
++EndProject
+ Global
+ 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+ 		Debug|Any CPU = Debug|Any CPU
+@@ -110,6 +114,10 @@ Global
+ 		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}.Debug|Any CPU.Build.0 = Debug|Any CPU
+ 		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}.Release|Any CPU.ActiveCfg = Release|Any CPU
+ 		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85}.Release|Any CPU.Build.0 = Release|Any CPU
++		{69536509-4301-4A79-BB21-776EA5A79733}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{69536509-4301-4A79-BB21-776EA5A79733}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{69536509-4301-4A79-BB21-776EA5A79733}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{69536509-4301-4A79-BB21-776EA5A79733}.Release|Any CPU.Build.0 = Release|Any CPU
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+@@ -122,6 +130,10 @@ Global
+ 		{AFD91FE8-1922-41E1-932D-C316FB90F95C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+ 		{AFD91FE8-1922-41E1-932D-C316FB90F95C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+ 		{AFD91FE8-1922-41E1-932D-C316FB90F95C}.Release|Any CPU.Build.0 = Release|Any CPU
++		{E9506461-AC45-4D31-AEA4-6C2DD8DAAEFC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{E9506461-AC45-4D31-AEA4-6C2DD8DAAEFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{E9506461-AC45-4D31-AEA4-6C2DD8DAAEFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{E9506461-AC45-4D31-AEA4-6C2DD8DAAEFC}.Release|Any CPU.Build.0 = Release|Any CPU
+ 	EndGlobalSection
+ 	GlobalSection(NestedProjects) = preSolution
+ 		{CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5} = {C070AF8B-B600-4444-96DD-60890F0D4F54}
+@@ -132,8 +144,10 @@ Global
+ 		{D1E2F3A4-B5C6-4789-D012-3456789ABCDE} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{E2F3A4B5-C6D7-4890-E123-456789ABCDEF} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{B2B7FCB9-2A12-486A-BD94-0E005F1D9A85} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
++		{69536509-4301-4A79-BB21-776EA5A79733} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{F3A4B5C6-D7E8-4901-F234-56789ABCDEF1} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{B5C6D7E8-F901-4123-A456-7890ABCDEF12} = {CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5}
+ 		{AFD91FE8-1922-41E1-932D-C316FB90F95C} = {5E41D1CA-7884-4AB4-A722-B9D1FFFBDED4}
++		{E9506461-AC45-4D31-AEA4-6C2DD8DAAEFC} = {5E41D1CA-7884-4AB4-A722-B9D1FFFBDED4}
+ 	EndGlobalSection
+ EndGlobal
+diff --git a/database/migrations/0076__user_groups_permissions.sql b/database/migrations/0076__user_groups_permissions.sql
+new file mode 100644
+index 0000000..792e9a5
+--- /dev/null
++++ b/database/migrations/0076__user_groups_permissions.sql
+@@ -0,0 +1,431 @@
++/*
++================================================================================
++KAZUKO ERP JEWELRY - DATABASE MIGRATION SCRIPT
++================================================================================
++Migration Version: 76
++Migration Name:    USER_GROUPS_PERMISSIONS
++Description:       Nguoi dung va phan quyen theo NHOM (doc lap voi he thong
++                   USERS/ROLES/PERMISSIONS cu o base schema - KHONG dung toi):
++                   - Bang USER_GROUPS: nhom nguoi dung (CODE unique theo cong ty).
++                   - Bang GROUP_PERMISSIONS: ma tran quyen theo nhom cho 28 chuc
++                     nang he thong (FUNCTION_CODE dang SALES_RETAIL...):
++                     Xem/Them/Sua/Xoa + Bi khoa.
++                   - USERS: them GROUP_ID (FK USER_GROUPS) va WAREHOUSE_ID
++                     (FK LOCATIONS neu bang ton tai - kho mac dinh cua user).
++                   - Seed 2 nhom: ADMIN ("Quan tri", full 28 quyen) va CASHIER
++                     ("Thu ngan", quyen han che).
++Target Database:   Firebird 5.0 (Dialect 3, UTF8)
++================================================================================
++Rollback (dev):
++  ALTER TABLE USERS DROP CONSTRAINT FK_USERS_USER_GROUP;
++  ALTER TABLE USERS DROP CONSTRAINT FK_USERS_WAREHOUSE;
++  ALTER TABLE USERS DROP CONSTRAINT FK_USERS_EMPLOYEE;
++  ALTER TABLE USERS DROP GROUP_ID;
++  ALTER TABLE USERS DROP WAREHOUSE_ID;
++  (Chi DROP EMPLOYEE_ID/NOTES neu do migration 76 them - kiem tra base schema truoc.)
++  DELETE FROM GROUP_PERMISSIONS;
++  DELETE FROM USER_GROUPS;
++  DROP TABLE GROUP_PERMISSIONS;
++  DROP TABLE USER_GROUPS;
++  DELETE FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 76;
++================================================================================
++*/
++
++SET AUTODDL OFF;
++
++CREATE EXCEPTION EX_MIGRATION_CHECK 'Migration 76 validation failed';
++
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cnt INTEGER;
++BEGIN
++    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 76 INTO :v_cnt;
++    IF (:v_cnt > 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Phien ban migration 76 da ton tai.';
++
++    SELECT COUNT(*) FROM SCHEMA_MIGRATIONS WHERE VERSION_NO = 75 INTO :v_cnt;
++    IF (:v_cnt <> 1) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Can migration 75 truoc migration 76.';
++
++    SELECT COUNT(*) FROM RDB$RELATIONS
++    WHERE RDB$RELATION_NAME = 'USER_GROUPS'
++    INTO :v_cnt;
++    IF (:v_cnt > 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Bang USER_GROUPS da ton tai.';
++
++    SELECT COUNT(*) FROM RDB$RELATIONS
++    WHERE RDB$RELATION_NAME = 'GROUP_PERMISSIONS'
++    INTO :v_cnt;
++    IF (:v_cnt > 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Bang GROUP_PERMISSIONS da ton tai.';
++
++    SELECT COUNT(*) FROM RDB$RELATIONS
++    WHERE RDB$RELATION_NAME = 'USERS'
++    INTO :v_cnt;
++    IF (:v_cnt <> 1) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Thieu bang USERS (base schema).';
++
++    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
++    WHERE RDB$RELATION_NAME = 'USERS'
++      AND RDB$FIELD_NAME IN ('GROUP_ID', 'WAREHOUSE_ID')
++    INTO :v_cnt;
++    IF (:v_cnt > 0) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Cot GROUP_ID/WAREHOUSE_ID da ton tai tren USERS.';
++END^
++SET TERM ; ^
++
++/* ---------------------------------------------------------------------------
++   1. Bang nhom nguoi dung
++--------------------------------------------------------------------------- */
++CREATE TABLE USER_GROUPS (
++    ID BIGINT GENERATED BY DEFAULT AS IDENTITY NOT NULL,
++    COMPANY_ID BIGINT NOT NULL,
++    CODE VARCHAR(30) CHARACTER SET ASCII NOT NULL,
++    NAME VARCHAR(150) NOT NULL,
++    ICON VARCHAR(60),
++    DESCRIPTION VARCHAR(500),
++    IS_ACTIVE BOOLEAN DEFAULT TRUE NOT NULL,
++    DISPLAY_ORDER INTEGER DEFAULT 0 NOT NULL,
++    CREATED_BY BIGINT,
++    CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
++    UPDATED_BY BIGINT,
++    UPDATED_AT TIMESTAMP,
++    CONSTRAINT PK_USER_GROUPS PRIMARY KEY (ID),
++    CONSTRAINT FK_USER_GROUPS_COMPANY FOREIGN KEY (COMPANY_ID) REFERENCES COMPANIES (ID),
++    CONSTRAINT UQ_USER_GROUPS_CODE UNIQUE (COMPANY_ID, CODE),
++    CONSTRAINT UQ_USER_GROUPS_COMP_ID UNIQUE (COMPANY_ID, ID),
++    CONSTRAINT FK_USER_GROUPS_CREATE_USER FOREIGN KEY (CREATED_BY) REFERENCES USERS (ID),
++    CONSTRAINT FK_USER_GROUPS_UPDATE_USER FOREIGN KEY (UPDATED_BY) REFERENCES USERS (ID)
++);
++
++CREATE INDEX IX_USER_GROUPS_ACTIVE ON USER_GROUPS (COMPANY_ID, IS_ACTIVE, DISPLAY_ORDER);
++
++/* ---------------------------------------------------------------------------
++   2. Ma tran quyen theo nhom: 1 dong = 1 chuc nang cua 1 nhom
++--------------------------------------------------------------------------- */
++CREATE TABLE GROUP_PERMISSIONS (
++    ID BIGINT GENERATED BY DEFAULT AS IDENTITY NOT NULL,
++    COMPANY_ID BIGINT NOT NULL,
++    GROUP_ID BIGINT NOT NULL,
++    FUNCTION_CODE VARCHAR(60) CHARACTER SET ASCII NOT NULL,
++    CAN_VIEW BOOLEAN DEFAULT FALSE NOT NULL,
++    CAN_ADD BOOLEAN DEFAULT FALSE NOT NULL,
++    CAN_EDIT BOOLEAN DEFAULT FALSE NOT NULL,
++    CAN_DELETE BOOLEAN DEFAULT FALSE NOT NULL,
++    IS_LOCKED BOOLEAN DEFAULT FALSE NOT NULL,
++    CREATED_BY BIGINT,
++    CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
++    UPDATED_BY BIGINT,
++    UPDATED_AT TIMESTAMP,
++    CONSTRAINT PK_GROUP_PERMISSIONS PRIMARY KEY (ID),
++    CONSTRAINT FK_GROUP_PERMS_COMPANY FOREIGN KEY (COMPANY_ID) REFERENCES COMPANIES (ID),
++    CONSTRAINT FK_GROUP_PERMS_GROUP FOREIGN KEY (GROUP_ID) REFERENCES USER_GROUPS (ID),
++    CONSTRAINT UQ_GROUP_PERMS_FUNC UNIQUE (GROUP_ID, FUNCTION_CODE),
++    CONSTRAINT FK_GROUP_PERMS_CREATE_USER FOREIGN KEY (CREATED_BY) REFERENCES USERS (ID),
++    CONSTRAINT FK_GROUP_PERMS_UPDATE_USER FOREIGN KEY (UPDATED_BY) REFERENCES USERS (ID)
++);
++
++CREATE INDEX IX_GROUP_PERMS_GROUP ON GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID);
++
++/* ---------------------------------------------------------------------------
++   3. USERS: them GROUP_ID + WAREHOUSE_ID
++      (Luu y: EMPLOYEE_ID / NOTES co the da ton tai o base schema nen chi them
++      khi chua co - kiem tra RDB$RELATION_FIELDS truoc.)
++--------------------------------------------------------------------------- */
++ALTER TABLE USERS ADD GROUP_ID BIGINT;
++
++ALTER TABLE USERS ADD CONSTRAINT FK_USERS_USER_GROUP
++    FOREIGN KEY (GROUP_ID) REFERENCES USER_GROUPS (ID);
++
++ALTER TABLE USERS ADD WAREHOUSE_ID BIGINT;
++
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cnt INTEGER;
++BEGIN
++    /* FK toi LOCATIONS chi tao khi bang ton tai (base schema). */
++    SELECT COUNT(*) FROM RDB$RELATIONS
++    WHERE RDB$RELATION_NAME = 'LOCATIONS'
++    INTO :v_cnt;
++    IF (:v_cnt = 1) THEN
++        EXECUTE STATEMENT 'ALTER TABLE USERS ADD CONSTRAINT FK_USERS_WAREHOUSE '
++            || 'FOREIGN KEY (WAREHOUSE_ID) REFERENCES LOCATIONS (ID)';
++
++    /* Lien ket nhan vien: them neu base schema chua co. */
++    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
++    WHERE RDB$RELATION_NAME = 'USERS' AND RDB$FIELD_NAME = 'EMPLOYEE_ID'
++    INTO :v_cnt;
++    IF (:v_cnt = 0) THEN
++    BEGIN
++        EXECUTE STATEMENT 'ALTER TABLE USERS ADD EMPLOYEE_ID BIGINT';
++        EXECUTE STATEMENT 'ALTER TABLE USERS ADD CONSTRAINT FK_USERS_EMPLOYEE '
++            || 'FOREIGN KEY (EMPLOYEE_ID) REFERENCES HR_EMPLOYEES (ID)';
++    END
++
++    /* Ghi chu: them neu base schema chua co. */
++    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
++    WHERE RDB$RELATION_NAME = 'USERS' AND RDB$FIELD_NAME = 'NOTES'
++    INTO :v_cnt;
++    IF (:v_cnt = 0) THEN
++        EXECUTE STATEMENT 'ALTER TABLE USERS ADD NOTES VARCHAR(500)';
++END^
++SET TERM ; ^
++
++/* ---------------------------------------------------------------------------
++   4. Seed nhom nguoi dung
++--------------------------------------------------------------------------- */
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cid BIGINT;
++BEGIN
++    SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO' INTO :v_cid;
++    IF (:v_cid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong tim thay COMPANIES.KAZUKO.';
++
++    IF (NOT EXISTS (SELECT 1 FROM USER_GROUPS WHERE COMPANY_ID = :v_cid AND CODE = 'ADMIN')) THEN
++        INSERT INTO USER_GROUPS
++            (COMPANY_ID, CODE, NAME, ICON, DESCRIPTION, IS_ACTIVE, DISPLAY_ORDER)
++        VALUES
++            (:v_cid, 'ADMIN', 'Quản trị', 'Shield',
++             'Nhóm quản trị hệ thống: toàn quyền 28 chức năng.',
++             TRUE, 1);
++
++    IF (NOT EXISTS (SELECT 1 FROM USER_GROUPS WHERE COMPANY_ID = :v_cid AND CODE = 'CASHIER')) THEN
++        INSERT INTO USER_GROUPS
++            (COMPANY_ID, CODE, NAME, ICON, DESCRIPTION, IS_ACTIVE, DISPLAY_ORDER)
++        VALUES
++            (:v_cid, 'CASHIER', 'Thu ngân', 'Cash',
++             'Nhóm thu ngân: bán lẻ, phiếu thu, xem kho/báo cáo.',
++             TRUE, 2);
++END^
++SET TERM ; ^
++
++/* ---------------------------------------------------------------------------
++   5. Seed ma tran quyen: ADMIN full 28 chuc nang
++--------------------------------------------------------------------------- */
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cid BIGINT;
++DECLARE VARIABLE v_gid BIGINT;
++DECLARE VARIABLE v_code VARCHAR(60);
++BEGIN
++    SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO' INTO :v_cid;
++    IF (:v_cid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong tim thay COMPANIES.KAZUKO.';
++
++    SELECT ID FROM USER_GROUPS WHERE COMPANY_ID = :v_cid AND CODE = 'ADMIN' INTO :v_gid;
++    IF (:v_gid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong seed duoc nhom ADMIN.';
++
++    FOR SELECT C FROM (
++        SELECT 'SALES_RETAIL'        AS C FROM RDB$DATABASE UNION ALL
++        SELECT 'SALES_WHOLESALE'         FROM RDB$DATABASE UNION ALL
++        SELECT 'CRAFT_ORDER'             FROM RDB$DATABASE UNION ALL
++        SELECT 'OLD_GOLD_PURCHASE'       FROM RDB$DATABASE UNION ALL
++        SELECT 'INV_MATERIAL_RECEIPT'    FROM RDB$DATABASE UNION ALL
++        SELECT 'INV_FINISHED_RECEIPT'    FROM RDB$DATABASE UNION ALL
++        SELECT 'INV_TRANSFER'            FROM RDB$DATABASE UNION ALL
++        SELECT 'INV_STOCKTAKE'           FROM RDB$DATABASE UNION ALL
++        SELECT 'PROD_ORDER'              FROM RDB$DATABASE UNION ALL
++        SELECT 'PROD_MATERIAL_ISSUE'     FROM RDB$DATABASE UNION ALL
++        SELECT 'PROD_GOLD_RECONCILE'     FROM RDB$DATABASE UNION ALL
++        SELECT 'DEBT_CUSTOMER'           FROM RDB$DATABASE UNION ALL
++        SELECT 'DEBT_WORKER_GOLD'        FROM RDB$DATABASE UNION ALL
++        SELECT 'DEBT_SETTLEMENT'         FROM RDB$DATABASE UNION ALL
++        SELECT 'FIN_CASH_IN'             FROM RDB$DATABASE UNION ALL
++        SELECT 'FIN_CASH_OUT'            FROM RDB$DATABASE UNION ALL
++        SELECT 'FIN_FUND'                FROM RDB$DATABASE UNION ALL
++        SELECT 'CAT_CUSTOMERS'           FROM RDB$DATABASE UNION ALL
++        SELECT 'CAT_SUPPLIERS'           FROM RDB$DATABASE UNION ALL
++        SELECT 'CAT_EMPLOYEES'           FROM RDB$DATABASE UNION ALL
++        SELECT 'CAT_EXTERNAL_WORKERS'    FROM RDB$DATABASE UNION ALL
++        SELECT 'CAT_GOLD_PRICE'          FROM RDB$DATABASE UNION ALL
++        SELECT 'REP_VIEW'                FROM RDB$DATABASE UNION ALL
++        SELECT 'REP_EXPORT'              FROM RDB$DATABASE UNION ALL
++        SELECT 'SYS_USER_MANAGEMENT'     FROM RDB$DATABASE UNION ALL
++        SELECT 'SYS_SETTINGS'            FROM RDB$DATABASE UNION ALL
++        SELECT 'SYS_DATABASE'           FROM RDB$DATABASE UNION ALL
++        SELECT 'SYS_DATA_DELETE'         FROM RDB$DATABASE
++    ) INTO :v_code DO
++    BEGIN
++        IF (NOT EXISTS (
++                SELECT 1 FROM GROUP_PERMISSIONS
++                WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = :v_code)) THEN
++            INSERT INTO GROUP_PERMISSIONS
++                (COMPANY_ID, GROUP_ID, FUNCTION_CODE,
++                 CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++            VALUES
++                (:v_cid, :v_gid, :v_code, TRUE, TRUE, TRUE, TRUE, FALSE);
++    END
++END^
++SET TERM ; ^
++
++/* ---------------------------------------------------------------------------
++   6. Seed ma tran quyen: CASHIER (han che)
++--------------------------------------------------------------------------- */
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cid BIGINT;
++DECLARE VARIABLE v_gid BIGINT;
++BEGIN
++    SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO' INTO :v_cid;
++    IF (:v_cid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong tim thay COMPANIES.KAZUKO.';
++
++    SELECT ID FROM USER_GROUPS WHERE COMPANY_ID = :v_cid AND CODE = 'CASHIER' INTO :v_gid;
++    IF (:v_gid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong seed duoc nhom CASHIER.';
++
++    /* Ban hang: ban le xem/them/sua; ban si + don che tac + mua vang cu xem hoac them/sua */
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'SALES_RETAIL', TRUE, TRUE, TRUE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'SALES_RETAIL');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'SALES_WHOLESALE', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'SALES_WHOLESALE');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'CRAFT_ORDER', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'CRAFT_ORDER');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'OLD_GOLD_PURCHASE', TRUE, TRUE, TRUE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'OLD_GOLD_PURCHASE');
++
++    /* Kho: xem nhap kho NVL/thanh pham; xuat-dieu chuyen + kiem ke khong quyen */
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'INV_MATERIAL_RECEIPT', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'INV_MATERIAL_RECEIPT');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'INV_FINISHED_RECEIPT', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'INV_FINISHED_RECEIPT');
++
++    /* San xuat / Cong no: xem */
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'PROD_ORDER', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'PROD_ORDER');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'PROD_MATERIAL_ISSUE', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'PROD_MATERIAL_ISSUE');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'PROD_GOLD_RECONCILE', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'PROD_GOLD_RECONCILE');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'DEBT_CUSTOMER', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'DEBT_CUSTOMER');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'DEBT_WORKER_GOLD', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'DEBT_WORKER_GOLD');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'DEBT_SETTLEMENT', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'DEBT_SETTLEMENT');
++
++    /* Tai chinh: phieu thu xem/them/sua; phieu chi xem/them; quy xem */
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'FIN_CASH_IN', TRUE, TRUE, TRUE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'FIN_CASH_IN');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'FIN_CASH_OUT', TRUE, TRUE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'FIN_CASH_OUT');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'FIN_FUND', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'FIN_FUND');
++
++    /* Danh muc: khach hang xem/them/sua; nhan su + tho ngoai + bang gia vang xem */
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'CAT_CUSTOMERS', TRUE, TRUE, TRUE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'CAT_CUSTOMERS');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'CAT_EMPLOYEES', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'CAT_EMPLOYEES');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'CAT_EXTERNAL_WORKERS', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'CAT_EXTERNAL_WORKERS');
++
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'CAT_GOLD_PRICE', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'CAT_GOLD_PRICE');
++
++    /* Bao cao: xem */
++    INSERT INTO GROUP_PERMISSIONS (COMPANY_ID, GROUP_ID, FUNCTION_CODE, CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED)
++    SELECT :v_cid, :v_gid, 'REP_VIEW', TRUE, FALSE, FALSE, FALSE, FALSE FROM RDB$DATABASE
++    WHERE NOT EXISTS (SELECT 1 FROM GROUP_PERMISSIONS WHERE GROUP_ID = :v_gid AND FUNCTION_CODE = 'REP_VIEW');
++END^
++SET TERM ; ^
++
++/* ---------------------------------------------------------------------------
++   7. Kiem tra sau thuc thi
++--------------------------------------------------------------------------- */
++SET TERM ^ ;
++EXECUTE BLOCK AS
++DECLARE VARIABLE v_cnt INTEGER;
++DECLARE VARIABLE v_cid BIGINT;
++DECLARE VARIABLE v_admin_gid BIGINT;
++DECLARE VARIABLE v_cashier_gid BIGINT;
++BEGIN
++    SELECT COUNT(*) FROM RDB$RELATIONS
++    WHERE RDB$RELATION_NAME IN ('USER_GROUPS', 'GROUP_PERMISSIONS')
++    INTO :v_cnt;
++    IF (:v_cnt <> 2) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong tao duoc bang USER_GROUPS/GROUP_PERMISSIONS.';
++
++    SELECT COUNT(*) FROM RDB$RELATION_FIELDS
++    WHERE RDB$RELATION_NAME = 'USERS'
++      AND RDB$FIELD_NAME IN ('GROUP_ID', 'WAREHOUSE_ID', 'EMPLOYEE_ID', 'NOTES')
++    INTO :v_cnt;
++    IF (:v_cnt <> 4) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong them duoc cot GROUP_ID/WAREHOUSE_ID/EMPLOYEE_ID/NOTES.';
++
++    SELECT COUNT(*) FROM RDB$RELATION_CONSTRAINTS
++    WHERE RDB$RELATION_NAME = 'USERS'
++      AND RDB$CONSTRAINT_NAME = 'FK_USERS_USER_GROUP'
++    INTO :v_cnt;
++    IF (:v_cnt <> 1) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Thieu FK FK_USERS_USER_GROUP.';
++
++    SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO' INTO :v_cid;
++    IF (:v_cid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong tim thay COMPANIES.KAZUKO.';
++
++    SELECT ID FROM USER_GROUPS WHERE COMPANY_ID = :v_cid AND CODE = 'ADMIN' INTO :v_admin_gid;
++    IF (:v_admin_gid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong seed duoc nhom ADMIN.';
++
++    SELECT COUNT(*) FROM GROUP_PERMISSIONS
++    WHERE GROUP_ID = :v_admin_gid
++    INTO :v_cnt;
++    IF (:v_cnt <> 28) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Nhom ADMIN phai co du 28 quyen.';
++
++    SELECT COUNT(*) FROM GROUP_PERMISSIONS
++    WHERE GROUP_ID = :v_admin_gid
++      AND CAN_VIEW = TRUE AND CAN_ADD = TRUE
++      AND CAN_EDIT = TRUE AND CAN_DELETE = TRUE
++    INTO :v_cnt;
++    IF (:v_cnt <> 28) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Nhom ADMIN phai full quyen.';
++
++    SELECT ID FROM USER_GROUPS WHERE COMPANY_ID = :v_cid AND CODE = 'CASHIER' INTO :v_cashier_gid;
++    IF (:v_cashier_gid IS NULL) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Khong seed duoc nhom CASHIER.';
++
++    SELECT COUNT(*) FROM GROUP_PERMISSIONS
++    WHERE GROUP_ID = :v_cashier_gid
++    INTO :v_cnt;
++    IF (:v_cnt <> 20) THEN
++        EXCEPTION EX_MIGRATION_CHECK 'Nhom CASHIER phai co 20 dong quyen.';
++END^
++SET TERM ; ^
++
++DROP EXCEPTION EX_MIGRATION_CHECK;
+diff --git a/src/Kazuko.App/App.xaml.cs b/src/Kazuko.App/App.xaml.cs
+index 41f9770..c91d126 100644
+--- a/src/Kazuko.App/App.xaml.cs
++++ b/src/Kazuko.App/App.xaml.cs
+@@ -16,6 +16,7 @@ using Kazuko.Core.Production;
+ using Kazuko.Core.Reports;
+ using Kazuko.Core.Sales;
+ using Kazuko.Core.Suppliers;
++using Kazuko.Core.UserManagement;
+ using Kazuko.Core.Updates;
+ using Kazuko.Core.Warehouse;
+ using Kazuko.Infrastructure.Authentication;
+@@ -29,6 +30,7 @@ using Kazuko.Infrastructure.Reports;
+ using Kazuko.Infrastructure.Sales;
+ using Kazuko.Infrastructure.Settings;
+ using Kazuko.Infrastructure.Suppliers;
++using Kazuko.Infrastructure.UserManagement;
+ using Kazuko.Infrastructure.Updates;
+ using Kazuko.Infrastructure.Updates.Activation;
+ using Kazuko.Infrastructure.Warehouse;
+@@ -43,6 +45,7 @@ using Kazuko.Modules.Production;
+ using Kazuko.Modules.Reports;
+ using Kazuko.Modules.Sales;
+ using Kazuko.Modules.Suppliers;
++using Kazuko.Modules.UserManagement;
+ using Kazuko.Modules.Warehouse;
+ using Kazuko.Shared.UI.Behaviors;
+ using Kazuko.Shared.UI.Services;
+@@ -165,6 +168,7 @@ public partial class App : Application
+         ISalesPrintDataService salesPrintData = new FirebirdSalesPrintDataService(salesQueries);
+         ICraftOrderApplicationService craftOrders = new FirebirdCraftOrderApplicationService(productionAttachments);
+         IWholesaleSalesApplicationService wholesaleSales = new FirebirdWholesaleSalesApplicationService();
++        IUserManagementRepository userManagement = new FirebirdUserManagementRepository();
+ 
+         _services.AddSingleton(preferences);
+         _services.AddSingleton(appearance);
+@@ -236,6 +240,7 @@ public partial class App : Application
+         _services.AddSingleton(wholesaleSales);
+         _services.AddSingleton(salesAuthorization);
+         _services.AddSingleton(salesPrintData);
++        _services.AddSingleton(userManagement);
+     }
+ 
+     private void RegisterModules()
+@@ -252,7 +257,8 @@ public partial class App : Application
+             new DebtModule(),
+             new FinanceModule(),
+             new HumanResourcesModule(),
+-            new ReportsModule()
++            new ReportsModule(),
++            new UserManagementModule()
+         ];
+         foreach (var module in modules)
+         {
+diff --git a/src/Kazuko.App/Kazuko.App.csproj b/src/Kazuko.App/Kazuko.App.csproj
+index a61d41b..d9ac3aa 100644
+--- a/src/Kazuko.App/Kazuko.App.csproj
++++ b/src/Kazuko.App/Kazuko.App.csproj
+@@ -24,6 +24,7 @@
+     <ProjectReference Include="..\Modules\Kazuko.Modules.HumanResources\Kazuko.Modules.HumanResources.csproj" />
+     <ProjectReference Include="..\Modules\Kazuko.Modules.PriceBoard\Kazuko.Modules.PriceBoard.csproj" />
+     <ProjectReference Include="..\Modules\Kazuko.Modules.Reports\Kazuko.Modules.Reports.csproj" />
++    <ProjectReference Include="..\Modules\Kazuko.Modules.UserManagement\Kazuko.Modules.UserManagement.csproj" />
+   </ItemGroup>
+   <ItemGroup Condition="Exists('$(FirebirdHome)\fbclient.dll')">
+     <Content Include="$(FirebirdHome)\*.dll">
+diff --git a/src/Kazuko.Core/UserManagement/UserManagementContracts.cs b/src/Kazuko.Core/UserManagement/UserManagementContracts.cs
+new file mode 100644
+index 0000000..e17f9b7
+--- /dev/null
++++ b/src/Kazuko.Core/UserManagement/UserManagementContracts.cs
+@@ -0,0 +1,224 @@
++namespace Kazuko.Core.UserManagement;
++
++/// <summary>
++/// Chức năng hệ thống dùng cho ma trận phân quyền theo nhóm.
++/// FUNCTION_CODE dạng "SALES_RETAIL" — KHỚP với seed trong migration 0076.
++/// </summary>
++public sealed record SystemFunctionDefinition(string Code, string Name, string ModuleGroup)
++{
++    public override string ToString() => Name;
++}
++
++/// <summary>
++/// Danh mục 28 chức năng của hệ thống, nhóm theo module thực tế.
++/// Thứ tự = thứ tự hiển thị trên ma trận quyền.
++/// </summary>
++public static class SystemFunctionCatalog
++{
++    public const string ModuleSales = "Bán hàng";
++    public const string ModuleWarehouse = "Kho";
++    public const string ModuleProduction = "Sản xuất";
++    public const string ModuleDebt = "Công nợ";
++    public const string ModuleFinance = "Tài chính";
++    public const string ModuleCatalog = "Danh mục";
++    public const string ModuleReports = "Báo cáo";
++    public const string ModuleSystem = "Hệ thống";
++
++    public static readonly IReadOnlyList<SystemFunctionDefinition> All =
++    [
++        new("SALES_RETAIL", "Bán lẻ", ModuleSales),
++        new("SALES_WHOLESALE", "Bán sỉ", ModuleSales),
++        new("CRAFT_ORDER", "Đơn đặt chế tác", ModuleSales),
++        new("OLD_GOLD_PURCHASE", "Mua vàng cũ", ModuleSales),
++
++        new("INV_MATERIAL_RECEIPT", "Nhập kho NVL", ModuleWarehouse),
++        new("INV_FINISHED_RECEIPT", "Nhập kho thành phẩm", ModuleWarehouse),
++        new("INV_TRANSFER", "Xuất/điều chuyển kho", ModuleWarehouse),
++        new("INV_STOCKTAKE", "Kiểm kê", ModuleWarehouse),
++
++        new("PROD_ORDER", "Lệnh sản xuất", ModuleProduction),
++        new("PROD_MATERIAL_ISSUE", "Giao NVL", ModuleProduction),
++        new("PROD_GOLD_RECONCILE", "Đối chiếu vàng", ModuleProduction),
++
++        new("DEBT_CUSTOMER", "Công nợ KH/NCC", ModuleDebt),
++        new("DEBT_WORKER_GOLD", "Nợ vàng thợ", ModuleDebt),
++        new("DEBT_SETTLEMENT", "Thu/Chi công nợ", ModuleDebt),
++
++        new("FIN_CASH_IN", "Phiếu thu", ModuleFinance),
++        new("FIN_CASH_OUT", "Phiếu chi", ModuleFinance),
++        new("FIN_FUND", "Quỹ", ModuleFinance),
++
++        new("CAT_CUSTOMERS", "Khách hàng", ModuleCatalog),
++        new("CAT_SUPPLIERS", "Nhà cung cấp", ModuleCatalog),
++        new("CAT_EXTERNAL_WORKERS", "Thợ ngoài", ModuleCatalog),
++        new("CAT_EMPLOYEES", "Nhân sự", ModuleCatalog),
++        new("CAT_GOLD_PRICE", "Bảng giá vàng", ModuleCatalog),
++
++        new("REP_VIEW", "Xem báo cáo", ModuleReports),
++        new("REP_EXPORT", "Xuất báo cáo", ModuleReports),
++
++        new("SYS_USER_MANAGEMENT", "Quản lý người dùng", ModuleSystem),
++        new("SYS_SETTINGS", "Cấu hình hệ thống", ModuleSystem),
++        new("SYS_DATABASE", "Cơ sở dữ liệu", ModuleSystem),
++        new("SYS_DATA_DELETE", "Xóa dữ liệu", ModuleSystem),
++    ];
++
++    public static SystemFunctionDefinition? Find(string code) =>
++        All.FirstOrDefault(f => string.Equals(f.Code, code, StringComparison.OrdinalIgnoreCase));
++}
++
++/// <summary>
++/// Quy tắc kế thừa quyền (được UI ma trận áp dụng tự động + hiển thị giải thích).
++/// </summary>
++public static class PermissionInheritanceRules
++{
++    public const string Explanation =
++        "Quy tắc kế thừa quyền trong nhóm:\n" +
++        "• Tích chọn \"Thêm\" hoặc \"Xóa\" → tự động tích \"Sửa\" và \"Xem\" (vì thêm/xóa đều cần xem và sửa).\n" +
++        "• Tích chọn \"Sửa\" → tự động tích \"Xem\".\n" +
++        "• Bỏ chọn \"Xem\" → tự động bỏ \"Thêm\"/\"Sửa\"/\"Xóa\".\n" +
++        "• Tích chọn \"Tất cả\" → tích đủ 4 quyền Xem/Thêm/Sửa/Xóa.\n" +
++        "• Tích chọn \"Bị khóa\" → vô hiệu hóa và bỏ toàn bộ 4 quyền của chức năng đó.\n" +
++        "• Nhớ bấm \"Lưu\" để ghi ma trận vào cơ sở dữ liệu.";
++}
++
++/// <summary>Nhóm người dùng (USER_GROUPS).</summary>
++public sealed class UserGroup
++{
++    public long Id { get; set; }
++    public string Code { get; set; } = string.Empty;
++    public string Name { get; set; } = string.Empty;
++    public string? Icon { get; set; }
++    public string? Description { get; set; }
++    public bool IsActive { get; set; }
++    public int DisplayOrder { get; set; }
++    public int UserCount { get; set; }
++
++    public override string ToString() => Name;
++}
++
++/// <summary>Một dòng ma trận quyền của nhóm (GROUP_PERMISSIONS).</summary>
++public sealed record GroupPermissionRow(
++    long GroupId,
++    string FunctionCode,
++    bool CanView,
++    bool CanAdd,
++    bool CanEdit,
++    bool CanDelete,
++    bool IsLocked);
++
++/// <summary>Người dùng hệ thống (USERS + join nhân viên/kho/nhóm). Tài khoản Admin không trả về ở danh sách.</summary>
++public sealed class SystemUser
++{
++    public long Id { get; set; }
++    public string Username { get; set; } = string.Empty;
++    public string DisplayName { get; set; } = string.Empty;
++    public long? EmployeeId { get; set; }
++    public string? EmployeeName { get; set; }
++    public string? Email { get; set; }
++    public long? WarehouseId { get; set; }
++    public string? WarehouseName { get; set; }
++    public long? GroupId { get; set; }
++    public string? GroupName { get; set; }
++    public bool IsActive { get; set; }
++    public string? Notes { get; set; }
++}
++
++/// <summary>Dữ liệu tạo/sửa người dùng. Password null hoặc rỗng khi sửa = giữ nguyên mật khẩu cũ.</summary>
++public sealed record UserSaveRequest(
++    long? Id,
++    long EmployeeId,
++    long? WarehouseId,
++    string? Email,
++    long GroupId,
++    string Username,
++    string? Password,
++    string? Notes,
++    bool IsActive,
++    long CreatedBy);
++
++/// <summary>Dữ liệu tạo/sửa nhóm người dùng.</summary>
++public sealed record UserGroupSaveRequest(
++    long? Id,
++    string Code,
++    string Name,
++    string? Icon,
++    string? Description,
++    bool IsActive,
++    long CreatedBy);
++
++/// <summary>Một dòng ma trận quyền cần lưu (được UI áp quy tắc kế thừa trước khi gửi).</summary>
++public sealed record PermissionSaveRow(
++    string FunctionCode,
++    bool CanView,
++    bool CanAdd,
++    bool CanEdit,
++    bool CanDelete,
++    bool IsLocked);
++
++public sealed record EmployeeOption(long Id, string Code, string FullName, string? Email)
++{
++    public override string ToString() => $"{Code} — {FullName}";
++}
++
++public sealed record WarehouseOption(long Id, string Code, string Name)
++{
++    public override string ToString() => $"{Code} — {Name}";
++}
++
++public sealed record UserGroupOption(long Id, string Code, string Name)
++{
++    public override string ToString() => Name;
++}
++
++/// <summary>Icon có sẵn cho nhóm người dùng (dialog nhóm).</summary>
++public static class UserGroupIconOptions
++{
++    public static readonly IReadOnlyList<string> All =
++    [
++        "Shield",
++        "Users",
++        "Cash",
++        "Key",
++        "Lock",
++        "Star",
++        "Tag",
++        "Crown",
++    ];
++}
++
++public interface IUserManagementRepository
++{
++    Task<IReadOnlyList<UserGroup>> GetGroupsAsync(CancellationToken cancellationToken = default);
++
++    /// <summary>
++    /// Danh sách người dùng của một nhóm. Tài khoản Admin hệ thống (ROLE ADMIN)
++    /// KHÔNG bao giờ được trả về.
++    /// </summary>
++    Task<IReadOnlyList<SystemUser>> GetUsersAsync(long groupId, CancellationToken cancellationToken = default);
++
++    Task<SystemUser?> GetUserByIdAsync(long userId, CancellationToken cancellationToken = default);
++
++    Task<UserGroup?> GetGroupByIdAsync(long groupId, CancellationToken cancellationToken = default);
++
++    Task<IReadOnlyList<GroupPermissionRow>> GetGroupPermissionsAsync(
++        long groupId, CancellationToken cancellationToken = default);
++
++    Task SaveGroupPermissionsAsync(
++        long groupId,
++        IReadOnlyList<PermissionSaveRow> rows,
++        long updatedBy,
++        CancellationToken cancellationToken = default);
++
++    Task<UserGroup> SaveGroupAsync(UserGroupSaveRequest request, CancellationToken cancellationToken = default);
++
++    Task DeleteGroupAsync(long groupId, CancellationToken cancellationToken = default);
++
++    Task<SystemUser> SaveUserAsync(UserSaveRequest request, CancellationToken cancellationToken = default);
++
++    Task DeleteUserAsync(long userId, CancellationToken cancellationToken = default);
++
++    Task<IReadOnlyList<EmployeeOption>> GetEmployeesAsync(CancellationToken cancellationToken = default);
++
++    Task<IReadOnlyList<WarehouseOption>> GetWarehousesAsync(CancellationToken cancellationToken = default);
++}
+diff --git a/src/Kazuko.Infrastructure/UserManagement/FirebirdUserManagementRepository.cs b/src/Kazuko.Infrastructure/UserManagement/FirebirdUserManagementRepository.cs
+new file mode 100644
+index 0000000..e4c3d58
+--- /dev/null
++++ b/src/Kazuko.Infrastructure/UserManagement/FirebirdUserManagementRepository.cs
+@@ -0,0 +1,681 @@
++using System.Data;
++using System.Security.Cryptography;
++using Dapper;
++using Kazuko.Core.UserManagement;
++using Kazuko.Infrastructure.Data;
++
++namespace Kazuko.Infrastructure.UserManagement;
++
++// Quản lý người dùng + phân quyền theo NHÓM (migration 0076).
++// Độc lập với hệ thống USERS/ROLES/PERMISSIONS cũ ở base schema — chỉ dùng
++// USERS như một bảng lưu trữ (không đụng các bảng ROLES/PERMISSIONS cũ).
++//
++// Các quyết định thiết kế:
++// 1. Email người dùng không có cột riêng trên USERS (migration 76 không thêm),
++//    nên lấy/lưu vào HR_EMPLOYEES.EMAIL — 1 nhân viên = 1 tài khoản.
++// 2. Mật khẩu: PBKDF2-SHA256, salt 16 bytes ngẫu nhiên, 100000 vòng lặp —
++//    copy đúng chuẩn của FirebirdAuthenticationService để đăng nhập cũ đọc được.
++// 3. Tài khoản hệ thống (ROLE CODE = 'ADMIN') KHÔNG bao giờ xuất hiện trong
++//    danh sách và không thể xóa qua repository này.
++// 4. Tài khoản mới kế thừa DEFAULT_BRANCH_ID của người tạo (fallback: chi
++//    nhánh active đầu tiên của công ty) để đăng nhập được ngay.
++public sealed class FirebirdUserManagementRepository : IUserManagementRepository
++{
++    private const int PasswordIterations = 100000;
++    private const int PasswordSaltBytes = 16;
++    private const int PasswordHashBytes = 32;
++
++    public async Task<IReadOnlyList<UserGroup>> GetGroupsAsync(CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        var rows = await connection.QueryAsync<UserGroup>(
++            new CommandDefinition("""
++                SELECT G.ID AS Id,
++                       G.CODE AS Code,
++                       G.NAME AS Name,
++                       G.ICON AS Icon,
++                       G.DESCRIPTION AS Description,
++                       G.IS_ACTIVE AS IsActive,
++                       G.DISPLAY_ORDER AS DisplayOrder,
++                       (SELECT COUNT(*) FROM USERS U WHERE U.GROUP_ID = G.ID) AS UserCount
++                FROM USER_GROUPS G
++                WHERE G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                ORDER BY G.DISPLAY_ORDER, G.NAME
++                """,
++                cancellationToken: cancellationToken));
++        return rows.ToArray();
++    }
++
++    public async Task<IReadOnlyList<SystemUser>> GetUsersAsync(long groupId, CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        var rows = await connection.QueryAsync<SystemUser>(
++            new CommandDefinition("""
++                SELECT U.ID AS Id,
++                       U.USERNAME AS Username,
++                       U.DISPLAY_NAME AS DisplayName,
++                       U.EMPLOYEE_ID AS EmployeeId,
++                       E.FULL_NAME AS EmployeeName,
++                       E.EMAIL AS Email,
++                       U.WAREHOUSE_ID AS WarehouseId,
++                       L.NAME AS WarehouseName,
++                       U.GROUP_ID AS GroupId,
++                       G.NAME AS GroupName,
++                       U.IS_ACTIVE AS IsActive,
++                       U.NOTES AS Notes
++                FROM USERS U
++                JOIN ROLES R ON R.ID = U.ROLE_ID
++                LEFT JOIN HR_EMPLOYEES E ON E.ID = U.EMPLOYEE_ID
++                LEFT JOIN LOCATIONS L ON L.ID = U.WAREHOUSE_ID
++                LEFT JOIN USER_GROUPS G ON G.ID = U.GROUP_ID
++                WHERE U.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND U.GROUP_ID = @GroupId
++                  AND R.CODE <> 'ADMIN'
++                ORDER BY U.DISPLAY_NAME
++                """,
++                new { GroupId = groupId },
++                cancellationToken: cancellationToken));
++        return rows.ToArray();
++    }
++
++    public async Task<SystemUser?> GetUserByIdAsync(long userId, CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        return await connection.QuerySingleOrDefaultAsync<SystemUser?>(
++            new CommandDefinition("""
++                SELECT U.ID AS Id,
++                       U.USERNAME AS Username,
++                       U.DISPLAY_NAME AS DisplayName,
++                       U.EMPLOYEE_ID AS EmployeeId,
++                       E.FULL_NAME AS EmployeeName,
++                       E.EMAIL AS Email,
++                       U.WAREHOUSE_ID AS WarehouseId,
++                       L.NAME AS WarehouseName,
++                       U.GROUP_ID AS GroupId,
++                       G.NAME AS GroupName,
++                       U.IS_ACTIVE AS IsActive,
++                       U.NOTES AS Notes
++                FROM USERS U
++                LEFT JOIN HR_EMPLOYEES E ON E.ID = U.EMPLOYEE_ID
++                LEFT JOIN LOCATIONS L ON L.ID = U.WAREHOUSE_ID
++                LEFT JOIN USER_GROUPS G ON G.ID = U.GROUP_ID
++                WHERE U.ID = @UserId
++                """,
++                new { UserId = userId },
++                cancellationToken: cancellationToken));
++    }
++
++    public async Task<UserGroup?> GetGroupByIdAsync(long groupId, CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        return await connection.QuerySingleOrDefaultAsync<UserGroup?>(
++            new CommandDefinition("""
++                SELECT G.ID AS Id,
++                       G.CODE AS Code,
++                       G.NAME AS Name,
++                       G.ICON AS Icon,
++                       G.DESCRIPTION AS Description,
++                       G.IS_ACTIVE AS IsActive,
++                       G.DISPLAY_ORDER AS DisplayOrder,
++                       (SELECT COUNT(*) FROM USERS U WHERE U.GROUP_ID = G.ID) AS UserCount
++                FROM USER_GROUPS G
++                WHERE G.ID = @GroupId
++                """,
++                new { GroupId = groupId },
++                cancellationToken: cancellationToken));
++    }
++
++    public async Task<IReadOnlyList<GroupPermissionRow>> GetGroupPermissionsAsync(
++        long groupId, CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        var rows = await connection.QueryAsync<GroupPermissionRow>(
++            new CommandDefinition("""
++                SELECT P.GROUP_ID AS GroupId,
++                       P.FUNCTION_CODE AS FunctionCode,
++                       P.CAN_VIEW AS CanView,
++                       P.CAN_ADD AS CanAdd,
++                       P.CAN_EDIT AS CanEdit,
++                       P.CAN_DELETE AS CanDelete,
++                       P.IS_LOCKED AS IsLocked
++                FROM GROUP_PERMISSIONS P
++                WHERE P.GROUP_ID = @GroupId
++                """,
++                new { GroupId = groupId },
++                cancellationToken: cancellationToken));
++        return rows.ToArray();
++    }
++
++    public async Task SaveGroupPermissionsAsync(
++        long groupId,
++        IReadOnlyList<PermissionSaveRow> rows,
++        long updatedBy,
++        CancellationToken cancellationToken = default)
++    {
++        ArgumentNullException.ThrowIfNull(rows);
++
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
++
++        try
++        {
++            await connection.ExecuteAsync(
++                new CommandDefinition(
++                    "DELETE FROM GROUP_PERMISSIONS WHERE GROUP_ID = @GroupId",
++                    new { GroupId = groupId },
++                    transaction,
++                    cancellationToken: cancellationToken));
++
++            foreach (var row in rows)
++            {
++                await connection.ExecuteAsync(
++                    new CommandDefinition("""
++                        INSERT INTO GROUP_PERMISSIONS
++                            (COMPANY_ID, GROUP_ID, FUNCTION_CODE,
++                             CAN_VIEW, CAN_ADD, CAN_EDIT, CAN_DELETE, IS_LOCKED,
++                             UPDATED_BY, UPDATED_AT)
++                        VALUES
++                            ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
++                             @GroupId, @FunctionCode,
++                             @CanView, @CanAdd, @CanEdit, @CanDelete, @IsLocked,
++                             @UpdatedBy, CURRENT_TIMESTAMP)
++                        """,
++                        new
++                        {
++                            GroupId = groupId,
++                            FunctionCode = row.FunctionCode.Trim().ToUpperInvariant(),
++                            CanView = row.CanView,
++                            CanAdd = row.CanAdd,
++                            CanEdit = row.CanEdit,
++                            CanDelete = row.CanDelete,
++                            IsLocked = row.IsLocked,
++                            UpdatedBy = updatedBy,
++                        },
++                        transaction,
++                        cancellationToken: cancellationToken));
++            }
++
++            await transaction.CommitAsync(cancellationToken);
++        }
++        catch
++        {
++            await transaction.RollbackAsync(cancellationToken);
++            throw;
++        }
++    }
++
++    public async Task<UserGroup> SaveGroupAsync(UserGroupSaveRequest request, CancellationToken cancellationToken = default)
++    {
++        ArgumentNullException.ThrowIfNull(request);
++        var name = request.Name.Trim();
++        if (name.Length == 0)
++            throw new InvalidOperationException("Tên nhóm là bắt buộc.");
++
++        var code = request.Code.Trim().ToUpperInvariant();
++        if (code.Length == 0)
++            code = $"GRP{name.GetHashCode():X8}";
++
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
++
++        try
++        {
++            var duplicate = await connection.QuerySingleOrDefaultAsync<long?>(
++                new CommandDefinition("""
++                    SELECT FIRST 1 ID FROM USER_GROUPS
++                    WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                      AND UPPER(CODE) = @Code
++                      AND (@Id IS NULL OR ID <> @Id)
++                    """,
++                    new { Code = code, Id = request.Id },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            if (duplicate is not null)
++                throw new InvalidOperationException($"Mã nhóm '{code}' đã tồn tại.");
++
++            long groupId;
++            if (request.Id is null)
++            {
++                var nextOrder = await connection.QuerySingleAsync<int>(
++                    new CommandDefinition("""
++                        SELECT COALESCE(MAX(DISPLAY_ORDER), 0) + 1 FROM USER_GROUPS
++                        WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                        """,
++                        transaction: transaction,
++                        cancellationToken: cancellationToken));
++
++                groupId = await connection.ExecuteScalarAsync<long>(
++                    new CommandDefinition("""
++                        INSERT INTO USER_GROUPS
++                            (COMPANY_ID, CODE, NAME, ICON, DESCRIPTION, IS_ACTIVE, DISPLAY_ORDER, CREATED_BY)
++                        VALUES
++                            ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
++                             @Code, @Name, @Icon, @Description, @IsActive, @Order, @CreatedBy)
++                        RETURNING ID
++                        """,
++                        new
++                        {
++                            Code = code,
++                            Name = name,
++                            Icon = string.IsNullOrWhiteSpace(request.Icon) ? null : request.Icon.Trim(),
++                            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
++                            IsActive = request.IsActive,
++                            Order = nextOrder,
++                            CreatedBy = request.CreatedBy,
++                        },
++                        transaction,
++                        cancellationToken: cancellationToken));
++            }
++            else
++            {
++                groupId = request.Id.Value;
++                var affected = await connection.ExecuteAsync(
++                    new CommandDefinition("""
++                        UPDATE USER_GROUPS SET
++                            CODE = @Code,
++                            NAME = @Name,
++                            ICON = @Icon,
++                            DESCRIPTION = @Description,
++                            IS_ACTIVE = @IsActive,
++                            UPDATED_BY = @UpdatedBy,
++                            UPDATED_AT = CURRENT_TIMESTAMP
++                        WHERE ID = @Id
++                        """,
++                        new
++                        {
++                            Id = groupId,
++                            Code = code,
++                            Name = name,
++                            Icon = string.IsNullOrWhiteSpace(request.Icon) ? null : request.Icon.Trim(),
++                            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
++                            IsActive = request.IsActive,
++                            UpdatedBy = request.CreatedBy,
++                        },
++                        transaction,
++                        cancellationToken: cancellationToken));
++                if (affected == 0)
++                    throw new InvalidOperationException("Nhóm người dùng không tồn tại.");
++            }
++
++            await transaction.CommitAsync(cancellationToken);
++            var saved = await GetGroupByIdAsync(groupId, cancellationToken);
++            return saved ?? throw new InvalidOperationException("Không đọc lại được nhóm vừa lưu.");
++        }
++        catch
++        {
++            await transaction.RollbackAsync(cancellationToken);
++            throw;
++        }
++    }
++
++    public async Task DeleteGroupAsync(long groupId, CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        var group = await connection.QuerySingleOrDefaultAsync(
++            new CommandDefinition(
++                "SELECT CODE, NAME FROM USER_GROUPS WHERE ID = @GroupId",
++                new { GroupId = groupId },
++                cancellationToken: cancellationToken));
++        if (group is null)
++            throw new InvalidOperationException("Nhóm người dùng không tồn tại.");
++
++        var code = (string)group.CODE;
++        if (string.Equals(code, "ADMIN", StringComparison.OrdinalIgnoreCase))
++            throw new InvalidOperationException("Không được xóa nhóm Quản trị.");
++
++        var userCount = await connection.QuerySingleAsync<int>(
++            new CommandDefinition(
++                "SELECT COUNT(*) FROM USERS WHERE GROUP_ID = @GroupId",
++                new { GroupId = groupId },
++                cancellationToken: cancellationToken));
++        if (userCount > 0)
++            throw new InvalidOperationException(
++                $"Nhóm '{(string)group.NAME}' còn {userCount} người dùng, không thể xóa.");
++
++        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
++        try
++        {
++            await connection.ExecuteAsync(
++                new CommandDefinition(
++                    "DELETE FROM GROUP_PERMISSIONS WHERE GROUP_ID = @GroupId",
++                    new { GroupId = groupId },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            await connection.ExecuteAsync(
++                new CommandDefinition(
++                    "DELETE FROM USER_GROUPS WHERE ID = @GroupId",
++                    new { GroupId = groupId },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            await transaction.CommitAsync(cancellationToken);
++        }
++        catch
++        {
++            await transaction.RollbackAsync(cancellationToken);
++            throw;
++        }
++    }
++
++    public async Task<SystemUser> SaveUserAsync(UserSaveRequest request, CancellationToken cancellationToken = default)
++    {
++        ArgumentNullException.ThrowIfNull(request);
++
++        var username = request.Username.Trim();
++        if (username.Length == 0)
++            throw new InvalidOperationException("Tài khoản là bắt buộc.");
++        if (username.Length > 80)
++            throw new InvalidOperationException("Tài khoản không được vượt quá 80 ký tự.");
++        if (request.Id is null && string.IsNullOrWhiteSpace(request.Password))
++            throw new InvalidOperationException("Mật khẩu là bắt buộc khi thêm mới.");
++
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
++
++        try
++        {
++            // Tài khoản unique (không phân biệt hoa thường).
++            var duplicateUser = await connection.QuerySingleOrDefaultAsync<long?>(
++                new CommandDefinition("""
++                    SELECT FIRST 1 ID FROM USERS
++                    WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                      AND UPPER(USERNAME) = UPPER(@Username)
++                      AND (@Id IS NULL OR ID <> @Id)
++                    """,
++                    new { Username = username, Id = request.Id },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            if (duplicateUser is not null)
++                throw new InvalidOperationException($"Tài khoản '{username}' đã tồn tại.");
++
++            // 1 nhân viên = 1 tài khoản.
++            var duplicateEmployee = await connection.QuerySingleOrDefaultAsync<long?>(
++                new CommandDefinition("""
++                    SELECT FIRST 1 ID FROM USERS
++                    WHERE EMPLOYEE_ID = @EmployeeId
++                      AND (@Id IS NULL OR ID <> @Id)
++                    """,
++                    new { EmployeeId = request.EmployeeId, Id = request.Id },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            if (duplicateEmployee is not null)
++                throw new InvalidOperationException("Nhân viên này đã có tài khoản.");
++
++            // Nhân viên và nhóm phải tồn tại.
++            var employee = await connection.QuerySingleOrDefaultAsync(
++                new CommandDefinition(
++                    "SELECT ID, FULL_NAME FROM HR_EMPLOYEES WHERE ID = @EmployeeId",
++                    new { EmployeeId = request.EmployeeId },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            if (employee is null)
++                throw new InvalidOperationException("Nhân viên không tồn tại.");
++
++            var groupExists = await connection.QuerySingleAsync<int>(
++                new CommandDefinition(
++                    "SELECT COUNT(*) FROM USER_GROUPS WHERE ID = @GroupId",
++                    new { GroupId = request.GroupId },
++                    transaction,
++                    cancellationToken: cancellationToken));
++            if (groupExists == 0)
++                throw new InvalidOperationException("Nhóm người dùng không tồn tại.");
++
++            var displayName = (string)employee.FULL_NAME;
++            var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
++
++            long userId;
++            if (request.Id is null)
++            {
++                var (hash, salt) = HashPassword(request.Password!);
++                var defaultBranchId = await ResolveDefaultBranchAsync(connection, transaction, request.CreatedBy, cancellationToken);
++
++                userId = await connection.ExecuteScalarAsync<long>(
++                    new CommandDefinition("""
++                        INSERT INTO USERS
++                            (COMPANY_ID, USERNAME, DISPLAY_NAME,
++                             PASSWORD_HASH, PASSWORD_SALT, PASSWORD_ITERATIONS,
++                             ROLE_ID, EMPLOYEE_ID, GROUP_ID, WAREHOUSE_ID,
++                             DEFAULT_BRANCH_ID, IS_ACTIVE, NOTES)
++                        VALUES
++                            ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
++                             @Username, @DisplayName,
++                             @Hash, @Salt, @Iterations,
++                             (SELECT ROLE_ID FROM USERS WHERE ID = @CreatedBy),
++                             @EmployeeId, @GroupId, @WarehouseId,
++                             @BranchId, @IsActive, @Notes)
++                        RETURNING ID
++                        """,
++                        new
++                        {
++                            Username = username,
++                            DisplayName = displayName,
++                            Hash = hash,
++                            Salt = salt,
++                            Iterations = PasswordIterations,
++                            CreatedBy = request.CreatedBy,
++                            EmployeeId = request.EmployeeId,
++                            GroupId = request.GroupId,
++                            WarehouseId = request.WarehouseId,
++                            BranchId = defaultBranchId,
++                            IsActive = request.IsActive,
++                            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
++                        },
++                        transaction,
++                        cancellationToken: cancellationToken));
++            }
++            else
++            {
++                userId = request.Id.Value;
++
++                // Không cho sửa tài khoản Admin hệ thống qua chức năng này.
++                var roleCode = await connection.QuerySingleOrDefaultAsync<string?>(
++                    new CommandDefinition("""
++                        SELECT R.CODE FROM USERS U
++                        JOIN ROLES R ON R.ID = U.ROLE_ID
++                        WHERE U.ID = @UserId
++                        """,
++                        new { UserId = userId },
++                        transaction,
++                        cancellationToken: cancellationToken));
++                if (roleCode is null)
++                    throw new InvalidOperationException("Người dùng không tồn tại.");
++                if (string.Equals(roleCode, "ADMIN", StringComparison.OrdinalIgnoreCase))
++                    throw new InvalidOperationException("Không thể sửa tài khoản Admin hệ thống tại đây.");
++
++                if (string.IsNullOrWhiteSpace(request.Password))
++                {
++                    await connection.ExecuteAsync(
++                        new CommandDefinition("""
++                            UPDATE USERS SET
++                                USERNAME = @Username,
++                                DISPLAY_NAME = @DisplayName,
++                                EMPLOYEE_ID = @EmployeeId,
++                                GROUP_ID = @GroupId,
++                                WAREHOUSE_ID = @WarehouseId,
++                                IS_ACTIVE = @IsActive,
++                                NOTES = @Notes
++                            WHERE ID = @UserId
++                            """,
++                            new
++                            {
++                                UserId = userId,
++                                Username = username,
++                                DisplayName = displayName,
++                                EmployeeId = request.EmployeeId,
++                                GroupId = request.GroupId,
++                                WarehouseId = request.WarehouseId,
++                                IsActive = request.IsActive,
++                                Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
++                            },
++                            transaction,
++                            cancellationToken: cancellationToken));
++                }
++                else
++                {
++                    var (hash, salt) = HashPassword(request.Password);
++                    await connection.ExecuteAsync(
++                        new CommandDefinition("""
++                            UPDATE USERS SET
++                                USERNAME = @Username,
++                                DISPLAY_NAME = @DisplayName,
++                                PASSWORD_HASH = @Hash,
++                                PASSWORD_SALT = @Salt,
++                                PASSWORD_ITERATIONS = @Iterations,
++                                EMPLOYEE_ID = @EmployeeId,
++                                GROUP_ID = @GroupId,
++                                WAREHOUSE_ID = @WarehouseId,
++                                IS_ACTIVE = @IsActive,
++                                NOTES = @Notes
++                            WHERE ID = @UserId
++                            """,
++                            new
++                            {
++                                UserId = userId,
++                                Username = username,
++                                DisplayName = displayName,
++                                Hash = hash,
++                                Salt = salt,
++                                Iterations = PasswordIterations,
++                                EmployeeId = request.EmployeeId,
++                                GroupId = request.GroupId,
++                                WarehouseId = request.WarehouseId,
++                                IsActive = request.IsActive,
++                                Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
++                            },
++                            transaction,
++                            cancellationToken: cancellationToken));
++                }
++            }
++
++            // Email lưu trên hồ sơ nhân viên (USERS không có cột email riêng).
++            if (email is not null)
++            {
++                await connection.ExecuteAsync(
++                    new CommandDefinition(
++                        "UPDATE HR_EMPLOYEES SET EMAIL = @Email WHERE ID = @EmployeeId",
++                        new { Email = email, EmployeeId = request.EmployeeId },
++                        transaction,
++                        cancellationToken: cancellationToken));
++            }
++
++            await transaction.CommitAsync(cancellationToken);
++            var saved = await GetUserByIdAsync(userId, cancellationToken);
++            return saved ?? throw new InvalidOperationException("Không đọc lại được người dùng vừa lưu.");
++        }
++        catch
++        {
++            await transaction.RollbackAsync(cancellationToken);
++            throw;
++        }
++    }
++
++    public async Task DeleteUserAsync(long userId, CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        var roleCode = await connection.QuerySingleOrDefaultAsync<string?>(
++            new CommandDefinition("""
++                SELECT R.CODE FROM USERS U
++                JOIN ROLES R ON R.ID = U.ROLE_ID
++                WHERE U.ID = @UserId
++                """,
++                new { UserId = userId },
++                cancellationToken: cancellationToken));
++        if (roleCode is null)
++            throw new InvalidOperationException("Người dùng không tồn tại.");
++        if (string.Equals(roleCode, "ADMIN", StringComparison.OrdinalIgnoreCase))
++            throw new InvalidOperationException("Không được xóa tài khoản Admin hệ thống.");
++
++        await connection.ExecuteAsync(
++            new CommandDefinition(
++                "DELETE FROM USERS WHERE ID = @UserId",
++                new { UserId = userId },
++                cancellationToken: cancellationToken));
++    }
++
++    public async Task<IReadOnlyList<EmployeeOption>> GetEmployeesAsync(CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        var rows = await connection.QueryAsync<EmployeeOption>(
++            new CommandDefinition("""
++                SELECT E.ID AS Id, E.CODE AS Code, E.FULL_NAME AS FullName, E.EMAIL AS Email
++                FROM HR_EMPLOYEES E
++                WHERE E.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND E.IS_ACTIVE = TRUE
++                ORDER BY E.FULL_NAME, E.CODE
++                """,
++                cancellationToken: cancellationToken));
++        return rows.ToArray();
++    }
++
++    public async Task<IReadOnlyList<WarehouseOption>> GetWarehousesAsync(CancellationToken cancellationToken = default)
++    {
++        await using var connection = FirebirdDatabase.CreateConnection();
++        await connection.OpenAsync(cancellationToken);
++
++        var rows = await connection.QueryAsync<WarehouseOption>(
++            new CommandDefinition("""
++                SELECT L.ID AS Id, L.CODE AS Code, L.NAME AS Name
++                FROM LOCATIONS L
++                WHERE L.IS_ACTIVE = TRUE
++                ORDER BY L.NAME, L.CODE
++                """,
++                cancellationToken: cancellationToken));
++        return rows.ToArray();
++    }
++
++    private static (string Hash, string Salt) HashPassword(string password)
++    {
++        var salt = RandomNumberGenerator.GetBytes(PasswordSaltBytes);
++        var hash = Rfc2898DeriveBytes.Pbkdf2(
++            password,
++            salt,
++            PasswordIterations,
++            HashAlgorithmName.SHA256,
++            PasswordHashBytes);
++        return (Convert.ToHexString(hash), Convert.ToHexString(salt));
++    }
++
++    private static async Task<long?> ResolveDefaultBranchAsync(
++        IDbConnection connection,
++        IDbTransaction transaction,
++        long createdBy,
++        CancellationToken cancellationToken)
++    {
++        var creatorBranch = await connection.QuerySingleOrDefaultAsync<long?>(
++            new CommandDefinition(
++                "SELECT DEFAULT_BRANCH_ID FROM USERS WHERE ID = @CreatedBy",
++                new { CreatedBy = createdBy },
++                transaction,
++                cancellationToken: cancellationToken));
++        if (creatorBranch is not null)
++            return creatorBranch;
++
++        return await connection.QuerySingleOrDefaultAsync<long?>(
++            new CommandDefinition("""
++                SELECT FIRST 1 B.ID FROM BRANCHES B
++                WHERE B.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
++                  AND B.IS_ACTIVE = TRUE
++                ORDER BY B.ID
++                """,
++                transaction: transaction,
++                cancellationToken: cancellationToken));
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/Kazuko.Modules.UserManagement.csproj b/src/Modules/Kazuko.Modules.UserManagement/Kazuko.Modules.UserManagement.csproj
+new file mode 100644
+index 0000000..5a4c8e1
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/Kazuko.Modules.UserManagement.csproj
+@@ -0,0 +1,15 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net8.0-windows</TargetFramework>
++    <UseWPF>true</UseWPF>
++  </PropertyGroup>
++  <ItemGroup>
++    <ProjectReference Include="..\..\Kazuko.Core\Kazuko.Core.csproj" />
++    <ProjectReference Include="..\..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
++  </ItemGroup>
++  <ItemGroup>
++    <Resource Include="..\..\Assets\icons\CAIDAT.png">
++      <Link>Assets\icons\CAIDAT.png</Link>
++    </Resource>
++  </ItemGroup>
++</Project>
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/PermissionMatrixRowViewModel.cs b/src/Modules/Kazuko.Modules.UserManagement/PermissionMatrixRowViewModel.cs
+new file mode 100644
+index 0000000..fa6437a
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/PermissionMatrixRowViewModel.cs
+@@ -0,0 +1,162 @@
++using Kazuko.Core.Mvvm;
++using Kazuko.Core.UserManagement;
++
++namespace Kazuko.Modules.UserManagement;
++
++/// <summary>
++/// Một dòng ma trận phân quyền trên UI. Áp quy tắc kế thừa ngay khi người dùng
++/// tích/bỏ tích (xem PermissionInheritanceRules):
++/// - Thêm/Xóa → tự check Sửa + Xem; Sửa → tự check Xem.
++/// - Bỏ Xem → bỏ Thêm/Sửa/Xóa. Tất cả → check hết 4. Bị khóa → disable + bỏ hết.
++/// </summary>
++public sealed class PermissionMatrixRowViewModel : ObservableObject
++{
++    private bool _isLocked;
++    private bool _canView;
++    private bool _canAdd;
++    private bool _canEdit;
++    private bool _canDelete;
++
++    public PermissionMatrixRowViewModel(string functionCode, string functionName, string moduleGroup)
++    {
++        FunctionCode = functionCode;
++        FunctionName = functionName;
++        ModuleGroup = moduleGroup;
++    }
++
++    public string FunctionCode { get; }
++    public string FunctionName { get; }
++    public string ModuleGroup { get; }
++
++    /// <summary>Các ô check bị vô hiệu hóa khi chức năng đang "Bị khóa".</summary>
++    public bool IsCheckEnabled => !IsLocked;
++
++    public bool IsLocked
++    {
++        get => _isLocked;
++        set
++        {
++            if (!SetProperty(ref _isLocked, value))
++                return;
++            if (value)
++                SetAllChecks(false, false, false, false);
++            OnPropertyChanged(nameof(IsCheckEnabled));
++        }
++    }
++
++    public bool CanView
++    {
++        get => _canView;
++        set
++        {
++            if (!SetProperty(ref _canView, value))
++                return;
++            if (!value)
++                SetAllChecks(false, false, false, false);
++            OnPropertyChanged(nameof(All));
++        }
++    }
++
++    public bool CanAdd
++    {
++        get => _canAdd;
++        set
++        {
++            if (!SetProperty(ref _canAdd, value))
++                return;
++            if (value)
++            {
++                SetCheck(ref _canView, true, nameof(CanView));
++                SetCheck(ref _canEdit, true, nameof(CanEdit));
++            }
++            OnPropertyChanged(nameof(All));
++        }
++    }
++
++    public bool CanEdit
++    {
++        get => _canEdit;
++        set
++        {
++            if (!SetProperty(ref _canEdit, value))
++                return;
++            if (value)
++                SetCheck(ref _canView, true, nameof(CanView));
++            OnPropertyChanged(nameof(All));
++        }
++    }
++
++    public bool CanDelete
++    {
++        get => _canDelete;
++        set
++        {
++            if (!SetProperty(ref _canDelete, value))
++                return;
++            if (value)
++            {
++                SetCheck(ref _canView, true, nameof(CanView));
++                SetCheck(ref _canEdit, true, nameof(CanEdit));
++            }
++            OnPropertyChanged(nameof(All));
++        }
++    }
++
++    public bool All
++    {
++        get => _canView && _canAdd && _canEdit && _canDelete;
++        set
++        {
++            SetAllChecks(value, value, value, value);
++            OnPropertyChanged(nameof(All));
++        }
++    }
++
++    /// <summary>Gán trạng thái ban đầu từ DB (không kích hoạt kế thừa).</summary>
++    public PermissionMatrixRowViewModel Initialize(
++        bool canView, bool canAdd, bool canEdit, bool canDelete, bool isLocked)
++    {
++        _isLocked = isLocked;
++        _canView = canView;
++        _canAdd = canAdd;
++        _canEdit = canEdit;
++        _canDelete = canDelete;
++        OnPropertyChanged(string.Empty);
++        return this;
++    }
++
++    public PermissionSaveRow ToSaveRow() => new(
++        FunctionCode, _canView, _canAdd, _canEdit, _canDelete, _isLocked);
++
++    private void SetAllChecks(bool view, bool add, bool edit, bool delete)
++    {
++        SetCheck(ref _canView, view, nameof(CanView));
++        SetCheck(ref _canAdd, add, nameof(CanAdd));
++        SetCheck(ref _canEdit, edit, nameof(CanEdit));
++        SetCheck(ref _canDelete, delete, nameof(CanDelete));
++        OnPropertyChanged(nameof(All));
++    }
++
++    private void SetCheck(ref bool field, bool value, string propertyName) =>
++        SetProperty(ref field, value, propertyName);
++
++    public static IReadOnlyList<PermissionMatrixRowViewModel> BuildFrom(
++        IReadOnlyList<GroupPermissionRow> saved)
++    {
++        var byCode = saved.ToDictionary(
++            r => r.FunctionCode, StringComparer.OrdinalIgnoreCase);
++        return SystemFunctionCatalog.All
++            .Select(f =>
++            {
++                var row = byCode.TryGetValue(f.Code, out var s) ? s : null;
++                return new PermissionMatrixRowViewModel(f.Code, f.Name, f.ModuleGroup)
++                    .Initialize(
++                        row?.CanView == true,
++                        row?.CanAdd == true,
++                        row?.CanEdit == true,
++                        row?.CanDelete == true,
++                        row?.IsLocked == true);
++            })
++            .ToArray();
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserEditDialog.cs b/src/Modules/Kazuko.Modules.UserManagement/UserEditDialog.cs
+new file mode 100644
+index 0000000..a67dc74
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserEditDialog.cs
+@@ -0,0 +1,260 @@
++using System.Windows;
++using System.Windows.Input;
++using Kazuko.Core.Authentication;
++using Kazuko.Core.Mvvm;
++using Kazuko.Core.UserManagement;
++
++namespace Kazuko.Modules.UserManagement;
++
++public sealed class UserEditDialogViewModel : ObservableObject
++{
++    private readonly IUserManagementRepository _repository;
++    private readonly long? _userId;
++    private readonly long _createdBy;
++
++    private EmployeeOption? _selectedEmployee;
++    private WarehouseOption? _selectedWarehouse;
++    private UserGroupOption? _selectedGroup;
++    private string _email = string.Empty;
++    private string _username = string.Empty;
++    private string _notes = string.Empty;
++    private bool _isActive = true;
++    private string _errorMessage = string.Empty;
++
++    public UserEditDialogViewModel(
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session,
++        IReadOnlyList<EmployeeOption> employees,
++        IReadOnlyList<WarehouseOption> warehouses,
++        IReadOnlyList<UserGroupOption> groups,
++        SystemUser? existing)
++    {
++        _repository = repository;
++        _createdBy = session.Current?.UserId ?? 0;
++
++        Employees = employees;
++        Warehouses = warehouses;
++        Groups = groups;
++
++        Title = existing is null ? "Thêm người dùng" : "Sửa người dùng";
++        IsCreate = existing is null;
++        PasswordHint = existing is null
++            ? "Mật khẩu là bắt buộc khi thêm mới."
++            : "Để trống nếu giữ nguyên mật khẩu cũ.";
++
++        if (existing is not null)
++        {
++            _userId = existing.Id;
++            _username = existing.Username;
++            _email = existing.Email ?? string.Empty;
++            _notes = existing.Notes ?? string.Empty;
++            _isActive = existing.IsActive;
++
++            if (existing.EmployeeId is not null)
++                SelectedEmployee = employees.FirstOrDefault(e => e.Id == existing.EmployeeId);
++            if (existing.WarehouseId is not null)
++                SelectedWarehouse = warehouses.FirstOrDefault(w => w.Id == existing.WarehouseId);
++            if (existing.GroupId is not null)
++                SelectedGroup = groups.FirstOrDefault(g => g.Id == existing.GroupId);
++        }
++
++        SaveCommand = new AsyncRelayCommand(SaveAsync);
++        CancelCommand = new RelayCommand(() => RequestClose?.Invoke(false));
++    }
++
++    public string Title { get; }
++    public bool IsCreate { get; }
++    public string PasswordHint { get; }
++
++    public IReadOnlyList<EmployeeOption> Employees { get; }
++    public IReadOnlyList<WarehouseOption> Warehouses { get; }
++    public IReadOnlyList<UserGroupOption> Groups { get; }
++
++    public EmployeeOption? SelectedEmployee
++    {
++        get => _selectedEmployee;
++        set
++        {
++            if (SetProperty(ref _selectedEmployee, value) && value is not null)
++            {
++                // Tự điền email từ hồ sơ nhân viên nếu đang trống.
++                if (string.IsNullOrWhiteSpace(Email) && !string.IsNullOrWhiteSpace(value.Email))
++                    Email = value.Email;
++            }
++        }
++    }
++
++    public WarehouseOption? SelectedWarehouse
++    {
++        get => _selectedWarehouse;
++        set => SetProperty(ref _selectedWarehouse, value);
++    }
++
++    public UserGroupOption? SelectedGroup
++    {
++        get => _selectedGroup;
++        set => SetProperty(ref _selectedGroup, value);
++    }
++
++    public string Email
++    {
++        get => _email;
++        set => SetProperty(ref _email, value);
++    }
++
++    public string Username
++    {
++        get => _username;
++        set => SetProperty(ref _username, value);
++    }
++
++    /// <summary>Mật khẩu nhập từ PasswordBox (code-behind). Rỗng khi sửa = giữ nguyên.</summary>
++    public string Password { get; set; } = string.Empty;
++
++    public string Notes
++    {
++        get => _notes;
++        set => SetProperty(ref _notes, value);
++    }
++
++    public bool IsActive
++    {
++        get => _isActive;
++        set => SetProperty(ref _isActive, value);
++    }
++
++    public string ErrorMessage
++    {
++        get => _errorMessage;
++        set => SetProperty(ref _errorMessage, value);
++    }
++
++    public SystemUser? SavedUser { get; private set; }
++    public Action<bool>? RequestClose { get; set; }
++
++    public ICommand SaveCommand { get; }
++    public ICommand CancelCommand { get; }
++
++    private async Task SaveAsync()
++    {
++        ErrorMessage = string.Empty;
++
++        if (SelectedEmployee is null)
++        {
++            ErrorMessage = "Vui lòng chọn nhân viên.";
++            return;
++        }
++        if (SelectedGroup is null)
++        {
++            ErrorMessage = "Vui lòng chọn nhóm người dùng.";
++            return;
++        }
++        if (string.IsNullOrWhiteSpace(Username))
++        {
++            ErrorMessage = "Tài khoản là bắt buộc.";
++            return;
++        }
++        if (IsCreate && string.IsNullOrWhiteSpace(Password))
++        {
++            ErrorMessage = "Mật khẩu là bắt buộc khi thêm mới.";
++            return;
++        }
++
++        try
++        {
++            SavedUser = await _repository.SaveUserAsync(
++                new UserSaveRequest(
++                    _userId,
++                    SelectedEmployee.Id,
++                    SelectedWarehouse?.Id,
++                    Email.Trim(),
++                    SelectedGroup.Id,
++                    Username.Trim(),
++                    string.IsNullOrWhiteSpace(Password) ? null : Password,
++                    Notes.Trim(),
++                    IsActive,
++                    _createdBy));
++            RequestClose?.Invoke(true);
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = ex.Message;
++        }
++    }
++}
++
++public partial class UserEditDialog : Window
++{
++    public UserEditDialog()
++    {
++        InitializeComponent();
++    }
++
++    public static SystemUser? ShowForCreate(
++        Window? owner,
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session,
++        UserGroup selectedGroup)
++    {
++        var viewModel = CreateViewModel(repository, session, null, selectedGroup.Id);
++        return ShowInternal(owner, viewModel);
++    }
++
++    public static SystemUser? ShowForEdit(
++        Window? owner,
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session,
++        SystemUser existing)
++    {
++        var viewModel = CreateViewModel(repository, session, existing, null);
++        return ShowInternal(owner, viewModel);
++    }
++
++    private static UserEditDialogViewModel CreateViewModel(
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session,
++        SystemUser? existing,
++        long? preselectedGroupId)
++    {
++        var employees = repository.GetEmployeesAsync().GetAwaiter().GetResult();
++        var warehouses = repository.GetWarehousesAsync().GetAwaiter().GetResult();
++        var groups = repository.GetGroupsAsync().GetAwaiter().GetResult()
++            .Where(g => g.IsActive)
++            .Select(g => new UserGroupOption(g.Id, g.Code, g.Name))
++            .ToArray();
++
++        var viewModel = new UserEditDialogViewModel(
++            repository, session, employees, warehouses, groups, existing);
++
++        if (existing is null && preselectedGroupId is not null)
++            viewModel.SelectedGroup = groups.FirstOrDefault(g => g.Id == preselectedGroupId);
++
++        return viewModel;
++    }
++
++    private static SystemUser? ShowInternal(Window? owner, UserEditDialogViewModel viewModel)
++    {
++        var dialog = new UserEditDialog { DataContext = viewModel };
++        if (owner is not null)
++            dialog.Owner = owner;
++
++        var saved = false;
++        viewModel.RequestClose = result =>
++        {
++            saved = result;
++            dialog.Close();
++        };
++
++        dialog.ShowDialog();
++        return saved ? viewModel.SavedUser : null;
++    }
++
++    private void PasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
++    {
++        if (DataContext is UserEditDialogViewModel viewModel
++            && sender is System.Windows.Controls.PasswordBox passwordBox)
++        {
++            viewModel.Password = passwordBox.Password;
++        }
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserEditDialog.xaml b/src/Modules/Kazuko.Modules.UserManagement/UserEditDialog.xaml
+new file mode 100644
+index 0000000..5cfc49b
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserEditDialog.xaml
+@@ -0,0 +1,127 @@
++<Window x:Class="Kazuko.Modules.UserManagement.UserEditDialog"
++        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++        xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
++        Title="{Binding Title}"
++        Width="520" Height="680"
++        MinWidth="480" MinHeight="620"
++        WindowStartupLocation="CenterOwner"
++        ResizeMode="CanResizeWithGrip"
++        ShowInTaskbar="False"
++        Background="{DynamicResource AppBackgroundBrush}">
++  <Window.Resources>
++    <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
++
++    <Style x:Key="UmDialogLabelStyle" TargetType="TextBlock">
++      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
++      <Setter Property="Margin" Value="0,0,0,4" />
++    </Style>
++
++    <Style x:Key="UmDialogFieldStyle" TargetType="Control">
++      <Setter Property="MinHeight" Value="38" />
++      <Setter Property="Margin" Value="0,0,0,12" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="VerticalContentAlignment" Value="Center" />
++    </Style>
++
++    <Style x:Key="UmDialogPrimaryButtonStyle" TargetType="Button">
++      <Setter Property="MinHeight" Value="38" />
++      <Setter Property="MinWidth" Value="120" />
++      <Setter Property="Padding" Value="16,4" />
++      <Setter Property="BorderThickness" Value="0" />
++      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="Cursor" Value="Hand" />
++    </Style>
++
++    <Style x:Key="UmDialogOutlineButtonStyle" TargetType="Button">
++      <Setter Property="MinHeight" Value="38" />
++      <Setter Property="MinWidth" Value="110" />
++      <Setter Property="Padding" Value="16,4" />
++      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
++      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
++      <Setter Property="BorderThickness" Value="1.5" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++      <Setter Property="Cursor" Value="Hand" />
++    </Style>
++  </Window.Resources>
++
++  <DockPanel Margin="20">
++    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
++                HorizontalAlignment="Right" Margin="0,8,0,0">
++      <Button Content="Thoát"
++              Style="{StaticResource UmDialogOutlineButtonStyle}"
++              Command="{Binding CancelCommand}"
++              Margin="0,0,8,0" IsCancel="True" />
++      <Button Content="Ghi dữ liệu"
++              Style="{StaticResource UmDialogPrimaryButtonStyle}"
++              Command="{Binding SaveCommand}"
++              IsDefault="True" />
++    </StackPanel>
++
++    <ScrollViewer VerticalScrollBarVisibility="Auto">
++      <StackPanel>
++        <TextBlock Text="{Binding Title}"
++                   FontSize="{DynamicResource FontSize.Heading}"
++                   Foreground="{DynamicResource PrimaryBrush}"
++                   FontWeight="Bold" Margin="0,0,0,12" />
++        <TextBlock Text="{Binding ErrorMessage}"
++                   Foreground="{DynamicResource DangerBrush}"
++                   TextWrapping="Wrap" Margin="0,0,0,8"
++                   Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyToVis}}" />
++
++        <TextBlock Text="Nhân viên (*)" Style="{StaticResource UmDialogLabelStyle}" />
++        <ComboBox ItemsSource="{Binding Employees}"
++                  SelectedItem="{Binding SelectedEmployee}"
++                  Style="{StaticResource UmDialogFieldStyle}"
++                  IsTextSearchEnabled="True" />
++
++        <TextBlock Text="Kho" Style="{StaticResource UmDialogLabelStyle}" />
++        <ComboBox ItemsSource="{Binding Warehouses}"
++                  SelectedItem="{Binding SelectedWarehouse}"
++                  Style="{StaticResource UmDialogFieldStyle}"
++                  IsTextSearchEnabled="True"
++                  ToolTip="Kho mặc định của người dùng (để trống nếu không giới hạn)" />
++
++        <TextBlock Text="Email" Style="{StaticResource UmDialogLabelStyle}" />
++        <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
++                 Style="{StaticResource UmDialogFieldStyle}" MaxLength="150"
++                 ToolTip="Tự điền từ hồ sơ nhân viên; lưu vào hồ sơ nhân viên" />
++
++        <TextBlock Text="Nhóm người dùng (*)" Style="{StaticResource UmDialogLabelStyle}" />
++        <ComboBox ItemsSource="{Binding Groups}"
++                  SelectedItem="{Binding SelectedGroup}"
++                  Style="{StaticResource UmDialogFieldStyle}" />
++
++        <TextBlock Text="Tài khoản (*)" Style="{StaticResource UmDialogLabelStyle}" />
++        <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
++                 Style="{StaticResource UmDialogFieldStyle}" MaxLength="80"
++                 ToolTip="Duy nhất, không phân biệt hoa thường" />
++
++        <TextBlock Text="Mật khẩu" Style="{StaticResource UmDialogLabelStyle}" />
++        <PasswordBox Style="{StaticResource UmDialogFieldStyle}"
++                     PasswordChanged="PasswordBox_OnPasswordChanged"
++                     ToolTip="{Binding PasswordHint}" />
++        <TextBlock Text="{Binding PasswordHint}"
++                   FontSize="{DynamicResource FontSize.Caption}"
++                   Foreground="{DynamicResource TextSecondaryBrush}"
++                   Margin="0,-8,0,12" />
++
++        <TextBlock Text="Ghi chú" Style="{StaticResource UmDialogLabelStyle}" />
++        <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
++                 Style="{StaticResource UmDialogFieldStyle}" MaxLength="500"
++                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
++                 VerticalContentAlignment="Top" Padding="8" />
++
++        <CheckBox Content="Đang hoạt động"
++                  IsChecked="{Binding IsActive}"
++                  FontSize="{DynamicResource FontSize.Body}" />
++      </StackPanel>
++    </ScrollViewer>
++  </DockPanel>
++</Window>
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserGroupEditDialog.cs b/src/Modules/Kazuko.Modules.UserManagement/UserGroupEditDialog.cs
+new file mode 100644
+index 0000000..83bbc93
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserGroupEditDialog.cs
+@@ -0,0 +1,167 @@
++using System.Windows;
++using System.Windows.Input;
++using Kazuko.Core.Authentication;
++using Kazuko.Core.Mvvm;
++using Kazuko.Core.UserManagement;
++
++namespace Kazuko.Modules.UserManagement;
++
++public sealed class UserGroupEditDialogViewModel : ObservableObject
++{
++    private readonly IUserManagementRepository _repository;
++    private readonly long? _groupId;
++    private readonly long _createdBy;
++
++    private string _code = string.Empty;
++    private string _name = string.Empty;
++    private string? _icon;
++    private string _description = string.Empty;
++    private bool _isActive = true;
++    private string _errorMessage = string.Empty;
++
++    public UserGroupEditDialogViewModel(
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session,
++        UserGroup? existing)
++    {
++        _repository = repository;
++        _createdBy = session.Current?.UserId ?? 0;
++
++        Title = existing is null ? "Thêm nhóm người dùng" : "Sửa nhóm người dùng";
++        if (existing is not null)
++        {
++            _groupId = existing.Id;
++            _code = existing.Code;
++            _name = existing.Name;
++            _icon = existing.Icon;
++            _description = existing.Description ?? string.Empty;
++            _isActive = existing.IsActive;
++            IsAdminGroup = string.Equals(existing.Code, "ADMIN", StringComparison.OrdinalIgnoreCase);
++        }
++
++        Icons = UserGroupIconOptions.All;
++
++        SaveCommand = new AsyncRelayCommand(SaveAsync);
++        CancelCommand = new RelayCommand(() => RequestClose?.Invoke(false));
++    }
++
++    public string Title { get; }
++    public IReadOnlyList<string> Icons { get; }
++
++    /// <summary>Nhóm ADMIN không cho đổi mã và không cho tắt hoạt động.</summary>
++    public bool IsAdminGroup { get; }
++
++    public string Code
++    {
++        get => _code;
++        set => SetProperty(ref _code, value);
++    }
++
++    public string Name
++    {
++        get => _name;
++        set => SetProperty(ref _name, value);
++    }
++
++    public string? Icon
++    {
++        get => _icon;
++        set => SetProperty(ref _icon, value);
++    }
++
++    public string Description
++    {
++        get => _description;
++        set => SetProperty(ref _description, value);
++    }
++
++    public bool IsActive
++    {
++        get => _isActive;
++        set => SetProperty(ref _isActive, value);
++    }
++
++    public string ErrorMessage
++    {
++        get => _errorMessage;
++        set => SetProperty(ref _errorMessage, value);
++    }
++
++    public UserGroup? SavedGroup { get; private set; }
++    public Action<bool>? RequestClose { get; set; }
++
++    public ICommand SaveCommand { get; }
++    public ICommand CancelCommand { get; }
++
++    private async Task SaveAsync()
++    {
++        ErrorMessage = string.Empty;
++        if (string.IsNullOrWhiteSpace(Name))
++        {
++            ErrorMessage = "Tên nhóm là bắt buộc.";
++            return;
++        }
++
++        try
++        {
++            SavedGroup = await _repository.SaveGroupAsync(
++                new UserGroupSaveRequest(
++                    _groupId,
++                    IsAdminGroup ? _code : Code,
++                    Name.Trim(),
++                    Icon,
++                    Description.Trim(),
++                    IsAdminGroup || IsActive,
++                    _createdBy));
++            RequestClose?.Invoke(true);
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = ex.Message;
++        }
++    }
++}
++
++public partial class UserGroupEditDialog : Window
++{
++    public UserGroupEditDialog()
++    {
++        InitializeComponent();
++    }
++
++    public static UserGroup? ShowForCreate(
++        Window? owner,
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session)
++    {
++        var viewModel = new UserGroupEditDialogViewModel(repository, session, null);
++        return ShowInternal(owner, viewModel);
++    }
++
++    public static UserGroup? ShowForEdit(
++        Window? owner,
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session,
++        UserGroup existing)
++    {
++        var viewModel = new UserGroupEditDialogViewModel(repository, session, existing);
++        return ShowInternal(owner, viewModel);
++    }
++
++    private static UserGroup? ShowInternal(Window? owner, UserGroupEditDialogViewModel viewModel)
++    {
++        var dialog = new UserGroupEditDialog { DataContext = viewModel };
++        if (owner is not null)
++            dialog.Owner = owner;
++
++        var saved = false;
++        viewModel.RequestClose = result =>
++        {
++            saved = result;
++            dialog.Close();
++        };
++
++        dialog.ShowDialog();
++        return saved ? viewModel.SavedGroup : null;
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserGroupEditDialog.xaml b/src/Modules/Kazuko.Modules.UserManagement/UserGroupEditDialog.xaml
+new file mode 100644
+index 0000000..b9846f5
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserGroupEditDialog.xaml
+@@ -0,0 +1,107 @@
++<Window x:Class="Kazuko.Modules.UserManagement.UserGroupEditDialog"
++        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++        xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
++        Title="{Binding Title}"
++        Width="480" Height="430"
++        MinWidth="440" MinHeight="400"
++        WindowStartupLocation="CenterOwner"
++        ResizeMode="CanResizeWithGrip"
++        ShowInTaskbar="False"
++        Background="{DynamicResource AppBackgroundBrush}">
++  <Window.Resources>
++    <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
++    <local:InverseBooleanToVisibilityConverter x:Key="NotAdminToVis" />
++
++    <Style x:Key="UmDialogLabelStyle" TargetType="TextBlock">
++      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
++      <Setter Property="Margin" Value="0,0,0,4" />
++    </Style>
++
++    <Style x:Key="UmDialogFieldStyle" TargetType="Control">
++      <Setter Property="MinHeight" Value="38" />
++      <Setter Property="Margin" Value="0,0,0,12" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="VerticalContentAlignment" Value="Center" />
++    </Style>
++
++    <Style x:Key="UmDialogPrimaryButtonStyle" TargetType="Button">
++      <Setter Property="MinHeight" Value="38" />
++      <Setter Property="MinWidth" Value="120" />
++      <Setter Property="Padding" Value="16,4" />
++      <Setter Property="BorderThickness" Value="0" />
++      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="Cursor" Value="Hand" />
++    </Style>
++
++    <Style x:Key="UmDialogOutlineButtonStyle" TargetType="Button">
++      <Setter Property="MinHeight" Value="38" />
++      <Setter Property="MinWidth" Value="110" />
++      <Setter Property="Padding" Value="16,4" />
++      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
++      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
++      <Setter Property="BorderThickness" Value="1.5" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++      <Setter Property="Cursor" Value="Hand" />
++    </Style>
++  </Window.Resources>
++
++  <DockPanel Margin="20">
++    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
++                HorizontalAlignment="Right" Margin="0,8,0,0">
++      <Button Content="Thoát"
++              Style="{StaticResource UmDialogOutlineButtonStyle}"
++              Command="{Binding CancelCommand}"
++              Margin="0,0,8,0" IsCancel="True" />
++      <Button Content="Ghi dữ liệu"
++              Style="{StaticResource UmDialogPrimaryButtonStyle}"
++              Command="{Binding SaveCommand}"
++              IsDefault="True" />
++    </StackPanel>
++
++    <StackPanel>
++      <TextBlock Text="{Binding Title}"
++                 FontSize="{DynamicResource FontSize.Heading}"
++                 Foreground="{DynamicResource PrimaryBrush}"
++                 FontWeight="Bold" Margin="0,0,0,12" />
++      <TextBlock Text="{Binding ErrorMessage}"
++                 Foreground="{DynamicResource DangerBrush}"
++                 TextWrapping="Wrap" Margin="0,0,0,8"
++                 Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyToVis}}" />
++
++      <TextBlock Text="Tên nhóm (*)" Style="{StaticResource UmDialogLabelStyle}" />
++      <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
++               Style="{StaticResource UmDialogFieldStyle}" MaxLength="150" />
++
++      <TextBlock Text="Mã nhóm" Style="{StaticResource UmDialogLabelStyle}" />
++      <TextBox Text="{Binding Code, UpdateSourceTrigger=PropertyChanged}"
++               Style="{StaticResource UmDialogFieldStyle}" MaxLength="30"
++               IsReadOnly="{Binding IsAdminGroup}"
++               ToolTip="Để trống sẽ tự sinh. Mã duy nhất trong công ty." />
++
++      <TextBlock Text="Ảnh (icon)" Style="{StaticResource UmDialogLabelStyle}" />
++      <ComboBox ItemsSource="{Binding Icons}"
++                SelectedItem="{Binding Icon}"
++                Style="{StaticResource UmDialogFieldStyle}"
++                IsEditable="True"
++                ToolTip="Chọn icon có sẵn hoặc gõ tên icon tùy ý" />
++
++      <TextBlock Text="Diễn giải" Style="{StaticResource UmDialogLabelStyle}" />
++      <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
++               Style="{StaticResource UmDialogFieldStyle}" MaxLength="500"
++               TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
++               VerticalContentAlignment="Top" Padding="8" />
++
++      <CheckBox Content="Đang hoạt động"
++                IsChecked="{Binding IsActive}"
++                FontSize="{DynamicResource FontSize.Body}"
++                Visibility="{Binding IsAdminGroup, Converter={StaticResource NotAdminToVis}}" />
++    </StackPanel>
++  </DockPanel>
++</Window>
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserManagementConverters.cs b/src/Modules/Kazuko.Modules.UserManagement/UserManagementConverters.cs
+new file mode 100644
+index 0000000..67a38ec
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserManagementConverters.cs
+@@ -0,0 +1,33 @@
++using System.Globalization;
++using System.Windows;
++using System.Windows.Data;
++
++namespace Kazuko.Modules.UserManagement;
++
++public sealed class NullOrEmptyToVisibilityConverter : IValueConverter
++{
++    public bool Invert { get; set; }
++
++    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
++    {
++        var isEmpty = value is null || (value is string s && string.IsNullOrWhiteSpace(s));
++        if (Invert)
++        {
++            isEmpty = !isEmpty;
++        }
++
++        return isEmpty ? Visibility.Visible : Visibility.Collapsed;
++    }
++
++    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
++        throw new NotSupportedException();
++}
++
++public sealed class InverseBooleanToVisibilityConverter : IValueConverter
++{
++    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
++        value is bool b && b ? Visibility.Collapsed : Visibility.Visible;
++
++    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
++        throw new NotSupportedException();
++}
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserManagementModule.cs b/src/Modules/Kazuko.Modules.UserManagement/UserManagementModule.cs
+new file mode 100644
+index 0000000..7dbeef3
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserManagementModule.cs
+@@ -0,0 +1,45 @@
++using Kazuko.Core.Authentication;
++using Kazuko.Core.DependencyInjection;
++using Kazuko.Core.Modules;
++using Kazuko.Core.UserManagement;
++
++namespace Kazuko.Modules.UserManagement;
++
++public sealed class UserManagementModule : IKazukoModule
++{
++    private const string AssetRoot = "/Kazuko.Modules.UserManagement;component/Assets/icons/";
++
++    public string Id => "Kazuko.UserManagement";
++    public Version Version => new(1, 0, 0);
++
++    public void RegisterServices(IServiceRegistry services)
++    {
++        // Repository được App đăng ký trước (App.xaml.cs) — module chỉ đọc ra để dựng view.
++    }
++
++    public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
++    {
++        var repository = GetRequiredService<IUserManagementRepository>(services);
++        var session = GetRequiredService<ICurrentSessionAccessor>(services);
++
++        navigation.Register(new NavigationItem(
++            "USER_MANAGEMENT",
++            "NGƯỜI DÙNG",
++            string.Empty,
++            90,
++            null,
++            () => new UserManagementView
++            {
++                DataContext = new UserManagementViewModel(repository, session)
++            },
++            AssetRoot + "CAIDAT.png",
++            "Người dùng và phân quyền\ntheo nhóm",
++            ShowInSidebar: true,
++            ShowOnHome: true,
++            IsPlaceholder: false));
++    }
++
++    private static T GetRequiredService<T>(IServiceProvider services) where T : class =>
++        services.GetService(typeof(T)) as T
++        ?? throw new InvalidOperationException($"Service {typeof(T).FullName} is not registered.");
++}
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserManagementView.xaml b/src/Modules/Kazuko.Modules.UserManagement/UserManagementView.xaml
+new file mode 100644
+index 0000000..4320f21
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserManagementView.xaml
+@@ -0,0 +1,372 @@
++<UserControl x:Class="Kazuko.Modules.UserManagement.UserManagementView"
++             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++             xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
++             MinWidth="960" MinHeight="560"
++             Background="Transparent">
++  <UserControl.Resources>
++    <local:NullOrEmptyToVisibilityConverter x:Key="NotEmptyToVis" Invert="True" />
++    <BooleanToVisibilityConverter x:Key="BoolToVis" />
++
++    <Style x:Key="UmSectionHeaderStyle" TargetType="TextBlock">
++      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Subtitle}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++    </Style>
++
++    <Style x:Key="UmFieldLabelStyle" TargetType="TextBlock">
++      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
++      <Setter Property="Margin" Value="0,0,0,3" />
++    </Style>
++
++    <Style x:Key="UmPrimaryButtonStyle" TargetType="Button">
++      <Setter Property="MinHeight" Value="34" />
++      <Setter Property="Padding" Value="14,4" />
++      <Setter Property="Margin" Value="0,0,8,0" />
++      <Setter Property="BorderThickness" Value="0" />
++      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="Cursor" Value="Hand" />
++      <Setter Property="Template">
++        <Setter.Value>
++          <ControlTemplate TargetType="Button">
++            <Border x:Name="Bd"
++                    Background="{TemplateBinding Background}"
++                    BorderBrush="{TemplateBinding BorderBrush}"
++                    BorderThickness="{TemplateBinding BorderThickness}"
++                    CornerRadius="8"
++                    Padding="{TemplateBinding Padding}"
++                    SnapsToDevicePixels="True">
++              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
++            </Border>
++            <ControlTemplate.Triggers>
++              <Trigger Property="IsMouseOver" Value="True">
++                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
++              </Trigger>
++              <Trigger Property="IsEnabled" Value="False">
++                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
++              </Trigger>
++            </ControlTemplate.Triggers>
++          </ControlTemplate>
++        </Setter.Value>
++      </Setter>
++    </Style>
++
++    <Style x:Key="UmOutlineButtonStyle" TargetType="Button">
++      <Setter Property="MinHeight" Value="34" />
++      <Setter Property="Padding" Value="14,4" />
++      <Setter Property="Margin" Value="0,0,8,0" />
++      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
++      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
++      <Setter Property="BorderThickness" Value="1.5" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++      <Setter Property="Cursor" Value="Hand" />
++      <Setter Property="Template">
++        <Setter.Value>
++          <ControlTemplate TargetType="Button">
++            <Border x:Name="Bd"
++                    Background="{TemplateBinding Background}"
++                    BorderBrush="{TemplateBinding BorderBrush}"
++                    BorderThickness="{TemplateBinding BorderThickness}"
++                    CornerRadius="8"
++                    Padding="{TemplateBinding Padding}"
++                    SnapsToDevicePixels="True">
++              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
++            </Border>
++            <ControlTemplate.Triggers>
++              <Trigger Property="IsMouseOver" Value="True">
++                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
++                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
++              </Trigger>
++              <Trigger Property="IsEnabled" Value="False">
++                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
++              </Trigger>
++            </ControlTemplate.Triggers>
++          </ControlTemplate>
++        </Setter.Value>
++      </Setter>
++    </Style>
++
++    <Style x:Key="UmDangerButtonStyle" TargetType="Button" BasedOn="{StaticResource UmOutlineButtonStyle}">
++      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
++    </Style>
++
++    <Style x:Key="UmTextBoxStyle" TargetType="TextBox">
++      <Setter Property="MinHeight" Value="34" />
++      <Setter Property="Padding" Value="10,4" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
++      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
++      <Setter Property="BorderThickness" Value="1" />
++      <Setter Property="VerticalContentAlignment" Value="Center" />
++    </Style>
++
++    <Style x:Key="UmDataGridStyle" TargetType="DataGrid">
++      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
++      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
++      <Setter Property="BorderThickness" Value="1" />
++      <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}" />
++      <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}" />
++      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
++      <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
++      <Setter Property="HeadersVisibility" Value="Column" />
++      <Setter Property="GridLinesVisibility" Value="Horizontal" />
++      <Setter Property="SelectionMode" Value="Single" />
++      <Setter Property="SelectionUnit" Value="FullRow" />
++      <Setter Property="CanUserAddRows" Value="False" />
++      <Setter Property="CanUserDeleteRows" Value="False" />
++      <Setter Property="CanUserResizeRows" Value="False" />
++      <Setter Property="AutoGenerateColumns" Value="False" />
++      <Setter Property="RowHeight" Value="30" />
++      <Setter Property="ColumnHeaderHeight" Value="34" />
++      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
++    </Style>
++
++    <Style x:Key="UmColumnHeaderStyle" TargetType="DataGridColumnHeader">
++      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
++      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
++      <Setter Property="FontWeight" Value="SemiBold" />
++      <Setter Property="Padding" Value="8,4" />
++      <Setter Property="HorizontalContentAlignment" Value="Center" />
++    </Style>
++
++    <Style x:Key="UmGroupListItemStyle" TargetType="ListBoxItem">
++      <Setter Property="Padding" Value="10,8" />
++      <Setter Property="Margin" Value="0,0,0,4" />
++      <Setter Property="Cursor" Value="Hand" />
++      <Setter Property="Template">
++        <Setter.Value>
++          <ControlTemplate TargetType="ListBoxItem">
++            <Border x:Name="Bd"
++                    Background="Transparent"
++                    CornerRadius="8"
++                    Padding="{TemplateBinding Padding}"
++                    SnapsToDevicePixels="True">
++              <ContentPresenter />
++            </Border>
++            <ControlTemplate.Triggers>
++              <Trigger Property="IsMouseOver" Value="True">
++                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
++              </Trigger>
++              <Trigger Property="IsSelected" Value="True">
++                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}" />
++                <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
++              </Trigger>
++            </ControlTemplate.Triggers>
++          </ControlTemplate>
++        </Setter.Value>
++      </Setter>
++    </Style>
++  </UserControl.Resources>
++
++  <Grid Margin="12">
++    <Grid.ColumnDefinitions>
++      <ColumnDefinition Width="280" />
++      <ColumnDefinition Width="12" />
++      <ColumnDefinition Width="*" />
++    </Grid.ColumnDefinitions>
++
++    <!-- Pane trái: nhóm người dùng -->
++    <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="12">
++      <DockPanel LastChildFill="True">
++        <TextBlock DockPanel.Dock="Top"
++                   Text="NHÓM NGƯỜI DÙNG"
++                   Style="{StaticResource UmSectionHeaderStyle}"
++                   Margin="0,0,0,8" />
++
++        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
++          <Button Content="Thêm" Style="{StaticResource UmPrimaryButtonStyle}"
++                  Command="{Binding AddGroupCommand}" MinWidth="70" Margin="0,0,6,0" />
++          <Button Content="Sửa" Style="{StaticResource UmOutlineButtonStyle}"
++                  Command="{Binding EditGroupCommand}" MinWidth="60" />
++          <Button Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
++                  Command="{Binding DeleteGroupCommand}" MinWidth="60" Margin="6,0,0,0" />
++        </StackPanel>
++
++        <ListBox ItemsSource="{Binding Groups}"
++                 SelectedItem="{Binding SelectedGroup}"
++                 ItemContainerStyle="{StaticResource UmGroupListItemStyle}"
++                 BorderThickness="0"
++                 Background="Transparent"
++                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
++          <ListBox.ItemTemplate>
++            <DataTemplate>
++              <StackPanel ToolTip="{Binding Description}">
++                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
++                           FontSize="{DynamicResource FontSize.Body}" />
++                <TextBlock FontSize="{DynamicResource FontSize.Caption}"
++                           Foreground="{DynamicResource TextSecondaryBrush}">
++                  <Run Text="{Binding UserCount, Mode=OneWay}" />
++                  <Run Text=" người dùng" />
++                </TextBlock>
++              </StackPanel>
++            </DataTemplate>
++          </ListBox.ItemTemplate>
++        </ListBox>
++      </DockPanel>
++    </Border>
++
++    <!-- Pane phải -->
++    <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="0">
++      <TabControl Margin="0" Background="Transparent" BorderThickness="0" Padding="12">
++        <!-- Tab Người dùng -->
++        <TabItem Header="Người dùng">
++          <DockPanel LastChildFill="True">
++            <TextBlock DockPanel.Dock="Top"
++                       Text="{Binding ErrorMessage}"
++                       Foreground="{DynamicResource DangerBrush}"
++                       TextWrapping="Wrap" Margin="0,0,0,8"
++                       Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyToVis}}" />
++
++            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="False">
++              <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
++                <Button Content="Thêm mới" Style="{StaticResource UmPrimaryButtonStyle}"
++                        Command="{Binding AddUserCommand}" />
++                <Button Content="Chỉnh sửa" Style="{StaticResource UmOutlineButtonStyle}"
++                        Command="{Binding EditUserCommand}" />
++                <Button Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
++                        Command="{Binding DeleteUserCommand}" />
++                <Button Content="In" Style="{StaticResource UmOutlineButtonStyle}"
++                        Command="{Binding PrintCommand}" />
++              </StackPanel>
++              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
++                <TextBox Width="200" Style="{StaticResource UmTextBoxStyle}"
++                         Text="{Binding Keyword, UpdateSourceTrigger=PropertyChanged}"
++                         ToolTip="Lọc theo họ tên, tài khoản, email">
++                  <TextBox.InputBindings>
++                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
++                  </TextBox.InputBindings>
++                </TextBox>
++                <Button Content="Lọc" Style="{StaticResource UmPrimaryButtonStyle}"
++                        Command="{Binding SearchCommand}" Margin="8,0,0,0" />
++                <Button Content="Làm mới" Style="{StaticResource UmOutlineButtonStyle}"
++                        Command="{Binding RefreshCommand}" Margin="0" />
++              </StackPanel>
++            </DockPanel>
++
++            <DataGrid ItemsSource="{Binding Users}"
++                      SelectedItem="{Binding SelectedUser}"
++                      Style="{StaticResource UmDataGridStyle}"
++                      ColumnHeaderStyle="{StaticResource UmColumnHeaderStyle}"
++                      IsReadOnly="True"
++                      VerticalScrollBarVisibility="Auto">
++              <DataGrid.Columns>
++                <DataGridTextColumn Header="Email" Binding="{Binding Email, Mode=OneWay}" Width="*" />
++                <DataGridTextColumn Header="Họ tên" Binding="{Binding DisplayName, Mode=OneWay}" Width="*" />
++                <DataGridTextColumn Header="Tài khoản" Binding="{Binding Username, Mode=OneWay}" Width="160" />
++              </DataGrid.Columns>
++            </DataGrid>
++          </DockPanel>
++        </TabItem>
++
++        <!-- Tab Quyền sử dụng -->
++        <TabItem Header="Quyền sử dụng">
++          <DockPanel LastChildFill="True">
++            <Border DockPanel.Dock="Top"
++                    Background="{DynamicResource SurfaceAltBrush}"
++                    CornerRadius="8" Padding="12" Margin="0,0,0,10">
++              <TextBlock Text="{Binding InheritanceExplanation}"
++                         TextWrapping="Wrap"
++                         FontSize="{DynamicResource FontSize.Caption}"
++                         Foreground="{DynamicResource TextSecondaryBrush}" />
++            </Border>
++
++            <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
++              <Button DockPanel.Dock="Right"
++                      Content="Lưu"
++                      Style="{StaticResource UmPrimaryButtonStyle}"
++                      Command="{Binding SavePermissionsCommand}"
++                      MinWidth="140" />
++              <TextBlock Text="{Binding PermissionGroupTitle}"
++                         Style="{StaticResource UmSectionHeaderStyle}"
++                         VerticalAlignment="Center" />
++            </DockPanel>
++
++            <DataGrid ItemsSource="{Binding GroupedPermissions}"
++                      Style="{StaticResource UmDataGridStyle}"
++                      ColumnHeaderStyle="{StaticResource UmColumnHeaderStyle}"
++                      VerticalScrollBarVisibility="Auto">
++              <DataGrid.GroupStyle>
++                <GroupStyle>
++                  <GroupStyle.HeaderTemplate>
++                    <DataTemplate>
++                      <TextBlock Text="{Binding Name}"
++                                 FontWeight="Bold"
++                                 FontSize="{DynamicResource FontSize.Body}"
++                                 Foreground="{DynamicResource PrimaryBrush}"
++                                 Padding="8,6" />
++                    </DataTemplate>
++                  </GroupStyle.HeaderTemplate>
++                </GroupStyle>
++              </DataGrid.GroupStyle>
++              <DataGrid.Columns>
++                <DataGridTextColumn Header="Chức năng" Binding="{Binding FunctionName, Mode=OneWay}"
++                                    Width="*" IsReadOnly="True" />
++                <DataGridTemplateColumn Header="Bị khóa" Width="80">
++                  <DataGridTemplateColumn.CellTemplate>
++                    <DataTemplate>
++                      <CheckBox IsChecked="{Binding IsLocked, UpdateSourceTrigger=PropertyChanged}"
++                                HorizontalAlignment="Center" VerticalAlignment="Center" />
++                    </DataTemplate>
++                  </DataGridTemplateColumn.CellTemplate>
++                </DataGridTemplateColumn>
++                <DataGridTemplateColumn Header="Xem" Width="70">
++                  <DataGridTemplateColumn.CellTemplate>
++                    <DataTemplate>
++                      <CheckBox IsChecked="{Binding CanView, UpdateSourceTrigger=PropertyChanged}"
++                                IsEnabled="{Binding IsCheckEnabled}"
++                                HorizontalAlignment="Center" VerticalAlignment="Center" />
++                    </DataTemplate>
++                  </DataGridTemplateColumn.CellTemplate>
++                </DataGridTemplateColumn>
++                <DataGridTemplateColumn Header="Thêm" Width="70">
++                  <DataGridTemplateColumn.CellTemplate>
++                    <DataTemplate>
++                      <CheckBox IsChecked="{Binding CanAdd, UpdateSourceTrigger=PropertyChanged}"
++                                IsEnabled="{Binding IsCheckEnabled}"
++                                HorizontalAlignment="Center" VerticalAlignment="Center" />
++                    </DataTemplate>
++                  </DataGridTemplateColumn.CellTemplate>
++                </DataGridTemplateColumn>
++                <DataGridTemplateColumn Header="Sửa" Width="70">
++                  <DataGridTemplateColumn.CellTemplate>
++                    <DataTemplate>
++                      <CheckBox IsChecked="{Binding CanEdit, UpdateSourceTrigger=PropertyChanged}"
++                                IsEnabled="{Binding IsCheckEnabled}"
++                                HorizontalAlignment="Center" VerticalAlignment="Center" />
++                    </DataTemplate>
++                  </DataGridTemplateColumn.CellTemplate>
++                </DataGridTemplateColumn>
++                <DataGridTemplateColumn Header="Xóa" Width="70">
++                  <DataGridTemplateColumn.CellTemplate>
++                    <DataTemplate>
++                      <CheckBox IsChecked="{Binding CanDelete, UpdateSourceTrigger=PropertyChanged}"
++                                IsEnabled="{Binding IsCheckEnabled}"
++                                HorizontalAlignment="Center" VerticalAlignment="Center" />
++                    </DataTemplate>
++                  </DataGridTemplateColumn.CellTemplate>
++                </DataGridTemplateColumn>
++                <DataGridTemplateColumn Header="Tất cả" Width="80">
++                  <DataGridTemplateColumn.CellTemplate>
++                    <DataTemplate>
++                      <CheckBox IsChecked="{Binding All, UpdateSourceTrigger=PropertyChanged}"
++                                IsEnabled="{Binding IsCheckEnabled}"
++                                HorizontalAlignment="Center" VerticalAlignment="Center" />
++                    </DataTemplate>
++                  </DataGridTemplateColumn.CellTemplate>
++                </DataGridTemplateColumn>
++              </DataGrid.Columns>
++            </DataGrid>
++          </DockPanel>
++        </TabItem>
++      </TabControl>
++    </Border>
++  </Grid>
++</UserControl>
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserManagementView.xaml.cs b/src/Modules/Kazuko.Modules.UserManagement/UserManagementView.xaml.cs
+new file mode 100644
+index 0000000..b2259a2
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserManagementView.xaml.cs
+@@ -0,0 +1,11 @@
++using System.Windows.Controls;
++
++namespace Kazuko.Modules.UserManagement;
++
++public partial class UserManagementView : UserControl
++{
++    public UserManagementView()
++    {
++        InitializeComponent();
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.UserManagement/UserManagementViewModel.cs b/src/Modules/Kazuko.Modules.UserManagement/UserManagementViewModel.cs
+new file mode 100644
+index 0000000..d41c2f0
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.UserManagement/UserManagementViewModel.cs
+@@ -0,0 +1,402 @@
++using System.Collections.ObjectModel;
++using System.ComponentModel;
++using System.Windows;
++using System.Windows.Data;
++using System.Windows.Controls;
++using System.Windows.Documents;
++using System.Windows.Input;
++using System.Windows.Media;
++using Kazuko.Core.Authentication;
++using Kazuko.Core.Mvvm;
++using Kazuko.Core.UserManagement;
++
++namespace Kazuko.Modules.UserManagement;
++
++/// <summary>
++/// Màn hình Người dùng & Phân quyền:
++/// - Pane trái: danh sách NHÓM người dùng (không có "Tất cả").
++/// - Pane phải: tab "Người dùng" (bảng Email | Họ tên | Tài khoản, ẩn tài khoản
++///   Admin hệ thống) và tab "Quyền sử dụng" (ma trận quyền theo nhóm đang chọn).
++/// </summary>
++public sealed class UserManagementViewModel : ObservableObject
++{
++    private readonly IUserManagementRepository _repository;
++    private readonly ICurrentSessionAccessor _session;
++
++    private readonly ObservableCollection<SystemUser> _allUsers = new();
++
++    private UserGroup? _selectedGroup;
++    private SystemUser? _selectedUser;
++    private string _keyword = string.Empty;
++    private string _errorMessage = string.Empty;
++    private bool _isBusy;
++
++    public UserManagementViewModel(
++        IUserManagementRepository repository,
++        ICurrentSessionAccessor session)
++    {
++        _repository = repository;
++        _session = session;
++
++        Groups = new ObservableCollection<UserGroup>();
++        Users = new ObservableCollection<SystemUser>();
++        PermissionRows = new ObservableCollection<PermissionMatrixRowViewModel>();
++        GroupedPermissions = CollectionViewSource.GetDefaultView(PermissionRows);
++        GroupedPermissions.GroupDescriptions.Add(new PropertyGroupDescription(nameof(PermissionMatrixRowViewModel.ModuleGroup)));
++
++        InheritanceExplanation = PermissionInheritanceRules.Explanation;
++
++        AddGroupCommand = new AsyncRelayCommand(AddGroupAsync, () => !IsBusy);
++        EditGroupCommand = new AsyncRelayCommand(EditGroupAsync, () => !IsBusy && SelectedGroup is not null);
++        DeleteGroupCommand = new AsyncRelayCommand(DeleteGroupAsync, () => !IsBusy && SelectedGroup is not null);
++        AddUserCommand = new AsyncRelayCommand(AddUserAsync, () => !IsBusy && SelectedGroup is not null);
++        EditUserCommand = new AsyncRelayCommand(EditUserAsync, () => !IsBusy && SelectedUser is not null);
++        DeleteUserCommand = new AsyncRelayCommand(DeleteUserAsync, () => !IsBusy && SelectedUser is not null);
++        SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsBusy);
++        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsBusy);
++        PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsBusy && Users.Count > 0);
++        SavePermissionsCommand = new AsyncRelayCommand(SavePermissionsAsync, () => !IsBusy && SelectedGroup is not null);
++
++        _ = RefreshAsync();
++    }
++
++    public ObservableCollection<UserGroup> Groups { get; }
++    public ObservableCollection<SystemUser> Users { get; }
++    public ObservableCollection<PermissionMatrixRowViewModel> PermissionRows { get; }
++    public ICollectionView GroupedPermissions { get; }
++
++    public string InheritanceExplanation { get; }
++
++    public string Title => "Người dùng & Phân quyền";
++
++    public string SelectedGroupTitle =>
++        SelectedGroup is null ? "Người dùng" : $"Người dùng — {SelectedGroup.Name}";
++
++    public string PermissionGroupTitle =>
++        SelectedGroup is null ? "Quyền sử dụng" : $"Quyền sử dụng — {SelectedGroup.Name}";
++
++    public UserGroup? SelectedGroup
++    {
++        get => _selectedGroup;
++        set
++        {
++            if (SetProperty(ref _selectedGroup, value))
++            {
++                OnPropertyChanged(nameof(SelectedGroupTitle));
++                OnPropertyChanged(nameof(PermissionGroupTitle));
++                NotifyCommands();
++                _ = LoadGroupDetailAsync();
++            }
++        }
++    }
++
++    public SystemUser? SelectedUser
++    {
++        get => _selectedUser;
++        set
++        {
++            if (SetProperty(ref _selectedUser, value))
++                NotifyCommands();
++        }
++    }
++
++    public string Keyword
++    {
++        get => _keyword;
++        set => SetProperty(ref _keyword, value);
++    }
++
++    public string ErrorMessage
++    {
++        get => _errorMessage;
++        set => SetProperty(ref _errorMessage, value);
++    }
++
++    public bool IsBusy
++    {
++        get => _isBusy;
++        private set
++        {
++            if (SetProperty(ref _isBusy, value))
++                NotifyCommands();
++        }
++    }
++
++    public ICommand AddGroupCommand { get; }
++    public ICommand EditGroupCommand { get; }
++    public ICommand DeleteGroupCommand { get; }
++    public ICommand AddUserCommand { get; }
++    public ICommand EditUserCommand { get; }
++    public ICommand DeleteUserCommand { get; }
++    public ICommand SearchCommand { get; }
++    public ICommand RefreshCommand { get; }
++    public ICommand PrintCommand { get; }
++    public ICommand SavePermissionsCommand { get; }
++
++    private void NotifyCommands()
++    {
++        ((AsyncRelayCommand)AddGroupCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)EditGroupCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)DeleteGroupCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)AddUserCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)EditUserCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)DeleteUserCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)SearchCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)RefreshCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
++        ((AsyncRelayCommand)SavePermissionsCommand).NotifyCanExecuteChanged();
++    }
++
++    private async Task RefreshAsync()
++    {
++        ErrorMessage = string.Empty;
++        IsBusy = true;
++        try
++        {
++            var groups = await _repository.GetGroupsAsync();
++            var selectedId = SelectedGroup?.Id;
++            Groups.Clear();
++            foreach (var group in groups)
++                Groups.Add(group);
++
++            SelectedGroup = Groups.FirstOrDefault(g => g.Id == selectedId)
++                ?? Groups.FirstOrDefault();
++            if (SelectedGroup is null)
++                await LoadGroupDetailAsync();
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = ex.Message;
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
++    private async Task LoadGroupDetailAsync()
++    {
++        ErrorMessage = string.Empty;
++        Users.Clear();
++        _allUsers.Clear();
++        PermissionRows.Clear();
++
++        if (SelectedGroup is null)
++            return;
++
++        IsBusy = true;
++        try
++        {
++            var users = await _repository.GetUsersAsync(SelectedGroup.Id);
++            foreach (var user in users)
++                _allUsers.Add(user);
++            ApplyUserFilter();
++
++            var saved = await _repository.GetGroupPermissionsAsync(SelectedGroup.Id);
++            foreach (var row in PermissionMatrixRowViewModel.BuildFrom(saved))
++                PermissionRows.Add(row);
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = ex.Message;
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
++    private Task SearchAsync()
++    {
++        ApplyUserFilter();
++        return Task.CompletedTask;
++    }
++
++    private void ApplyUserFilter()
++    {
++        var keyword = Keyword.Trim();
++        Users.Clear();
++        foreach (var user in _allUsers)
++        {
++            if (keyword.Length == 0 ||
++                user.DisplayName.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
++                user.Username.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
++                (user.Email ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase))
++            {
++                Users.Add(user);
++            }
++        }
++        SelectedUser = Users.FirstOrDefault();
++        ((AsyncRelayCommand)PrintCommand).NotifyCanExecuteChanged();
++    }
++
++    private async Task AddGroupAsync()
++    {
++        var saved = UserGroupEditDialog.ShowForCreate(ActiveWindow(), _repository, _session);
++        if (saved is not null)
++            await RefreshAsync();
++    }
++
++    private async Task EditGroupAsync()
++    {
++        if (SelectedGroup is null)
++            return;
++        var saved = UserGroupEditDialog.ShowForEdit(ActiveWindow(), _repository, _session, SelectedGroup);
++        if (saved is not null)
++            await RefreshAsync();
++    }
++
++    private async Task DeleteGroupAsync()
++    {
++        if (SelectedGroup is null)
++            return;
++
++        var answer = MessageBox.Show(
++            $"Xóa nhóm \"{SelectedGroup.Name}\"?\nMa trận quyền của nhóm cũng bị xóa.",
++            "Xóa nhóm người dùng",
++            MessageBoxButton.YesNo,
++            MessageBoxImage.Question);
++        if (answer != MessageBoxResult.Yes)
++            return;
++
++        try
++        {
++            await _repository.DeleteGroupAsync(SelectedGroup.Id);
++            await RefreshAsync();
++        }
++        catch (Exception ex)
++        {
++            MessageBox.Show(ex.Message, "Xóa nhóm", MessageBoxButton.OK, MessageBoxImage.Warning);
++        }
++    }
++
++    private async Task AddUserAsync()
++    {
++        if (SelectedGroup is null)
++            return;
++        var saved = UserEditDialog.ShowForCreate(ActiveWindow(), _repository, _session, SelectedGroup);
++        if (saved is not null)
++            await LoadGroupDetailAsync();
++    }
++
++    private async Task EditUserAsync()
++    {
++        if (SelectedUser is null)
++            return;
++        var saved = UserEditDialog.ShowForEdit(ActiveWindow(), _repository, _session, SelectedUser);
++        if (saved is not null)
++            await LoadGroupDetailAsync();
++    }
++
++    private async Task DeleteUserAsync()
++    {
++        if (SelectedUser is null)
++            return;
++
++        var answer = MessageBox.Show(
++            $"Xóa tài khoản \"{SelectedUser.Username}\" ({SelectedUser.DisplayName})?",
++            "Xóa người dùng",
++            MessageBoxButton.YesNo,
++            MessageBoxImage.Question);
++        if (answer != MessageBoxResult.Yes)
++            return;
++
++        try
++        {
++            await _repository.DeleteUserAsync(SelectedUser.Id);
++            await LoadGroupDetailAsync();
++        }
++        catch (Exception ex)
++        {
++            MessageBox.Show(ex.Message, "Xóa người dùng", MessageBoxButton.OK, MessageBoxImage.Warning);
++        }
++    }
++
++    private Task PrintAsync()
++    {
++        if (SelectedGroup is null || Users.Count == 0)
++            return Task.CompletedTask;
++
++        var document = new FlowDocument
++        {
++            PagePadding = new Thickness(40),
++            FontFamily = new System.Windows.Media.FontFamily("Segoe UI"),
++        };
++        document.Blocks.Add(new Paragraph(new Run($"Danh sách người dùng — {SelectedGroup.Name}"))
++        {
++            FontSize = 18,
++            FontWeight = FontWeights.Bold,
++            TextAlignment = TextAlignment.Center,
++        });
++        document.Blocks.Add(new Paragraph(new Run($"Ngày in: {DateTime.Now:dd/MM/yyyy HH:mm}"))
++        {
++            TextAlignment = TextAlignment.Right,
++            FontSize = 11,
++        });
++
++        var table = new Table { CellSpacing = 0 };
++        table.Columns.Add(new TableColumn { Width = new GridLength(60) });
++        table.Columns.Add(new TableColumn { Width = new GridLength(1, GridUnitType.Star) });
++        table.Columns.Add(new TableColumn { Width = new GridLength(1, GridUnitType.Star) });
++        table.Columns.Add(new TableColumn { Width = new GridLength(140) });
++
++        var headerGroup = new TableRowGroup();
++        var headerRow = new TableRow();
++        foreach (var text in new[] { "STT", "Họ tên", "Tài khoản", "Email" })
++            headerRow.Cells.Add(new TableCell(new Paragraph(new Run(text)) { FontWeight = FontWeights.Bold }));
++        headerGroup.Rows.Add(headerRow);
++        table.RowGroups.Add(headerGroup);
++
++        var bodyGroup = new TableRowGroup();
++        var index = 1;
++        foreach (var user in Users)
++        {
++            var row = new TableRow();
++            row.Cells.Add(new TableCell(new Paragraph(new Run(index.ToString()))));
++            row.Cells.Add(new TableCell(new Paragraph(new Run(user.DisplayName))));
++            row.Cells.Add(new TableCell(new Paragraph(new Run(user.Username))));
++            row.Cells.Add(new TableCell(new Paragraph(new Run(user.Email ?? string.Empty))));
++            bodyGroup.Rows.Add(row);
++            index++;
++        }
++        table.RowGroups.Add(bodyGroup);
++        document.Blocks.Add(table);
++
++        var printDialog = new PrintDialog();
++        if (printDialog.ShowDialog() == true)
++            printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, Title);
++
++        return Task.CompletedTask;
++    }
++
++    private async Task SavePermissionsAsync()
++    {
++        if (SelectedGroup is null)
++            return;
++
++        var session = _session.Current;
++        if (session is null)
++        {
++            MessageBox.Show("Phiên đăng nhập đã hết hạn.", "Lưu quyền", MessageBoxButton.OK, MessageBoxImage.Warning);
++            return;
++        }
++
++        try
++        {
++            var rows = PermissionRows.Select(r => r.ToSaveRow()).ToArray();
++            await _repository.SaveGroupPermissionsAsync(SelectedGroup.Id, rows, session.UserId);
++            MessageBox.Show(
++                $"Đã lưu ma trận quyền cho nhóm \"{SelectedGroup.Name}\".",
++                "Lưu quyền",
++                MessageBoxButton.OK,
++                MessageBoxImage.Information);
++        }
++        catch (Exception ex)
++        {
++            MessageBox.Show(ex.Message, "Lưu quyền", MessageBoxButton.OK, MessageBoxImage.Warning);
++        }
++    }
++
++    private static Window? ActiveWindow() =>
++        Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
++}
+diff --git a/tests/Kazuko.Modules.UserManagement.Tests/Kazuko.Modules.UserManagement.Tests.csproj b/tests/Kazuko.Modules.UserManagement.Tests/Kazuko.Modules.UserManagement.Tests.csproj
+new file mode 100644
+index 0000000..2e11139
+--- /dev/null
++++ b/tests/Kazuko.Modules.UserManagement.Tests/Kazuko.Modules.UserManagement.Tests.csproj
+@@ -0,0 +1,21 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net8.0-windows</TargetFramework>
++    <UseWPF>true</UseWPF>
++    <IsPackable>false</IsPackable>
++    <IsTestProject>true</IsTestProject>
++    <RootNamespace>Kazuko.Modules.UserManagement.Tests</RootNamespace>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
++    <PackageReference Include="xunit" Version="2.9.2" />
++    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++      <PrivateAssets>all</PrivateAssets>
++    </PackageReference>
++  </ItemGroup>
++  <ItemGroup>
++    <ProjectReference Include="..\..\src\Kazuko.Core\Kazuko.Core.csproj" />
++    <ProjectReference Include="..\..\src\Modules\Kazuko.Modules.UserManagement\Kazuko.Modules.UserManagement.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/tests/Kazuko.Modules.UserManagement.Tests/PermissionMatrixTests.cs b/tests/Kazuko.Modules.UserManagement.Tests/PermissionMatrixTests.cs
+new file mode 100644
+index 0000000..e733cc3
+--- /dev/null
++++ b/tests/Kazuko.Modules.UserManagement.Tests/PermissionMatrixTests.cs
+@@ -0,0 +1,227 @@
++using Kazuko.Core.UserManagement;
++using Kazuko.Modules.UserManagement;
++using Xunit;
++
++namespace Kazuko.Modules.UserManagement.Tests;
++
++public sealed class PermissionMatrixRowViewModelTests
++{
++    private static PermissionMatrixRowViewModel CreateRow() =>
++        new("SALES_RETAIL", "Bán lẻ", SystemFunctionCatalog.ModuleSales);
++
++    [Fact]
++    public void CanAdd_true_auto_checks_edit_and_view()
++    {
++        var row = CreateRow();
++
++        row.CanAdd = true;
++
++        Assert.True(row.CanAdd);
++        Assert.True(row.CanEdit);
++        Assert.True(row.CanView);
++    }
++
++    [Fact]
++    public void CanDelete_true_auto_checks_edit_and_view()
++    {
++        var row = CreateRow();
++
++        row.CanDelete = true;
++
++        Assert.True(row.CanDelete);
++        Assert.True(row.CanEdit);
++        Assert.True(row.CanView);
++    }
++
++    [Fact]
++    public void CanEdit_true_auto_checks_view()
++    {
++        var row = CreateRow();
++
++        row.CanEdit = true;
++
++        Assert.True(row.CanEdit);
++        Assert.True(row.CanView);
++        Assert.False(row.CanAdd);
++        Assert.False(row.CanDelete);
++    }
++
++    [Fact]
++    public void CanView_false_clears_add_edit_delete()
++    {
++        var row = CreateRow();
++        row.All = true;
++
++        row.CanView = false;
++
++        Assert.False(row.CanView);
++        Assert.False(row.CanAdd);
++        Assert.False(row.CanEdit);
++        Assert.False(row.CanDelete);
++    }
++
++    [Fact]
++    public void All_true_checks_all_four()
++    {
++        var row = CreateRow();
++
++        row.All = true;
++
++        Assert.True(row.All);
++        Assert.True(row.CanView);
++        Assert.True(row.CanAdd);
++        Assert.True(row.CanEdit);
++        Assert.True(row.CanDelete);
++    }
++
++    [Fact]
++    public void All_false_clears_all_four()
++    {
++        var row = CreateRow();
++        row.All = true;
++
++        row.All = false;
++
++        Assert.False(row.All);
++        Assert.False(row.CanView);
++        Assert.False(row.CanAdd);
++        Assert.False(row.CanEdit);
++        Assert.False(row.CanDelete);
++    }
++
++    [Fact]
++    public void All_reflects_partial_state_as_false()
++    {
++        var row = CreateRow();
++        row.CanView = true;
++
++        Assert.False(row.All);
++    }
++
++    [Fact]
++    public void IsLocked_true_clears_checks_and_disables()
++    {
++        var row = CreateRow();
++        row.All = true;
++
++        row.IsLocked = true;
++
++        Assert.True(row.IsLocked);
++        Assert.False(row.All);
++        Assert.False(row.CanView);
++        Assert.False(row.CanAdd);
++        Assert.False(row.CanEdit);
++        Assert.False(row.CanDelete);
++        Assert.False(row.IsCheckEnabled);
++    }
++
++    [Fact]
++    public void IsLocked_false_enables_checks()
++    {
++        var row = CreateRow();
++        row.IsLocked = true;
++
++        row.IsLocked = false;
++
++        Assert.False(row.IsLocked);
++        Assert.True(row.IsCheckEnabled);
++    }
++
++    [Fact]
++    public void BuildFrom_returns_all_28_functions_in_catalog_order()
++    {
++        var rows = PermissionMatrixRowViewModel.BuildFrom(Array.Empty<GroupPermissionRow>());
++
++        Assert.Equal(28, rows.Count);
++        Assert.Equal(
++            SystemFunctionCatalog.All.Select(f => f.Code),
++            rows.Select(r => r.FunctionCode));
++    }
++
++    [Fact]
++    public void BuildFrom_merges_saved_permissions()
++    {
++        var saved = new[]
++        {
++            new GroupPermissionRow(1, "SALES_RETAIL", true, true, true, false, false),
++            new GroupPermissionRow(1, "INV_TRANSFER", false, false, false, false, true),
++        };
++
++        var rows = PermissionMatrixRowViewModel.BuildFrom(saved);
++
++        var retail = rows.Single(r => r.FunctionCode == "SALES_RETAIL");
++        Assert.True(retail.CanView);
++        Assert.True(retail.CanAdd);
++        Assert.True(retail.CanEdit);
++        Assert.False(retail.CanDelete);
++        Assert.False(retail.IsLocked);
++
++        var locked = rows.Single(r => r.FunctionCode == "INV_TRANSFER");
++        Assert.True(locked.IsLocked);
++        Assert.False(locked.IsCheckEnabled);
++
++        // Chức năng không có dòng lưu thì mặc định tắt hết.
++        var wholesale = rows.Single(r => r.FunctionCode == "SALES_WHOLESALE");
++        Assert.False(wholesale.All);
++    }
++
++    [Fact]
++    public void ToSaveRow_round_trips_state()
++    {
++        var row = CreateRow();
++        row.CanAdd = true;
++        row.IsLocked = false;
++
++        var saved = row.ToSaveRow();
++
++        Assert.Equal("SALES_RETAIL", saved.FunctionCode);
++        Assert.True(saved.CanView);
++        Assert.True(saved.CanAdd);
++        Assert.True(saved.CanEdit);
++        Assert.False(saved.CanDelete);
++        Assert.False(saved.IsLocked);
++    }
++}
++
++public sealed class SystemFunctionCatalogTests
++{
++    // Phải khớp EXACT với seed trong migration 0076.
++    private static readonly string[] ExpectedCodes =
++    [
++        "SALES_RETAIL", "SALES_WHOLESALE", "CRAFT_ORDER", "OLD_GOLD_PURCHASE",
++        "INV_MATERIAL_RECEIPT", "INV_FINISHED_RECEIPT", "INV_TRANSFER", "INV_STOCKTAKE",
++        "PROD_ORDER", "PROD_MATERIAL_ISSUE", "PROD_GOLD_RECONCILE",
++        "DEBT_CUSTOMER", "DEBT_WORKER_GOLD", "DEBT_SETTLEMENT",
++        "FIN_CASH_IN", "FIN_CASH_OUT", "FIN_FUND",
++        "CAT_CUSTOMERS", "CAT_SUPPLIERS", "CAT_EXTERNAL_WORKERS", "CAT_EMPLOYEES", "CAT_GOLD_PRICE",
++        "REP_VIEW", "REP_EXPORT",
++        "SYS_USER_MANAGEMENT", "SYS_SETTINGS", "SYS_DATABASE", "SYS_DATA_DELETE",
++    ];
++
++    [Fact]
++    public void Catalog_has_exactly_28_unique_codes()
++    {
++        Assert.Equal(28, SystemFunctionCatalog.All.Count);
++        Assert.Equal(28, SystemFunctionCatalog.All.Select(f => f.Code.ToUpperInvariant()).Distinct().Count());
++        Assert.Equal(ExpectedCodes, SystemFunctionCatalog.All.Select(f => f.Code));
++    }
++
++    [Fact]
++    public void Catalog_groups_cover_all_8_modules()
++    {
++        var groups = SystemFunctionCatalog.All.Select(f => f.ModuleGroup).Distinct().ToArray();
++        Assert.Equal(
++            new[]
++            {
++                SystemFunctionCatalog.ModuleSales,
++                SystemFunctionCatalog.ModuleWarehouse,
++                SystemFunctionCatalog.ModuleProduction,
++                SystemFunctionCatalog.ModuleDebt,
++                SystemFunctionCatalog.ModuleFinance,
++                SystemFunctionCatalog.ModuleCatalog,
++                SystemFunctionCatalog.ModuleReports,
++                SystemFunctionCatalog.ModuleSystem,
++            },
++            groups);
++    }
++}

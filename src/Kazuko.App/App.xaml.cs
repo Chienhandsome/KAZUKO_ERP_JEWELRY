@@ -16,6 +16,7 @@ using Kazuko.Core.Production;
 using Kazuko.Core.Reports;
 using Kazuko.Core.Sales;
 using Kazuko.Core.Suppliers;
+using Kazuko.Core.UserManagement;
 using Kazuko.Core.Updates;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Authentication;
@@ -29,6 +30,7 @@ using Kazuko.Infrastructure.Reports;
 using Kazuko.Infrastructure.Sales;
 using Kazuko.Infrastructure.Settings;
 using Kazuko.Infrastructure.Suppliers;
+using Kazuko.Infrastructure.UserManagement;
 using Kazuko.Infrastructure.Updates;
 using Kazuko.Infrastructure.Updates.Activation;
 using Kazuko.Infrastructure.Warehouse;
@@ -43,6 +45,7 @@ using Kazuko.Modules.Production;
 using Kazuko.Modules.Reports;
 using Kazuko.Modules.Sales;
 using Kazuko.Modules.Suppliers;
+using Kazuko.Modules.UserManagement;
 using Kazuko.Modules.Warehouse;
 using Kazuko.Shared.UI.Behaviors;
 using Kazuko.Shared.UI.Services;
@@ -165,6 +168,7 @@ public partial class App : Application
         ISalesPrintDataService salesPrintData = new FirebirdSalesPrintDataService(salesQueries);
         ICraftOrderApplicationService craftOrders = new FirebirdCraftOrderApplicationService(productionAttachments);
         IWholesaleSalesApplicationService wholesaleSales = new FirebirdWholesaleSalesApplicationService();
+        IUserManagementRepository userManagement = new FirebirdUserManagementRepository();
 
         _services.AddSingleton(preferences);
         _services.AddSingleton(appearance);
@@ -236,6 +240,7 @@ public partial class App : Application
         _services.AddSingleton(wholesaleSales);
         _services.AddSingleton(salesAuthorization);
         _services.AddSingleton(salesPrintData);
+        _services.AddSingleton(userManagement);
     }
 
     private void RegisterModules()
@@ -252,7 +257,8 @@ public partial class App : Application
             new DebtModule(),
             new FinanceModule(),
             new HumanResourcesModule(),
-            new ReportsModule()
+            new ReportsModule(),
+            new UserManagementModule()
         ];
         foreach (var module in modules)
         {
