@@ -56,6 +56,9 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _funds = funds;
         _banks = banks;
         _session = session;
+        ReceivedByName = string.IsNullOrWhiteSpace(session.DisplayName)
+            ? session.Username
+            : session.DisplayName;
 
         MethodOptions.Add(new ReceiptPaymentMethodOption(PaymentMethods.Cash, "Tiền mặt"));
         MethodOptions.Add(new ReceiptPaymentMethodOption(PaymentMethods.BankTransfer, "Chuyển khoản"));
