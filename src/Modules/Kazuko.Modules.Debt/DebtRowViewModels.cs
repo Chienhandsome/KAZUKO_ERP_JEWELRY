@@ -1,6 +1,7 @@
 using System.Globalization;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Production;
 
 namespace Kazuko.Modules.Debt;
 
@@ -132,4 +133,75 @@ public sealed class GroupFilterOption(long id, string name)
     public long Id { get; } = id;
     public string Name { get; } = name;
     public override string ToString() => Name;
+}
+
+public sealed class WorkerGoldDebtRowViewModel : ObservableObject
+{
+    public WorkerGoldDebtRowViewModel(int index, WorkerGoldDebtListItem row)
+    {
+        Index = index;
+        Row = row;
+    }
+
+    public int Index { get; }
+    public WorkerGoldDebtListItem Row { get; }
+    public long DebtId => Row.Id;
+    public string Code => Row.Code;
+    public string WorkerDisplayName => Row.WorkerDisplayName;
+    public decimal WeightChi => Row.WeightChi;
+    public decimal WeightPaidChi => Row.WeightPaidChi;
+    public decimal RemainingChi => Row.RemainingChi;
+    public string ProductionOrderCode => Row.ProductionOrderCode;
+    public string StatusCode => Row.StatusCode;
+
+    public string WorkerTypeText => string.Equals(
+        Row.WorkerType, WorkerGoldDebtWorkerTypes.Employee, StringComparison.OrdinalIgnoreCase)
+        ? "Nội bộ"
+        : "Ngoài";
+
+    public string GoldPurityText => string.IsNullOrWhiteSpace(Row.GoldPurityCode) ? "—" : Row.GoldPurityCode;
+
+    /// <summary>Hiện nút "Ghi trả vàng" khi thợ còn nợ.</summary>
+    public bool CanRecordRepayment => RemainingChi > 0;
+
+    public string WeightText => Row.WeightChi.ToString("N3", CultureInfo.CurrentCulture);
+    public string WeightPaidText => Row.WeightPaidChi.ToString("N3", CultureInfo.CurrentCulture);
+    public string RemainingText => Row.RemainingChi.ToString("N3", CultureInfo.CurrentCulture);
+    public string CreatedAtText => Row.CreatedAt.ToString("dd/MM/yyyy", CultureInfo.CurrentCulture);
+    public string StatusText => StatusCode switch
+    {
+        WorkerGoldDebtStatuses.Paid => "Đã trả hết",
+        WorkerGoldDebtStatuses.Partial => "Trả một phần",
+        WorkerGoldDebtStatuses.Cancelled => "Đã hủy",
+        WorkerGoldDebtStatuses.Open => "Còn nợ",
+        _ => StatusCode
+    };
+
+    /// <summary>Mã trạng thái dùng cho DebtStatusToBrushConverter (PAID xanh / còn lại cam).</summary>
+    public string StatusBrushCode => StatusCode switch
+    {
+        WorkerGoldDebtStatuses.Paid => DebtDisplayStatuses.Paid,
+        _ => DebtDisplayStatuses.Normal
+    };
+}
+
+public static class WorkerDebtStatusFilterCodes
+{
+    public const string Open = "OPEN_ONLY";
+    public const string Paid = "PAID_ONLY";
+    public const string All = "ALL";
+}
+
+public sealed class WorkerDebtStatusFilterOption(string code, string displayName)
+{
+    public string Code { get; } = code;
+    public string DisplayName { get; } = displayName;
+    public override string ToString() => DisplayName;
+}
+
+public sealed class GoldPurityFilterOption(string? code, string displayName)
+{
+    public string? Code { get; } = code;
+    public string DisplayName { get; } = displayName;
+    public override string ToString() => DisplayName;
 }

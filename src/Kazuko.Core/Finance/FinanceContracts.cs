@@ -418,4 +418,78 @@ public interface IDebtWorkbenchRepository
         long customerId,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tìm các khoản nợ vàng của thợ (WORKER_GOLD_DEBTS), kèm tên hiển thị
+    /// "Tên (Mã NV)" và số còn nợ = WEIGHT_CHI - WEIGHT_PAID_CHI.
+    /// </summary>
+    Task<IReadOnlyList<WorkerGoldDebtListItem>> SearchWorkerGoldDebtsAsync(
+        WorkerGoldDebtSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ghi nhận 1 lần thợ trả vàng: INSERT lịch sử WORKER_GOLD_DEBT_PAYMENTS,
+    /// cộng dồn WEIGHT_PAID_CHI và cập nhật STATUS_CODE (PARTIAL/PAID),
+    /// tất cả trong 1 transaction.
+    /// </summary>
+    Task RecordWorkerGoldRepaymentAsync(
+        WorkerGoldRepaymentRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Lịch sử các lần trả vàng của 1 khoản nợ, mới nhất trước.</summary>
+    Task<IReadOnlyList<WorkerGoldDebtPaymentItem>> GetWorkerGoldDebtPaymentsAsync(
+        long debtId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
 }
+
+public static class WorkerGoldDebtStatuses
+{
+    public const string Open = "OPEN";
+    public const string Partial = "PARTIAL";
+    public const string Paid = "PAID";
+    public const string Cancelled = "CANCELLED";
+}
+
+/// <summary>Một khoản nợ vàng của thợ (WORKER_GOLD_DEBTS).</summary>
+public sealed record WorkerGoldDebtListItem(
+    long Id,
+    string Code,
+    string WorkerType,
+    long WorkerId,
+    string WorkerDisplayName,
+    string WorkerCode,
+    string? GoldPurityCode,
+    decimal WeightChi,
+    decimal WeightPaidChi,
+    decimal RemainingChi,
+    long ProductionOrderId,
+    string ProductionOrderCode,
+    string StatusCode,
+    DateTime CreatedAt);
+
+/// <summary>Bộ lọc tìm nợ vàng thợ.</summary>
+public sealed record WorkerGoldDebtSearchFilter(
+    string? WorkerText,
+    string? GoldPurityCode,
+    bool OnlyOpen,
+    DateTime? FromDate,
+    DateTime? ToDate);
+
+/// <summary>Yêu cầu ghi nhận 1 lần thợ trả vàng.</summary>
+public sealed record WorkerGoldRepaymentRequest(
+    long DebtId,
+    decimal WeightChi,
+    DateTime PaidDate,
+    string? Notes);
+
+/// <summary>Một dòng lịch sử trả vàng (WORKER_GOLD_DEBT_PAYMENTS).</summary>
+public sealed record WorkerGoldDebtPaymentItem(
+    long Id,
+    decimal WeightPaidChi,
+    DateTime PaidDate,
+    string? Notes,
+    string? CreatedByName,
+    DateTime CreatedAt);

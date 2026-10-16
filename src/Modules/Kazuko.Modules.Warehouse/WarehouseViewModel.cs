@@ -1561,7 +1561,6 @@ public sealed class WarehouseViewModel : ObservableObject
             _goldTypeEditor,
             _funds,
             _banks,
-            _productionQueries,
             session);
         var dialog = new MaterialReceiptDialog(viewModel)
         {

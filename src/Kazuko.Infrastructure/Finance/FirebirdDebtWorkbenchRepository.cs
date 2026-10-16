@@ -1552,6 +1552,257 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
     }
 
     /// <summary>
+    /// Tìm các khoản nợ vàng của thợ (WORKER_GOLD_DEBTS): LEFT JOIN lấy mã NV
+    /// từ HR_EMPLOYEES / EXTERNAL_WORKERS, số còn nợ tính sẵn trong SQL.
+    /// </summary>
+    public async Task<IReadOnlyList<WorkerGoldDebtListItem>> SearchWorkerGoldDebtsAsync(
+        WorkerGoldDebtSearchFilter filter,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        try
+        {
+            var search = (filter.WorkerText ?? string.Empty).Trim();
+            var purity = (filter.GoldPurityCode ?? string.Empty).Trim();
+            var rows = await connection.QueryAsync<WorkerGoldDebtListItem>(
+                new CommandDefinition("""
+                    SELECT D.ID AS Id,
+                           D.CODE AS Code,
+                           D.WORKER_TYPE AS WorkerType,
+                           D.WORKER_ID AS WorkerId,
+                           D.WORKER_NAME || ' (' || COALESCE(E.CODE, W.CODE, '') || ')' AS WorkerDisplayName,
+                           COALESCE(E.CODE, W.CODE, '') AS WorkerCode,
+                           D.GOLD_PURITY_CODE AS GoldPurityCode,
+                           D.WEIGHT_CHI AS WeightChi,
+                           COALESCE(D.WEIGHT_PAID_CHI, 0) AS WeightPaidChi,
+                           D.WEIGHT_CHI - COALESCE(D.WEIGHT_PAID_CHI, 0) AS RemainingChi,
+                           D.PRODUCTION_ORDER_ID AS ProductionOrderId,
+                           D.PRODUCTION_ORDER_CODE AS ProductionOrderCode,
+                           D.STATUS_CODE AS StatusCode,
+                           D.CREATED_AT AS CreatedAt
+                    FROM WORKER_GOLD_DEBTS D
+                    LEFT JOIN HR_EMPLOYEES E
+                           ON E.ID = D.WORKER_ID AND D.WORKER_TYPE = 'EMPLOYEE'
+                    LEFT JOIN EXTERNAL_WORKERS W
+                           ON W.ID = D.WORKER_ID AND D.WORKER_TYPE = 'EXTERNAL_WORKER'
+                    WHERE D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND D.BRANCH_ID = @BID
+                      AND (@HAS_SEARCH = 0
+                           OR D.WORKER_NAME CONTAINING @SEARCH
+                           OR COALESCE(E.CODE, '') CONTAINING @SEARCH
+                           OR COALESCE(W.CODE, '') CONTAINING @SEARCH
+                           OR D.PRODUCTION_ORDER_CODE CONTAINING @SEARCH)
+                      AND (@HAS_PURITY = 0 OR D.GOLD_PURITY_CODE = @PURITY)
+                      AND (@ONLY_OPEN = 0
+                           OR (D.WEIGHT_CHI - COALESCE(D.WEIGHT_PAID_CHI, 0)) > 0)
+                      AND (@HAS_FROM = 0 OR D.CREATED_AT >= @FROM_DATE)
+                      AND (@HAS_TO = 0 OR D.CREATED_AT <= @TO_DATE)
+                    ORDER BY D.CREATED_AT DESC, D.ID DESC
+                    """,
+                    new
+                    {
+                        BID = session.BranchId,
+                        HAS_SEARCH = search.Length > 0 ? 1 : 0,
+                        SEARCH = search,
+                        HAS_PURITY = purity.Length > 0 ? 1 : 0,
+                        PURITY = purity,
+                        ONLY_OPEN = filter.OnlyOpen ? 1 : 0,
+                        HAS_FROM = filter.FromDate.HasValue ? 1 : 0,
+                        FROM_DATE = filter.FromDate?.Date ?? DateTime.Today,
+                        HAS_TO = filter.ToDate.HasValue ? 1 : 0,
+                        // Inclusive end-of-day để các khoản ghi "hôm nay" vẫn hiện khi lọc đến ngày hôm nay.
+                        TO_DATE = filter.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.Today.AddDays(1).AddTicks(-1)
+                    },
+                    cancellationToken: cancellationToken));
+
+            return rows.ToList();
+        }
+        catch (FbException ex) when (IsMissingRepaymentTableViolation(ex))
+        {
+            throw new InvalidOperationException(
+                "Chưa chạy migration 75 (bảng WORKER_GOLD_DEBT_PAYMENTS / cột WEIGHT_PAID_CHI chưa có). Đóng app và chạy `0075__worker_gold_debt_payments.sql`.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Ghi nhận 1 lần thợ trả vàng: SELECT ... WITH LOCK, validate số chỉ
+    /// 0 &lt; trả &lt;= còn nợ, INSERT lịch sử, cộng dồn WEIGHT_PAID_CHI và
+    /// cập nhật STATUS_CODE (PARTIAL/PAID), ghi audit — tất cả 1 transaction.
+    /// </summary>
+    public async Task RecordWorkerGoldRepaymentAsync(
+        WorkerGoldRepaymentRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        var amount = request.WeightChi;
+        if (amount <= 0)
+            throw new InvalidOperationException("Số chỉ vàng trả phải lớn hơn 0.");
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var fbTx = (FbTransaction)transaction;
+
+        try
+        {
+            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+
+            var debt = await connection.QuerySingleOrDefaultAsync<WorkerGoldDebtLockRow>(
+                new CommandDefinition("""
+                    SELECT D.ID AS Id,
+                           D.CODE AS Code,
+                           D.WORKER_NAME AS WorkerName,
+                           D.WEIGHT_CHI AS WeightChi,
+                           COALESCE(D.WEIGHT_PAID_CHI, 0) AS WeightPaidChi,
+                           D.STATUS_CODE AS StatusCode
+                    FROM WORKER_GOLD_DEBTS D
+                    WHERE D.ID = @DID
+                      AND D.COMPANY_ID = @CID
+                      AND D.BRANCH_ID = @BID
+                    WITH LOCK
+                    """,
+                    new { DID = request.DebtId, CID = companyId, BID = session.BranchId },
+                    fbTx,
+                    cancellationToken: cancellationToken));
+
+            if (debt is null)
+                throw new InvalidOperationException("Không tìm thấy khoản nợ vàng của thợ.");
+
+            if (string.Equals(debt.StatusCode, WorkerGoldDebtStatuses.Cancelled, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Khoản nợ đã bị hủy, không thể ghi nhận trả vàng.");
+
+            var remaining = debt.WeightChi - debt.WeightPaidChi;
+            if (amount > remaining)
+                throw new InvalidOperationException(
+                    $"Số chỉ trả ({amount:N3}) vượt số còn nợ ({remaining:N3}).");
+
+            var paidDate = request.PaidDate.Date;
+            var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+
+            await connection.ExecuteAsync(
+                new CommandDefinition("""
+                    INSERT INTO WORKER_GOLD_DEBT_PAYMENTS
+                        (COMPANY_ID, BRANCH_ID, DEBT_ID, WEIGHT_PAID_CHI, PAID_DATE,
+                         NOTES, CREATED_BY, CREATED_AT)
+                    VALUES
+                        (@CID, @BID, @DID, @AMT, @PDATE,
+                         @NOTES, @BY, CURRENT_TIMESTAMP)
+                    """,
+                    new
+                    {
+                        CID = companyId,
+                        BID = session.BranchId,
+                        DID = debt.Id,
+                        AMT = amount,
+                        PDATE = paidDate,
+                        NOTES = (object?)notes ?? DBNull.Value,
+                        BY = session.UserId > 0 ? (object)session.UserId : DBNull.Value
+                    },
+                    fbTx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition("""
+                    UPDATE WORKER_GOLD_DEBTS
+                    SET WEIGHT_PAID_CHI = WEIGHT_PAID_CHI + @AMT,
+                        STATUS_CODE = CASE
+                            WHEN WEIGHT_PAID_CHI + @AMT >= WEIGHT_CHI THEN 'PAID'
+                            ELSE 'PARTIAL'
+                        END
+                    WHERE ID = @DID
+                    """,
+                    new { AMT = amount, DID = debt.Id },
+                    fbTx,
+                    cancellationToken: cancellationToken));
+
+            await AuditLogWriter.WriteAsync(
+                connection, fbTx, "WORKER_GOLD_DEBT_REPAID",
+                session.UserId, session.Username, session.BranchId,
+                "WORKER_GOLD_DEBT", debt.Id.ToString(),
+                $"{{\"code\":\"{debt.Code}\",\"paidChi\":{amount},\"paidDate\":\"{paidDate:yyyy-MM-dd}\"}}",
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (FbException ex) when (IsMissingRepaymentTableViolation(ex))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException(
+                "Chưa chạy migration 75 (bảng WORKER_GOLD_DEBT_PAYMENTS / cột WEIGHT_PAID_CHI chưa có). Đóng app và chạy `0075__worker_gold_debt_payments.sql`.", ex);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    /// <summary>Lịch sử các lần trả vàng của 1 khoản nợ, mới nhất trước.</summary>
+    public async Task<IReadOnlyList<WorkerGoldDebtPaymentItem>> GetWorkerGoldDebtPaymentsAsync(
+        long debtId,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        try
+        {
+            var rows = await connection.QueryAsync<WorkerGoldDebtPaymentItem>(
+                new CommandDefinition("""
+                    SELECT P.ID AS Id,
+                           P.WEIGHT_PAID_CHI AS WeightPaidChi,
+                           P.PAID_DATE AS PaidDate,
+                           P.NOTES AS Notes,
+                           COALESCE(U.DISPLAY_NAME, '') AS CreatedByName,
+                           P.CREATED_AT AS CreatedAt
+                    FROM WORKER_GOLD_DEBT_PAYMENTS P
+                    LEFT JOIN USERS U ON U.ID = P.CREATED_BY
+                    WHERE P.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                      AND P.BRANCH_ID = @BID
+                      AND P.DEBT_ID = @DID
+                    ORDER BY P.PAID_DATE DESC, P.ID DESC
+                    """,
+                    new { BID = session.BranchId, DID = debtId },
+                    cancellationToken: cancellationToken));
+
+            return rows.ToList();
+        }
+        catch (FbException ex) when (IsMissingTableViolation(ex, "WORKER_GOLD_DEBT_PAYMENTS"))
+        {
+            throw new InvalidOperationException(
+                "Chưa chạy migration 75 (bảng WORKER_GOLD_DEBT_PAYMENTS chưa có). Đóng app và chạy `0075__worker_gold_debt_payments.sql`.", ex);
+        }
+    }
+
+    private static bool IsMissingTableViolation(FbException ex, string tableName) =>
+        (ex.Message?.Contains("Table unknown", StringComparison.OrdinalIgnoreCase) ?? false)
+        && (ex.Message?.Contains(tableName, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    /// <summary>
+    /// Migration 75 chưa chạy: thiếu bảng WORKER_GOLD_DEBT_PAYMENTS ("Table unknown")
+    /// hoặc thiếu cột WEIGHT_PAID_CHI ("Column unknown").
+    /// </summary>
+    private static bool IsMissingRepaymentTableViolation(FbException ex) =>
+        IsMissingTableViolation(ex, "WORKER_GOLD_DEBT_PAYMENTS")
+        || ((ex.Message?.Contains("Column unknown", StringComparison.OrdinalIgnoreCase) ?? false)
+            && (ex.Message?.Contains("WEIGHT_PAID_CHI", StringComparison.OrdinalIgnoreCase) ?? false));
+
+    /// <summary>
     /// Ghi nhận thu một khoản phải thu: lock row, re-check số dư (spec C),
     /// insert RECEIVABLE_DEBT_COLLECTIONS và cập nhật RECEIVABLE_DEBTS.
     /// </summary>
@@ -1829,4 +2080,12 @@ public sealed class FirebirdDebtWorkbenchRepository : IDebtWorkbenchRepository
     private sealed record SingleDebtLockRow(string PartyType, long PartyId, decimal RemainingAmountVnd, string StatusCode);
 
     private sealed record ReceivableDebtLockRow(decimal RemainingAmountVnd, string StatusCode);
+
+    private sealed record WorkerGoldDebtLockRow(
+        long Id,
+        string Code,
+        string WorkerName,
+        decimal WeightChi,
+        decimal WeightPaidChi,
+        string StatusCode);
 }

@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
@@ -7,7 +6,6 @@ using Kazuko.Core.Finance;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.PriceBoard;
-using Kazuko.Core.Production;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
 
@@ -22,7 +20,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private readonly IGoldTypeEditorService _goldTypeEditor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
-    private readonly IProductionQueryRepository _productionQueries;
     private readonly AuthenticatedSession _session;
     private SupplierListItem? _selectedSupplier;
     private WarehouseLocationOption? _selectedLocation;
@@ -48,7 +45,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         IGoldTypeEditorService goldTypeEditor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
-        IProductionQueryRepository productionQueries,
         AuthenticatedSession session)
     {
         _receiptService = receiptService;
@@ -58,7 +54,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         _goldTypeEditor = goldTypeEditor;
         _funds = funds;
         _banks = banks;
-        _productionQueries = productionQueries;
         _session = session;
 
         MethodOptions.Add(new ReceiptPaymentMethodOption(PaymentMethods.Cash, "Tiền mặt"));
@@ -70,9 +65,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         CreateGoldTypeCommand = new AsyncRelayCommand(CreateGoldTypeAsync);
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         CancelCommand = new RelayCommand(() => DialogResult = false);
-        ConfirmReconcileCommand = new RelayCommand(ConfirmReconcile, () => SelectedReconcileOrder is not null && ReconcileLines.Count > 0);
         _ = LoadLookupsAsync();
-        _ = LoadReconcileOrdersAsync();
     }
 
     public ObservableCollection<WarehouseLocationOption> Locations { get; } = new();
@@ -265,23 +258,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     public ICommand CreateGoldTypeCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
-    public ICommand ConfirmReconcileCommand { get; }
-
-    // === Tab Đối trừ phiếu sản xuất ===
-    public ObservableCollection<ProductionOrderListItem> ReconcileOrders { get; } = new();
-
-    private ProductionOrderListItem? _selectedReconcileOrder;
-    public ProductionOrderListItem? SelectedReconcileOrder
-    {
-        get => _selectedReconcileOrder;
-        set
-        {
-            if (SetProperty(ref _selectedReconcileOrder, value))
-                _ = LoadReconcileLinesAsync();
-        }
-    }
-
-    public ObservableCollection<ReconcileRow> ReconcileLines { get; } = new();
 
     private async Task LoadLookupsAsync()
     {
@@ -383,72 +359,6 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             || string.Equals(x.PurityCode, code, StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task LoadReconcileOrdersAsync()
-    {
-        try
-        {
-            var filter = new ProductionOrderListFilter(null, null, null, null, null, null);
-            var orders = await _productionQueries.SearchOrdersAsync(_session.BranchId, filter);
-            foreach (var order in orders.Where(o =>
-                string.Equals(o.StatusCode, ProductionOrderStatuses.InProgress, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(o.StatusCode, ProductionOrderStatuses.Completed, StringComparison.OrdinalIgnoreCase)))
-            {
-                ReconcileOrders.Add(order);
-            }
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-    }
-
-    private async Task LoadReconcileLinesAsync()
-    {
-        ReconcileLines.Clear();
-        ((RelayCommand)ConfirmReconcileCommand).NotifyCanExecuteChanged();
-        if (SelectedReconcileOrder is null)
-            return;
-
-        try
-        {
-            var detail = await _productionQueries.GetOrderDetailAsync(
-                SelectedReconcileOrder.Id, _session.BranchId);
-            if (detail?.MaterialBalances is null)
-                return;
-
-            foreach (var balance in detail.MaterialBalances)
-            {
-                ReconcileLines.Add(new ReconcileRow(
-                    balance.MaterialCode,
-                    balance.MaterialName,
-                    balance.UnitCode,
-                    balance.QuantityIssued));
-            }
-            ((RelayCommand)ConfirmReconcileCommand).NotifyCanExecuteChanged();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-    }
-
-    private void ConfirmReconcile()
-    {
-        if (SelectedReconcileOrder is null || ReconcileLines.Count == 0)
-            return;
-
-        var lines = ReconcileLines
-            .Select(r => $"{r.MaterialCode}: giao {r.QuantityIssued:N4} {r.UnitCode}, nhận {r.QuantityReceived:N4}, chênh lệch {r.Difference:N4}")
-            .ToList();
-        var summary = $"Đối trừ {SelectedReconcileOrder.Code}:\n" + string.Join("\n", lines);
-
-        Notes = string.IsNullOrWhiteSpace(Notes)
-            ? summary
-            : Notes + "\n\n" + summary;
-        OnPropertyChanged(nameof(Notes));
-        ErrorMessage = string.Empty;
-    }
-
     private async Task SaveAsync()
     {
         try
@@ -522,39 +432,3 @@ public sealed class ReceiptLineRow
 }
 
 public sealed record ReceiptPaymentMethodOption(string Code, string Label);
-
-/// <summary>
-/// Một dòng đối trừ: so sánh SL lúc giao vs SL thực tế nhận về.
-/// </summary>
-public sealed class ReconcileRow : ObservableObject
-{
-    private decimal _quantityReceived;
-
-    public ReconcileRow(string materialCode, string materialName, string unitCode, decimal quantityIssued)
-    {
-        MaterialCode = materialCode;
-        MaterialName = materialName;
-        UnitCode = unitCode;
-        QuantityIssued = quantityIssued;
-        _quantityReceived = quantityIssued; // Mặc định nhận về = lúc giao
-    }
-
-    public string MaterialCode { get; }
-    public string MaterialName { get; }
-    public string UnitCode { get; }
-    public decimal QuantityIssued { get; }
-
-    /// <summary>SL thực tế nhận về (người nhận cân và nhập, mặc định = lúc giao).</summary>
-    public decimal QuantityReceived
-    {
-        get => _quantityReceived;
-        set
-        {
-            if (SetProperty(ref _quantityReceived, value))
-                OnPropertyChanged(nameof(Difference));
-        }
-    }
-
-    /// <summary>Chênh lệch = nhận về - lúc giao (âm = thiếu).</summary>
-    public decimal Difference => QuantityReceived - QuantityIssued;
-}

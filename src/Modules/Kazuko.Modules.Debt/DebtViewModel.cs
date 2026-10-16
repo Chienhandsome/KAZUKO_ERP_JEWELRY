@@ -27,6 +27,9 @@ public sealed class DebtViewModel : ObservableObject
     private StatusFilterOption? _selectedStatus;
     private CustomerDebtRowViewModel? _selectedCustomer;
     private SupplierDebtRowViewModel? _selectedSupplier;
+    private WorkerGoldDebtRowViewModel? _selectedWorkerGoldDebt;
+    private GoldPurityFilterOption? _selectedGoldPurity;
+    private WorkerDebtStatusFilterOption? _selectedWorkerDebtStatus;
     private string _statusMessage = string.Empty;
     private string _errorMessage = string.Empty;
     private string _quickNote = string.Empty;
@@ -43,6 +46,8 @@ public sealed class DebtViewModel : ObservableObject
     private string _kpiCustomerOverdueCountText = "0 khách hàng";
     private string _kpiSupplierOverdueText = "0";
     private string _kpiSupplierOverdueCountText = "0 nhà cung cấp";
+    private string _kpiWorkerGoldRemainingText = "0";
+    private string _kpiWorkerGoldDebtorCountText = "0 thợ";
 
     public DebtViewModel(
         IDebtWorkbenchRepository workbench,
@@ -68,24 +73,33 @@ public sealed class DebtViewModel : ObservableObject
         Groups.Add(new GroupFilterOption(0, "Tất cả nhóm KH"));
         SelectedGroup = Groups[0];
 
+        WorkerDebtStatusOptions.Add(new WorkerDebtStatusFilterOption(WorkerDebtStatusFilterCodes.Open, "Còn nợ"));
+        WorkerDebtStatusOptions.Add(new WorkerDebtStatusFilterOption(WorkerDebtStatusFilterCodes.Paid, "Đã trả hết"));
+        WorkerDebtStatusOptions.Add(new WorkerDebtStatusFilterOption(WorkerDebtStatusFilterCodes.All, "Tất cả"));
+        SelectedWorkerDebtStatus = WorkerDebtStatusOptions[0];
+
+        GoldPurityOptions.Add(new GoldPurityFilterOption(null, "Tất cả loại vàng"));
+        SelectedGoldPurity = GoldPurityOptions[0];
+
         SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsBusy);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsBusy);
         AddCustomerCommand = new RelayCommand(AddCustomer, () => !IsBusy && IsCustomerTab);
         AddSupplierCommand = new RelayCommand(AddSupplier, () => !IsBusy && IsSupplierTab);
-        AddPartyCommand = new RelayCommand(AddParty, () => !IsBusy);
-        EditSelectedCommand = new RelayCommand(EditSelected, () => !IsBusy && HasSelection);
+        AddPartyCommand = new RelayCommand(AddParty, () => !IsBusy && !IsWorkerGoldDebtTab);
+        EditSelectedCommand = new RelayCommand(EditSelected, () => !IsBusy && HasSelection && !IsWorkerGoldDebtTab);
         CollectOrPayCommand = new AsyncRelayCommand(CollectOrPayAsync, () => !IsBusy && CanCollectOrPay);
         CollectCustomerAllCommand = new RelayCommand<CustomerDebtRowViewModel>(row => { _ = CollectCustomerAsync(row); });
         PayCustomerAllCommand = new RelayCommand<CustomerDebtRowViewModel>(row => { _ = PayCustomerAsync(row); });
         CollectSupplierAllCommand = new RelayCommand<SupplierDebtRowViewModel>(row => { _ = CollectSupplierAsync(row); });
         PaySupplierAllCommand = new RelayCommand<SupplierDebtRowViewModel>(row => { _ = PaySupplierAsync(row); });
         SettleLedgerEntryCommand = new RelayCommand<DebtLedgerRowViewModel>(row => { _ = SettleLedgerEntryAsync(row); });
+        RecordRepaymentCommand = new RelayCommand<WorkerGoldDebtRowViewModel>(row => { _ = RecordRepaymentAsync(row); });
         PrintCommand = new RelayCommand(ShowNotImplemented, () => HasSelection);
         ExportExcelCommand = new RelayCommand(ShowNotImplemented, () => true);
         ViewDetailCommand = new RelayCommand(() => { }, () => HasSelection);
         GuideCommand = new RelayCommand(() =>
             MessageBox.Show(
-                "Theo dõi công nợ khách hàng (đơn hàng − thanh toán) và nhà cung cấp (PAYABLE_DEBTS).",
+                "Theo dõi công nợ khách hàng (đơn hàng − thanh toán), nhà cung cấp (PAYABLE_DEBTS) và nợ vàng thợ.",
                 "Hướng dẫn công nợ",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information));
@@ -95,9 +109,12 @@ public sealed class DebtViewModel : ObservableObject
 
     public ObservableCollection<CustomerDebtRowViewModel> Customers { get; } = new();
     public ObservableCollection<SupplierDebtRowViewModel> Suppliers { get; } = new();
+    public ObservableCollection<WorkerGoldDebtRowViewModel> WorkerGoldDebts { get; } = new();
     public ObservableCollection<DebtLedgerRowViewModel> LedgerEntries { get; } = new();
     public ObservableCollection<GroupFilterOption> Groups { get; } = new();
     public ObservableCollection<StatusFilterOption> StatusOptions { get; } = new();
+    public ObservableCollection<WorkerDebtStatusFilterOption> WorkerDebtStatusOptions { get; } = new();
+    public ObservableCollection<GoldPurityFilterOption> GoldPurityOptions { get; } = new();
 
     public int SelectedTabIndex
     {
@@ -108,6 +125,7 @@ public sealed class DebtViewModel : ObservableObject
                 return;
             OnPropertyChanged(nameof(IsCustomerTab));
             OnPropertyChanged(nameof(IsSupplierTab));
+            OnPropertyChanged(nameof(IsWorkerGoldDebtTab));
             OnPropertyChanged(nameof(AddPartyButtonText));
             OnPropertyChanged(nameof(CollectOrPayButtonText));
             OnPropertyChanged(nameof(DetailTitle));
@@ -121,6 +139,7 @@ public sealed class DebtViewModel : ObservableObject
 
     public bool IsCustomerTab => SelectedTabIndex == 0;
     public bool IsSupplierTab => SelectedTabIndex == 1;
+    public bool IsWorkerGoldDebtTab => SelectedTabIndex == 2;
     public string AddPartyButtonText => IsCustomerTab ? "+ Thêm khách hàng" : "+ Thêm nhà cung cấp";
     public string CollectOrPayButtonText => IsCustomerTab ? "Thu tiền" : "Chi tiền";
     public string DetailTitle => IsCustomerTab ? "Thông tin khách hàng" : "Thông tin nhà cung cấp";
@@ -185,9 +204,38 @@ public sealed class DebtViewModel : ObservableObject
         }
     }
 
-    public bool HasSelection => IsCustomerTab ? SelectedCustomer is not null : SelectedSupplier is not null;
+    public GoldPurityFilterOption? SelectedGoldPurity
+    {
+        get => _selectedGoldPurity;
+        set => SetProperty(ref _selectedGoldPurity, value);
+    }
+
+    public WorkerDebtStatusFilterOption? SelectedWorkerDebtStatus
+    {
+        get => _selectedWorkerDebtStatus;
+        set => SetProperty(ref _selectedWorkerDebtStatus, value);
+    }
+
+    public WorkerGoldDebtRowViewModel? SelectedWorkerGoldDebt
+    {
+        get => _selectedWorkerGoldDebt;
+        set
+        {
+            if (!SetProperty(ref _selectedWorkerGoldDebt, value))
+                return;
+            // Tab nợ vàng thợ không có panel chi tiết — chỉ cập nhật trạng thái chọn.
+            NotifySelectionChanged();
+        }
+    }
+
+    public bool HasSelection => IsCustomerTab
+        ? SelectedCustomer is not null
+        : IsSupplierTab
+            ? SelectedSupplier is not null
+            : SelectedWorkerGoldDebt is not null;
+
     public bool CanCollectOrPay =>
-        HasSelection && (IsCustomerTab
+        HasSelection && !IsWorkerGoldDebtTab && (IsCustomerTab
             ? SelectedCustomer!.RemainingVnd > 0
             : SelectedSupplier!.RemainingVnd > 0);
 
@@ -240,6 +288,7 @@ public sealed class DebtViewModel : ObservableObject
     public bool IsBusyOverlayVisible => IsBusy;
     public bool IsCustomerEmpty => !IsBusy && IsCustomerTab && Customers.Count == 0;
     public bool IsSupplierEmpty => !IsBusy && IsSupplierTab && Suppliers.Count == 0;
+    public bool IsWorkerGoldDebtEmpty => !IsBusy && IsWorkerGoldDebtTab && WorkerGoldDebts.Count == 0;
     public bool HasDetail => HasSelection;
 
     public string KpiCustomerRemainingText
@@ -302,6 +351,18 @@ public sealed class DebtViewModel : ObservableObject
         private set => SetProperty(ref _kpiSupplierOverdueCountText, value);
     }
 
+    public string KpiWorkerGoldRemainingText
+    {
+        get => _kpiWorkerGoldRemainingText;
+        private set => SetProperty(ref _kpiWorkerGoldRemainingText, value);
+    }
+
+    public string KpiWorkerGoldDebtorCountText
+    {
+        get => _kpiWorkerGoldDebtorCountText;
+        private set => SetProperty(ref _kpiWorkerGoldDebtorCountText, value);
+    }
+
     public ICommand SearchCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand AddCustomerCommand { get; }
@@ -314,6 +375,7 @@ public sealed class DebtViewModel : ObservableObject
     public ICommand CollectSupplierAllCommand { get; }
     public ICommand PaySupplierAllCommand { get; }
     public ICommand SettleLedgerEntryCommand { get; }
+    public ICommand RecordRepaymentCommand { get; }
     public ICommand PrintCommand { get; }
     public ICommand ExportExcelCommand { get; }
     public ICommand ViewDetailCommand { get; }
@@ -374,8 +436,10 @@ public sealed class DebtViewModel : ObservableObject
 
         if (IsCustomerTab)
             await LoadCustomersAsync(session);
-        else
+        else if (IsSupplierTab)
             await LoadSuppliersAsync(session);
+        else
+            await LoadWorkerGoldDebtsAsync(session);
     }
 
     private async Task LoadSummaryAsync(AuthenticatedSession session)
@@ -452,6 +516,92 @@ public sealed class DebtViewModel : ObservableObject
             LedgerEntries.Clear();
     }
 
+    private async Task LoadWorkerGoldDebtsAsync(AuthenticatedSession session)
+    {
+        var onlyOpen = SelectedWorkerDebtStatus is null
+            || SelectedWorkerDebtStatus.Code == WorkerDebtStatusFilterCodes.Open;
+
+        var rows = await _workbench.SearchWorkerGoldDebtsAsync(
+            new WorkerGoldDebtSearchFilter(
+                SearchText,
+                SelectedGoldPurity?.Code,
+                onlyOpen,
+                FromDate,
+                ToDate),
+            session);
+
+        // "Đã trả hết": filter repo chỉ có OnlyOpen nên lọc phía client.
+        if (SelectedWorkerDebtStatus?.Code == WorkerDebtStatusFilterCodes.Paid)
+            rows = rows.Where(x => x.RemainingChi <= 0).ToList();
+
+        var previousId = SelectedWorkerGoldDebt?.DebtId;
+        _suppressSelectionLoad = true;
+        WorkerGoldDebts.Clear();
+        var index = 1;
+        foreach (var row in rows)
+            WorkerGoldDebts.Add(new WorkerGoldDebtRowViewModel(index++, row));
+        SelectedWorkerGoldDebt = previousId is long id
+            ? WorkerGoldDebts.FirstOrDefault(x => x.DebtId == id) ?? WorkerGoldDebts.FirstOrDefault()
+            : WorkerGoldDebts.FirstOrDefault();
+        _suppressSelectionLoad = false;
+
+        StatusMessage = $"Hiển thị {WorkerGoldDebts.Count} khoản nợ vàng thợ.";
+        OnPropertyChanged(nameof(IsWorkerGoldDebtEmpty));
+
+        var remainingTotal = WorkerGoldDebts.Sum(x => x.RemainingChi);
+        KpiWorkerGoldRemainingText = remainingTotal.ToString("N3", CultureInfo.CurrentCulture);
+        var debtorCount = WorkerGoldDebts.Count(x => x.RemainingChi > 0);
+        KpiWorkerGoldDebtorCountText = $"{debtorCount} thợ";
+
+        // ComboBox loại vàng: distinct từ dữ liệu đang hiển thị.
+        var currentPurity = SelectedGoldPurity?.Code;
+        GoldPurityOptions.Clear();
+        GoldPurityOptions.Add(new GoldPurityFilterOption(null, "Tất cả loại vàng"));
+        foreach (var purity in WorkerGoldDebts
+                     .Select(x => x.Row.GoldPurityCode)
+                     .Where(c => !string.IsNullOrWhiteSpace(c))
+                     .Distinct()
+                     .OrderBy(c => c))
+            GoldPurityOptions.Add(new GoldPurityFilterOption(purity, purity!));
+        SelectedGoldPurity = GoldPurityOptions.FirstOrDefault(x => x.Code == currentPurity)
+            ?? GoldPurityOptions[0];
+    }
+
+    /// <summary>
+    /// "Ghi trả vàng" trên từng dòng: mở dialog thu thập số chỉ/ngày/ghi chú,
+    /// gọi repository (1 transaction) rồi tải lại danh sách.
+    /// </summary>
+    private async Task RecordRepaymentAsync(WorkerGoldDebtRowViewModel? row)
+    {
+        if (IsBusy || row is null || row.RemainingChi <= 0)
+            return;
+
+        var session = RequireSession();
+        var result = WorkerGoldRepaymentDialog.Show(ResolveOwner(), row);
+        if (result is null)
+            return;
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            await _workbench.RecordWorkerGoldRepaymentAsync(
+                new WorkerGoldRepaymentRequest(row.DebtId, result.WeightChi, result.PaidDate, result.Notes),
+                session);
+            StatusMessage = $"Đã ghi nhận trả {result.WeightChi:N3} chỉ vàng — {row.WorkerDisplayName}.";
+            await LoadWorkerGoldDebtsAsync(session);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            MessageBox.Show(ex.Message, "Ghi nhận trả vàng", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private async Task LoadCustomerDetailAsync(long customerId)
     {
         try
@@ -488,7 +638,7 @@ public sealed class DebtViewModel : ObservableObject
     {
         if (IsCustomerTab)
             AddCustomer();
-        else
+        else if (IsSupplierTab)
             AddSupplier();
     }
 
@@ -526,7 +676,10 @@ public sealed class DebtViewModel : ObservableObject
     {
         if (IsCustomerTab)
             return CollectCustomerAsync(SelectedCustomer);
-        return PaySupplierAsync(SelectedSupplier);
+        if (IsSupplierTab)
+            return PaySupplierAsync(SelectedSupplier);
+        // Tab nợ vàng thợ: nút Thu/Chi bị disable (CanCollectOrPay = false).
+        return Task.CompletedTask;
     }
 
     /// <summary>

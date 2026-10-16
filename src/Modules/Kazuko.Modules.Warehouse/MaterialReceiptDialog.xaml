@@ -270,59 +270,6 @@
                 </DataGrid>
               </StackPanel>
             </TabItem>
-
-            <TabItem Header="Đối trừ phiếu sản xuất">
-              <StackPanel Margin="0,12,0,0">
-                <TextBlock Text="Đối chiếu số NVL lúc giao cho lệnh SX với số thực tế nhận về. Ô 'Nhận về' mặc định bằng 'Lúc giao' — người nhận cân và sửa lại nếu thiếu."
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="{DynamicResource FontSize.Caption}"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,12" />
-
-                <Grid Margin="0,0,0,12">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <StackPanel>
-                    <TextBlock Text="Lệnh sản xuất" Style="{StaticResource WhFieldLabelStyle}" />
-                    <ComboBox ItemsSource="{Binding ReconcileOrders}"
-                              SelectedItem="{Binding SelectedReconcileOrder}"
-                              DisplayMemberPath="Code"
-                              Style="{StaticResource WhComboStyle}" />
-                  </StackPanel>
-                  <Button Grid.Column="2"
-                          Content="Xác nhận đối trừ"
-                          Command="{Binding ConfirmReconcileCommand}"
-                          Style="{StaticResource WhPrimaryButtonStyle}"
-                          MinWidth="150"
-                          VerticalAlignment="Bottom"
-                          ToolTip="Ghi kết quả đối trừ vào Ghi chú của phiếu" />
-                </Grid>
-
-                <DataGrid ItemsSource="{Binding ReconcileLines}"
-                          Style="{StaticResource WhEditableDataGridStyle}"
-                          ColumnHeaderStyle="{StaticResource WhDataGridColumnHeaderStyle}"
-                          Height="220">
-                  <DataGrid.Columns>
-                    <DataGridTextColumn Header="Mã NVL" Binding="{Binding MaterialCode, Mode=OneWay}" Width="100" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Tên NVL" Binding="{Binding MaterialName, Mode=OneWay}" Width="*" IsReadOnly="True" />
-                    <DataGridTextColumn Header="ĐVT" Binding="{Binding UnitCode, Mode=OneWay}" Width="70" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Lúc giao" Binding="{Binding QuantityIssued, Mode=OneWay, StringFormat=N4}" Width="110" IsReadOnly="True" />
-                    <DataGridTemplateColumn Header="Nhận về" Width="120">
-                      <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                          <TextBox Text="{Binding QuantityReceived, UpdateSourceTrigger=PropertyChanged, StringFormat=N4}"
-                                   Style="{StaticResource CompactFieldStyle}" />
-                        </DataTemplate>
-                      </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Chênh lệch" Binding="{Binding Difference, Mode=OneWay, StringFormat=N4}" Width="110" IsReadOnly="True" />
-                  </DataGrid.Columns>
-                </DataGrid>
-              </StackPanel>
-            </TabItem>
           </TabControl>
         </Border>
 
