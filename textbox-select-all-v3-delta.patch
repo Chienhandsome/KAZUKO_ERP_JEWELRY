@@ -1,0 +1,134 @@
+diff --git a/src/Modules/Kazuko.Modules.Finance/CashVoucherDialog.xaml b/src/Modules/Kazuko.Modules.Finance/CashVoucherDialog.xaml
+index 4929956..1072acb 100644
+--- a/src/Modules/Kazuko.Modules.Finance/CashVoucherDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Finance/CashVoucherDialog.xaml
+@@ -1,4 +1,4 @@
+-﻿<Window x:Class="Kazuko.Modules.Finance.CashVoucherDialog"
++<Window x:Class="Kazuko.Modules.Finance.CashVoucherDialog"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+diff --git a/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml b/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml
+index 33cdae4..a3c06da 100644
+--- a/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Production/Dialogs/CraftOrderDialog.xaml
+@@ -1,4 +1,4 @@
+-﻿<Window x:Class="Kazuko.Modules.Production.Dialogs.CraftOrderDialog"
++<Window x:Class="Kazuko.Modules.Production.Dialogs.CraftOrderDialog"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+@@ -165,19 +165,19 @@
+                             </Grid.ColumnDefinitions>
+                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                 <TextBlock Text="Tiền mặt (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged}"
++                                <TextBox Text="{Binding CashAmount, UpdateSourceTrigger=PropertyChanged, ConverterCulture=vi-VN}"
+                                          Style="{StaticResource ProductionDialogFieldStyle}" Margin="0"
+                              behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
+                             </StackPanel>
+                             <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                 <TextBlock Text="Chuyển khoản (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged}"
++                                <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged, ConverterCulture=vi-VN}"
+                                          Style="{StaticResource ProductionDialogFieldStyle}" Margin="0"
+                              behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
+                             </StackPanel>
+                             <StackPanel Grid.Column="2">
+                                 <TextBlock Text="Thẻ (VND)" Style="{StaticResource ProductionFieldLabelStyle}" />
+-                                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged}"
++                                <TextBox Text="{Binding CardAmount, UpdateSourceTrigger=PropertyChanged, ConverterCulture=vi-VN}"
+                                          Style="{StaticResource ProductionDialogFieldStyle}" Margin="0"
+                              behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
+                             </StackPanel>
+diff --git a/src/Modules/Kazuko.Modules.Production/Dialogs/ProductionLineEditDialog.xaml b/src/Modules/Kazuko.Modules.Production/Dialogs/ProductionLineEditDialog.xaml
+index c6de663..06360b2 100644
+--- a/src/Modules/Kazuko.Modules.Production/Dialogs/ProductionLineEditDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Production/Dialogs/ProductionLineEditDialog.xaml
+@@ -1,4 +1,4 @@
+-﻿<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
++<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml
+index f6163f1..c067781 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Warehouse/MaterialReceiptDialog.xaml
+@@ -1,4 +1,4 @@
+-﻿<Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
++<Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+@@ -249,7 +249,7 @@
+                              Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged}"
+                              Style="{StaticResource WhRoundedTextBoxStyle}" />
+                     <TextBox Grid.Row="1" Grid.Column="4"
+-                             Text="{Binding LineUnitPrice, UpdateSourceTrigger=LostFocus, StringFormat=N0}"
++                             Text="{Binding LineUnitPrice, UpdateSourceTrigger=LostFocus, StringFormat=N0, ConverterCulture=vi-VN}"
+                              Style="{StaticResource WhRoundedTextBoxStyle}"
+                              behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True" />
+                     <TextBox Grid.Row="1" Grid.Column="6"
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
+index 0137150..6f594a8 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
+@@ -1,4 +1,4 @@
+-﻿<Window x:Class="Kazuko.Modules.Warehouse.ProductionFinishedReceiptDialog"
++<Window x:Class="Kazuko.Modules.Warehouse.ProductionFinishedReceiptDialog"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
+index 2af3caf..758a2a7 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
+@@ -20,6 +20,12 @@ namespace Kazuko.Modules.Warehouse;
+ /// </summary>
+ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+ {
++    // Parse tiền (VND) ưu tiên vi-VN trước: các ô tiền dùng behavior ngắt nghìn
++    // trực tiếp luôn hiển thị dạng "1.000.000". Để CurrentCulture (vd: en-US)
++    // parse trước sẽ đọc nhầm "1.000" thành 1.0, nên vi-VN phải đứng đầu.
++    // Không dùng cho trọng lượng (trọng lượng vẫn parse CurrentCulture trước).
++    private static readonly CultureInfo ViVn = CultureInfo.GetCultureInfo("vi-VN");
++
+     private static readonly string[] GoldPurityOptions =
+         ["9999", "999", "750", "680", "610", "585", "416", "375", "18K", "24K"];
+ 
+@@ -716,11 +722,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+ 
+         TryParseDecimal(TotalWeightText, out var totalWeight);
+         TryParseDecimal(StoneWeightText, out var stoneWeight);
+-        TryParseDecimal(CostPriceText, out var costPrice);
+-        TryParseDecimal(SalePriceText, out var salePrice);
+-        TryParseDecimal(CraftLaborCostText, out var craftLabor);
+-        TryParseDecimal(SaleLaborCostText, out var saleLabor);
+-        TryParseDecimal(PurchaseLaborCostText, out var purchaseLabor);
++        TryParseMoney(CostPriceText, out var costPrice);
++        TryParseMoney(SalePriceText, out var salePrice);
++        TryParseMoney(CraftLaborCostText, out var craftLabor);
++        TryParseMoney(SaleLaborCostText, out var saleLabor);
++        TryParseMoney(PurchaseLaborCostText, out var purchaseLabor);
+ 
+         var items = new List<ManualFinishedProductItem>(quantity);
+         // Bỏ check "Tạo mã riêng cho từng món" → cả N dòng dùng chung 1 mã.
+@@ -1017,6 +1023,17 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+             || decimal.TryParse(text.Trim(), styles, CultureInfo.InvariantCulture, out value);
+     }
+ 
++    private static bool TryParseMoney(string? text, out decimal value)
++    {
++        value = 0;
++        if (string.IsNullOrWhiteSpace(text))
++            return false;
++        var styles = NumberStyles.Number;
++        return decimal.TryParse(text.Trim(), styles, ViVn, out value)
++            || decimal.TryParse(text.Trim(), styles, CultureInfo.CurrentCulture, out value)
++            || decimal.TryParse(text.Trim(), styles, CultureInfo.InvariantCulture, out value);
++    }
++
+     private static bool TryParseInt(string? text, out int value)
+     {
+         value = 0;

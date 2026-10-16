@@ -485,7 +485,8 @@
 
     <!-- Main card + tabs -->
     <Border Grid.Row="2" Style="{DynamicResource CardBorderStyle}" Padding="12">
-      <TabControl SelectedIndex="{Binding SelectedTabIndex}"
+      <TabControl x:Name="DebtTabControl"
+                  SelectedIndex="{Binding SelectedTabIndex}"
                   Background="Transparent"
                   BorderThickness="0"
                   ItemContainerStyle="{StaticResource DebtTabItemStyle}">
@@ -1157,9 +1158,9 @@
               IsEnabled="False"
               MinWidth="110" />
       <Button Content="Xuất Excel"
-              Style="{StaticResource DisabledImportButtonStyle}"
+              Style="{StaticResource OutlineButtonStyle}"
               Command="{Binding ExportExcelCommand}"
-              IsEnabled="False"
+              CommandParameter="{Binding ElementName=DebtTabControl}"
               MinWidth="110"
               Margin="0" />
     </StackPanel>

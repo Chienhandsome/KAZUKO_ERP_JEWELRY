@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Mvvm;
+using Kazuko.Shared.UI.Services;
 
 namespace Kazuko.Modules.HumanResources;
 
@@ -54,13 +55,7 @@ public sealed class HumanResourcesViewModel : ObservableObject
         ToggleActiveCommand = new ParameterRelayCommand(
             ToggleActive,
             parameter => !IsLoading && (parameter is EmployeeRowViewModel || SelectedEmployee is not null));
-        ExportExcelCommand = new RelayCommand(
-            () => MessageBox.Show(
-                "Xuất Excel sẽ được bổ sung ở giai đoạn sau.",
-                "Nhân sự",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information),
-            () => true);
+        ExportExcelCommand = new RelayCommand<object?>(ExportExcel, _ => true);
 
         _ = InitializeAsync();
     }
@@ -205,6 +200,27 @@ public sealed class HumanResourcesViewModel : ObservableObject
     public ICommand DeleteSelectedCommand { get; }
     public ICommand ToggleActiveCommand { get; }
     public ICommand ExportExcelCommand { get; }
+
+    private void ExportExcel(object? parameter)
+    {
+        var grid = parameter as System.Windows.Controls.DataGrid;
+        var columns = new ExcelExportColumn<EmployeeRowViewModel>[]
+        {
+            new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
+            new("Code", "Mã NV", o => o.Code),
+            new("FullName", "Họ và tên", o => o.FullName),
+            new("Gender", "Giới tính", o => o.Gender),
+            new("DateOfBirth", "Ngày sinh", o => o.DateOfBirth, ExcelCellKind.Date),
+            new("Phone", "Số điện thoại", o => o.Phone),
+            new("Email", "Email", o => o.Email),
+            new("HireDate", "Ngày vào làm", o => o.HireDate, ExcelCellKind.Date),
+            new("Status", "Trạng thái", o => o.StatusText),
+        };
+        ExcelExportService.Export(
+            "Xuất danh sách nhân sự",
+            $"DanhSachNhanSu_{DateTime.Now:yyyyMMdd_HHmmss}",
+            grid, Employees, columns);
+    }
 
     private async Task InitializeAsync() => await SearchAsync();
 

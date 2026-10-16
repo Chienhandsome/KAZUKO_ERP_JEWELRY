@@ -204,6 +204,7 @@
             <Button Content="Xuất Excel"
                     Style="{StaticResource ProductionOutlineButtonStyle}"
                     Command="{Binding ExportExcelCommand}"
+                    CommandParameter="{Binding ElementName=OrdersGrid}"
                     Margin="0,0,8,0" MinWidth="90" />
             <Button Content="Xóa"
                     Style="{StaticResource ProductionGhostButtonStyle}"
@@ -214,7 +215,8 @@
 
         <!-- Hàng 3: Bảng -->
         <Border Grid.Row="2" Style="{StaticResource ProductionCardStyle}" Padding="0">
-            <DataGrid Style="{StaticResource ProductionDataGridStyle}"
+            <DataGrid x:Name="OrdersGrid"
+                      Style="{StaticResource ProductionDataGridStyle}"
                       ItemsSource="{Binding Orders}"
                       SelectedItem="{Binding SelectedOrder}"
                       MouseDoubleClick="OrdersGrid_OnMouseDoubleClick"

@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
@@ -12,6 +10,7 @@ using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Sales;
 using Kazuko.Core.Warehouse;
+using Kazuko.Shared.UI.Services;
 
 namespace Kazuko.Modules.Production;
 
@@ -97,7 +96,7 @@ public sealed class ProductionViewModel : ObservableObject
         PrintOrderCommand = new AsyncRelayCommand(
             () => PrintOrderAsync(SelectedOrder),
             () => SelectedOrder is not null);
-        ExportExcelCommand = new RelayCommand(ExportExcel);
+        ExportExcelCommand = new RelayCommand<object?>(ExportExcel);
         OpenDetailCommand = new ParameterRelayCommand(
             p => _ = OpenDetailAsync(p as ProductionOrderRowViewModel ?? SelectedOrder),
             p => (p as ProductionOrderRowViewModel ?? SelectedOrder) is not null);
@@ -474,66 +473,35 @@ public sealed class ProductionViewModel : ObservableObject
         }
     }
 
-    private void ExportExcel()
+    private void ExportExcel(object? parameter)
     {
-        try
+        var grid = parameter as System.Windows.Controls.DataGrid;
+        var columns = new ExcelExportColumn<ProductionOrderRowViewModel>[]
         {
-            if (Orders.Count == 0)
-            {
-                MessageBox.Show(
-                    "Không có dữ liệu để xuất.",
-                    "Xuất Excel",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
+            new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
+            new("Code", "Mã phiếu", o => o.Code),
+            new("MaterialIssueDate", "Ngày giao", o => o.MaterialIssueDateDisplay),
+            new("DueDate", "Hạn hoàn thành", o => o.DueDateDisplay),
+            new("Customer", "Khách hàng", o => o.CustomerName),
+            new("SalesOrder", "Đơn đặt hàng", o => o.SalesOrderCode),
+            new("Models", "Sản phẩm", o => o.ModelSummary),
+            new("Worker", "Thợ sản xuất", o => o.WorkerDisplayName),
+            new("Status", "Trạng thái", o => o.StatusDisplay),
+        };
 
-            var dialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Title = "Xuất danh sách lệnh sản xuất",
-                Filter = "CSV (mở bằng Excel)|*.csv|Tất cả|*.*",
-                FileName = $"DanhSachLenhSX_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
-                AddExtension = true,
-                DefaultExt = ".csv"
-            };
-            if (dialog.ShowDialog() != true)
-                return;
-
-            var sb = new StringBuilder();
-            // BOM để Excel mở đúng tiếng Việt
-            sb.Append('\uFEFF');
-            sb.AppendLine("STT,Mã phiếu,Ngày giao,Hạn hoàn thành,Khách hàng,Đơn đặt hàng,Sản phẩm,Thợ sản xuất,Trạng thái");
-            foreach (var o in Orders)
-            {
-                sb.AppendLine(string.Join(",",
-                    Csv(o.Index.ToString()),
-                    Csv(o.Code),
-                    Csv(o.MaterialIssueDateDisplay),
-                    Csv(o.DueDateDisplay),
-                    Csv(o.CustomerName),
-                    Csv(o.SalesOrderCode),
-                    Csv(o.ModelSummary),
-                    Csv(o.WorkerDisplayName),
-                    Csv(o.StatusDisplay)));
-            }
-
-            File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
+        if (ExcelExportService.Export(
+            "Xuất danh sách lệnh sản xuất",
+            $"DanhSachLenhSX_{DateTime.Now:yyyyMMdd_HHmmss}",
+            grid,
+            Orders,
+            columns))
+        {
             MessageBox.Show(
-                $"Đã xuất {Orders.Count} dòng ra file:\n{dialog.FileName}",
+                $"Đã xuất {Orders.Count} dòng ra file Excel.",
                 "Xuất Excel",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-    }
-
-    private static string Csv(string? value)
-    {
-        var v = (value ?? string.Empty).Replace("\"", "\"\"");
-        return $"\"{v}\"";
     }
 
     private async Task CreateOrderAsync()

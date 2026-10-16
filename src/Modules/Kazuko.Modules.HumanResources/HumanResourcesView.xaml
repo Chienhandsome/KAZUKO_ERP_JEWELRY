@@ -384,7 +384,9 @@
                             <Button Content="+ Thêm nhân viên (F1)" Style="{StaticResource HrPrimaryButtonStyle}"
                                     Command="{Binding AddCommand}" Margin="0,0,8,8" MinWidth="180" />
                             <Button Content="Xuất Excel" Style="{StaticResource HrOutlineButtonStyle}"
-                                    Command="{Binding ExportExcelCommand}" Margin="0,0,0,8" MinWidth="110" />
+                                    Command="{Binding ExportExcelCommand}"
+                                    CommandParameter="{Binding ElementName=EmployeeListGrid}"
+                                    Margin="0,0,0,8" MinWidth="110" />
                         </StackPanel>
                         <WrapPanel>
                             <TextBox Width="220" Style="{StaticResource HrFilterFieldStyle}"

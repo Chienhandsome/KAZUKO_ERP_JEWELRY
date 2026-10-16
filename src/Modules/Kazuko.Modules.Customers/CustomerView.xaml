@@ -488,8 +488,9 @@
                                     Command="{Binding RefreshCommand}"
                                     MinWidth="100" />
                             <Button Content="Xuất Excel"
-                                    Style="{StaticResource DisabledImportButtonStyle}"
-                                    IsEnabled="False"
+                                    Style="{StaticResource OutlineButtonStyle}"
+                                    Command="{Binding ExportExcelCommand}"
+                                    CommandParameter="{Binding ElementName=CustomerListGrid}"
                                     MinWidth="110" />
                         </WrapPanel>
 

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.Mvvm;
+using Kazuko.Shared.UI.Services;
 
 namespace Kazuko.Modules.Customers;
 
@@ -68,6 +69,7 @@ public sealed class CustomerViewModel : ObservableObject
 
         SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsLoading);
+        ExportExcelCommand = new RelayCommand<object?>(ExportExcel, _ => !IsLoading);
         AddCommand = new RelayCommand(AddCustomer, () => !IsLoading);
         EditCommand = new ParameterRelayCommand(
             EditCustomer,
@@ -253,6 +255,29 @@ public sealed class CustomerViewModel : ObservableObject
 
     public ICommand SearchCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand ExportExcelCommand { get; }
+
+    private void ExportExcel(object? parameter)
+    {
+        var grid = parameter as System.Windows.Controls.DataGrid;
+        var columns = new ExcelExportColumn<CustomerRowViewModel>[]
+        {
+            new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
+            new("Code", "Mã KH", o => o.Code),
+            new("Name", "Tên khách hàng", o => o.Name),
+            new("Phone", "SĐT", o => o.Phone),
+            new("CustomerGroup", "Nhóm KH", o => o.CustomerGroupName),
+            new("Region", "Khu vực", o => o.Region),
+            new("TotalSales", "Tổng mua", o => o.TotalSales, ExcelCellKind.Money),
+            new("CurrentDebt", "Công nợ", o => o.CurrentDebt, ExcelCellKind.Money),
+            new("LastPurchase", "Mua cuối", o => o.LastPurchaseDate, ExcelCellKind.Date),
+            new("Status", "Trạng thái", o => o.StatusText),
+        };
+        ExcelExportService.Export(
+            "Xuất danh sách khách hàng",
+            $"DanhSachKhachHang_{DateTime.Now:yyyyMMdd_HHmmss}",
+            grid, Customers, columns);
+    }
     public ICommand AddCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand EditSelectedCommand { get; }

@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Mvvm;
+using Kazuko.Shared.UI.Services;
 using Kazuko.Core.Suppliers;
 
 namespace Kazuko.Modules.Suppliers;
@@ -68,6 +69,7 @@ public sealed class SupplierViewModel : ObservableObject
 
         SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsLoading);
+        ExportExcelCommand = new RelayCommand<object?>(ExportExcel, _ => !IsLoading);
         AddCommand = new RelayCommand(AddSupplier, () => !IsLoading);
         EditCommand = new ParameterRelayCommand(
             EditSupplier,
@@ -248,6 +250,30 @@ public sealed class SupplierViewModel : ObservableObject
 
     public ICommand SearchCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand ExportExcelCommand { get; }
+
+    private void ExportExcel(object? parameter)
+    {
+        var grid = parameter as System.Windows.Controls.DataGrid;
+        var columns = new ExcelExportColumn<SupplierRowViewModel>[]
+        {
+            new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
+            new("Code", "Mã NCC", o => o.Code),
+            new("Name", "Tên nhà cung cấp", o => o.Name),
+            new("Phone", "SĐT", o => o.Phone),
+            new("SupplierGroup", "Nhóm NCC", o => o.SupplierGroupName),
+            new("Region", "Khu vực", o => o.Region),
+            new("ContactName", "Người liên hệ", o => o.ContactName),
+            new("TotalPurchases", "Tổng mua", o => o.TotalPurchases, ExcelCellKind.Money),
+            new("CurrentDebt", "Công nợ", o => o.CurrentDebt, ExcelCellKind.Money),
+            new("LastPurchase", "Mua cuối", o => o.LastPurchaseDate, ExcelCellKind.Date),
+            new("Status", "Trạng thái", o => o.IsActive ? "Đang hoạt động" : "Ngừng giao dịch"),
+        };
+        ExcelExportService.Export(
+            "Xuất danh sách nhà cung cấp",
+            $"DanhSachNhaCungCap_{DateTime.Now:yyyyMMdd_HHmmss}",
+            grid, Suppliers, columns);
+    }
     public ICommand AddCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand EditSelectedCommand { get; }

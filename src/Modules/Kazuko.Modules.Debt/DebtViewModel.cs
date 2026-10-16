@@ -7,6 +7,7 @@ using Kazuko.Core.Customers;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Suppliers;
+using Kazuko.Shared.UI.Services;
 
 namespace Kazuko.Modules.Debt;
 
@@ -95,7 +96,7 @@ public sealed class DebtViewModel : ObservableObject
         SettleLedgerEntryCommand = new RelayCommand<DebtLedgerRowViewModel>(row => { _ = SettleLedgerEntryAsync(row); });
         RecordRepaymentCommand = new RelayCommand<WorkerGoldDebtRowViewModel>(row => { _ = RecordRepaymentAsync(row); });
         PrintCommand = new RelayCommand(ShowNotImplemented, () => HasSelection);
-        ExportExcelCommand = new RelayCommand(ShowNotImplemented, () => true);
+        ExportExcelCommand = new RelayCommand<object?>(ExportExcel, _ => true);
         ViewDetailCommand = new RelayCommand(() => { }, () => HasSelection);
         GuideCommand = new RelayCommand(() =>
             MessageBox.Show(
@@ -915,6 +916,77 @@ public sealed class DebtViewModel : ObservableObject
         ((AsyncRelayCommand)CollectOrPayCommand).NotifyCanExecuteChanged();
         ((RelayCommand)PrintCommand).NotifyCanExecuteChanged();
         ((RelayCommand)ViewDetailCommand).NotifyCanExecuteChanged();
+    }
+
+    private void ExportExcel(object? parameter)
+    {
+        var grid = parameter switch
+        {
+            System.Windows.Controls.DataGrid g => g,
+            System.Windows.Controls.TabControl tc =>
+                ExcelExportService.FindDataGrid(tc.SelectedContent as DependencyObject),
+            _ => null
+        };
+
+        if (IsCustomerTab)
+        {
+            var columns = new ExcelExportColumn<CustomerDebtRowViewModel>[]
+            {
+                new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
+                new("Code", "Mã KH", o => o.Code),
+                new("Name", "Tên khách hàng", o => o.Name),
+                new("Phone", "SĐT", o => o.Phone),
+                new("Incurred", "Tổng phát sinh", o => o.TotalIncurredVnd, ExcelCellKind.Money),
+                new("Paid", "Đã thanh toán", o => o.PaidVnd, ExcelCellKind.Money),
+                new("Remaining", "Còn nợ", o => o.RemainingVnd, ExcelCellKind.Money),
+                new("LastDebt", "Ngày nợ cuối", o => o.LastDebtDate, ExcelCellKind.Date),
+                new("Status", "Trạng thái", o => o.StatusText),
+            };
+            ExcelExportService.Export(
+                "Xuất công nợ khách hàng",
+                $"CongNoKhachHang_{DateTime.Now:yyyyMMdd_HHmmss}",
+                grid, Customers, columns);
+        }
+        else if (IsSupplierTab)
+        {
+            var columns = new ExcelExportColumn<SupplierDebtRowViewModel>[]
+            {
+                new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
+                new("Code", "Mã NCC", o => o.Code),
+                new("Name", "Tên nhà cung cấp", o => o.Name),
+                new("Phone", "SĐT", o => o.Phone),
+                new("Incurred", "Tổng phát sinh", o => o.TotalIncurredVnd, ExcelCellKind.Money),
+                new("Paid", "Đã thanh toán", o => o.PaidVnd, ExcelCellKind.Money),
+                new("Remaining", "Còn nợ", o => o.RemainingVnd, ExcelCellKind.Money),
+                new("LastDebt", "Ngày nợ cuối", o => o.LastDebtDate, ExcelCellKind.Date),
+                new("Status", "Trạng thái", o => o.StatusText),
+            };
+            ExcelExportService.Export(
+                "Xuất công nợ nhà cung cấp",
+                $"CongNoNhaCungCap_{DateTime.Now:yyyyMMdd_HHmmss}",
+                grid, Suppliers, columns);
+        }
+        else
+        {
+            var columns = new ExcelExportColumn<WorkerGoldDebtRowViewModel>[]
+            {
+                new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
+                new("Code", "Mã nợ", o => o.Code),
+                new("Worker", "Thợ", o => o.WorkerDisplayName),
+                new("WorkerType", "Loại thợ", o => o.WorkerTypeText),
+                new("Purity", "Loại vàng", o => o.GoldPurityText),
+                new("Weight", "Nợ (chỉ)", o => o.WeightChi, ExcelCellKind.Quantity),
+                new("Paid", "Đã trả (chỉ)", o => o.WeightPaidChi, ExcelCellKind.Quantity),
+                new("Remaining", "Còn lại (chỉ)", o => o.RemainingChi, ExcelCellKind.Quantity),
+                new("Order", "Lệnh SX", o => o.ProductionOrderCode),
+                new("CreatedAt", "Ngày ghi", o => o.Row.CreatedAt, ExcelCellKind.Date),
+                new("Status", "Trạng thái", o => o.StatusText),
+            };
+            ExcelExportService.Export(
+                "Xuất nợ vàng thợ",
+                $"NoVangTho_{DateTime.Now:yyyyMMdd_HHmmss}",
+                grid, WorkerGoldDebts, columns);
+        }
     }
 
     private static void ShowNotImplemented() =>
