@@ -6,7 +6,8 @@
     <Color x:Key="Color.Surface">#FFFFFFFF</Color>
     <Color x:Key="Color.SurfaceAlt">#FFFFF8F1</Color>
     <Color x:Key="Color.TextPrimary">#FF000000</Color>
-    <Color x:Key="Color.TextSecondary">#FF746E67</Color>
+    <!-- Giao diện sáng dùng chữ đen thống nhất cho label, chú thích và dữ liệu nhập. -->
+    <Color x:Key="Color.TextSecondary">#FF000000</Color>
     <Color x:Key="Color.Border">#FFE7DED4</Color>
     <Color x:Key="Color.Success">#FF268A56</Color>
     <Color x:Key="Color.Danger">#FFC94141</Color>

@@ -14,7 +14,7 @@
     <local:InverseBooleanToVisibilityConverter x:Key="NotAdminToVis" />
 
     <Style x:Key="UmDialogLabelStyle" TargetType="TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
       <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
@@ -23,6 +23,7 @@
       <Setter Property="MinHeight" Value="38" />
       <Setter Property="Margin" Value="0,0,0,12" />
       <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
@@ -93,6 +94,7 @@
 
       <CheckBox Content="Đang hoạt động"
                 IsChecked="{Binding IsActive}"
+                Foreground="{DynamicResource TextPrimaryBrush}"
                 FontSize="{DynamicResource FontSize.Body}"
                 Visibility="{Binding IsAdminGroup, Converter={StaticResource NotAdminToVis}}" />
     </StackPanel>
