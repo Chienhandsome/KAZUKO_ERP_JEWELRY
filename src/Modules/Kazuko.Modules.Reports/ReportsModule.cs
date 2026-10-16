@@ -23,6 +23,24 @@ public sealed class ReportsModule : IKazukoModule
         var summaryService = GetRequiredService<IJewelryOnHandSummaryReportService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
         var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
+        var fundBalance = GetRequiredService<IFundBalanceReportService>(services);
+        var fundCash = GetRequiredService<IFundCashReportService>(services);
+        var fundCashReceipts = GetRequiredService<IFundCashReceiptsReportService>(services);
+        var fundCashPayments = GetRequiredService<IFundCashPaymentsReportService>(services);
+        var masterCustomers = GetRequiredService<IMasterCustomersReportService>(services);
+        var masterSuppliers = GetRequiredService<IMasterSuppliersReportService>(services);
+        var salesInvoices = GetRequiredService<ISalesInvoicesReportService>(services);
+        var salesProfitLoss = GetRequiredService<ISalesProfitLossReportService>(services);
+        var salesInvoicesByDay = GetRequiredService<ISalesInvoicesByDayReportService>(services);
+        var salesDetailByDay = GetRequiredService<ISalesDetailByDayReportService>(services);
+        var salesNewGoldDetail = GetRequiredService<ISalesNewGoldDetailByTypeReportService>(services);
+        var salesOldGoldDetail = GetRequiredService<ISalesOldGoldPurchaseDetailByTypeReportService>(services);
+        var salesNewGoldSummary = GetRequiredService<ISalesNewGoldSummaryByTypeReportService>(services);
+        var salesOldGoldSummary = GetRequiredService<ISalesOldGoldPurchaseSummaryByTypeReportService>(services);
+        var salesTopItems = GetRequiredService<ISalesTopItemsReportService>(services);
+        var whApproved = GetRequiredService<IWarehouseApprovedReceiptsReportService>(services);
+        var whPending = GetRequiredService<IWarehousePendingReceiptsReportService>(services);
+        var whByType = GetRequiredService<IWarehouseReceiptsByTypeReportService>(services);
 
         navigation.Register(new NavigationItem(
             "REPORT",
@@ -34,7 +52,25 @@ public sealed class ReportsModule : IKazukoModule
             {
                 DataContext = new ReportsViewModel(
                     new JewelryOnHandReportViewModel(reportService, session, goldTypes),
-                    new JewelryOnHandSummaryReportViewModel(summaryService, session, goldTypes))
+                    new JewelryOnHandSummaryReportViewModel(summaryService, session, goldTypes),
+                    new FundBalanceReportViewModel(fundBalance, session),
+                    new FundCashReportViewModel(fundCash, session),
+                    new FundCashReceiptsReportViewModel(fundCashReceipts, session),
+                    new FundCashPaymentsReportViewModel(fundCashPayments, session),
+                    new MasterCustomersReportViewModel(masterCustomers, session),
+                    new MasterSuppliersReportViewModel(masterSuppliers, session),
+                    new SalesInvoicesReportViewModel(salesInvoices, session),
+                    new SalesProfitLossReportViewModel(salesProfitLoss, session),
+                    new SalesInvoicesByDayReportViewModel(salesInvoicesByDay, session),
+                    new SalesDetailByDayReportViewModel(salesDetailByDay, session),
+                    new SalesNewGoldDetailByTypeReportViewModel(salesNewGoldDetail, session),
+                    new SalesOldGoldPurchaseDetailByTypeReportViewModel(salesOldGoldDetail, session),
+                    new SalesNewGoldSummaryByTypeReportViewModel(salesNewGoldSummary, session),
+                    new SalesOldGoldPurchaseSummaryByTypeReportViewModel(salesOldGoldSummary, session),
+                    new SalesTopItemsReportViewModel(salesTopItems, session),
+                    new WarehouseApprovedReceiptsReportViewModel(whApproved, session),
+                    new WarehousePendingReceiptsReportViewModel(whPending, session),
+                    new WarehouseReceiptsByTypeReportViewModel(whByType, session))
             },
             AssetRoot + "BC.png",
             "Thống kê, báo cáo\ntổng hợp",

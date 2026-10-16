@@ -111,6 +111,31 @@ public partial class App : Application
         IJewelryOnHandReportService jewelryOnHandReport = new FirebirdJewelryOnHandReportService();
         IJewelryOnHandSummaryReportService jewelryOnHandSummaryReport =
             new FirebirdJewelryOnHandSummaryReportService();
+        IFundBalanceReportService fundBalanceReport = new FirebirdFundBalanceReportService();
+        IFundCashReportService fundCashReport = new FirebirdFundCashReportService();
+        IFundCashReceiptsReportService fundCashReceiptsReport = new FirebirdFundCashReceiptsReportService();
+        IFundCashPaymentsReportService fundCashPaymentsReport = new FirebirdFundCashPaymentsReportService();
+        IMasterCustomersReportService masterCustomersReport = new FirebirdMasterCustomersReportService();
+        IMasterSuppliersReportService masterSuppliersReport = new FirebirdMasterSuppliersReportService();
+        ISalesInvoicesReportService salesInvoicesReport = new FirebirdSalesInvoicesReportService();
+        ISalesProfitLossReportService salesProfitLossReport = new FirebirdSalesProfitLossReportService();
+        ISalesInvoicesByDayReportService salesInvoicesByDayReport = new FirebirdSalesInvoicesByDayReportService();
+        ISalesDetailByDayReportService salesDetailByDayReport = new FirebirdSalesDetailByDayReportService();
+        ISalesNewGoldDetailByTypeReportService salesNewGoldDetailByTypeReport =
+            new FirebirdSalesNewGoldDetailByTypeReportService();
+        ISalesOldGoldPurchaseDetailByTypeReportService salesOldGoldPurchaseDetailByTypeReport =
+            new FirebirdSalesOldGoldPurchaseDetailByTypeReportService();
+        ISalesNewGoldSummaryByTypeReportService salesNewGoldSummaryByTypeReport =
+            new FirebirdSalesNewGoldSummaryByTypeReportService();
+        ISalesOldGoldPurchaseSummaryByTypeReportService salesOldGoldPurchaseSummaryByTypeReport =
+            new FirebirdSalesOldGoldPurchaseSummaryByTypeReportService();
+        ISalesTopItemsReportService salesTopItemsReport = new FirebirdSalesTopItemsReportService();
+        IWarehouseApprovedReceiptsReportService warehouseApprovedReceiptsReport =
+            new FirebirdWarehouseApprovedReceiptsReportService();
+        IWarehousePendingReceiptsReportService warehousePendingReceiptsReport =
+            new FirebirdWarehousePendingReceiptsReportService();
+        IWarehouseReceiptsByTypeReportService warehouseReceiptsByTypeReport =
+            new FirebirdWarehouseReceiptsByTypeReportService();
         ISalesCheckoutApplicationService salesCheckout = new FirebirdSalesCheckoutApplicationService();
         ISalesQueryRepository salesQueries = new FirebirdSalesQueryRepository();
         ISalesAuthorizationService salesAuthorization = new FirebirdSalesAuthorizationService();
@@ -162,6 +187,24 @@ public partial class App : Application
         _services.AddSingleton(productionPrintData);
         _services.AddSingleton(jewelryOnHandReport);
         _services.AddSingleton(jewelryOnHandSummaryReport);
+        _services.AddSingleton(fundBalanceReport);
+        _services.AddSingleton(fundCashReport);
+        _services.AddSingleton(fundCashReceiptsReport);
+        _services.AddSingleton(fundCashPaymentsReport);
+        _services.AddSingleton(masterCustomersReport);
+        _services.AddSingleton(masterSuppliersReport);
+        _services.AddSingleton(salesInvoicesReport);
+        _services.AddSingleton(salesProfitLossReport);
+        _services.AddSingleton(salesInvoicesByDayReport);
+        _services.AddSingleton(salesDetailByDayReport);
+        _services.AddSingleton(salesNewGoldDetailByTypeReport);
+        _services.AddSingleton(salesOldGoldPurchaseDetailByTypeReport);
+        _services.AddSingleton(salesNewGoldSummaryByTypeReport);
+        _services.AddSingleton(salesOldGoldPurchaseSummaryByTypeReport);
+        _services.AddSingleton(salesTopItemsReport);
+        _services.AddSingleton(warehouseApprovedReceiptsReport);
+        _services.AddSingleton(warehousePendingReceiptsReport);
+        _services.AddSingleton(warehouseReceiptsByTypeReport);
         _services.AddSingleton(salesCheckout);
         _services.AddSingleton(salesQueries);
         _services.AddSingleton(craftOrders);

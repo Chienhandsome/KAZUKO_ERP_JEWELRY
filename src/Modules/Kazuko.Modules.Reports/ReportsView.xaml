@@ -393,6 +393,1184 @@
                                 </shared:ReportWorkspaceView.FilterContent>
                             </shared:ReportWorkspaceView>
                         </DataTemplate>
+                        <DataTemplate DataType="{x:Type local:FundBalanceReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu tồn quỹ.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Báo cáo tồn quỹ"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Số dư các quỹ tiền mặt và tài khoản ngân hàng theo kỳ"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:FundCashReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu quỹ tiền mặt.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Báo cáo quỹ tiền mặt"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Tổng hợp thu/chi/tồn quỹ tiền mặt theo ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:FundCashReceiptsReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có phiếu thu tiền mặt.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Danh sách phiếu thu tiền mặt"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Chi tiết các phiếu thu tiền mặt trong kỳ"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:FundCashPaymentsReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có phiếu chi tiền mặt.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Danh sách phiếu chi tiền mặt"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Chi tiết các phiếu chi tiền mặt trong kỳ"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:MasterCustomersReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có khách hàng.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Danh mục khách hàng"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Toàn bộ khách hàng trong hệ thống"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBox Style="{StaticResource ReportFilterFieldStyle}"
+                                                 Margin="0,0,0,14"
+                                                 HorizontalAlignment="Stretch"
+                                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Mã, tên hoặc số điện thoại" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:MasterSuppliersReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có nhà cung cấp.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Danh mục nhà cung cấp"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Toàn bộ nhà cung cấp trong hệ thống"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBox Style="{StaticResource ReportFilterFieldStyle}"
+                                                 Margin="0,0,0,14"
+                                                 HorizontalAlignment="Stretch"
+                                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Mã, tên hoặc số điện thoại" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesInvoicesReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có hóa đơn bán hàng.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Danh sách hóa đơn bán hàng"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Chi tiết hóa đơn bán hàng trong kỳ"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Khách hàng"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox Style="{StaticResource ReportFilterFieldStyle}"
+                                                 Margin="0,0,0,14"
+                                                 HorizontalAlignment="Stretch"
+                                                 Text="{Binding CustomerText, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Mã hoặc tên khách hàng" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesProfitLossReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu lãi lỗ.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Tổng hợp lãi lỗ"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Doanh thu, giá vốn và lãi theo từng dòng bán"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesInvoicesByDayReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Tổng hợp hóa đơn bán hàng theo ngày"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Gom nhóm hóa đơn theo ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesDetailByDayReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Chi tiết bán hàng theo ngày"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Từng dòng sản phẩm bán theo ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesNewGoldDetailByTypeReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Chi tiết bán vàng mới theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Từng dòng bán vàng mới theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesOldGoldPurchaseDetailByTypeReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Chi tiết mua vàng cũ theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Từng dòng mua vàng cũ theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesNewGoldSummaryByTypeReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Tổng hợp bán vàng mới theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Gom nhóm bán vàng mới theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesOldGoldPurchaseSummaryByTypeReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Tổng hợp mua vàng cũ theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Gom nhóm mua vàng cũ theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:SalesTopItemsReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="20 mặt hàng bán chạy nhất"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Top 20 mặt hàng theo số lượng bán"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:WarehouseApprovedReceiptsReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có phiếu nhập đã duyệt.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Chi tiết nhập hàng đã xét duyệt"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Các phiếu nhập đã ghi sổ trong kỳ"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:WarehousePendingReceiptsReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có phiếu nhập chưa duyệt.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Chi tiết nhập hàng chưa xét duyệt"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Các phiếu nhập nháp chưa ghi sổ"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
+
+                        <DataTemplate DataType="{x:Type local:WarehouseReceiptsByTypeReportViewModel}">
+                            <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu.">
+                                <shared:ReportWorkspaceView.FilterContent>
+                                    <StackPanel>
+                                        <TextBlock Text="Tổng hợp nhập hàng theo loại"
+                                                   FontSize="{DynamicResource FontSize.Subtitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="Gom nhóm nhập hàng theo loại vàng"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,14" />
+
+                                        <TextBlock Text="Bộ lọc"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,0,0,8" />
+
+                                        <TextBlock Text="Từ ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding FromDate}"
+                                                    Margin="0,0,0,8"
+                                                    HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Đến ngày"
+                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <DatePicker SelectedDate="{Binding ToDate}"
+                                                    Margin="0,0,0,14"
+                                                    HorizontalAlignment="Stretch" />
+                                        <Button Content="Cột báo cáo"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ConfigureColumnsCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Ẩn/hiện và đổi thứ tự cột trên bản in" />
+                                        <Button Content="Xóa lọc"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding ClearFiltersCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Làm mới"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding RefreshCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8" />
+                                        <Button Content="Mở PDF"
+                                                Style="{StaticResource ReportOutlineButtonStyle}"
+                                                Command="{Binding PreviewCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,0,8"
+                                                ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
+                                        <Button Content="In"
+                                                Style="{StaticResource ReportPrimaryButtonStyle}"
+                                                Command="{Binding PrintCommand}"
+                                                HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </shared:ReportWorkspaceView.FilterContent>
+                            </shared:ReportWorkspaceView>
+                        </DataTemplate>
                     </ContentControl.Resources>
                 </ContentControl>
             </Grid>
