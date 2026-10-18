@@ -40,7 +40,8 @@
                     BorderThickness="{TemplateBinding BorderThickness}"
                     CornerRadius="8"
                     Padding="{TemplateBinding Padding}"
-                    SnapsToDevicePixels="True">
+                    SnapsToDevicePixels="True"
+                    TextElement.Foreground="{TemplateBinding Foreground}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <ControlTemplate.Triggers>
@@ -130,6 +131,7 @@
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="TabHeader" Property="Background" Value="{DynamicResource PrimaryBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+                            <Setter TargetName="TabHeader" Property="TextBlock.Foreground" Value="{DynamicResource OnPrimaryBrush}" />
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
                 <Setter TargetName="TabHeader" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
@@ -199,6 +201,7 @@
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+                                <Setter TargetName="Bd" Property="TextBlock.Foreground" Value="{DynamicResource OnPrimaryBrush}" />
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>

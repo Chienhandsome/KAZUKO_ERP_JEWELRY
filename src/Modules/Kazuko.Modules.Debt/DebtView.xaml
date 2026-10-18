@@ -152,7 +152,8 @@
                     BorderThickness="{TemplateBinding BorderThickness}"
                     CornerRadius="8"
                     Padding="{TemplateBinding Padding}"
-                    SnapsToDevicePixels="True">
+                    SnapsToDevicePixels="True"
+                    TextElement.Foreground="{TemplateBinding Foreground}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <ControlTemplate.Triggers>

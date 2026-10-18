@@ -27,7 +27,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}"
+                        TextElement.Foreground="{TemplateBinding Foreground}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -308,6 +309,7 @@
                                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource PrimaryBrush}" />
                                 <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
                                 <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
+                            <Setter TargetName="TabBorder" Property="TextBlock.Foreground" Value="{DynamicResource OnPrimaryBrush}" />
                                 <Setter Property="FontWeight" Value="SemiBold" />
                             </Trigger>
                             <MultiTrigger>
