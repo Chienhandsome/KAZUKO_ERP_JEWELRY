@@ -1,6 +1,7 @@
 ﻿<Window x:Class="Kazuko.Modules.Warehouse.ProductionFinishedReceiptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Nhập kho thành phẩm" Width="1520" Height="920"
@@ -384,19 +385,19 @@
     <!-- 2. Thanh nút action -->
     <DockPanel Grid.Row="2" Margin="0,0,0,12" LastChildFill="False">
       <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-        <Button Content="+ Thêm (F1)"
+        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="+ Thêm (F1)"
                 Command="{Binding AddCommand}"
                 Style="{StaticResource WhPrimaryButtonStyle}"
                 MinWidth="130" MinHeight="40" Margin="0,0,8,0" />
-        <Button Content="Sửa (F2)"
+      <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Sửa (F2)"
                 Command="{Binding EditCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="110" MinHeight="40" Margin="0,0,8,0" />
-        <Button Content="Xóa (Delete)"
+      <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Xóa (Delete)"
                 Command="{Binding DeleteCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="130" MinHeight="40" Margin="0,0,8,0" />
-        <Button Content="Lưu in (Enter)"
+        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Lưu in (Enter)"
                 Command="{Binding SaveCommand}"
                 Style="{StaticResource WhPrimaryButtonStyle}"
                 MinWidth="140" MinHeight="40" Margin="0,0,8,0" />
@@ -547,13 +548,13 @@
                      Foreground="{DynamicResource PrimaryBrush}" />
         </StackPanel>
       </Border>
-      <Button Grid.Column="6" Content="Đối chiếu vàng"
+      <Button access:PermissionAccess.Rule="PROD_GOLD_RECONCILE" Grid.Column="6" Content="Đối chiếu vàng"
               Command="{Binding OpenReconcileCommand}"
               Style="{StaticResource WhOutlineButtonStyle}"
               MinWidth="150" MinHeight="64" Margin="8,0,0,0"
               FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold"
               ToolTip="Mở đối chiếu vàng đã giao / đã nhận, ghi công nợ thợ." />
-      <Button Grid.Column="7" Content="✓ ĐÃ KIỂM TRA"
+      <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Grid.Column="7" Content="✓ ĐÃ KIỂM TRA"
               Command="{Binding SaveCommand}"
               Style="{StaticResource WhPrimaryButtonStyle}"
               MinWidth="180" MinHeight="64" Margin="8,0,0,0"

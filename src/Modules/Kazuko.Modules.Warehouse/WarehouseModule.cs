@@ -67,7 +67,7 @@ public sealed class WarehouseModule : IKazukoModule
                     goldTypes,
                     productionQueries,
                     productionApplication,
-                    preferences)
+                    preferences, GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/Kazuko.Infrastructure/Kazuko.Infrastructure.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../src/Modules/Kazuko.Modules.UserManagement/Kazuko.Modules.UserManagement.csproj" /></ItemGroup>
+</Project>

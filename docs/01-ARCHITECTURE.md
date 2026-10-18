@@ -51,6 +51,16 @@ Các route placeholder dùng để dựng khung giao diện trước khi module 
 - Module nghiệp vụ không tham chiếu lẫn nhau. Dialog/use case dùng chung (ví dụ khách hàng) expose contract WPF-neutral trong Core (`ICustomerEditorService`, `CustomerEditResult`) và implementation nằm trong module sở hữu.
 - SQL chỉ ở Infrastructure (`FirebirdCustomerRepository`). Module Customers tham chiếu Core + Shared.UI; repository được App đăng ký tại composition root.
 
+Tạo tài khoản trong UserManagement truyền `BranchId` của phiên đăng nhập qua
+`UserSaveRequest`; repository đồng bộ `DEFAULT_BRANCH_ID` và các cột legacy bắt buộc
+`BRANCH_CODE`, `BRANCH_NAME`, `ROLE_CODE`. Khi không có chi nhánh phiên, dùng chi nhánh
+mặc định của người tạo rồi mới fallback chi nhánh hoạt động đầu tiên. Role đăng nhập
+khớp mã nhóm nếu có trong `ROLES`; CASHIER/nhóm tự tạo dùng `SALE`, không sao chép
+role của người tạo. Form tài khoản không có lựa chọn Kho; sửa tài khoản giữ kho đã lưu.
+
+Phân quyền nhóm ở UI và application boundary, ánh xạ thao tác và phối hợp role cũ:
+xem `docs/11-GROUP-AUTHORIZATION.md`.
+
 ## Module package updates (TASK-007A)
 
 Core contracts trong `Kazuko.Core.Updates`:

@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Warehouse.WarehouseView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
              xmlns:charts="clr-namespace:Kazuko.Modules.Warehouse.Controls"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
@@ -486,7 +487,7 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Content="Bảng giá vàng kho"
+                <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE" Content="Bảng giá vàng kho"
                         Style="{StaticResource OutlineButtonStyle}"
                         Command="{Binding OpenWarehouseGoldPricesCommand}"
                         MinWidth="170" Margin="0,0,8,0" />
@@ -534,7 +535,7 @@
                     </TabControl.Template>
 
                     <!-- 0 Tổng quan -->
-                    <TabItem Header="▣  Tổng quan">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="▣  Tổng quan">
                         <Grid Margin="0,8,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -581,7 +582,7 @@
                                         </Grid>
                                     </Button>
 
-                                    <Button Grid.Column="2" Style="{StaticResource SummaryCardStyle}"
+                                    <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Grid.Column="2" Style="{StaticResource SummaryCardStyle}"
                                             Command="{Binding ViewAllRawMaterialsCommand}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -608,7 +609,7 @@
                                         </Grid>
                                     </Button>
 
-                                    <Button Grid.Column="4" Style="{StaticResource SummaryCardStyle}"
+                                    <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Grid.Column="4" Style="{StaticResource SummaryCardStyle}"
                                             Command="{Binding ViewAllFinishedProductsCommand}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -635,7 +636,7 @@
                                         </Grid>
                                     </Button>
 
-                                    <Button Grid.Column="6" Style="{StaticResource SummaryCardStyle}"
+                                    <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Grid.Column="6" Style="{StaticResource SummaryCardStyle}"
                                             Command="{Binding ViewAllSalesGoodsCommand}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -697,7 +698,7 @@
                                                         <TextBlock Text="Vàng, bạc, đá quý, phụ kiện, hoá chất..." Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                        <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
                                                                 Command="{Binding OpenReceiptTabCommand}"
                                                                 ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
                                                     </StackPanel>
@@ -734,7 +735,7 @@
                                                                FontSize="{DynamicResource FontSize.Caption}"
                                                                Visibility="{Binding IsOverviewRawEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
-                                                <Button Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
                                                         Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllRawMaterialsCommand}" />
                                             </Grid>
@@ -759,12 +760,12 @@
                                                         <TextBlock Text="Trang sức hoàn thiện, sản phẩm chế tác" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button Content="+ Nhập thành phẩm"
+                                                        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="+ Nhập thành phẩm"
                                                                 Style="{StaticResource RoundedPrimaryButtonStyle}"
                                                                 Command="{Binding OpenProductionFinishedReceiptCommand}"
                                                                 MinWidth="150"
                                                                 ToolTip="Nhập toàn bộ thành phẩm của một lệnh sản xuất đã hoàn thành" />
-                                                        <Button Content="Xuất kho bán hàng"
+                                                        <Button access:PermissionAccess.Rule="INV_TRANSFER:Add" Content="Xuất kho bán hàng"
                                                                 Style="{StaticResource RoundedPrimaryButtonStyle}"
                                                                 Command="{Binding OpenFinishedProductTransferCommand}"
                                                                 MinWidth="150"
@@ -806,7 +807,7 @@
                                                                FontSize="{DynamicResource FontSize.Caption}"
                                                                Visibility="{Binding IsOverviewFinishedEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
-                                                <Button Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
                                                         Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllFinishedProductsCommand}" />
                                             </Grid>
@@ -830,7 +831,7 @@
                                                         <TextBlock Text="KHO BÁN HÀNG" Style="{StaticResource PanelTitleStyle}" />
                                                         <TextBlock Text="Hàng trưng bày, hàng bán lẻ" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
-                                                    <Button Grid.Column="1"
+                                                    <Button access:PermissionAccess.Rule="INV_SALES_INTAKE" Grid.Column="1"
                                                             Content="Duyệt nhập từ kho TP"
                                                             Style="{StaticResource RoundedPrimaryButtonStyle}"
                                                             Command="{Binding OpenSalesIntakeApprovalCommand}"
@@ -873,7 +874,7 @@
                                                                FontSize="{DynamicResource FontSize.Caption}"
                                                                Visibility="{Binding IsOverviewSaleEmpty, Converter={StaticResource BoolToVis}}" />
                                                 </Grid>
-                                                <Button Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
+                                                <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Grid.Row="3" Margin="0,8,0,0" HorizontalAlignment="Right"
                                                         Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         Command="{Binding ViewAllSalesGoodsCommand}" />
                                             </Grid>
@@ -957,7 +958,7 @@
                                             </Grid.RowDefinitions>
                                             <Grid Margin="0,0,0,8">
                                                 <TextBlock Text="Lịch sử nhập xuất gần đây" Style="{StaticResource PanelTitleStyle}" />
-                                                <Button Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
+                                                <Button access:PermissionAccess.Rule="INV_HISTORY" Content="Xem tất cả" Style="{StaticResource LinkButtonStyle}"
                                                         HorizontalAlignment="Right"
                                                         Command="{Binding ViewAllRecentHistoryCommand}" />
                                             </Grid>
@@ -989,7 +990,7 @@
                     </TabItem>
 
                     <!-- 1 Kho nguyên liệu -->
-                    <TabItem Header="◆  Kho nguyên liệu">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="◆  Kho nguyên liệu">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1010,12 +1011,12 @@
                                           VerticalAlignment="Center" Margin="0,0,12,0"
                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                           FontSize="{DynamicResource FontSize.Body}" />
-                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding SearchBalancesCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearBalanceFiltersCommand}" MinWidth="90" />
                                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button Content="+ Nhập NVL"
+                                    <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="+ Nhập NVL"
                                             Style="{StaticResource RoundedPrimaryButtonStyle}"
                                             Command="{Binding OpenReceiptTabCommand}"
                                             MinWidth="120"
@@ -1131,7 +1132,7 @@
                     </TabItem>
 
                     <!-- 2 Kho thành phẩm -->
-                    <TabItem Header="◎  Kho thành phẩm">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="◎  Kho thành phẩm">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1150,16 +1151,16 @@
                                 <ComboBox Width="160" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding FinishedStatusOptions}"
                                           SelectedItem="{Binding SelectedFinishedStatus}" />
-                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding SearchFinishedProductsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearFinishedFiltersCommand}" MinWidth="90" />
                                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button Content="+ Nhập thành phẩm"
+                                                        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="+ Nhập thành phẩm"
                                             Style="{StaticResource RoundedPrimaryButtonStyle}"
                                             Command="{Binding OpenProductionFinishedReceiptCommand}"
                                             MinWidth="150" />
-                                    <Button Content="Xuất kho bán hàng"
+                                                        <Button access:PermissionAccess.Rule="INV_TRANSFER:Add" Content="Xuất kho bán hàng"
                                             Style="{StaticResource RoundedPrimaryButtonStyle}"
                                             Command="{Binding OpenFinishedProductTransferCommand}"
                                             MinWidth="150"
@@ -1248,7 +1249,7 @@
                     </TabItem>
 
                     <!-- 3 Kho bán hàng -->
-                    <TabItem Header="▢  Kho bán hàng">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="▢  Kho bán hàng">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1267,11 +1268,11 @@
                                 <ComboBox Width="160" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding SaleStatusOptions}"
                                           SelectedItem="{Binding SelectedSaleStatus}" />
-                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                <Button access:PermissionAccess.Rule="INV_STOCK_VIEW" Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding SearchSaleItemsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearSaleFiltersCommand}" MinWidth="90" />
-                                <Button Content="Duyệt nhập từ kho TP"
+                                <Button access:PermissionAccess.Rule="INV_SALES_INTAKE" Content="Duyệt nhập từ kho TP"
                                         Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding OpenSalesIntakeApprovalCommand}"
                                         ToolTip="Duyệt hoặc từ chối yêu cầu chuyển thành phẩm vào Kho bán hàng"
@@ -1360,7 +1361,7 @@
                     </TabItem>
 
                     <!-- 4 Nhập kho / 5 Xuất kho / 6 Chuyển kho share document list binding -->
-                    <TabItem Header="↓  Nhập kho">
+                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="↓  Nhập kho">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1374,7 +1375,7 @@
                                 <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
                                           ItemsSource="{Binding DocumentStatusOptions}"
                                           SelectedItem="{Binding SelectedDocumentStatus}" />
-                                <Button Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                                <Button access:PermissionAccess.Rule="INV_HISTORY" Content="Tìm" Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
@@ -1455,7 +1456,7 @@
                         </Grid>
                     </TabItem>
 
-                    <TabItem Header="↑  Xuất kho">
+                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="↑  Xuất kho">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1561,7 +1562,7 @@
                         </Grid>
                     </TabItem>
 
-                    <TabItem Header="⇄  Chuyển kho">
+                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="⇄  Chuyển kho">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1579,7 +1580,7 @@
                                         Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
-                                <Button Content="+ Xuất kho bán hàng"
+                                <Button access:PermissionAccess.Rule="INV_TRANSFER:Add" Content="+ Xuất kho bán hàng"
                                         Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding OpenFinishedProductTransferCommand}"
                                         ToolTip="Tạo yêu cầu chuyển thành phẩm sang Kho bán hàng (chờ BH duyệt)"
@@ -1675,7 +1676,7 @@
                     </TabItem>
 
                     <!-- 7 Kiểm kê -->
-                    <TabItem Header="☑  Kiểm kê">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCKTAKE" Header="☑  Kiểm kê">
                         <Border Margin="0,12,0,0" Style="{StaticResource DashboardPanelStyle}" MinHeight="220">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <TextBlock Text="Chức năng kiểm kê đang được chuẩn bị."

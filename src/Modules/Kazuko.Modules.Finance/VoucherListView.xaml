@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Finance.VoucherListView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:local="clr-namespace:Kazuko.Modules.Finance"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              Background="Transparent">
@@ -30,7 +31,7 @@
     <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="14">
       <DockPanel LastChildFill="True">
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="False">
-          <Button DockPanel.Dock="Right"
+          <Button access:PermissionAccess.Rule="{Binding AddPermissionRule}" DockPanel.Dock="Right"
                   Content="{Binding AddButtonText}"
                   Style="{StaticResource FinancePrimaryButtonStyle}"
                   Command="{Binding AddCommand}"
@@ -169,7 +170,7 @@
                      Style="{StaticResource FinanceDetailValueStyle}"
                      FontWeight="SemiBold" />
 
-            <Button Content="Hủy phiếu"
+            <Button access:PermissionAccess.Rule="FIN_REVERSE:Delete" Content="Hủy phiếu"
                     Command="{Binding CancelCommand}"
                     Style="{StaticResource FinanceDangerLinkButtonStyle}"
                     HorizontalAlignment="Left"

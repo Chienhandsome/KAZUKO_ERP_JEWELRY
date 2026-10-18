@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Warehouse.GoldReconcileDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Đối chiếu vàng" Width="760" Height="560"
         MinWidth="680" MinHeight="480" WindowStartupLocation="CenterOwner"
@@ -222,7 +223,7 @@
     <!-- Footer -->
     <DockPanel Grid.Row="4" Margin="0,16,0,0" LastChildFill="True">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-        <Button Content="Ghi công nợ"
+        <Button access:PermissionAccess.Rule="PROD_GOLD_RECONCILE:Add" Content="Ghi công nợ"
                 Command="{Binding RecordDebtCommand}"
                 Style="{StaticResource WhPrimaryButtonStyle}"
                 MinWidth="140" MinHeight="40" Margin="0,0,8,0"

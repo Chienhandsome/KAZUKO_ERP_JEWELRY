@@ -57,6 +57,7 @@ public partial class App : Application
     private readonly ServiceRegistry _services = new();
     private readonly ModuleNavigationRegistry _navigation = new();
     private readonly ICurrentSessionAccessor _sessionAccessor = new CurrentSessionAccessor();
+    private IDatabaseManagementService _backgroundDatabase = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -77,7 +78,7 @@ public partial class App : Application
     {
         try
         {
-            var database = _services.GetService(typeof(IDatabaseManagementService)) as IDatabaseManagementService;
+            var database = _backgroundDatabase;
             if (database is not null)
                 await database.RunAutoBackupIfEnabledAsync();
         }
@@ -241,6 +242,36 @@ public partial class App : Application
         _services.AddSingleton(salesAuthorization);
         _services.AddSingleton(salesPrintData);
         _services.AddSingleton(userManagement);
+        IAuthorizationService authorization = new FirebirdAuthorizationService(_sessionAccessor);
+        _services.AddSingleton(authorization);
+        void Protect<T>() where T : class => _services.AddSingleton(
+            AuthorizedServiceProxy<T>.Create(_services.GetRequiredService<T>(), authorization, _sessionAccessor));
+        Protect<ICustomerRepository>(); Protect<ISupplierRepository>(); Protect<IHumanResourcesRepository>();
+        Protect<IWarehouseRepository>(); Protect<IWarehouseGoldPriceRepository>(); Protect<IGoldTypeCatalogService>();
+        Protect<IPriceBoardRepository>(); Protect<IExternalWorkerRepository>();
+        Protect<IMaterialReceiptService>(); Protect<IMaterialIssueService>(); Protect<IOutsourcedCraftService>();
+        Protect<IFinishedGoodsIssueService>(); Protect<IStockTransferService>(); Protect<IFinishedProductTransferService>();
+        Protect<IStockAdjustmentService>(); Protect<IPayableDebtRepository>(); Protect<IDebtWorkbenchRepository>();
+        Protect<IFinancialVoucherPostingService>(); Protect<IFinancialSettlementService>(); Protect<IReceivableDebtRepository>();
+        Protect<IDocumentReversalService>(); Protect<IPartyCreditService>(); Protect<IFinanceDashboardRepository>();
+        Protect<IFinanceVoucherService>(); Protect<ICashFundRepository>(); Protect<IBankAccountRepository>();
+        Protect<IProductionQueryRepository>(); Protect<IProductionApplicationService>(); Protect<IProductionPrintDataService>();
+        Protect<ISalesCheckoutApplicationService>(); Protect<ISalesQueryRepository>(); Protect<ISalesPrintDataService>(); Protect<ISalesAuthorizationService>();
+        Protect<ICraftOrderApplicationService>(); Protect<IWholesaleSalesApplicationService>(); Protect<IUserManagementRepository>();
+        Protect<ICompanyProfileService>(); Protect<IPrintTemplateStore>();
+        _backgroundDatabase = _services.GetRequiredService<IDatabaseManagementService>();
+        Protect<IDatabaseManagementService>();
+        Protect<IJewelryOnHandReportService>(); Protect<IJewelryOnHandSummaryReportService>(); Protect<IFundBalanceReportService>();
+        Protect<IFundCashReportService>(); Protect<IFundCashReceiptsReportService>(); Protect<IFundCashPaymentsReportService>();
+        Protect<IMasterCustomersReportService>(); Protect<IMasterSuppliersReportService>(); Protect<ISalesInvoicesReportService>();
+        Protect<ISalesProfitLossReportService>(); Protect<ISalesInvoicesByDayReportService>(); Protect<ISalesDetailByDayReportService>();
+        Protect<ISalesNewGoldDetailByTypeReportService>(); Protect<ISalesOldGoldPurchaseDetailByTypeReportService>();
+        Protect<ISalesNewGoldSummaryByTypeReportService>(); Protect<ISalesOldGoldPurchaseSummaryByTypeReportService>();
+        Protect<ISalesTopItemsReportService>(); Protect<IWarehouseApprovedReceiptsReportService>();
+        Protect<IWarehousePendingReceiptsReportService>(); Protect<IWarehouseReceiptsByTypeReportService>();
+        PermissionAccess.Initialize(authorization);
+        ExcelExportService.ConfigureAuthorization(authorization);
+        Kazuko.Modules.Reports.Shared.FastReportPdfExporter.ConfigureAuthorization(authorization);
     }
 
     private void RegisterModules()
@@ -280,17 +311,27 @@ public partial class App : Application
         var loginView = new LoginView { DataContext = viewModel };
         var window = new LoginWindow { Content = loginView };
 
-        viewModel.SignedIn += (_, session) =>
+        viewModel.SignedIn += async (_, session) =>
         {
             _sessionAccessor.Set(session);
+            var authorization = _services.GetRequiredService<IAuthorizationService>();
+            try { await authorization.RefreshAsync(); }
+            catch (Exception)
+            {
+                _sessionAccessor.Clear(); authorization.Clear();
+                MessageBox.Show("Không tải được quyền sử dụng. Vui lòng đăng nhập lại.", "Đăng nhập", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
             MainWindow? shell = null;
             var shellViewModel = new ShellViewModel(
                 session.DisplayName,
                 _navigation,
                 _services.GetRequiredService<INavigationService>(),
+                authorization,
                 () =>
                 {
                     _sessionAccessor.Clear();
+                    authorization.Clear();
                     ShowLogin();
                     shell?.Close();
                 });

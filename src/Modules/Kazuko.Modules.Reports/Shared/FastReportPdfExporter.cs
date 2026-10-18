@@ -2,12 +2,15 @@ using System.Diagnostics;
 using System.IO;
 using FastReport;
 using FastReport.Export.PdfSimple;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.Reports.Shared;
 
 /// <summary>Xuất FastReport ra PDF tạm, mở ngoài app hoặc gửi in qua shell.</summary>
 public sealed class FastReportPdfExporter
 {
+    private static IAuthorizationService? _authorization;
+    public static void ConfigureAuthorization(IAuthorizationService authorization) => _authorization = authorization;
     public string ExportToTempPdf(Report report, string filePrefix, string purpose = "view")
     {
         ArgumentNullException.ThrowIfNull(report);
@@ -22,12 +25,14 @@ public sealed class FastReportPdfExporter
 
     public void OpenExternally(Report report, string filePrefix)
     {
+        _authorization?.DemandAsync([new("REP_VIEW"), new("REP_EXPORT")]).GetAwaiter().GetResult();
         var path = ExportToTempPdf(report, filePrefix, "preview");
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
 
     public void Print(Report report, string filePrefix)
     {
+        _authorization?.DemandAsync([new("REP_VIEW"), new("REP_EXPORT")]).GetAwaiter().GetResult();
         var path = ExportToTempPdf(report, filePrefix, "print");
         Process.Start(new ProcessStartInfo(path)
         {

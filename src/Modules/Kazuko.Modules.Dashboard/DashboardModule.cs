@@ -5,6 +5,7 @@ using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Printing;
 using Kazuko.Core.Settings;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.Dashboard;
 
@@ -31,7 +32,7 @@ public sealed class DashboardModule : IKazukoModule
             null,
             () => new DashboardView
             {
-                DataContext = new DashboardViewModel(navigation, navigationService)
+                DataContext = new DashboardViewModel(navigation, navigationService, GetRequiredService<IAuthorizationService>(services))
             }));
 
         var placeholders = new[]
@@ -86,7 +87,7 @@ public sealed class DashboardModule : IKazukoModule
             {
                 DataContext = new SettingsViewModel(
                     companyProfile, sessionAccessor, appearanceService, printTemplates,
-                    databaseManagement, preferences)
+                    databaseManagement, preferences, GetRequiredService<IAuthorizationService>(services))
             },
             AssetRoot + "CAIDAT.png"));
     }

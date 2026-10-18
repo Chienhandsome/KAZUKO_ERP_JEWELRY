@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Kazuko.Modules.Dashboard.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:conv="clr-namespace:Kazuko.Shared.UI.Converters;assembly=Kazuko.Shared.UI"
              MinWidth="900" MinHeight="520">
     <UserControl.Resources>
@@ -420,13 +421,13 @@
                                 </Border>
 
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                    <Button Content="Chọn logo..."
+                                    <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Chọn logo..."
                                             Command="{Binding PickLogoCommand}"
                                             Style="{StaticResource SettingsPrimaryButtonStyle}"
                                             HorizontalAlignment="Left"
                                             MinWidth="140"
                                             Margin="0,0,0,8" />
-                                    <Button Content="Xóa logo"
+                                    <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Xóa logo"
                                             Command="{Binding ClearLogoCommand}"
                                             Style="{StaticResource SettingsSecondaryButtonStyle}"
                                             HorizontalAlignment="Left"
@@ -436,7 +437,7 @@
                             </Grid>
 
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                <Button Content="Lưu"
+                                <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Lưu"
                                         Command="{Binding SaveCommand}"
                                         Style="{StaticResource SettingsPrimaryButtonStyle}"
                                         Margin="0,0,10,0" />
@@ -535,11 +536,11 @@
                             </Border>
 
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="Xuất .frx"
+                                <Button access:PermissionAccess.Rule="SYS_SETTINGS" Content="Xuất .frx"
                                         Command="{Binding ExportReceiptTemplateCommand}"
                                         Style="{StaticResource SettingsPrimaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
-                                <Button Content="Import .frx"
+                                <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Import .frx"
                                         Command="{Binding ImportReceiptTemplateCommand}"
                                         Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
@@ -692,15 +693,15 @@
                             </Border>
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                                <Button Content="Thay đổi..."
+                                <Button access:PermissionAccess.Rule="SYS_DATABASE:Edit" Content="Thay đổi..."
                                         Command="{Binding ChangeDatabaseCommand}"
                                         Style="{StaticResource SettingsPrimaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
-                                <Button Content="Backup..."
+                                <Button access:PermissionAccess.Rule="SYS_DATABASE:Edit" Content="Backup..."
                                         Command="{Binding BackupCommand}"
                                         Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
-                                <Button Content="Tạo mới..."
+                                <Button access:PermissionAccess.Rule="SYS_DATABASE:Add" Content="Tạo mới..."
                                         Command="{Binding CreateNewCommand}"
                                         Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />

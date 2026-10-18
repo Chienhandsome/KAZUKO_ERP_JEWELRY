@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Reports.ReportsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:local="clr-namespace:Kazuko.Modules.Reports"
              xmlns:shared="clr-namespace:Kazuko.Modules.Reports.Shared"
              MinWidth="900" MinHeight="520">
@@ -311,13 +312,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -379,13 +380,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -444,13 +445,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -510,13 +511,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -576,13 +577,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -642,13 +643,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -699,13 +700,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -756,13 +757,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -831,13 +832,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -897,13 +898,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -963,13 +964,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1029,13 +1030,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1095,13 +1096,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1161,13 +1162,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1227,13 +1228,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1293,13 +1294,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1359,13 +1360,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1425,13 +1426,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1491,13 +1492,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />
@@ -1557,13 +1558,13 @@
                                                 Command="{Binding RefreshCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8" />
-                                        <Button Content="Mở PDF"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="Mở PDF"
                                                 Style="{StaticResource ReportOutlineButtonStyle}"
                                                 Command="{Binding PreviewCommand}"
                                                 HorizontalAlignment="Stretch"
                                                 Margin="0,0,0,8"
                                                 ToolTip="Mở file PDF bằng ứng dụng bên ngoài" />
-                                        <Button Content="In"
+                                        <Button access:PermissionAccess.Rule="REP_EXPORT" Content="In"
                                                 Style="{StaticResource ReportPrimaryButtonStyle}"
                                                 Command="{Binding PrintCommand}"
                                                 HorizontalAlignment="Stretch" />

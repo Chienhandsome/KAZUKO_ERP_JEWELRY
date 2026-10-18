@@ -13,6 +13,7 @@ namespace Kazuko.Modules.Debt;
 
 public sealed class DebtViewModel : ObservableObject
 {
+    private readonly Kazuko.Core.UserManagement.IAuthorizationService? _permissions;
     private readonly IDebtWorkbenchRepository _workbench;
     private readonly ICustomerRepository _customers;
     private readonly ICustomerEditorService _customerEditor;
@@ -56,7 +57,8 @@ public sealed class DebtViewModel : ObservableObject
         ICustomerEditorService customerEditor,
         ISupplierEditorService supplierEditor,
         ICurrentSessionAccessor sessionAccessor,
-        IDebtSettlementDialogService settlementDialog)
+        IDebtSettlementDialogService settlementDialog,
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _workbench = workbench;
         _customers = customers;
@@ -64,6 +66,8 @@ public sealed class DebtViewModel : ObservableObject
         _supplierEditor = supplierEditor;
         _sessionAccessor = sessionAccessor;
         _settlementDialog = settlementDialog;
+        _permissions = authorization;
+        if (authorization is not null && !authorization.Current.Allows("DEBT_CUSTOMER")) _selectedTabIndex = 2;
 
         StatusOptions.Add(new StatusFilterOption(string.Empty, "Tất cả trạng thái"));
         StatusOptions.Add(new StatusFilterOption(DebtDisplayStatuses.Normal, "Bình thường"));
@@ -432,7 +436,7 @@ public sealed class DebtViewModel : ObservableObject
     private async Task RefreshCoreAsync(bool reloadSummary = true)
     {
         var session = RequireSession();
-        if (reloadSummary)
+        if (reloadSummary && (_permissions?.Current.Allows("DEBT_CUSTOMER") ?? true))
             await LoadSummaryAsync(session);
 
         if (IsCustomerTab)

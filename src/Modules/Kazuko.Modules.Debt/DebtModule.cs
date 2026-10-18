@@ -42,7 +42,7 @@ public sealed class DebtModule : IKazukoModule
                 {
                     DataContext = new DebtViewModel(
                         workbench, customers, customerEditor, supplierEditor, session,
-                        settlementDialog)
+                        settlementDialog, GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
                 };
             },
             AssetRoot + "TC.png",

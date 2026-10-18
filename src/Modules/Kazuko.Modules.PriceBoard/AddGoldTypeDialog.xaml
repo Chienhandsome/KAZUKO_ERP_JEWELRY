@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.PriceBoard.AddGoldTypeDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="THÊM LOẠI VÀNG MỚI"
         Width="520" Height="380"
         ResizeMode="NoResize"
@@ -90,7 +91,7 @@
         <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Text="{Binding Error, Mode=OneWay}"
                    Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,4,0,8" />
         <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Lưu loại vàng" Style="{StaticResource BtnP}" Command="{Binding SaveCommand}" IsDefault="True" />
+            <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Add|CAT_GOLD_PRICE:Edit" Content="Lưu loại vàng" Style="{StaticResource BtnP}" Command="{Binding SaveCommand}" IsDefault="True" />
             <Button Content="Hủy" Style="{StaticResource BtnO}" Command="{Binding CancelCommand}" IsCancel="True" />
         </StackPanel>
     </Grid>

@@ -11,9 +11,10 @@ public sealed class UserEditDialogViewModel : ObservableObject
     private readonly IUserManagementRepository _repository;
     private readonly long? _userId;
     private readonly long _createdBy;
+    private readonly long? _branchId;
+    private readonly long? _warehouseId;
 
     private EmployeeOption? _selectedEmployee;
-    private WarehouseOption? _selectedWarehouse;
     private UserGroupOption? _selectedGroup;
     private string _email = string.Empty;
     private string _username = string.Empty;
@@ -25,15 +26,15 @@ public sealed class UserEditDialogViewModel : ObservableObject
         IUserManagementRepository repository,
         ICurrentSessionAccessor session,
         IReadOnlyList<EmployeeOption> employees,
-        IReadOnlyList<WarehouseOption> warehouses,
         IReadOnlyList<UserGroupOption> groups,
         SystemUser? existing)
     {
         _repository = repository;
         _createdBy = session.Current?.UserId ?? 0;
+        _branchId = session.Current?.BranchId;
+        _warehouseId = existing?.WarehouseId;
 
         Employees = employees;
-        Warehouses = warehouses;
         Groups = groups;
 
         Title = existing is null ? "Thêm người dùng" : "Sửa người dùng";
@@ -52,8 +53,6 @@ public sealed class UserEditDialogViewModel : ObservableObject
 
             if (existing.EmployeeId is not null)
                 SelectedEmployee = employees.FirstOrDefault(e => e.Id == existing.EmployeeId);
-            if (existing.WarehouseId is not null)
-                SelectedWarehouse = warehouses.FirstOrDefault(w => w.Id == existing.WarehouseId);
             if (existing.GroupId is not null)
                 SelectedGroup = groups.FirstOrDefault(g => g.Id == existing.GroupId);
         }
@@ -67,7 +66,6 @@ public sealed class UserEditDialogViewModel : ObservableObject
     public string PasswordHint { get; }
 
     public IReadOnlyList<EmployeeOption> Employees { get; }
-    public IReadOnlyList<WarehouseOption> Warehouses { get; }
     public IReadOnlyList<UserGroupOption> Groups { get; }
 
     public EmployeeOption? SelectedEmployee
@@ -82,12 +80,6 @@ public sealed class UserEditDialogViewModel : ObservableObject
                     Email = value.Email;
             }
         }
-    }
-
-    public WarehouseOption? SelectedWarehouse
-    {
-        get => _selectedWarehouse;
-        set => SetProperty(ref _selectedWarehouse, value);
     }
 
     public UserGroupOption? SelectedGroup
@@ -166,14 +158,15 @@ public sealed class UserEditDialogViewModel : ObservableObject
                 new UserSaveRequest(
                     _userId,
                     SelectedEmployee.Id,
-                    SelectedWarehouse?.Id,
+                    _warehouseId,
                     Email.Trim(),
                     SelectedGroup.Id,
                     Username.Trim(),
                     string.IsNullOrWhiteSpace(Password) ? null : Password,
                     Notes.Trim(),
                     IsActive,
-                    _createdBy));
+                    _createdBy,
+                    _branchId));
             RequestClose?.Invoke(true);
         }
         catch (Exception ex)
@@ -217,14 +210,13 @@ public partial class UserEditDialog : Window
         long? preselectedGroupId)
     {
         var employees = repository.GetEmployeesAsync().GetAwaiter().GetResult();
-        var warehouses = repository.GetWarehousesAsync().GetAwaiter().GetResult();
         var groups = repository.GetGroupsAsync().GetAwaiter().GetResult()
             .Where(g => g.IsActive)
             .Select(g => new UserGroupOption(g.Id, g.Code, g.Name))
             .ToArray();
 
         var viewModel = new UserEditDialogViewModel(
-            repository, session, employees, warehouses, groups, existing);
+            repository, session, employees, groups, existing);
 
         if (existing is null && preselectedGroupId is not null)
             viewModel.SelectedGroup = groups.FirstOrDefault(g => g.Id == preselectedGroupId);

@@ -65,7 +65,8 @@ public sealed class SalesModule : IKazukoModule
             GetRequiredService<ICraftOrderApplicationService>(services),
             GetRequiredService<IWholesaleSalesApplicationService>(services),
             GetRequiredService<IWarehouseRepository>(services),
-            GetRequiredService<IProductionOrderEditorService>(services));
+            GetRequiredService<IProductionOrderEditorService>(services),
+            GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services));
 
     private static T GetRequiredService<T>(IServiceProvider services) where T : class =>
         services.GetService(typeof(T)) as T

@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Customers.CustomerEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Customers.Converters"
         Title="{Binding Title, Mode=OneWay}"
         Width="860" Height="720"
@@ -325,7 +326,7 @@
                                       DisplayMemberPath="Name"
                                       Style="{StaticResource DialogComboStyle}"
                                       Margin="0,0,8,4" />
-                            <Button Grid.Column="1"
+                            <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Add" Grid.Column="1"
                                     Content="Thêm nhóm khách hàng"
                                     Command="{Binding AddGroupCommand}"
                                     Style="{StaticResource RoundedOutlineButtonStyle}"
@@ -435,7 +436,7 @@
                         Style="{StaticResource RoundedOutlineButtonStyle}"
                         MinWidth="120"
                         Margin="0,0,10,0" />
-                <Button Content="Lưu (Enter)"
+                <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Add|CAT_CUSTOMERS:Edit" Content="Lưu (Enter)"
                         IsDefault="True"
                         Command="{Binding SaveCommand}"
                         Style="{StaticResource RoundedPrimaryButtonStyle}"

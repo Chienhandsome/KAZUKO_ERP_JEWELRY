@@ -14,6 +14,7 @@ public sealed record SettingsCategory(string Key, string Label);
 
 public sealed class SettingsViewModel : ObservableObject
 {
+    private readonly Kazuko.Core.UserManagement.IAuthorizationService? _permissions;
     private readonly ICompanyProfileService _companyProfile;
     private readonly IPrintTemplateStore _printTemplates;
     private readonly ICurrentSessionAccessor _sessionAccessor;
@@ -40,9 +41,11 @@ public sealed class SettingsViewModel : ObservableObject
         IAppearanceService appearance,
         IPrintTemplateStore printTemplates,
         IDatabaseManagementService databaseManagement,
-        IPreferencesService preferences)
+        IPreferencesService preferences,
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _companyProfile = companyProfile ?? throw new ArgumentNullException(nameof(companyProfile));
+        _permissions = authorization;
         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
         _printTemplates = printTemplates ?? throw new ArgumentNullException(nameof(printTemplates));
         Appearance = new AppearanceSettingsViewModel(
@@ -51,7 +54,7 @@ public sealed class SettingsViewModel : ObservableObject
             databaseManagement ?? throw new ArgumentNullException(nameof(databaseManagement)),
             preferences ?? throw new ArgumentNullException(nameof(preferences)),
             appearance,
-            sessionAccessor);
+            sessionAccessor, authorization);
 
         var categories = new List<SettingsCategory>
         {
@@ -115,10 +118,11 @@ public sealed class SettingsViewModel : ObservableObject
     public DatabaseSettingsViewModel Database { get; }
 
     /// <summary>Tab Cơ sở dữ liệu chỉ hiện với tài khoản admin.</summary>
-    public bool IsDatabaseVisible => IsAdminUser();
+    public bool IsDatabaseVisible => _permissions?.Current.Allows("SYS_DATABASE") ?? IsAdminUser();
 
     private bool IsAdminUser()
     {
+        if (_permissions is not null) return _permissions.Current.Allows("SYS_DATABASE");
         var session = _sessionAccessor.Current;
         return session is not null &&
                string.Equals(session.RoleCode, "ADMIN", StringComparison.OrdinalIgnoreCase);

@@ -17,8 +17,8 @@ namespace Kazuko.Infrastructure.UserManagement;
 //    copy đúng chuẩn của FirebirdAuthenticationService để đăng nhập cũ đọc được.
 // 3. Tài khoản hệ thống (ROLE CODE = 'ADMIN') KHÔNG bao giờ xuất hiện trong
 //    danh sách và không thể xóa qua repository này.
-// 4. Tài khoản mới kế thừa DEFAULT_BRANCH_ID của người tạo (fallback: chi
-//    nhánh active đầu tiên của công ty) để đăng nhập được ngay.
+// 4. Tài khoản mới dùng chi nhánh phiên hiện tại (fallback: chi nhánh mặc định
+//    của người tạo / chi nhánh active đầu tiên), đồng bộ các cột legacy bắt buộc.
 public sealed class FirebirdUserManagementRepository : IUserManagementRepository
 {
     private const int PasswordIterations = 100000;
@@ -170,6 +170,11 @@ public sealed class FirebirdUserManagementRepository : IUserManagementRepository
 
         try
         {
+            var previous = (await connection.QueryAsync<GroupPermissionRow>(new CommandDefinition("""
+                SELECT GROUP_ID AS GroupId, FUNCTION_CODE AS FunctionCode, CAN_VIEW AS CanView,
+                       CAN_ADD AS CanAdd, CAN_EDIT AS CanEdit, CAN_DELETE AS CanDelete, IS_LOCKED AS IsLocked
+                FROM GROUP_PERMISSIONS WHERE GROUP_ID = @GroupId
+                """, new { GroupId = groupId }, transaction, cancellationToken: cancellationToken))).ToArray();
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     "DELETE FROM GROUP_PERMISSIONS WHERE GROUP_ID = @GroupId",
@@ -177,8 +182,16 @@ public sealed class FirebirdUserManagementRepository : IUserManagementRepository
                     transaction,
                     cancellationToken: cancellationToken));
 
-            foreach (var row in rows)
+            var isAdminGroup = await connection.QuerySingleAsync<bool>(new CommandDefinition(
+                "SELECT CASE WHEN CODE = 'ADMIN' THEN TRUE ELSE FALSE END FROM USER_GROUPS WHERE ID = @Id",
+                new { Id = groupId }, transaction, cancellationToken: cancellationToken));
+            var effectiveRows = isAdminGroup
+                ? SystemFunctionCatalog.All.Select(f => new PermissionSaveRow(f.Code, true, true, true, true, false)).ToArray()
+                : rows;
+            foreach (var row in effectiveRows)
             {
+                if (SystemFunctionCatalog.Find(row.FunctionCode) is null)
+                    throw new InvalidOperationException("Chức năng phân quyền không hợp lệ.");
                 await connection.ExecuteAsync(
                     new CommandDefinition("""
                         INSERT INTO GROUP_PERMISSIONS
@@ -195,17 +208,21 @@ public sealed class FirebirdUserManagementRepository : IUserManagementRepository
                         {
                             GroupId = groupId,
                             FunctionCode = row.FunctionCode.Trim().ToUpperInvariant(),
-                            CanView = row.CanView,
-                            CanAdd = row.CanAdd,
-                            CanEdit = row.CanEdit,
-                            CanDelete = row.CanDelete,
-                            IsLocked = row.IsLocked,
+                            CanView = isAdminGroup || row.CanView && !row.IsLocked,
+                            CanAdd = isAdminGroup || row.CanView && row.CanAdd && !row.IsLocked,
+                            CanEdit = isAdminGroup || row.CanView && row.CanEdit && !row.IsLocked,
+                            CanDelete = isAdminGroup || row.CanView && row.CanDelete && !row.IsLocked,
+                            IsLocked = !isAdminGroup && row.IsLocked,
                             UpdatedBy = updatedBy,
                         },
                         transaction,
                         cancellationToken: cancellationToken));
             }
 
+            await AuditLogWriter.WriteAsync(connection, (FirebirdSql.Data.FirebirdClient.FbTransaction)transaction,
+                "GROUP_PERMISSIONS_UPDATED", updatedBy, entityType: "USER_GROUPS", entityId: groupId.ToString(),
+                eventData: System.Text.Json.JsonSerializer.Serialize(new { Before = previous, Requested = rows, ProtectedAdminGroup = isAdminGroup }),
+                cancellationToken: cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         catch
@@ -374,7 +391,7 @@ public sealed class FirebirdUserManagementRepository : IUserManagementRepository
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var username = request.Username.Trim();
+        var username = request.Username.Trim().ToLowerInvariant();
         if (username.Length == 0)
             throw new InvalidOperationException("Tài khoản là bắt buộc.");
         if (username.Length > 80)
@@ -442,19 +459,43 @@ public sealed class FirebirdUserManagementRepository : IUserManagementRepository
             {
                 var (hash, salt) = HashPassword(request.Password!);
                 var defaultBranchId = await ResolveDefaultBranchAsync(connection, transaction, request.CreatedBy, cancellationToken);
+                var branch = await connection.QuerySingleOrDefaultAsync(
+                    new CommandDefinition("""
+                        SELECT ID, CODE, NAME FROM BRANCHES
+                        WHERE ID = @BranchId AND IS_ACTIVE = TRUE
+                          AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                        """,
+                        new { BranchId = request.BranchId ?? defaultBranchId }, transaction,
+                        cancellationToken: cancellationToken));
+                if (branch is null)
+                    throw new InvalidOperationException("Không tìm thấy chi nhánh hoạt động cho tài khoản.");
+
+                // Nhóm CASHIER và nhóm tự tạo dùng role bán hàng cơ bản; không kế thừa Admin của người tạo.
+                var role = await connection.QuerySingleOrDefaultAsync(
+                    new CommandDefinition("""
+                        SELECT R.ID, R.CODE FROM ROLES R
+                        WHERE R.CODE = COALESCE(
+                            (SELECT R2.CODE FROM ROLES R2 JOIN USER_GROUPS G ON G.CODE = R2.CODE WHERE G.ID = @GroupId),
+                            'SALE')
+                        """,
+                        new { GroupId = request.GroupId }, transaction,
+                        cancellationToken: cancellationToken));
+                if (role is null)
+                    throw new InvalidOperationException("Chưa cấu hình vai trò đăng nhập cho tài khoản.");
 
                 userId = await connection.ExecuteScalarAsync<long>(
                     new CommandDefinition("""
                         INSERT INTO USERS
                             (COMPANY_ID, USERNAME, DISPLAY_NAME,
                              PASSWORD_HASH, PASSWORD_SALT, PASSWORD_ITERATIONS,
-                             ROLE_ID, EMPLOYEE_ID, GROUP_ID, WAREHOUSE_ID,
+                             ROLE_ID, ROLE_CODE, BRANCH_CODE, BRANCH_NAME,
+                             EMPLOYEE_ID, GROUP_ID, WAREHOUSE_ID,
                              DEFAULT_BRANCH_ID, IS_ACTIVE, NOTES)
                         VALUES
                             ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
                              @Username, @DisplayName,
                              @Hash, @Salt, @Iterations,
-                             (SELECT ROLE_ID FROM USERS WHERE ID = @CreatedBy),
+                             @RoleId, @RoleCode, @BranchCode, @BranchName,
                              @EmployeeId, @GroupId, @WarehouseId,
                              @BranchId, @IsActive, @Notes)
                         RETURNING ID
@@ -466,11 +507,14 @@ public sealed class FirebirdUserManagementRepository : IUserManagementRepository
                             Hash = hash,
                             Salt = salt,
                             Iterations = PasswordIterations,
-                            CreatedBy = request.CreatedBy,
+                            RoleId = (long)role.ID,
+                            RoleCode = (string)role.CODE,
+                            BranchCode = (string)branch.CODE,
+                            BranchName = (string)branch.NAME,
                             EmployeeId = request.EmployeeId,
                             GroupId = request.GroupId,
                             WarehouseId = request.WarehouseId,
-                            BranchId = defaultBranchId,
+                            BranchId = (long)branch.ID,
                             IsActive = request.IsActive,
                             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
                         },

@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Windows.Input;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.Dashboard;
 
@@ -26,11 +27,16 @@ public sealed class DashboardTileViewModel
 
 public sealed class DashboardViewModel
 {
-    public DashboardViewModel(IModuleNavigationRegistry registry, INavigationService navigation)
+    private readonly IModuleNavigationRegistry _registry;
+    private readonly INavigationService _navigation;
+    private readonly IAuthorizationService _authorization;
+    public DashboardViewModel(IModuleNavigationRegistry registry, INavigationService navigation, IAuthorizationService authorization)
     {
+        _registry = registry; _navigation = navigation; _authorization = authorization;
+        System.Windows.WeakEventManager<IAuthorizationService, EventArgs>.AddHandler(authorization, nameof(authorization.Changed), OnPermissionsChanged);
         HomeTiles = new ObservableCollection<DashboardTileViewModel>(
             registry.Items
-                .Where(item => item.ShowOnHome)
+                .Where(item => item.ShowOnHome && NavigationAccess.Allows(authorization.Current, item.Key))
                 .Select(item => new DashboardTileViewModel(item, navigation)));
 
         var version = Assembly.GetEntryAssembly()?.GetName().Version;
@@ -38,6 +44,14 @@ public sealed class DashboardViewModel
     }
 
     public ObservableCollection<DashboardTileViewModel> HomeTiles { get; }
+    private void OnPermissionsChanged(object? sender, EventArgs e)
+    {
+        if (!System.Windows.Application.Current.Dispatcher.CheckAccess())
+        { System.Windows.Application.Current.Dispatcher.InvokeAsync(() => OnPermissionsChanged(sender, e)); return; }
+        HomeTiles.Clear();
+        foreach (var item in _registry.Items.Where(x => x.ShowOnHome && NavigationAccess.Allows(_authorization.Current, x.Key)))
+            HomeTiles.Add(new(item, _navigation));
+    }
     public string VersionText { get; }
     public string UpdatedText => "Cập nhật: 25/09/2026";
 }

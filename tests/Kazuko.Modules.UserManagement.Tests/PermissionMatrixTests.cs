@@ -10,26 +10,28 @@ public sealed class PermissionMatrixRowViewModelTests
         new("SALES_RETAIL", "Bán lẻ", SystemFunctionCatalog.ModuleSales);
 
     [Fact]
-    public void CanAdd_true_auto_checks_edit_and_view()
+    public void CanAdd_checks_view_but_not_edit_or_delete()
     {
         var row = CreateRow();
 
         row.CanAdd = true;
 
         Assert.True(row.CanAdd);
-        Assert.True(row.CanEdit);
+        Assert.False(row.CanEdit);
+        Assert.False(row.CanDelete);
         Assert.True(row.CanView);
     }
 
     [Fact]
-    public void CanDelete_true_auto_checks_edit_and_view()
+    public void CanDelete_checks_view_but_not_edit_or_add()
     {
         var row = CreateRow();
 
         row.CanDelete = true;
 
         Assert.True(row.CanDelete);
-        Assert.True(row.CanEdit);
+        Assert.False(row.CanEdit);
+        Assert.False(row.CanAdd);
         Assert.True(row.CanView);
     }
 
@@ -128,11 +130,11 @@ public sealed class PermissionMatrixRowViewModelTests
     }
 
     [Fact]
-    public void BuildFrom_returns_all_28_functions_in_catalog_order()
+    public void BuildFrom_returns_all_functions_in_catalog_order()
     {
         var rows = PermissionMatrixRowViewModel.BuildFrom(Array.Empty<GroupPermissionRow>());
 
-        Assert.Equal(28, rows.Count);
+        Assert.Equal(41, rows.Count);
         Assert.Equal(
             SystemFunctionCatalog.All.Select(f => f.Code),
             rows.Select(r => r.FunctionCode));
@@ -177,7 +179,7 @@ public sealed class PermissionMatrixRowViewModelTests
         Assert.Equal("SALES_RETAIL", saved.FunctionCode);
         Assert.True(saved.CanView);
         Assert.True(saved.CanAdd);
-        Assert.True(saved.CanEdit);
+        Assert.False(saved.CanEdit);
         Assert.False(saved.CanDelete);
         Assert.False(saved.IsLocked);
     }
@@ -185,7 +187,7 @@ public sealed class PermissionMatrixRowViewModelTests
 
 public sealed class SystemFunctionCatalogTests
 {
-    // Phải khớp EXACT với seed trong migration 0076.
+    // Phải khớp danh mục gốc và phần mở rộng migration 0077.
     private static readonly string[] ExpectedCodes =
     [
         "SALES_RETAIL", "SALES_WHOLESALE", "CRAFT_ORDER", "OLD_GOLD_PURCHASE",
@@ -196,13 +198,16 @@ public sealed class SystemFunctionCatalogTests
         "CAT_CUSTOMERS", "CAT_SUPPLIERS", "CAT_EXTERNAL_WORKERS", "CAT_EMPLOYEES", "CAT_GOLD_PRICE",
         "REP_VIEW", "REP_EXPORT",
         "SYS_USER_MANAGEMENT", "SYS_SETTINGS", "SYS_DATABASE", "SYS_DATA_DELETE",
+        "INV_STOCK_VIEW", "INV_HISTORY", "INV_SALES_INTAKE", "INV_REVERSE",
+        "PROD_COMPLETE", "PROD_CANCEL", "PROD_QC", "SALES_HISTORY",
+        "SALES_PRICE_OVERRIDE", "SALES_DEBT_APPROVE", "SALES_CHANGE_EMPLOYEE", "FIN_REVERSE", "DATA_EXPORT",
     ];
 
     [Fact]
-    public void Catalog_has_exactly_28_unique_codes()
+    public void Catalog_has_exactly_41_unique_codes()
     {
-        Assert.Equal(28, SystemFunctionCatalog.All.Count);
-        Assert.Equal(28, SystemFunctionCatalog.All.Select(f => f.Code.ToUpperInvariant()).Distinct().Count());
+        Assert.Equal(41, SystemFunctionCatalog.All.Count);
+        Assert.Equal(41, SystemFunctionCatalog.All.Select(f => f.Code.ToUpperInvariant()).Distinct().Count());
         Assert.Equal(ExpectedCodes, SystemFunctionCatalog.All.Select(f => f.Code));
     }
 

@@ -1,6 +1,7 @@
 ﻿<Window x:Class="Kazuko.Modules.Production.ProductionOrderDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
         xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
@@ -222,7 +223,7 @@
                                           SelectedValue="{Binding ExternalWorkerId}" SelectedValuePath="Id"
                                           Style="{StaticResource ProductionCompactComboStyle}"
                                           IsEnabled="{Binding IsDraft}" />
-                                <Button Grid.Column="2" Content="Thêm thợ"
+                                <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Add" Grid.Column="2" Content="Thêm thợ"
                                         Command="{Binding CreateExternalWorkerCommand}"
                                         Style="{StaticResource ProductionPrimaryButtonStyle}"
                                         MinHeight="28" Padding="12,2"
@@ -468,7 +469,7 @@
                             <Button Grid.Column="2" Content="Thêm"
                                     Style="{StaticResource ProductionOutlineButtonStyle}"
                                     Command="{Binding AddIssueLineCommand}" MinHeight="36" />
-                            <Button Grid.Column="3" Content="Xác nhận giao vàng"
+                            <Button access:PermissionAccess.Rule="PROD_MATERIAL_ISSUE:Add" Grid.Column="3" Content="Xác nhận giao vàng"
                                     Style="{StaticResource ProductionPrimaryButtonStyle}"
                                     Command="{Binding PostMaterialIssueCommand}" MinHeight="36" Margin="8,0,0,0"
                                     ToolTip="Ghi sổ giao NVL và khóa phiếu — không sửa được sau đó" />
@@ -539,17 +540,17 @@
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="Hủy lệnh" Style="{StaticResource ProductionGhostButtonStyle}"
+                    <Button access:PermissionAccess.Rule="PROD_CANCEL:Delete" Content="Hủy lệnh" Style="{StaticResource ProductionGhostButtonStyle}"
                             Command="{Binding CancelDraftCommand}" />
                     <Button Content="Đóng" Style="{StaticResource ProductionOutlineButtonStyle}"
                             Command="{Binding CloseCommand}" IsCancel="True" />
-                    <Button Content="Lưu" Style="{StaticResource ProductionOutlineButtonStyle}"
+                    <Button access:PermissionAccess.Rule="PROD_ORDER:Add|PROD_ORDER:Edit" Content="Lưu" Style="{StaticResource ProductionOutlineButtonStyle}"
                             Command="{Binding SaveDraftCommand}" Margin="0,0,8,0"
                             ToolTip="Lưu lệnh (chưa giao NVL), có thể sửa tiếp sau" />
-                    <Button Content="Xác nhận giao vàng" Style="{StaticResource ProductionPrimaryButtonStyle}"
+                    <Button access:PermissionAccess.Rule="PROD_MATERIAL_ISSUE:Add" Content="Xác nhận giao vàng" Style="{StaticResource ProductionPrimaryButtonStyle}"
                             Command="{Binding PostMaterialIssueCommand}" IsDefault="True" Margin="0,0,8,0"
                             ToolTip="Lưu lệnh và ghi sổ giao NVL — không sửa được sau đó" />
-                    <Button Content="In phiếu" Style="{StaticResource ProductionOutlineButtonStyle}"
+                    <Button access:PermissionAccess.Rule="PROD_MATERIAL_ISSUE" Content="In phiếu" Style="{StaticResource ProductionOutlineButtonStyle}"
                             Command="{Binding PrintMaterialIssueCommand}" Margin="0" />
                 </StackPanel>
                 <UniformGrid DockPanel.Dock="Left" Rows="1" Columns="3" Margin="0,0,12,0">

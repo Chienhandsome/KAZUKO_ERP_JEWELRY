@@ -6,7 +6,7 @@ namespace Kazuko.Modules.UserManagement;
 /// <summary>
 /// Một dòng ma trận phân quyền trên UI. Áp quy tắc kế thừa ngay khi người dùng
 /// tích/bỏ tích (xem PermissionInheritanceRules):
-/// - Thêm/Xóa → tự check Sửa + Xem; Sửa → tự check Xem.
+/// - Thêm/Sửa/Xóa độc lập, mỗi quyền cần Xem.
 /// - Bỏ Xem → bỏ Thêm/Sửa/Xóa. Tất cả → check hết 4. Bị khóa → disable + bỏ hết.
 /// </summary>
 public sealed class PermissionMatrixRowViewModel : ObservableObject
@@ -67,7 +67,6 @@ public sealed class PermissionMatrixRowViewModel : ObservableObject
             if (value)
             {
                 SetCheck(ref _canView, true, nameof(CanView));
-                SetCheck(ref _canEdit, true, nameof(CanEdit));
             }
             OnPropertyChanged(nameof(All));
         }
@@ -96,7 +95,6 @@ public sealed class PermissionMatrixRowViewModel : ObservableObject
             if (value)
             {
                 SetCheck(ref _canView, true, nameof(CanView));
-                SetCheck(ref _canEdit, true, nameof(CanEdit));
             }
             OnPropertyChanged(nameof(All));
         }

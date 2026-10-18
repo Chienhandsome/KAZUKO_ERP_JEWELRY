@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Warehouse.SalesIntakeApprovalDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Duyệt nhập từ kho TP"
         Width="1100" Height="720" MinWidth="900" MinHeight="580"
@@ -159,12 +160,12 @@
                        Padding="12,10"
                        Margin="0,0,0,10" />
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Từ chối"
+                <Button access:PermissionAccess.Rule="INV_SALES_INTAKE:Edit" Content="Từ chối"
                         Style="{StaticResource WhOutlineButtonStyle}"
                         Command="{Binding RejectCommand}"
                         MinWidth="110"
                         Margin="0,0,8,0" />
-                <Button Content="Đồng ý nhập"
+                <Button access:PermissionAccess.Rule="INV_SALES_INTAKE:Edit" Content="Đồng ý nhập"
                         Style="{StaticResource WhPrimaryButtonStyle}"
                         Command="{Binding ApproveCommand}"
                         MinWidth="130" />

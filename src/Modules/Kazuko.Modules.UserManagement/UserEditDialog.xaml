@@ -1,10 +1,11 @@
 <Window x:Class="Kazuko.Modules.UserManagement.UserEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
         Title="{Binding Title}"
-        Width="520" Height="680"
-        MinWidth="480" MinHeight="620"
+        Width="560" Height="700"
+        MinWidth="480" MinHeight="540"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="False"
@@ -19,15 +20,86 @@
     </Style>
 
     <Style x:Key="UmDialogFieldStyle" TargetType="Control">
-      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="MinHeight" Value="40" />
       <Setter Property="Margin" Value="0,0,0,12" />
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
+    <Style x:Key="UmDialogTextStyle" TargetType="TextBox" BasedOn="{StaticResource UmDialogFieldStyle}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="FieldBorder" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="UmDialogPasswordStyle" TargetType="PasswordBox" BasedOn="{StaticResource UmDialogFieldStyle}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="PasswordBox">
+            <Border x:Name="FieldBorder" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="UmDialogComboStyle" TargetType="ComboBox" BasedOn="{StaticResource UmDialogFieldStyle}">
+      <Setter Property="MaxDropDownHeight" Value="320" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid>
+              <ToggleButton Focusable="False" ClickMode="Press"
+                            IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                      <Path Data="M 0 0 L 6 6 L 12 0" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    </Border>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter Margin="12,0,36,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                                Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
+              <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
+                <Border Margin="0,2,0,0" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                        MaxHeight="{TemplateBinding MaxDropDownHeight}" Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="4">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" /></ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <Style x:Key="UmDialogPrimaryButtonStyle" TargetType="Button">
-      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="MinHeight" Value="40" />
       <Setter Property="MinWidth" Value="120" />
       <Setter Property="Padding" Value="16,4" />
       <Setter Property="BorderThickness" Value="0" />
@@ -36,10 +108,24 @@
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
       <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="8"
+                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+              <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.85" /></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.55" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
-    <Style x:Key="UmDialogOutlineButtonStyle" TargetType="Button">
-      <Setter Property="MinHeight" Value="38" />
+    <Style x:Key="UmDialogOutlineButtonStyle" TargetType="Button" BasedOn="{StaticResource UmDialogPrimaryButtonStyle}">
+      <Setter Property="MinHeight" Value="40" />
       <Setter Property="MinWidth" Value="110" />
       <Setter Property="Padding" Value="16,4" />
       <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
@@ -59,14 +145,14 @@
               Style="{StaticResource UmDialogOutlineButtonStyle}"
               Command="{Binding CancelCommand}"
               Margin="0,0,8,0" IsCancel="True" />
-      <Button Content="Ghi dữ liệu"
+      <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Add|SYS_USER_MANAGEMENT:Edit" Content="Ghi dữ liệu"
               Style="{StaticResource UmDialogPrimaryButtonStyle}"
               Command="{Binding SaveCommand}"
               IsDefault="True" />
     </StackPanel>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="0,0,12,0">
         <TextBlock Text="{Binding Title}"
                    FontSize="{DynamicResource FontSize.Heading}"
                    Foreground="{DynamicResource PrimaryBrush}"
@@ -79,33 +165,26 @@
         <TextBlock Text="Nhân viên (*)" Style="{StaticResource UmDialogLabelStyle}" />
         <ComboBox ItemsSource="{Binding Employees}"
                   SelectedItem="{Binding SelectedEmployee}"
-                  Style="{StaticResource UmDialogFieldStyle}"
+                  Style="{StaticResource UmDialogComboStyle}"
                   IsTextSearchEnabled="True" />
-
-        <TextBlock Text="Kho" Style="{StaticResource UmDialogLabelStyle}" />
-        <ComboBox ItemsSource="{Binding Warehouses}"
-                  SelectedItem="{Binding SelectedWarehouse}"
-                  Style="{StaticResource UmDialogFieldStyle}"
-                  IsTextSearchEnabled="True"
-                  ToolTip="Kho mặc định của người dùng (để trống nếu không giới hạn)" />
 
         <TextBlock Text="Email" Style="{StaticResource UmDialogLabelStyle}" />
         <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource UmDialogFieldStyle}" MaxLength="150"
+                 Style="{StaticResource UmDialogTextStyle}" MaxLength="150"
                  ToolTip="Tự điền từ hồ sơ nhân viên; lưu vào hồ sơ nhân viên" />
 
         <TextBlock Text="Nhóm người dùng (*)" Style="{StaticResource UmDialogLabelStyle}" />
         <ComboBox ItemsSource="{Binding Groups}"
                   SelectedItem="{Binding SelectedGroup}"
-                  Style="{StaticResource UmDialogFieldStyle}" />
+                  Style="{StaticResource UmDialogComboStyle}" />
 
         <TextBlock Text="Tài khoản (*)" Style="{StaticResource UmDialogLabelStyle}" />
         <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource UmDialogFieldStyle}" MaxLength="80"
+                 Style="{StaticResource UmDialogTextStyle}" MaxLength="80"
                  ToolTip="Duy nhất, không phân biệt hoa thường" />
 
         <TextBlock Text="Mật khẩu" Style="{StaticResource UmDialogLabelStyle}" />
-        <PasswordBox Style="{StaticResource UmDialogFieldStyle}"
+        <PasswordBox Style="{StaticResource UmDialogPasswordStyle}"
                      PasswordChanged="PasswordBox_OnPasswordChanged"
                      ToolTip="{Binding PasswordHint}" />
         <TextBlock Text="{Binding PasswordHint}"
@@ -115,7 +194,7 @@
 
         <TextBlock Text="Ghi chú" Style="{StaticResource UmDialogLabelStyle}" />
         <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource UmDialogFieldStyle}" MaxLength="500"
+                 Style="{StaticResource UmDialogTextStyle}" MaxLength="500"
                  TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
                  VerticalContentAlignment="Top" Padding="8" />
 

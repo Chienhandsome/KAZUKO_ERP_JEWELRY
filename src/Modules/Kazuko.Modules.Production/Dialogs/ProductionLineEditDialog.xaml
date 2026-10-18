@@ -1,6 +1,7 @@
 ﻿<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
         Title="{Binding WindowTitle, Mode=OneWay}"
@@ -276,7 +277,7 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Hủy" Style="{StaticResource ProductionGhostButtonStyle}"
                         Command="{Binding CancelCommand}" IsCancel="True" />
-                <Button Content="Lưu mẫu" Style="{StaticResource ProductionPrimaryButtonStyle}"
+                <Button access:PermissionAccess.Rule="PROD_ORDER:Add|PROD_ORDER:Edit" Content="Lưu mẫu" Style="{StaticResource ProductionPrimaryButtonStyle}"
                         Command="{Binding SaveCommand}" IsDefault="True" Margin="0"
                         Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}" />
             </StackPanel>

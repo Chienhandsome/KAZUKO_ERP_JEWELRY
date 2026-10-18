@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.HumanResources.HumanResourcesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:conv="clr-namespace:Kazuko.Modules.HumanResources.Converters"
              xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
@@ -381,9 +382,9 @@
 
                     <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,10">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-                            <Button Content="+ Thêm nhân viên (F1)" Style="{StaticResource HrPrimaryButtonStyle}"
+                            <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add" Content="+ Thêm nhân viên (F1)" Style="{StaticResource HrPrimaryButtonStyle}"
                                     Command="{Binding AddCommand}" Margin="0,0,8,8" MinWidth="180" />
-                            <Button Content="Xuất Excel" Style="{StaticResource HrOutlineButtonStyle}"
+                            <Button access:PermissionAccess.Rule="DATA_EXPORT" Content="Xuất Excel" Style="{StaticResource HrOutlineButtonStyle}"
                                     Command="{Binding ExportExcelCommand}"
                                     CommandParameter="{Binding ElementName=EmployeeListGrid}"
                                     Margin="0,0,0,8" MinWidth="110" />
@@ -480,14 +481,14 @@
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                                                         VerticalAlignment="Center">
-                                                <Button Content="Sửa" Style="{StaticResource HrGridActionButtonStyle}"
+                                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Edit" Content="Sửa" Style="{StaticResource HrGridActionButtonStyle}"
                                                         Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="Xóa" Style="{StaticResource HrGridActionButtonStyle}"
+                                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Delete" Content="Xóa" Style="{StaticResource HrGridActionButtonStyle}"
                                                         ToolTip="Xóa (ngừng làm việc)"
                                                         Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="TT"
+                                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Edit" Content="TT"
                                                         Style="{StaticResource HrGridActionButtonStyle}"
                                                         Command="{Binding DataContext.ToggleActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}"
@@ -535,10 +536,10 @@
                                     <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
                                         <DockPanel Margin="0,0,0,10">
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                                <Button Content="Sửa" Style="{StaticResource HrOutlineButtonStyle}"
+                                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Edit" Content="Sửa" Style="{StaticResource HrOutlineButtonStyle}"
                                                         Command="{Binding EditSelectedCommand}" MinWidth="90" MinHeight="40"
                                                         Margin="0,0,8,0" />
-                                                <Button Content="Xóa" Style="{StaticResource HrOutlineButtonStyle}"
+                                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Delete" Content="Xóa" Style="{StaticResource HrOutlineButtonStyle}"
                                                         Command="{Binding DeleteSelectedCommand}" MinWidth="90" MinHeight="40" />
                                             </StackPanel>
                                             <TextBlock Text="Thông tin nhân viên" FontWeight="SemiBold"

@@ -2,7 +2,7 @@ namespace Kazuko.Core.UserManagement;
 
 /// <summary>
 /// Chức năng hệ thống dùng cho ma trận phân quyền theo nhóm.
-/// FUNCTION_CODE dạng "SALES_RETAIL" — KHỚP với seed trong migration 0076.
+/// FUNCTION_CODE dạng "SALES_RETAIL" — khớp seed migration 0076 và 0077.
 /// </summary>
 public sealed record SystemFunctionDefinition(string Code, string Name, string ModuleGroup)
 {
@@ -10,7 +10,7 @@ public sealed record SystemFunctionDefinition(string Code, string Name, string M
 }
 
 /// <summary>
-/// Danh mục 28 chức năng của hệ thống, nhóm theo module thực tế.
+/// Danh mục 41 chức năng của hệ thống, nhóm theo module thực tế.
 /// Thứ tự = thứ tự hiển thị trên ma trận quyền.
 /// </summary>
 public static class SystemFunctionCatalog
@@ -61,6 +61,19 @@ public static class SystemFunctionCatalog
         new("SYS_SETTINGS", "Cấu hình hệ thống", ModuleSystem),
         new("SYS_DATABASE", "Cơ sở dữ liệu", ModuleSystem),
         new("SYS_DATA_DELETE", "Xóa dữ liệu", ModuleSystem),
+        new("INV_STOCK_VIEW", "Xem tồn kho", ModuleWarehouse),
+        new("INV_HISTORY", "Lịch sử kho", ModuleWarehouse),
+        new("INV_SALES_INTAKE", "Duyệt nhập kho bán hàng", ModuleWarehouse),
+        new("INV_REVERSE", "Hủy/đảo chứng từ kho", ModuleWarehouse),
+        new("PROD_COMPLETE", "Hoàn thành lệnh sản xuất", ModuleProduction),
+        new("PROD_CANCEL", "Hủy lệnh sản xuất", ModuleProduction),
+        new("PROD_QC", "Kiểm tra chất lượng / nhận lại từ thợ", ModuleProduction),
+        new("SALES_HISTORY", "Lịch sử hóa đơn", ModuleSales),
+        new("SALES_PRICE_OVERRIDE", "Sửa giá bán", ModuleSales),
+        new("SALES_DEBT_APPROVE", "Duyệt bán nợ", ModuleSales),
+        new("SALES_CHANGE_EMPLOYEE", "Đổi nhân viên bán hàng", ModuleSales),
+        new("FIN_REVERSE", "Hủy/đảo chứng từ tài chính", ModuleFinance),
+        new("DATA_EXPORT", "Xuất Excel dữ liệu danh mục/nghiệp vụ", ModuleSystem),
     ];
 
     public static SystemFunctionDefinition? Find(string code) =>
@@ -74,8 +87,7 @@ public static class PermissionInheritanceRules
 {
     public const string Explanation =
         "Quy tắc kế thừa quyền trong nhóm:\n" +
-        "• Tích chọn \"Thêm\" hoặc \"Xóa\" → tự động tích \"Sửa\" và \"Xem\" (vì thêm/xóa đều cần xem và sửa).\n" +
-        "• Tích chọn \"Sửa\" → tự động tích \"Xem\".\n" +
+        "• Thêm, Sửa, Xóa độc lập; chọn quyền nào cũng cần quyền Xem.\n" +
         "• Bỏ chọn \"Xem\" → tự động bỏ \"Thêm\"/\"Sửa\"/\"Xóa\".\n" +
         "• Tích chọn \"Tất cả\" → tích đủ 4 quyền Xem/Thêm/Sửa/Xóa.\n" +
         "• Tích chọn \"Bị khóa\" → vô hiệu hóa và bỏ toàn bộ 4 quyền của chức năng đó.\n" +
@@ -135,7 +147,8 @@ public sealed record UserSaveRequest(
     string? Password,
     string? Notes,
     bool IsActive,
-    long CreatedBy);
+    long CreatedBy,
+    long? BranchId = null);
 
 /// <summary>Dữ liệu tạo/sửa nhóm người dùng.</summary>
 public sealed record UserGroupSaveRequest(

@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Sales.SalesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:local="clr-namespace:Kazuko.Modules.Sales"
              MinWidth="980" MinHeight="560"
              PreviewKeyDown="UserControl_PreviewKeyDown">
@@ -47,7 +48,7 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Mới"
+                <Button access:PermissionAccess.Rule="SALES_RETAIL:Add" Content="Mới"
                         Style="{StaticResource SalesOutlineButtonStyle}"
                         Command="{Binding NewCommand}" />
                 <Button Content="In A4"
@@ -70,19 +71,19 @@
                     SelectedIndex="{Binding MainTabIndex}"
                     Style="{StaticResource SalesTabControlStyle}"
                     ItemContainerStyle="{StaticResource SalesTabItemStyle}">
-            <TabItem Header="Mua - Bán">
+            <TabItem access:PermissionAccess.Rule="SALES_RETAIL" Header="Mua - Bán">
                 <local:BuySellTabView DataContext="{Binding BuySell}" Margin="0,6,0,0" />
             </TabItem>
-            <TabItem Header="Mua vàng cũ">
+            <TabItem access:PermissionAccess.Rule="OLD_GOLD_PURCHASE" Header="Mua vàng cũ">
                 <local:BuyOldGoldTabView DataContext="{Binding BuyOldGold}" Margin="0,6,0,0" />
             </TabItem>
-            <TabItem Header="Bán sỉ" Visibility="{Binding WholesaleTabVisibility}">
+            <TabItem access:PermissionAccess.Rule="SALES_WHOLESALE" Header="Bán sỉ" Visibility="{Binding WholesaleTabVisibility}">
                 <local:WholesaleTabView DataContext="{Binding Wholesale}" Margin="0,6,0,0" />
             </TabItem>
-            <TabItem Header="Đơn đặt">
+            <TabItem access:PermissionAccess.Rule="CRAFT_ORDER" Header="Đơn đặt">
                 <local:CraftOrderTabView DataContext="{Binding CraftOrders}" Margin="0,6,0,0" />
             </TabItem>
-            <TabItem Header="Hóa đơn">
+            <TabItem access:PermissionAccess.Rule="SALES_HISTORY" Header="Hóa đơn">
                 <local:InvoiceHistoryTabView DataContext="{Binding History}" Margin="0,6,0,0" />
             </TabItem>
         </TabControl>

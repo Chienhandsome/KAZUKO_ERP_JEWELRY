@@ -80,6 +80,8 @@ public sealed class VoucherKindOption(string code, string name)
 
 public sealed class FinanceOverviewViewModel : ObservableObject
 {
+    private readonly Kazuko.Core.UserManagement.IAuthorizationService? _permissions;
+    private bool CanView(string function) => _permissions?.Current.Allows(function) ?? true;
     private const double ChartMaxHeight = 150;
 
     private static readonly string[] BreakdownBrushKeys =
@@ -123,7 +125,8 @@ public sealed class FinanceOverviewViewModel : ObservableObject
         IDebtWorkbenchRepository receivables,
         ICurrentSessionAccessor sessionAccessor,
         ICashFundRepository funds,
-        IBankAccountRepository banks)
+        IBankAccountRepository banks,
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _dashboard = dashboard;
         _voucherService = voucherService;
@@ -132,6 +135,7 @@ public sealed class FinanceOverviewViewModel : ObservableObject
         _sessionAccessor = sessionAccessor;
         _funds = funds;
         _banks = banks;
+        _permissions = authorization;
 
         VoucherKindOptions.Add(new VoucherKindOption(string.Empty, "Tất cả loại"));
         VoucherKindOptions.Add(new VoucherKindOption(FinancialVoucherTypes.In, "Thu"));
@@ -209,6 +213,7 @@ public sealed class FinanceOverviewViewModel : ObservableObject
 
     private async Task LoadAsync()
     {
+        if (!CanView("FIN_FUND")) return;
         ErrorMessage = string.Empty;
         var session = _sessionAccessor.Current;
         if (session is null)
@@ -224,15 +229,18 @@ public sealed class FinanceOverviewViewModel : ObservableObject
             var flowTask = _dashboard.GetMonthlyCashFlowAsync(12, session);
             var breakdownTask = _dashboard.GetExpenseBreakdownAsync(session);
             var fundsTask = _dashboard.GetFundBalancesAsync(session);
-            var vouchersTask = _dashboard.SearchVouchersAsync(
-                string.IsNullOrWhiteSpace(SelectedKind?.Code) ? null : SelectedKind.Code,
+            var kind = string.IsNullOrWhiteSpace(SelectedKind?.Code) ? null : SelectedKind.Code;
+            if (kind is null && !(CanView("FIN_CASH_IN") && CanView("FIN_CASH_OUT")))
+                kind = CanView("FIN_CASH_IN") ? "IN" : "OUT";
+            var vouchersTask = CanView(kind == "OUT" ? "FIN_CASH_OUT" : "FIN_CASH_IN") ? _dashboard.SearchVouchersAsync(
+                kind,
                 FromDate, ToDate,
                 string.IsNullOrWhiteSpace(Keyword) ? null : Keyword,
-                session);
-            var receivableTask = _receivables.SearchCustomerDebtsAsync(
-                new CustomerDebtSearchFilter(string.Empty, 0, string.Empty, null, null), session);
-            var payableTask = _payables.SearchAsync(
-                new PayableDebtSearchFilter(string.Empty, string.Empty, PayablePartyTypes.Supplier), session);
+                session) : Task.FromResult<IReadOnlyList<CashVoucherListItem>>([]);
+            var receivableTask = CanView("DEBT_CUSTOMER") ? _receivables.SearchCustomerDebtsAsync(
+                new CustomerDebtSearchFilter(string.Empty, 0, string.Empty, null, null), session) : Task.FromResult<IReadOnlyList<CustomerDebtRow>>([]);
+            var payableTask = CanView("DEBT_CUSTOMER") ? _payables.SearchAsync(
+                new PayableDebtSearchFilter(string.Empty, string.Empty, PayablePartyTypes.Supplier), session) : Task.FromResult<IReadOnlyList<PayableDebtListItem>>([]);
 
             await Task.WhenAll(kpiTask, flowTask, breakdownTask, fundsTask, vouchersTask, receivableTask, payableTask);
 

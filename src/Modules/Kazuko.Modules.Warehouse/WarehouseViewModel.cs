@@ -15,6 +15,8 @@ namespace Kazuko.Modules.Warehouse;
 
 public sealed class WarehouseViewModel : ObservableObject
 {
+    private readonly Kazuko.Core.UserManagement.IAuthorizationService? _permissions;
+    private bool CanView(string function) => _permissions?.Current.Allows(function) ?? true;
     private const int OverviewPreviewLimit = 8;
     private const int RecentHistoryLimit = 6;
 
@@ -127,7 +129,8 @@ public sealed class WarehouseViewModel : ObservableObject
         IGoldTypeCatalogService goldTypes,
         IProductionQueryRepository productionQueries,
         IProductionApplicationService productionApplication,
-        IPreferencesService preferences)
+        IPreferencesService preferences,
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _repository = repository;
         _warehouseGoldPrices = warehouseGoldPrices;
@@ -143,6 +146,7 @@ public sealed class WarehouseViewModel : ObservableObject
         _productionQueries = productionQueries;
         _productionApplication = productionApplication;
         _preferences = preferences;
+        _permissions = authorization;
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
         MovementLocations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -799,11 +803,11 @@ public sealed class WarehouseViewModel : ObservableObject
             var documentFilter = BuildDocumentFilterForCurrentTab();
             var movementFilter = new StockMovementSearchFilter(0, 0, string.Empty);
 
-            var balancesTask = _repository.SearchMaterialBalancesAsync(balanceFilter, session, scope.Token);
-            var finishedTask = _repository.SearchFinishedProductStockAsync(finishedFilter, session, scope.Token);
-            var saleTask = _repository.SearchSaleItemStockAsync(saleFilter, session, scope.Token);
-            var documentsTask = _repository.SearchDocumentsAsync(documentFilter, session, scope.Token);
-            var movementsTask = _repository.SearchMovementsAsync(movementFilter, session, scope.Token);
+            var balancesTask = CanView("INV_STOCK_VIEW") ? _repository.SearchMaterialBalancesAsync(balanceFilter, session, scope.Token) : Task.FromResult<IReadOnlyList<MaterialBalanceItem>>([]);
+            var finishedTask = CanView("INV_STOCK_VIEW") ? _repository.SearchFinishedProductStockAsync(finishedFilter, session, scope.Token) : Task.FromResult<IReadOnlyList<FinishedProductStockItem>>([]);
+            var saleTask = CanView("INV_STOCK_VIEW") ? _repository.SearchSaleItemStockAsync(saleFilter, session, scope.Token) : Task.FromResult<IReadOnlyList<SaleItemStockItem>>([]);
+            var documentsTask = CanView("INV_HISTORY") ? _repository.SearchDocumentsAsync(documentFilter, session, scope.Token) : Task.FromResult<IReadOnlyList<StockDocumentSummary>>([]);
+            var movementsTask = CanView("INV_HISTORY") ? _repository.SearchMovementsAsync(movementFilter, session, scope.Token) : Task.FromResult<IReadOnlyList<StockMovementItem>>([]);
 
             await Task.WhenAll(balancesTask, finishedTask, saleTask, documentsTask, movementsTask);
             scope.Token.ThrowIfCancellationRequested();

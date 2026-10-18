@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.UserManagement.UserManagementView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
              MinWidth="960" MinHeight="560"
              Background="Transparent">
@@ -222,11 +223,11 @@
                    Margin="0,0,0,8" />
 
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-          <Button Content="Thêm" Style="{StaticResource UmPrimaryButtonStyle}"
+          <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Add" Content="Thêm" Style="{StaticResource UmPrimaryButtonStyle}"
                   Command="{Binding AddGroupCommand}" MinWidth="70" Margin="0,0,6,0" />
-          <Button Content="Sửa" Style="{StaticResource UmOutlineButtonStyle}"
+          <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Edit" Content="Sửa" Style="{StaticResource UmOutlineButtonStyle}"
                   Command="{Binding EditGroupCommand}" MinWidth="60" />
-          <Button Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
+          <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Delete" Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
                   Command="{Binding DeleteGroupCommand}" MinWidth="60" Margin="6,0,0,0" />
         </StackPanel>
 
@@ -268,11 +269,11 @@
 
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="False">
               <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                <Button Content="Thêm mới" Style="{StaticResource UmPrimaryButtonStyle}"
+                <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Add" Content="Thêm mới" Style="{StaticResource UmPrimaryButtonStyle}"
                         Command="{Binding AddUserCommand}" />
-                <Button Content="Chỉnh sửa" Style="{StaticResource UmOutlineButtonStyle}"
+                <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Edit" Content="Chỉnh sửa" Style="{StaticResource UmOutlineButtonStyle}"
                         Command="{Binding EditUserCommand}" />
-                <Button Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
+          <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Delete" Content="Xóa" Style="{StaticResource UmDangerButtonStyle}"
                         Command="{Binding DeleteUserCommand}" />
                 <Button Content="In" Style="{StaticResource UmOutlineButtonStyle}"
                         Command="{Binding PrintCommand}" />
@@ -320,7 +321,7 @@
             </Border>
 
             <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
-              <Button DockPanel.Dock="Right"
+              <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Edit" DockPanel.Dock="Right"
                       Content="Lưu"
                       Style="{StaticResource UmPrimaryButtonStyle}"
                       Command="{Binding SavePermissionsCommand}"

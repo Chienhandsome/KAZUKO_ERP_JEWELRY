@@ -13,6 +13,8 @@ namespace Kazuko.Modules.Sales;
 
 public sealed class SalesViewModel : ObservableObject
 {
+    private readonly Kazuko.Core.UserManagement.IAuthorizationService? _groupPermissions;
+    private bool CanViewGroup(string function) => _groupPermissions?.Current.Allows(function) ?? true;
     private readonly ISalesQueryRepository _queries;
     private readonly ISalesCheckoutApplicationService _checkout;
     private readonly IWholesaleSalesApplicationService _wholesaleSales;
@@ -53,9 +55,11 @@ public sealed class SalesViewModel : ObservableObject
         ICraftOrderApplicationService craftOrders,
         IWholesaleSalesApplicationService wholesaleSales,
         IWarehouseRepository warehouse,
-        IProductionOrderEditorService productionOrderEditor)
+        IProductionOrderEditorService productionOrderEditor,
+        Kazuko.Core.UserManagement.IAuthorizationService? groupPermissions = null)
     {
         _queries = queries;
+        _groupPermissions = groupPermissions;
         _checkout = checkout;
         _wholesaleSales = wholesaleSales;
         _authorization = authorization;
@@ -122,6 +126,7 @@ public sealed class SalesViewModel : ObservableObject
         {
             if (!SetProperty(ref _mainTabIndex, value))
                 return;
+            OnPropertyChanged(nameof(CanPayCurrentTab));
             OnWorkspaceChanged();
             if (IsCraftOrderTab)
                 _ = CraftOrders.EnsureLoadedAsync();
@@ -137,9 +142,10 @@ public sealed class SalesViewModel : ObservableObject
     public bool IsCraftOrderTab => MainTabIndex == 3;
     public bool IsHistoryTab => MainTabIndex == 4;
     public bool CanPayCurrentTab =>
-        (IsCheckoutTab && _permissions.CanPost) || (IsWholesaleTab && _permissions.CanPostWholesale);
+        ((IsCheckoutTab && _permissions.CanPost) || (IsWholesaleTab && _permissions.CanPostWholesale))
+        && (_groupPermissions?.Current.Allows(IsWholesaleTab ? "SALES_WHOLESALE" : IsBuyOldGoldTab ? "OLD_GOLD_PURCHASE" : "SALES_RETAIL", Kazuko.Core.UserManagement.PermissionAction.Add) ?? true);
     public Visibility WholesaleTabVisibility =>
-        _permissions.CanPostWholesale ? Visibility.Visible : Visibility.Collapsed;
+        (_groupPermissions?.Current.Allows("SALES_WHOLESALE") ?? _permissions.CanPostWholesale) ? Visibility.Visible : Visibility.Collapsed;
     public bool CanPrintCurrent =>
         _permissions.CanPrintReceipt
         && (History.SelectedDetail?.CheckoutId > 0 || LastResult is { CheckoutId: > 0 });
@@ -214,8 +220,8 @@ public sealed class SalesViewModel : ObservableObject
             ErrorMessage = string.Empty;
             var session = RequireSession();
             _permissions = await _authorization.GetPermissionsAsync(session);
-            CraftOrders.CanCollect = _permissions.CanPost;
-            CraftOrders.CanCreateOrder = _permissions.CanPost;
+            CraftOrders.CanCollect = _groupPermissions?.Current.Allows("CRAFT_ORDER", Kazuko.Core.UserManagement.PermissionAction.Edit) ?? _permissions.CanPost;
+            CraftOrders.CanCreateOrder = _groupPermissions?.Current.Allows("CRAFT_ORDER", Kazuko.Core.UserManagement.PermissionAction.Add) ?? _permissions.CanPost;
             History.CanReadHistory = _permissions.CanReadHistory;
             History.CanPrint = _permissions.CanPrintReceipt;
             Wholesale.CanPostWholesale = _permissions.CanPostWholesale;
@@ -228,9 +234,9 @@ public sealed class SalesViewModel : ObservableObject
 
             var customers = await _queries.SearchCustomersAsync(string.Empty, session);
             var staff = await _queries.GetSalespeopleAsync(session);
-            var materials = await _queries.GetOldGoldMaterialsAsync(session);
-            var locations = await _queries.GetOldGoldLocationsAsync(session);
-            var wholesaleLocations = await _wholesaleSales.GetSourceLocationsAsync(session);
+            var materials = CanViewGroup("OLD_GOLD_PURCHASE") || CanViewGroup("SALES_RETAIL") ? await _queries.GetOldGoldMaterialsAsync(session) : [];
+            var locations = CanViewGroup("OLD_GOLD_PURCHASE") || CanViewGroup("SALES_RETAIL") ? await _queries.GetOldGoldLocationsAsync(session) : [];
+            var wholesaleLocations = CanViewGroup("SALES_WHOLESALE") ? await _wholesaleSales.GetSourceLocationsAsync(session) : [];
             _funds = await _cashFunds.GetActiveFundsAsync(session);
             _banks = await _bankAccounts.GetActiveAccountsAsync(session);
 
@@ -276,6 +282,8 @@ public sealed class SalesViewModel : ObservableObject
             BuyOldGold.RaiseTotalsChanged();
             Wholesale.RaiseTotalsChanged();
             RenewRequestId();
+            if (IsHistoryTab && _permissions.CanReadHistory) await History.EnsureLoadedAsync();
+            if (IsCraftOrderTab && CanViewGroup("CRAFT_ORDER")) await CraftOrders.EnsureLoadedAsync();
         }
         catch (Exception ex)
         {

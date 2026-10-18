@@ -444,11 +444,12 @@ public sealed class FirebirdWholesaleSalesApplicationService : IWholesaleSalesAp
             throw new InvalidOperationException("Phiên người dùng không còn hợp lệ cho chi nhánh hiện tại.");
 
         var isAdmin = string.Equals(reader.GetString(1).Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase);
-        return new IdentityContext(
-            reader.GetInt64(0),
-            isAdmin || Allowed(reader, 2),
-            isAdmin || Allowed(reader, 3),
-            isAdmin || Allowed(reader, 4));
+        var companyId = reader.GetInt64(0);
+        var legacy = new SalesPermissionSnapshot(false, false, isAdmin || Allowed(reader, 3),
+            isAdmin || Allowed(reader, 4), false, false, isAdmin || Allowed(reader, 2));
+        await reader.CloseAsync();
+        var rights = await GroupSalesPermissions.RestrictAsync(connection, transaction, session.UserId, legacy, cancellationToken);
+        return new IdentityContext(companyId, rights.CanPostWholesale, rights.CanApproveDebt, rights.CanChangeSalesperson);
     }
 
     private static async Task<(long Id, bool IsWalkIn)> LoadCustomerAsync(

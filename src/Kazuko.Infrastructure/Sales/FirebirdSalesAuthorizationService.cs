@@ -57,7 +57,7 @@ public sealed class FirebirdSalesAuthorizationService : ISalesAuthorizationServi
         if (string.Equals(reader.GetString(0).Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase))
             return new SalesPermissionSnapshot(true, true, true, true, true, true, true);
 
-        return new SalesPermissionSnapshot(
+        var legacy = new SalesPermissionSnapshot(
             ReadAllowed(reader, 1),
             ReadAllowed(reader, 2),
             ReadAllowed(reader, 3),
@@ -65,6 +65,8 @@ public sealed class FirebirdSalesAuthorizationService : ISalesAuthorizationServi
             ReadAllowed(reader, 5),
             ReadAllowed(reader, 6),
             ReadAllowed(reader, 7));
+        await reader.CloseAsync();
+        return await GroupSalesPermissions.RestrictAsync(connection, null, session.UserId, legacy, cancellationToken);
     }
 
     private static bool ReadAllowed(FbDataReader reader, int ordinal) =>

@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Debt.DebtView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:local="clr-namespace:Kazuko.Modules.Debt"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              MinWidth="960" MinHeight="560">
@@ -491,7 +492,7 @@
                   BorderThickness="0"
                   ItemContainerStyle="{StaticResource DebtTabItemStyle}">
 
-        <TabItem Header="Công nợ khách hàng">
+        <TabItem access:PermissionAccess.Rule="DEBT_CUSTOMER" Header="Công nợ khách hàng">
           <Grid Margin="0,12,0,0">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
@@ -585,14 +586,14 @@
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                          <Button Content="Thu toàn bộ"
+                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu toàn bộ"
                                   Style="{StaticResource RoundedSuccessButtonStyle}"
                                   Margin="0,0,6,0"
                                   Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
                                   Command="{Binding DataContext.CollectCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                   CommandParameter="{Binding}"
                                   ToolTip="Thu toàn bộ số phải thu trên đơn hàng" />
-                          <Button Content="Chi toàn bộ"
+                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi toàn bộ"
                                   Style="{StaticResource RoundedDangerButtonStyle}"
                                   Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
                                   Command="{Binding DataContext.PayCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
@@ -639,7 +640,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                   <StackPanel>
                     <DockPanel Margin="0,0,0,12">
-                      <Button Content="Sửa"
+                      <Button access:PermissionAccess.Rule="DEBT_CUSTOMER:Edit" Content="Sửa"
                               DockPanel.Dock="Right"
                               HorizontalAlignment="Right"
                               Style="{StaticResource RoundedPrimaryButtonStyle}"
@@ -713,13 +714,13 @@
                         <DataGridTemplateColumn.CellTemplate>
                           <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                              <Button Content="Thu"
+                              <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu"
                                       Style="{StaticResource RoundedSuccessButtonStyle}"
                                       Margin="0,0,6,0"
                                       Visibility="{Binding CanShowCollectButton, Converter={StaticResource BoolToVis}}"
                                       Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                       CommandParameter="{Binding}" />
-                              <Button Content="Chi"
+                              <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi"
                                       Style="{StaticResource RoundedDangerButtonStyle}"
                                       Visibility="{Binding CanShowPayButton, Converter={StaticResource BoolToVis}}"
                                       Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
@@ -736,7 +737,7 @@
           </Grid>
         </TabItem>
 
-        <TabItem Header="Công nợ nhà cung cấp">
+        <TabItem access:PermissionAccess.Rule="DEBT_CUSTOMER" Header="Công nợ nhà cung cấp">
           <Grid Margin="0,12,0,0">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
@@ -826,14 +827,14 @@
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                          <Button Content="Thu toàn bộ"
+                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu toàn bộ"
                                   Style="{StaticResource RoundedSuccessButtonStyle}"
                                   Margin="0,0,6,0"
                                   Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
                                   Command="{Binding DataContext.CollectSupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                   CommandParameter="{Binding}"
                                   ToolTip="Thu toàn bộ số NCC đang nợ" />
-                          <Button Content="Chi toàn bộ"
+                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi toàn bộ"
                                   Style="{StaticResource RoundedDangerButtonStyle}"
                                   Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
                                   Command="{Binding DataContext.PaySupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
@@ -976,7 +977,7 @@
             </Grid>
           </Grid>
         </TabItem>
-        <TabItem Header="Nợ vàng thợ">
+        <TabItem access:PermissionAccess.Rule="DEBT_WORKER_GOLD" Header="Nợ vàng thợ">
           <Grid Margin="0,12,0,0">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
@@ -1103,7 +1104,7 @@
                   <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="140">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <Button Content="Ghi trả vàng"
+                        <Button access:PermissionAccess.Rule="DEBT_WORKER_GOLD:Edit" Content="Ghi trả vàng"
                                 Style="{StaticResource RoundedSuccessButtonStyle}"
                                 Visibility="{Binding CanRecordRepayment, Converter={StaticResource BoolToVis}}"
                                 Command="{Binding DataContext.RecordRepaymentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
@@ -1144,7 +1145,7 @@
     <!-- Bottom actions: chỉ dùng cho 2 tab KH/NCC (tab nợ vàng thợ thao tác trên từng dòng) -->
     <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0"
                 Visibility="{Binding IsWorkerGoldDebtTab, Converter={StaticResource InverseBoolToVis}}">
-      <Button Content="{Binding CollectOrPayButtonText}"
+      <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="{Binding CollectOrPayButtonText}"
               Style="{StaticResource RoundedPrimaryButtonStyle}"
               Command="{Binding CollectOrPayCommand}"
               MinWidth="120" Margin="0,0,8,0" />
@@ -1157,7 +1158,7 @@
               Command="{Binding PrintCommand}"
               IsEnabled="False"
               MinWidth="110" />
-      <Button Content="Xuất Excel"
+      <Button access:PermissionAccess.Rule="DATA_EXPORT" Content="Xuất Excel"
               Style="{StaticResource OutlineButtonStyle}"
               Command="{Binding ExportExcelCommand}"
               CommandParameter="{Binding ElementName=DebtTabControl}"

@@ -184,7 +184,10 @@ public sealed class FirebirdSalesCheckoutApplicationService : ISalesCheckoutAppl
             : new SalesPermissionSnapshot(
                 Allowed(reader, 2), Allowed(reader, 3), Allowed(reader, 4),
                 Allowed(reader, 5), Allowed(reader, 6), Allowed(reader, 7));
-        return new IdentityContext(reader.GetInt64(0), permissions);
+        var companyId = reader.GetInt64(0);
+        await reader.CloseAsync();
+        permissions = await GroupSalesPermissions.RestrictAsync(connection, transaction, session.UserId, permissions, cancellationToken);
+        return new IdentityContext(companyId, permissions);
     }
 
     private static async Task<SalesCheckoutResult?> TryLoadExistingAsync(

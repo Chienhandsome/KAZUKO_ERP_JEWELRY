@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.PriceBoard.PriceBoardDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="CẬP NHẬT GIÁ BÁN - KAZUKO ERP JEWELRY"
         Width="980" Height="650"
@@ -228,9 +229,9 @@
                                  Foreground="{DynamicResource PrimaryBrush}" />
                         </TextBlock>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="+  Thêm loại vàng" Style="{StaticResource PbAccentOutlineButtonStyle}"
+                            <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Add" Content="+  Thêm loại vàng" Style="{StaticResource PbAccentOutlineButtonStyle}"
                                     Command="{Binding AddGoldCommand}" Margin="0,0,8,0" />
-                            <Button Content="✕  Xóa loại vàng" Style="{StaticResource PbDangerOutlineButtonStyle}"
+                            <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Delete" Content="✕  Xóa loại vàng" Style="{StaticResource PbDangerOutlineButtonStyle}"
                                     Command="{Binding DeleteGoldCommand}" />
                         </StackPanel>
                     </DockPanel>
@@ -316,9 +317,9 @@
                                    FontSize="{DynamicResource FontSize.Body}"
                                    Foreground="{DynamicResource TextPrimaryBrush}" />
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="+  Thêm ngoại tệ" Style="{StaticResource PbAccentOutlineButtonStyle}"
+                            <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Add" Content="+  Thêm ngoại tệ" Style="{StaticResource PbAccentOutlineButtonStyle}"
                                     Command="{Binding AddCurrencyCommand}" Margin="0,0,8,0" />
-                            <Button Content="✕  Xóa ngoại tệ" Style="{StaticResource PbDangerOutlineButtonStyle}"
+                            <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Delete" Content="✕  Xóa ngoại tệ" Style="{StaticResource PbDangerOutlineButtonStyle}"
                                     Command="{Binding DeleteCurrencyCommand}" />
                         </StackPanel>
                     </DockPanel>
@@ -391,7 +392,7 @@
                            TextWrapping="Wrap" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Content="Cập nhật" Style="{StaticResource PbPrimaryButtonStyle}"
+                <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Edit" Content="Cập nhật" Style="{StaticResource PbPrimaryButtonStyle}"
                         Command="{Binding SaveCommand}" Margin="0,0,8,0" IsDefault="True" />
                 <Button Content="Thoát" Style="{StaticResource PbOutlineButtonStyle}"
                         Command="{Binding CloseCommand}" IsCancel="True" />

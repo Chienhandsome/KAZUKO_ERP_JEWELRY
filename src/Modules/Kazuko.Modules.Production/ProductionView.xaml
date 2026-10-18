@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Production.ProductionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:conv="clr-namespace:Kazuko.Modules.Production.Converters"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              MinWidth="1100" MinHeight="520"
@@ -181,7 +182,7 @@
 
         <!-- Hàng 2: Thanh action -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-            <Button Content="Tạo mới phiếu sản xuất"
+            <Button access:PermissionAccess.Rule="PROD_ORDER:Add" Content="Tạo mới phiếu sản xuất"
                     Style="{StaticResource ProductionPrimaryButtonStyle}"
                     Command="{Binding CreateOrderCommand}"
                     Margin="0,0,8,0" MinWidth="170" />
@@ -190,7 +191,7 @@
                     Command="{Binding OpenDetailCommand}"
                     CommandParameter="{Binding SelectedOrder}"
                     Margin="0,0,8,0" MinWidth="90" />
-            <Button Content="Sửa"
+            <Button access:PermissionAccess.Rule="PROD_ORDER:Edit" Content="Sửa"
                     Style="{StaticResource ProductionOutlineButtonStyle}"
                     Command="{Binding EditOrderCommand}"
                     CommandParameter="{Binding SelectedOrder}"
@@ -201,12 +202,12 @@
                     Command="{Binding PrintOrderCommand}"
                     CommandParameter="{Binding SelectedOrder}"
                     Margin="0,0,8,0" MinWidth="90" />
-            <Button Content="Xuất Excel"
+            <Button access:PermissionAccess.Rule="DATA_EXPORT" Content="Xuất Excel"
                     Style="{StaticResource ProductionOutlineButtonStyle}"
                     Command="{Binding ExportExcelCommand}"
                     CommandParameter="{Binding ElementName=OrdersGrid}"
                     Margin="0,0,8,0" MinWidth="90" />
-            <Button Content="Xóa"
+            <Button access:PermissionAccess.Rule="PROD_CANCEL:Delete" Content="Xóa"
                     Style="{StaticResource ProductionGhostButtonStyle}"
                     Command="{Binding DeleteOrderCommand}"
                     CommandParameter="{Binding SelectedOrder}"
@@ -262,7 +263,7 @@
                     <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="Hoàn thành"
+                                <Button access:PermissionAccess.Rule="PROD_COMPLETE:Edit" Content="Hoàn thành"
                                         Command="{Binding DataContext.CompleteOrderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
                                         Style="{StaticResource ProductionPrimaryButtonStyle}"

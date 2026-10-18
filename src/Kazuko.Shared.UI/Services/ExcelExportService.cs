@@ -4,6 +4,7 @@ using System.Windows.Media;
 using ClosedXML.Excel;
 using Kazuko.Shared.UI.DataGridLayout;
 using Microsoft.Win32;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Shared.UI.Services;
 
@@ -34,6 +35,8 @@ public sealed record ExcelExportColumn<T>(
 /// </summary>
 public static class ExcelExportService
 {
+    private static IAuthorizationService? _authorization;
+    public static void ConfigureAuthorization(IAuthorizationService authorization) => _authorization = authorization;
     private const string MoneyFormat = "#,##0";
     private const string QuantityFormat = "#,##0.00";
     private const string DateFormat = "dd/MM/yyyy";
@@ -53,6 +56,18 @@ public static class ExcelExportService
         IEnumerable<T> rows,
         IReadOnlyList<ExcelExportColumn<T>> columns)
     {
+        if (_authorization is not null)
+        {
+            var type = typeof(T).FullName ?? string.Empty;
+            var domain = type.Contains("Customers") ? "CAT_CUSTOMERS" : type.Contains("Suppliers") ? "CAT_SUPPLIERS"
+                : type.Contains("HumanResources") ? "CAT_EMPLOYEES" : type.Contains("Production") ? "PROD_ORDER"
+                : type.Contains("WorkerGold") ? "DEBT_WORKER_GOLD" : type.Contains("Debt") ? "DEBT_CUSTOMER" : null;
+            var requirements = new List<PermissionRequirement> { new("DATA_EXPORT") };
+            if (domain is not null) requirements.Add(new(domain));
+            try { _authorization.DemandAsync(requirements).GetAwaiter().GetResult(); }
+            catch (Exception ex)
+            { MessageBox.Show(ex.Message, "Xuất Excel", MessageBoxButton.OK, MessageBoxImage.Warning); return false; }
+        }
         var rowList = rows.ToList();
         if (rowList.Count == 0)
         {

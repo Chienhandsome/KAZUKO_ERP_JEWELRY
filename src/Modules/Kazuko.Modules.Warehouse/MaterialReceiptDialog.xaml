@@ -1,6 +1,7 @@
 ﻿<Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
         Title="Nhập kho NVL"
@@ -36,7 +37,7 @@
               MinWidth="100"
               Margin="0,0,8,0"
               IsCancel="True" />
-      <Button Content="Ghi sổ nhập kho"
+      <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="Ghi sổ nhập kho"
               Style="{StaticResource WhPrimaryButtonStyle}"
               Command="{Binding SaveCommand}"
               MinWidth="160"
@@ -156,7 +157,7 @@
                       </DataTemplate>
                     </ComboBox.ItemTemplate>
                   </ComboBox>
-                  <Button Grid.Column="2"
+                  <Button access:PermissionAccess.Rule="CAT_SUPPLIERS:Add" Grid.Column="2"
                           Content="Tạo mới"
                           Style="{StaticResource WhOutlineButtonStyle}"
                           MinWidth="96"
@@ -236,7 +237,7 @@
                                 SelectedItem="{Binding SelectedMaterial}"
                                 DisplayMemberPath="DisplayName"
                                 Style="{StaticResource WhComboStyle}" />
-                      <Button Grid.Column="2"
+                  <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Add" Grid.Column="2"
                               Content="Thêm loại vàng"
                               Command="{Binding CreateGoldTypeCommand}"
                               Style="{StaticResource WhOutlineButtonStyle}"

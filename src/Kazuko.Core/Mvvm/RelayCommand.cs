@@ -9,7 +9,7 @@ public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) 
 
     public bool CanExecute(object? parameter) => canExecute?.Invoke() ?? true;
 
-    public void Execute(object? parameter) => execute();
+    public void Execute(object? parameter) { if (CanExecute(parameter)) execute(); }
 
     public void NotifyCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
@@ -20,7 +20,7 @@ public sealed class RelayCommand<T>(Action<T?> execute, Func<T?, bool>? canExecu
 
     public bool CanExecute(object? parameter) => canExecute?.Invoke(ConvertParameter(parameter)) ?? true;
 
-    public void Execute(object? parameter) => execute(ConvertParameter(parameter));
+    public void Execute(object? parameter) { if (CanExecute(parameter)) execute(ConvertParameter(parameter)); }
 
     public void NotifyCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 

@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.UserManagement.UserGroupEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
         Title="{Binding Title}"
         Width="480" Height="370"
@@ -60,7 +61,7 @@
               Style="{StaticResource UmDialogOutlineButtonStyle}"
               Command="{Binding CancelCommand}"
               Margin="0,0,8,0" IsCancel="True" />
-      <Button Content="Ghi dữ liệu"
+      <Button access:PermissionAccess.Rule="SYS_USER_MANAGEMENT:Add|SYS_USER_MANAGEMENT:Edit" Content="Ghi dữ liệu"
               Style="{StaticResource UmDialogPrimaryButtonStyle}"
               Command="{Binding SaveCommand}"
               IsDefault="True" />

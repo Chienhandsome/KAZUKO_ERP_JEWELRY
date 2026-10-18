@@ -15,11 +15,14 @@ public sealed class FinanceViewModel : ObservableObject
         IDebtWorkbenchRepository receivables,
         ICurrentSessionAccessor sessionAccessor,
         ICashFundRepository funds,
-        IBankAccountRepository banks)
+        IBankAccountRepository banks,
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
-        Overview = new FinanceOverviewViewModel(dashboard, voucherService, payables, receivables, sessionAccessor, funds, banks);
-        Income = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.In);
-        Expense = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.Out);
+        Overview = new FinanceOverviewViewModel(dashboard, voucherService, payables, receivables, sessionAccessor, funds, banks, authorization);
+        Income = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.In, authorization);
+        Expense = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.Out, authorization);
+        if (authorization is not null && !authorization.Current.Allows("FIN_FUND"))
+            _selectedTabIndex = authorization.Current.Allows("FIN_CASH_IN") ? 1 : 2;
     }
 
     public FinanceOverviewViewModel Overview { get; }

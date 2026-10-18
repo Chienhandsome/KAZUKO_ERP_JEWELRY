@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.App;
 
@@ -34,34 +35,41 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
 
     private readonly IModuleNavigationRegistry _registry;
     private readonly INavigationService _navigation;
+    private readonly IAuthorizationService _authorization;
     private readonly DispatcherTimer _clockTimer;
     private object? _currentView;
     private string _currentTitle = string.Empty;
+    private string _currentKey = "DASHBOARD";
     private string _dateText = string.Empty;
     private string _timeText = string.Empty;
     private bool _isSidebarCollapsed;
     private bool _disposed;
+    private bool _refreshingPermissions;
+    private DateTime _lastPermissionRefresh = DateTime.MinValue;
 
     public ShellViewModel(
         string displayName,
         IModuleNavigationRegistry registry,
         INavigationService navigation,
+        IAuthorizationService authorization,
         Action logout)
     {
         DisplayName = displayName;
         _registry = registry;
         _navigation = navigation;
+        _authorization = authorization;
 
         NavigationItems = new ObservableCollection<NavigationItemViewModel>(
             registry.Items
-                .Where(item => item.ShowInSidebar)
+                .Where(item => item.ShowInSidebar && NavigationAccess.Allows(authorization.Current, item.Key))
                 .Select(item => new NavigationItemViewModel(item, navigation)));
 
         ToggleSidebarCommand = new RelayCommand(() => IsSidebarCollapsed = !IsSidebarCollapsed);
-        NavigatePriceBoardCommand = new RelayCommand(() => navigation.Navigate("PRICE_BOARD"));
+        NavigatePriceBoardCommand = new RelayCommand(() => navigation.Navigate("PRICE_BOARD"), () => authorization.Current.Allows("CAT_GOLD_PRICE"));
         LogoutCommand = new RelayCommand(logout);
 
         _navigation.NavigationRequested += OnNavigationRequested;
+        _authorization.Changed += OnPermissionsChanged;
         _clockTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(1)
@@ -77,6 +85,8 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     }
 
     public string DisplayName { get; }
+    public System.Windows.Visibility PriceBoardVisibility => _authorization.Current.Allows("CAT_GOLD_PRICE")
+        ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
     public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
     public ICommand ToggleSidebarCommand { get; }
     public ICommand NavigatePriceBoardCommand { get; }
@@ -142,6 +152,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         _clockTimer.Stop();
         _clockTimer.Tick -= OnClockTick;
         _navigation.NavigationRequested -= OnNavigationRequested;
+        _authorization.Changed -= OnPermissionsChanged;
     }
 
     private void OnNavigationRequested(object? sender, NavigationRequestedEventArgs e)
@@ -154,6 +165,8 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
 
     private void Navigate(NavigationItem item)
     {
+        if (!NavigationAccess.Allows(_authorization.Current, item.Key)) return;
+        _currentKey = item.Key;
         CurrentTitle = item.Label;
         CurrentView = item.CreateView();
         foreach (var navigationItem in NavigationItems)
@@ -165,7 +178,35 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnClockTick(object? sender, EventArgs e) => UpdateClock();
+    private void OnPermissionsChanged(object? sender, EventArgs e)
+    {
+        if (!System.Windows.Application.Current.Dispatcher.CheckAccess())
+        { System.Windows.Application.Current.Dispatcher.InvokeAsync(() => OnPermissionsChanged(sender, e)); return; }
+        var allowed = _registry.Items.Where(x => x.ShowInSidebar && NavigationAccess.Allows(_authorization.Current, x.Key)).ToArray();
+        OnPropertyChanged(nameof(PriceBoardVisibility));
+        ((RelayCommand)NavigatePriceBoardCommand).NotifyCanExecuteChanged();
+        if (!NavigationItems.Select(x => x.Item.Key).SequenceEqual(allowed.Select(x => x.Key)))
+        {
+            NavigationItems.Clear();
+            foreach (var item in allowed) NavigationItems.Add(new(item, _navigation) { IsActive = item.Key == _currentKey });
+        }
+    }
+
+    private void OnClockTick(object? sender, EventArgs e)
+    {
+        UpdateClock();
+        if (!_refreshingPermissions && DateTime.UtcNow - _lastPermissionRefresh > TimeSpan.FromSeconds(15))
+            _ = RefreshPermissionsAsync();
+    }
+
+    private async Task RefreshPermissionsAsync()
+    {
+        _refreshingPermissions = true;
+        _lastPermissionRefresh = DateTime.UtcNow;
+        try { await _authorization.RefreshAsync(); }
+        catch { _authorization.Clear(); }
+        finally { _refreshingPermissions = false; }
+    }
 
     private void UpdateClock()
     {

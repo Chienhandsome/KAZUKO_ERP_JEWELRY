@@ -1,6 +1,7 @@
 ﻿<Window x:Class="Kazuko.Modules.Finance.CashVoucherDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:local="clr-namespace:Kazuko.Modules.Finance"
         Title="{Binding Title}"
@@ -32,7 +33,7 @@
               Style="{StaticResource FinanceOutlineButtonStyle}"
               Command="{Binding CancelCommand}"
               MinHeight="40" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
-      <Button Content="Lưu"
+      <Button access:PermissionAccess.Rule="FIN_CASH_IN:Add|FIN_CASH_OUT:Add|DEBT_SETTLEMENT:Add" Content="Lưu"
               Style="{StaticResource FinancePrimaryButtonStyle}"
               Command="{Binding SaveCommand}"
               MinHeight="40" MinWidth="120" IsDefault="True" />

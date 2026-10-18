@@ -16,6 +16,7 @@ namespace Kazuko.Modules.Dashboard;
 /// </summary>
 public sealed class DatabaseSettingsViewModel : ObservableObject
 {
+    private readonly Kazuko.Core.UserManagement.IAuthorizationService? _permissions;
     private readonly IDatabaseManagementService _database;
     private readonly IPreferencesService _preferences;
     private readonly IAppearanceService _appearance;
@@ -35,12 +36,14 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
         IDatabaseManagementService database,
         IPreferencesService preferences,
         IAppearanceService appearance,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _database = database ?? throw new ArgumentNullException(nameof(database));
         _preferences = preferences ?? throw new ArgumentNullException(nameof(preferences));
         _appearance = appearance ?? throw new ArgumentNullException(nameof(appearance));
         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
+        _permissions = authorization;
 
         ChangeDatabaseCommand = new AsyncRelayCommand(ChangeDatabaseAsync, () => !IsBusy);
         BackupCommand = new AsyncRelayCommand(BackupAsync, () => !IsBusy);
@@ -131,6 +134,7 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
 
     private async Task LoadAsync()
     {
+        if (_permissions is not null && !_permissions.Current.Allows("SYS_DATABASE")) return;
         var session = RequireSession();
         if (session is null)
             return;
@@ -418,7 +422,7 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
 
     private bool EnsureAdmin(AuthenticatedSession session)
     {
-        if (IsAdmin(session))
+        if (_permissions?.Current.Allows("SYS_DATABASE", Kazuko.Core.UserManagement.PermissionAction.Edit) ?? IsAdmin(session))
             return true;
         ErrorMessage = "Chỉ tài khoản quản trị (admin) mới được thao tác cơ sở dữ liệu.";
         return false;

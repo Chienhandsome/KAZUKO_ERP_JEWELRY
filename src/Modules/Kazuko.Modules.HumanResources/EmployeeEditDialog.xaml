@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.HumanResources.EmployeeEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:localConv="clr-namespace:Kazuko.Modules.HumanResources.Converters"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="{Binding Title, Mode=OneWay}"
@@ -188,7 +189,7 @@
                     Padding="16,8" FontSize="{DynamicResource FontSize.Body}"
                     Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Cursor="Hand" IsCancel="True" />
-            <Button Content="Lưu (Enter)" Command="{Binding SaveCommand}" MinWidth="140" MinHeight="40"
+            <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add|CAT_EMPLOYEES:Edit" Content="Lưu (Enter)" Command="{Binding SaveCommand}" MinWidth="140" MinHeight="40"
                     Padding="16,8" FontSize="{DynamicResource FontSize.Body}"
                     Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"
                     BorderThickness="0" Cursor="Hand" IsDefault="True" />

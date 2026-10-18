@@ -12,6 +12,8 @@ namespace Kazuko.Modules.Finance;
 /// </summary>
 public sealed class VoucherListViewModel : ObservableObject
 {
+    private readonly Kazuko.Core.UserManagement.IAuthorizationService? _permissions;
+    public string AddPermissionRule => (_voucherType == FinancialVoucherTypes.In ? "FIN_CASH_IN" : "FIN_CASH_OUT") + ":Add";
     private readonly IFinanceDashboardRepository _dashboard;
     private readonly IFinanceVoucherService _voucherService;
     private readonly ICurrentSessionAccessor _sessionAccessor;
@@ -34,7 +36,8 @@ public sealed class VoucherListViewModel : ObservableObject
         ICurrentSessionAccessor sessionAccessor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
-        string voucherType)
+        string voucherType,
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _dashboard = dashboard;
         _voucherService = voucherService;
@@ -42,6 +45,7 @@ public sealed class VoucherListViewModel : ObservableObject
         _funds = funds;
         _banks = banks;
         _voucherType = voucherType;
+        _permissions = authorization;
 
         var isIncome = voucherType == FinancialVoucherTypes.In;
         Title = isIncome ? "Phiếu thu" : "Phiếu chi";
@@ -127,6 +131,7 @@ public sealed class VoucherListViewModel : ObservableObject
 
     private async Task SearchAsync()
     {
+        if (_permissions is not null && !_permissions.Current.Allows(_voucherType == FinancialVoucherTypes.In ? "FIN_CASH_IN" : "FIN_CASH_OUT")) return;
         ErrorMessage = string.Empty;
         var session = _sessionAccessor.Current;
         if (session is null)
