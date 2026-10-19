@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.PriceBoard.PriceHistoryDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
         Title="LỊCH SỬ BIẾN ĐỘNG GIÁ VÀNG - KAZUKO ERP"
         Width="880" Height="520"
         MinWidth="750" MinHeight="420"
@@ -150,12 +151,14 @@
         </StackPanel>
 
         <DataGrid Grid.Row="1"
+                  grid:DataGridColumnLayout.SettingsKey="priceBoard.priceHistory"
+                  grid:DataGridColumnLayout.EnableHeaderMenu="True"
                   ItemsSource="{Binding Rows}"
                   Style="{StaticResource HistGridStyle}"
                   ColumnHeaderStyle="{StaticResource HistHeaderStyle}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Thời gian" Binding="{Binding ChangedAtText}" Width="110" />
-                <DataGridTextColumn Header="Loại vàng" Binding="{Binding GoldName}" Width="*" MinWidth="100">
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="ChangedAtText" Header="Thời gian" Binding="{Binding ChangedAtText}" Width="110" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="GoldName" Header="Loại vàng" Binding="{Binding GoldName}" Width="*" MinWidth="100">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="FontWeight" Value="SemiBold" />
@@ -163,9 +166,9 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Đơn vị" Binding="{Binding UnitName}" Width="70" />
-                <DataGridTextColumn Header="Mua cũ" Binding="{Binding OldBuyPrice, StringFormat=N0}" Width="90" />
-                <DataGridTextColumn Header="Mua mới" Binding="{Binding NewBuyPrice, StringFormat=N0}" Width="90">
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="UnitName" Header="Đơn vị" Binding="{Binding UnitName}" Width="70" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="OldBuyPrice" Header="Mua cũ" Binding="{Binding OldBuyPrice, StringFormat=N0}" Width="90" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="NewBuyPrice" Header="Mua mới" Binding="{Binding NewBuyPrice, StringFormat=N0}" Width="90">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="FontWeight" Value="SemiBold" />
@@ -173,8 +176,8 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Bán cũ" Binding="{Binding OldSellPrice, StringFormat=N0}" Width="90" />
-                <DataGridTextColumn Header="Bán mới" Binding="{Binding NewSellPrice, StringFormat=N0}" Width="90">
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="OldSellPrice" Header="Bán cũ" Binding="{Binding OldSellPrice, StringFormat=N0}" Width="90" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="NewSellPrice" Header="Bán mới" Binding="{Binding NewSellPrice, StringFormat=N0}" Width="90">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="FontWeight" Value="SemiBold" />
@@ -183,8 +186,8 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Người sửa" Binding="{Binding ChangedBy}" Width="90" />
-                <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes}" Width="120" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="ChangedBy" Header="Người sửa" Binding="{Binding ChangedBy}" Width="90" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="Notes" Header="Ghi chú" Binding="{Binding Notes}" Width="120" />
             </DataGrid.Columns>
         </DataGrid>
 

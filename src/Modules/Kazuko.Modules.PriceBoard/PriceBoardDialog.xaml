@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.PriceBoard.PriceBoardDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="CẬP NHẬT GIÁ BÁN - KAZUKO ERP JEWELRY"
@@ -237,6 +238,8 @@
                         </StackPanel>
                     </DockPanel>
                     <DataGrid Grid.Row="1"
+                              grid:DataGridColumnLayout.SettingsKey="priceBoard.goldPrices"
+                              grid:DataGridColumnLayout.EnableHeaderMenu="True"
                               ItemsSource="{Binding GoldPrices}"
                               SelectedItem="{Binding SelectedGold}"
                               Style="{StaticResource PbDataGridStyle}"
@@ -245,8 +248,8 @@
                               RowHeight="54"
                               ColumnHeaderStyle="{StaticResource PbGoldPriceColumnHeaderStyle}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" IsReadOnly="True" />
-                            <DataGridTextColumn Header="Loại vàng" Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" IsReadOnly="True">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Index" Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" IsReadOnly="True" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Name" Header="Loại vàng" Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="Bold" />
@@ -255,7 +258,7 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Mua vào" Binding="{Binding BuyPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}" Width="140">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="BuyPrice" Header="Mua vào" Binding="{Binding BuyPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}" Width="140">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="Bold" />
@@ -274,7 +277,7 @@
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Bán ra" Binding="{Binding SellPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}" Width="140">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="SellPrice" Header="Bán ra" Binding="{Binding SellPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}" Width="140">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="Bold" />
@@ -293,7 +296,7 @@
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Cập nhật lúc" Binding="{Binding UpdatedAtDisplay, Mode=OneWay}" Width="140" IsReadOnly="True">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="UpdatedAtDisplay" Header="Cập nhật lúc" Binding="{Binding UpdatedAtDisplay, Mode=OneWay}" Width="140" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
@@ -325,14 +328,16 @@
                         </StackPanel>
                     </DockPanel>
                     <DataGrid Grid.Row="1"
+                              grid:DataGridColumnLayout.SettingsKey="priceBoard.currencies"
+                              grid:DataGridColumnLayout.EnableHeaderMenu="True"
                               ItemsSource="{Binding Currencies}"
                               SelectedItem="{Binding SelectedCurrency}"
                               Style="{StaticResource PbDataGridStyle}"
                               FontSize="{DynamicResource FontSize.Subtitle}"
                               ColumnHeaderStyle="{StaticResource PbCurrencyColumnHeaderStyle}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" IsReadOnly="True" />
-                            <DataGridTextColumn Header="Ngoại tệ" Binding="{Binding CurrencyCode, Mode=OneWay}" Width="80" IsReadOnly="True">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Index" Header="STT" Binding="{Binding Index, Mode=OneWay}" Width="50" IsReadOnly="True" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="CurrencyCode" Header="Ngoại tệ" Binding="{Binding CurrencyCode, Mode=OneWay}" Width="80" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="Bold" />
@@ -342,8 +347,8 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Tên ngoại tệ" Binding="{Binding CurrencyName, Mode=OneWay}" Width="*" MinWidth="120" IsReadOnly="True" />
-                            <DataGridTextColumn Header="Mua vào (VND)" Binding="{Binding BuyRate, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}" Width="130">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="CurrencyName" Header="Tên ngoại tệ" Binding="{Binding CurrencyName, Mode=OneWay}" Width="*" MinWidth="120" IsReadOnly="True" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="BuyRate" Header="Mua vào (VND)" Binding="{Binding BuyRate, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}" Width="130">
                                 <DataGridTextColumn.ElementStyle>
                                     <StaticResource ResourceKey="PbCurrencyBuyRateTextStyle" />
                                 </DataGridTextColumn.ElementStyle>
@@ -353,7 +358,7 @@
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Bán ra (VND)" Binding="{Binding SellRate, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}" Width="130">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="SellRate" Header="Bán ra (VND)" Binding="{Binding SellRate, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}" Width="130">
                                 <DataGridTextColumn.ElementStyle>
                                     <StaticResource ResourceKey="PbCurrencySellRateTextStyle" />
                                 </DataGridTextColumn.ElementStyle>
@@ -363,7 +368,7 @@
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Cập nhật cuối cùng lúc" Binding="{Binding UpdatedAtDisplay, Mode=OneWay}" Width="160" IsReadOnly="True">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="UpdatedAtDisplay" Header="Cập nhật cuối cùng lúc" Binding="{Binding UpdatedAtDisplay, Mode=OneWay}" Width="160" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />

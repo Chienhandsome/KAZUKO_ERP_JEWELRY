@@ -74,6 +74,38 @@ public sealed record SupplierEditResult(
     string Address,
     bool IsActive);
 
+public sealed record SupplierGroupDetail(
+    long Id,
+    string Code,
+    string Name,
+    string Description,
+    bool IsActive,
+    bool IsDefault,
+    int SupplierCount);
+
+public sealed record SupplierGroupSaveRequest(
+    long? Id,
+    string Name,
+    string Description);
+
+public sealed record SupplierPurchaseHistoryItem(
+    long DebtId,
+    DateTime PurchaseDate,
+    string DocumentCode,
+    decimal TotalAmount,
+    decimal PaidAmount,
+    decimal RemainingAmount,
+    string StatusCode);
+
+public sealed record SupplierTopPurchaseItem(
+    long SupplierId,
+    string Code,
+    string Name,
+    string Phone,
+    string SupplierGroupName,
+    int PurchaseCount,
+    decimal TotalPurchases);
+
 public interface ISupplierEditorService
 {
     SupplierEditResult? ShowCreate();
@@ -105,5 +137,34 @@ public interface ISupplierRepository
         long id,
         bool isActive,
         AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SupplierGroupDetail>> GetGroupDetailsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SupplierGroupDetail?> GetGroupByIdAsync(
+        long id,
+        CancellationToken cancellationToken = default);
+
+    Task<long> SaveGroupAsync(
+        SupplierGroupSaveRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteGroupAsync(
+        long id,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SupplierPurchaseHistoryItem>> GetPurchaseHistoryAsync(
+        long supplierId,
+        DateTime? fromDate,
+        DateTime? toDate,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SupplierTopPurchaseItem>> GetTopSuppliersAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int topN,
         CancellationToken cancellationToken = default);
 }

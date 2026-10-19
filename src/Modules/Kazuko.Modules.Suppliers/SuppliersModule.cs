@@ -1,5 +1,6 @@
 using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
+using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Suppliers;
 
@@ -33,7 +34,12 @@ public sealed class SuppliersModule : IKazukoModule
             null,
             () => new SupplierView
             {
-                DataContext = new SupplierViewModel(repository, editor, session)
+                DataContext = new SupplierViewModel(
+                    repository,
+                    editor,
+                    session,
+                    GetRequiredService<IDebtWorkbenchRepository>(services),
+                    GetRequiredService<IDebtSettlementDialogService>(services))
             },
             AssetRoot + "hop.png",
             "Danh mục và công nợ\nnhà cung cấp",

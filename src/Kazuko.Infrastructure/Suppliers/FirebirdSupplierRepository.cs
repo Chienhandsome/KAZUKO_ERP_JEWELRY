@@ -362,6 +362,240 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
             cancellationToken: cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SupplierGroupDetail>> GetGroupDetailsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<SupplierGroupDetail>(
+            new CommandDefinition("""
+                SELECT G.ID AS Id, G.CODE AS Code, G.NAME AS Name,
+                       COALESCE(G.DESCRIPTION, '') AS Description,
+                       G.IS_ACTIVE AS IsActive, G.IS_DEFAULT AS IsDefault,
+                       (SELECT CAST(COUNT(*) AS INTEGER) FROM SUPPLIERS S
+                         WHERE S.SUPPLIER_GROUP_ID = G.ID
+                           AND S.COMPANY_ID = G.COMPANY_ID) AS SupplierCount
+                FROM SUPPLIER_GROUPS G
+                WHERE G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                ORDER BY G.IS_DEFAULT DESC, G.IS_ACTIVE DESC, G.DISPLAY_ORDER, G.NAME
+                """,
+                cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    public async Task<SupplierGroupDetail?> GetGroupByIdAsync(
+        long id,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var row = await connection.QueryFirstOrDefaultAsync<SupplierGroupDetail>(
+            new CommandDefinition("""
+                SELECT G.ID AS Id, G.CODE AS Code, G.NAME AS Name,
+                       COALESCE(G.DESCRIPTION, '') AS Description,
+                       G.IS_ACTIVE AS IsActive, G.IS_DEFAULT AS IsDefault,
+                       (SELECT CAST(COUNT(*) AS INTEGER) FROM SUPPLIERS S
+                         WHERE S.SUPPLIER_GROUP_ID = G.ID
+                           AND S.COMPANY_ID = G.COMPANY_ID) AS SupplierCount
+                FROM SUPPLIER_GROUPS G
+                WHERE G.ID = @ID
+                  AND G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new { ID = id },
+                cancellationToken: cancellationToken));
+        return row;
+    }
+
+    public async Task<long> SaveGroupAsync(
+        SupplierGroupSaveRequest request,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(request);
+        var name = (request.Name ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException("Tên nhóm là bắt buộc.");
+        var description = (request.Description ?? string.Empty).Trim();
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        // Kiểm tra trùng tên (không phân biệt hoa thường).
+        var dup = await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition("""
+                SELECT COUNT(*) FROM SUPPLIER_GROUPS
+                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND UPPER(NAME) = UPPER(@NAME)
+                  AND (@ID IS NULL OR ID <> @ID)
+                """,
+                new { NAME = name, ID = request.Id },
+                cancellationToken: cancellationToken));
+        if (dup > 0)
+            throw new InvalidOperationException($"Tên nhóm '{name}' đã tồn tại.");
+
+        if (request.Id is { } groupId && groupId > 0)
+        {
+            var affected = await connection.ExecuteAsync(
+                new CommandDefinition("""
+                    UPDATE SUPPLIER_GROUPS
+                    SET NAME = @NAME, DESCRIPTION = @DESC,
+                        UPDATED_BY = @USER_ID, UPDATED_AT = CURRENT_TIMESTAMP
+                    WHERE ID = @ID
+                      AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                    """,
+                    new
+                    {
+                        NAME = name,
+                        DESC = string.IsNullOrWhiteSpace(description) ? (object)DBNull.Value : description,
+                        USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value,
+                        ID = groupId
+                    },
+                    cancellationToken: cancellationToken));
+            if (affected == 0)
+                throw new InvalidOperationException("Nhóm nhà cung cấp không còn tồn tại.");
+            return groupId;
+        }
+
+        // Sinh mã nhóm: NCC-GRP-xxx
+        var code = await connection.ExecuteScalarAsync<string>(
+            new CommandDefinition("""
+                SELECT 'NCCG-' || LPAD(CAST(COALESCE(MAX(ID), 0) + 1 AS VARCHAR(10)), 4, '0')
+                FROM SUPPLIER_GROUPS
+                WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                cancellationToken: cancellationToken));
+        var newId = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition("""
+                INSERT INTO SUPPLIER_GROUPS (COMPANY_ID, CODE, NAME, DESCRIPTION, IS_ACTIVE, IS_DEFAULT, DISPLAY_ORDER, CREATED_BY)
+                VALUES ((SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'), @CODE, @NAME, @DESC, TRUE, FALSE, 0, @USER_ID)
+                RETURNING ID
+                """,
+                new
+                {
+                    CODE = code ?? "NCCG-0001",
+                    NAME = name,
+                    DESC = string.IsNullOrWhiteSpace(description) ? (object)DBNull.Value : description,
+                    USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value
+                },
+                cancellationToken: cancellationToken));
+        return newId;
+    }
+
+    public async Task DeleteGroupAsync(
+        long id,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var info = await connection.QueryFirstOrDefaultAsync<SupplierGroupState>(
+            new CommandDefinition("""
+                SELECT G.IS_DEFAULT AS IsDefault,
+                       (SELECT CAST(COUNT(*) AS INTEGER) FROM SUPPLIERS S
+                         WHERE S.SUPPLIER_GROUP_ID = G.ID
+                           AND S.COMPANY_ID = G.COMPANY_ID) AS SupplierCount
+                FROM SUPPLIER_GROUPS G
+                WHERE G.ID = @ID
+                  AND G.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new { ID = id },
+                cancellationToken: cancellationToken));
+        if (info is null)
+            throw new InvalidOperationException("Nhóm nhà cung cấp không còn tồn tại.");
+        if (info.IsDefault)
+            throw new InvalidOperationException("Không thể xóa nhóm mặc định.");
+        if (info.SupplierCount > 0)
+            throw new InvalidOperationException(
+                $"Không thể xóa nhóm vì còn {info.SupplierCount} nhà cung cấp thuộc nhóm này.");
+
+        var affected = await connection.ExecuteAsync(
+            new CommandDefinition("""
+                DELETE FROM SUPPLIER_GROUPS
+                WHERE ID = @ID
+                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                """,
+                new { ID = id },
+                cancellationToken: cancellationToken));
+        if (affected == 0)
+            throw new InvalidOperationException("Nhóm nhà cung cấp không còn tồn tại.");
+    }
+
+    public async Task<IReadOnlyList<SupplierPurchaseHistoryItem>> GetPurchaseHistoryAsync(
+        long supplierId,
+        DateTime? fromDate,
+        DateTime? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        if (supplierId <= 0)
+            return Array.Empty<SupplierPurchaseHistoryItem>();
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<SupplierPurchaseHistoryItem>(
+            new CommandDefinition("""
+                SELECT ID AS DebtId, CREATED_AT AS PurchaseDate, CODE AS DocumentCode,
+                       ORIGINAL_AMOUNT_VND AS TotalAmount, PAID_AMOUNT_VND AS PaidAmount,
+                       REMAINING_AMOUNT_VND AS RemainingAmount, STATUS_CODE AS StatusCode
+                FROM PAYABLE_DEBTS
+                WHERE SUPPLIER_ID = @SID
+                  AND PARTY_TYPE = 'SUPPLIER'
+                  AND STATUS_CODE <> 'CANCELLED'
+                  AND (@FROM IS NULL OR CREATED_AT >= @FROM)
+                  AND (@TO IS NULL OR CREATED_AT < @TO)
+                ORDER BY CREATED_AT DESC, ID DESC
+                """,
+                new
+                {
+                    SID = supplierId,
+                    FROM = fromDate.HasValue ? (object)fromDate.Value.Date : DBNull.Value,
+                    TO = toDate.HasValue ? (object)toDate.Value.Date.AddDays(1) : DBNull.Value
+                },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    public async Task<IReadOnlyList<SupplierTopPurchaseItem>> GetTopSuppliersAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int topN,
+        CancellationToken cancellationToken = default)
+    {
+        var take = topN <= 0 ? 10 : Math.Min(topN, 100);
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<SupplierTopPurchaseItem>(
+            new CommandDefinition("""
+                SELECT FIRST @LIMIT
+                       S.ID AS SupplierId, S.CODE AS Code, S.NAME AS Name,
+                       COALESCE(S.PHONE, '') AS Phone,
+                       COALESCE(G.NAME, '') AS SupplierGroupName,
+                       CAST(COUNT(D.ID) AS INTEGER) AS PurchaseCount,
+                       SUM(D.ORIGINAL_AMOUNT_VND) AS TotalPurchases
+                FROM PAYABLE_DEBTS D
+                JOIN SUPPLIERS S ON S.ID = D.SUPPLIER_ID
+                               AND S.COMPANY_ID = D.COMPANY_ID
+                LEFT JOIN SUPPLIER_GROUPS G ON G.ID = S.SUPPLIER_GROUP_ID
+                                          AND G.COMPANY_ID = S.COMPANY_ID
+                WHERE D.PARTY_TYPE = 'SUPPLIER'
+                  AND D.STATUS_CODE <> 'CANCELLED'
+                  AND D.CREATED_AT >= @FROM AND D.CREATED_AT < @TO
+                  AND D.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                GROUP BY S.ID, S.CODE, S.NAME, S.PHONE, G.NAME
+                ORDER BY SUM(D.ORIGINAL_AMOUNT_VND) DESC
+                """,
+                new
+                {
+                    LIMIT = take,
+                    FROM = fromDate.Date,
+                    TO = toDate.Date.AddDays(1)
+                },
+                cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
     private static SupplierSaveRequest Normalize(SupplierSaveRequest request) =>
         request with
         {
@@ -455,4 +689,5 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
 
     // DTO nhỏ nội bộ cho query cảnh báo trùng lặp (CODE/NAME -> alias khớp property).
     private sealed record DuplicateHit(string Code, string Name);
+    private sealed record SupplierGroupState(bool IsDefault, int SupplierCount);
 }

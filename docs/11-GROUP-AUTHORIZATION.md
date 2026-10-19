@@ -51,6 +51,11 @@ Báo cáo Top khách hàng trong màn Khách hàng (`ICustomerRepository.GetTopC
 được ánh xạ `REP_VIEW` tại `BackendAccess`, gồm cả đường gọi qua proxy của Admin.
 Các phương thức chưa được ánh xạ vẫn bị từ chối mặc định.
 
+Nhóm NCC dùng quyền `CAT_SUPPLIERS`: xem danh sách/chi tiết dùng Xem;
+lưu nhóm mới dùng Thêm, lưu nhóm đã có dùng Sửa, xóa nhóm dùng Xóa.
+Lịch sử nhập NCC phục vụ `CAT_SUPPLIERS`, `INV_HISTORY`, `DEBT_CUSTOMER` hoặc
+`REP_VIEW`; báo cáo Top NCC dùng `REP_VIEW`. Các đường gọi này đi qua cùng proxy.
+
 ## Ánh xạ thao tác đặc biệt
 
 | Chức năng | Cột dùng để cho phép thao tác |
