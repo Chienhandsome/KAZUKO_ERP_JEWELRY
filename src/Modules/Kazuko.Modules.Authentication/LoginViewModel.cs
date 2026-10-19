@@ -13,6 +13,7 @@ public sealed class LoginViewModel : ObservableObject
     private string _errorMessage = string.Empty;
     private bool _isBusy;
     private bool _isLoadingBranches;
+    private bool _isConnected;
     private bool _rememberUsername = true;
     private BranchOption? _selectedBranch;
 
@@ -73,6 +74,16 @@ public sealed class LoginViewModel : ObservableObject
 
     public bool IsFormEnabled => !IsBusy && !IsLoadingBranches;
 
+    public bool IsConnected => _isConnected;
+    public string ConnectionStatusText => IsLoadingBranches
+        ? "Đang kết nối…"
+        : IsConnected ? "● Đã kết nối" : "Chưa kết nối";
+    public string ConnectionDetails => IsLoadingBranches
+        ? "Đang kiểm tra kết nối bằng cách tải danh sách chi nhánh."
+        : IsConnected
+            ? $"Dịch vụ đăng nhập đã phản hồi. Đã tải {Branches.Count} chi nhánh hoạt động."
+            : "Không thể tải danh sách chi nhánh. Vui lòng kiểm tra cấu hình kết nối.";
+
     public bool RememberUsername
     {
         get => _rememberUsername;
@@ -88,6 +99,7 @@ public sealed class LoginViewModel : ObservableObject
         try
         {
             var branches = await _authentication.GetBranchesAsync();
+            _isConnected = true;
             Branches.Clear();
             foreach (var branch in branches)
                 Branches.Add(branch);
@@ -111,6 +123,9 @@ public sealed class LoginViewModel : ObservableObject
         finally
         {
             IsLoadingBranches = false;
+            OnPropertyChanged(nameof(IsConnected));
+            OnPropertyChanged(nameof(ConnectionStatusText));
+            OnPropertyChanged(nameof(ConnectionDetails));
         }
     }
 

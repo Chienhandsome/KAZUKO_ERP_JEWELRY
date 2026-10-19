@@ -37,13 +37,24 @@ public static class FinishedGoodsPostingSupport
             retailOnly: false, requireExistingOrderAssignment: true,
             useWarehouseSellPrice: false, cancellationToken);
 
+    internal static Task<long> PostCraftOrderIssueAsync(
+        FbConnection connection, FbTransaction transaction, long companyId,
+        AuthenticatedSession session, FinishedGoodsIssueDraft draft,
+        CancellationToken cancellationToken) =>
+        PostAsync(connection, transaction, companyId, session, draft.SalesOrderId,
+            draft.SourceLocationId, draft.DocumentDate, draft.DeliveredByName,
+            draft.ReceivedByName, draft.Notes,
+            draft.Lines.Select(x => x.FinishedProductId).Distinct().ToArray(),
+            retailOnly: false, requireExistingOrderAssignment: true,
+            useWarehouseSellPrice: false, cancellationToken, craftDelivery: true);
+
     private static async Task<long> PostAsync(
         FbConnection connection, FbTransaction transaction, long companyId,
         AuthenticatedSession session, long salesOrderId, long sourceLocationId,
         DateTime documentDate, string? deliveredByName, string? receivedByName,
         string? notes, IReadOnlyList<long> finishedProductIds, bool retailOnly,
         bool requireExistingOrderAssignment, bool useWarehouseSellPrice,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool craftDelivery = false)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(transaction);
@@ -51,10 +62,11 @@ public static class FinishedGoodsPostingSupport
         if (finishedProductIds.Count == 0)
             throw new InvalidOperationException("Phiếu xuất phải có ít nhất một thành phẩm.");
 
-        // Dialog Kho chỉ xuất từ SALES_FLOOR; checkout bán lẻ / bán sỉ lấy từ TP hoặc BH.
+        // Giao đơn CUSTOM có thể xuất thẳng từ TP, không cần chuyển sang BH.
+        // Giữ nguyên phạm vi của service xuất thủ công cũ.
         await EnsureSourceLocationAsync(
             connection, transaction, companyId, session.BranchId, sourceLocationId,
-            retailOnly
+            retailOnly || craftDelivery
                 ? ["FINISHED_GOODS", "SALES_FLOOR"]
                 : ["SALES_FLOOR"],
             cancellationToken);
@@ -87,6 +99,8 @@ public static class FinishedGoodsPostingSupport
 
             var allowed = retailOnly
                 ? product.StatusCode is "IN_STOCK" or "DISPLAYED"
+                : craftDelivery
+                ? product.StatusCode is "IN_STOCK" or "RESERVED" or "DISPLAYED"
                 : product.StatusCode is "IN_STOCK" or "WAITING_RECEIPT" or "RESERVED" or "DISPLAYED";
             if (!allowed)
                 throw new InvalidOperationException($"Thành phẩm '{product.Code}' không ở trạng thái có thể xuất.");
@@ -145,7 +159,7 @@ public static class FinishedGoodsPostingSupport
                        SALES_ORDER_ID = @SO, ROW_VERSION = ROW_VERSION + 1
                  WHERE ID = @ID AND COMPANY_ID = @CID AND BRANCH_ID = @BID
                    AND LOCATION_ID = @LOCATION AND ROW_VERSION = @VERSION
-                   AND STATUS_CODE IN ({(retailOnly ? "'IN_STOCK', 'DISPLAYED'" : "'IN_STOCK', 'WAITING_RECEIPT', 'RESERVED', 'DISPLAYED'")})
+                   AND STATUS_CODE IN ({(retailOnly ? "'IN_STOCK', 'DISPLAYED'" : craftDelivery ? "'IN_STOCK', 'RESERVED', 'DISPLAYED'" : "'IN_STOCK', 'WAITING_RECEIPT', 'RESERVED', 'DISPLAYED'")})
                 """, connection, transaction))
             {
                 update.Parameters.Add("@SO", FbDbType.BigInt).Value = salesOrderId;
@@ -213,7 +227,9 @@ public static class FinishedGoodsPostingSupport
         command.Parameters.Add("@BID", FbDbType.BigInt).Value = branchId;
         if (Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) != 1)
             throw new InvalidOperationException(
-                "Kho xuất thành phẩm không hợp lệ. Xuất theo đơn từ màn Kho chỉ cho phép từ Kho bán hàng.");
+                allowedScopes.Contains(InventoryScopes.FinishedGoods)
+                    ? "Kho xuất phải là Kho thành phẩm hoặc Kho bán hàng đang hoạt động trong chi nhánh hiện tại."
+                    : "Kho xuất thành phẩm không hợp lệ. Xuất theo đơn từ màn Kho chỉ cho phép từ Kho bán hàng.");
     }
 
     private sealed record IssueProduct(

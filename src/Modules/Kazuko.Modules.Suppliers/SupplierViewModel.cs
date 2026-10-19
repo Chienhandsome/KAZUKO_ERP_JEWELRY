@@ -29,6 +29,8 @@ public sealed class SupplierViewModel : ObservableObject
     private readonly ISupplierEditorService _editor;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private CancellationTokenSource? _searchCts;
+    private bool _filtersReady;
+    private bool _isLoadingGroups;
     private string _searchText = string.Empty;
     private SupplierGroupOption? _selectedGroup;
     private string? _selectedRegion;
@@ -98,25 +100,41 @@ public sealed class SupplierViewModel : ObservableObject
     public string SearchText
     {
         get => _searchText;
-        set => SetProperty(ref _searchText, value);
+        set
+        {
+            if (SetProperty(ref _searchText, value) && _filtersReady)
+                _ = SearchAsync(300);
+        }
     }
 
     public SupplierGroupOption? SelectedGroup
     {
         get => _selectedGroup;
-        set => SetProperty(ref _selectedGroup, value);
+        set
+        {
+            if (SetProperty(ref _selectedGroup, value) && _filtersReady && !_isLoadingGroups)
+                _ = SearchAsync();
+        }
     }
 
     public string? SelectedRegion
     {
         get => _selectedRegion;
-        set => SetProperty(ref _selectedRegion, value);
+        set
+        {
+            if (SetProperty(ref _selectedRegion, value) && _filtersReady)
+                _ = SearchAsync();
+        }
     }
 
     public string SelectedStatus
     {
         get => _selectedStatus;
-        set => SetProperty(ref _selectedStatus, value);
+        set
+        {
+            if (SetProperty(ref _selectedStatus, value) && _filtersReady)
+                _ = SearchAsync();
+        }
     }
 
     public SupplierRowViewModel? SelectedSupplier
@@ -286,11 +304,13 @@ public sealed class SupplierViewModel : ObservableObject
     private async Task InitializeAsync()
     {
         await LoadGroupsAsync();
+        _filtersReady = true;
         await SearchAsync();
     }
 
     private async Task LoadGroupsAsync()
     {
+        _isLoadingGroups = true;
         try
         {
             var groups = await _repository.GetGroupsAsync(activeOnly: false);
@@ -305,6 +325,10 @@ public sealed class SupplierViewModel : ObservableObject
         {
             ErrorMessage = "Không thể tải nhóm nhà cung cấp.";
         }
+        finally
+        {
+            _isLoadingGroups = false;
+        }
     }
 
     private async Task RefreshAsync()
@@ -313,7 +337,9 @@ public sealed class SupplierViewModel : ObservableObject
         await SearchAsync();
     }
 
-    private async Task SearchAsync()
+    private Task SearchAsync() => SearchAsync(0);
+
+    private async Task SearchAsync(int delayMilliseconds)
     {
         _searchCts?.Cancel();
         _searchCts?.Dispose();
@@ -326,6 +352,10 @@ public sealed class SupplierViewModel : ObservableObject
 
         try
         {
+            if (delayMilliseconds > 0)
+                await Task.Delay(delayMilliseconds, token);
+            token.ThrowIfCancellationRequested();
+
             var filter = new SupplierSearchFilter(
                 SearchText,
                 SelectedGroup?.Id ?? 0,
@@ -370,6 +400,9 @@ public sealed class SupplierViewModel : ObservableObject
         }
         catch (Exception)
         {
+            if (token.IsCancellationRequested)
+                return;
+
             Suppliers.Clear();
             SelectedSupplier = null;
             IsEmpty = true;

@@ -431,7 +431,7 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Add" Content="+ Thêm khách hàng (F1)"
+                <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Add" Content="Thêm khách hàng (F1)"
                         Style="{StaticResource RoundedPrimaryButtonStyle}"
                         Command="{Binding AddCommand}"
                         Margin="0,0,8,0"

@@ -384,7 +384,7 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button access:PermissionAccess.Rule="CAT_SUPPLIERS:Add" Content="+ Thêm nhà cung cấp (F1)"
+                <Button access:PermissionAccess.Rule="CAT_SUPPLIERS:Add" Content="Thêm nhà cung cấp (F1)"
                         Style="{StaticResource RoundedPrimaryButtonStyle}"
                         Command="{Binding AddCommand}"
                         Margin="0,0,8,0"
@@ -506,11 +506,6 @@
                                       Style="{StaticResource FilterComboStyle}"
                                       ItemsSource="{Binding StatusOptions}"
                                       SelectedItem="{Binding SelectedStatus}" />
-                            <Button Content="Tìm kiếm"
-                                    Style="{StaticResource RoundedPrimaryButtonStyle}"
-                                    Command="{Binding SearchCommand}"
-                                    Margin="0,0,8,0"
-                                    MinWidth="110" />
                             <Button Content="Làm mới"
                                     Style="{StaticResource OutlineButtonStyle}"
                                     Command="{Binding RefreshCommand}"

@@ -129,6 +129,7 @@ Thu/chi công nợ đi qua `FINANCIAL_SETTLEMENTS`: một lần nhận/trả ti�
 
 - Posting xuất TP vẫn qua `FINISHED_GOODS_ISSUE` (serial → `SOLD`, một phiếu / đơn).
 - **Luồng chuẩn đơn đặt:** Bán hàng → tab **Đơn đặt** → **Giao hàng** (xuất + thu phần còn trong một thao tác).
+- Giao đơn `CUSTOM` được xuất trực tiếp từ `FINISHED_GOODS` sau nhập kho; vẫn hỗ trợ `SALES_FLOOR` nếu hàng đã chuyển sang kho bán hàng. Không bắt buộc lập chuyển kho TP → BH. Kho phải active, đúng công ty/chi nhánh; serial phải thuộc đơn, đã nhập kho và chưa bán. Giao đủ số món trên đơn trong một transaction; lỗi thu tiền/công nợ phải rollback cả xuất kho. Không mở rộng service xuất thủ công cũ.
 - **Luồng chuẩn bán sỉ:** Bán hàng → tab **Bán sỉ** → chọn serial từ Kho TP (`IN_STOCK`) hoặc Kho BH (`DISPLAYED`) → thanh toán đủ/một phần → ghi `SALES_ORDERS.ORDER_TYPE = WHOLESALE` + xuất TP + settlement/công nợ. Giá dòng = `GOLD_WEIGHT × WAREHOUSE_GOLD_PRICES.SELL_PRICE_PER_CHI + LABOR_COST + NON_GOLD_MATERIAL_COST`. Quyền `sales.wholesale.post`. Không ghi nợ cho khách vãng lai.
 - Màn Kho không cung cấp nút/dialog xuất thủ công từ **Kho bán hàng** hay xuất sỉ; bán lẻ, bán sỉ và giao đơn đặt phải thực hiện từ phân hệ Bán hàng để đồng bộ chứng từ, thanh toán và trạng thái serial.
 - Không có nút/dialog xuất thẳng từ Kho thành phẩm (ngoài luồng Bán hàng nêu trên).

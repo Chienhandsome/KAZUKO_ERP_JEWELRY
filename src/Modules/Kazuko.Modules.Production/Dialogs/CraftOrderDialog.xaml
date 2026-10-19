@@ -8,6 +8,7 @@
         Width="920" Height="780"
         MinWidth="800" MinHeight="640"
         WindowStartupLocation="CenterOwner"
+        WindowState="Maximized"
         ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}">
     <Window.Resources>
@@ -27,19 +28,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Tạo đơn đặt chế tác"
-                       FontSize="{DynamicResource FontSize.Heading}"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource PrimaryBrush}" />
-            <TextBlock Text="Chọn khách, khai mẫu báo giá và thu đặt cọc. Sau đó gắn lệnh sản xuất theo đơn đặt này."
-                       Margin="0,4,0,0"
-                       Style="{StaticResource ProductionHintStyle}" />
+        <StackPanel Grid.Row="0">
             <TextBlock Text="{Binding ErrorMessage}"
                        Style="{StaticResource ProductionErrorStyle}"
                        Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
             <TextBlock Text="{Binding StatusMessage}"
-                       Margin="0,4,0,0"
+                       Margin="0,0,0,8"
                        Foreground="{DynamicResource SuccessBrush}"
                        Visibility="{Binding StatusMessage, Converter={StaticResource NotNullToVis}}" />
         </StackPanel>
@@ -91,7 +85,7 @@
                 <Border Style="{StaticResource ProductionCardStyle}" Margin="0,0,0,12">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,8">
-                            <Button DockPanel.Dock="Right" Content="+ Thêm mẫu"
+                            <Button DockPanel.Dock="Right" Content="Thêm mẫu"
                                     Command="{Binding AddLineCommand}"
                                     Style="{StaticResource ProductionPrimaryButtonStyle}"
                                     MinHeight="36" MinWidth="110" />

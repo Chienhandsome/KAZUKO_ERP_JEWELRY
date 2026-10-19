@@ -700,7 +700,7 @@
                                                         <TextBlock Text="Vàng, bạc, đá quý, phụ kiện, hoá chất..." Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="+ Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
+                                                        <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="Nhập NVL" Style="{StaticResource PrimaryActionButtonStyle}"
                                                                 Command="{Binding OpenReceiptTabCommand}"
                                                                 ToolTip="Nhập nguyên vật liệu (không nhập thành phẩm thủ công)" />
                                                     </StackPanel>
@@ -762,7 +762,7 @@
                                                         <TextBlock Text="Trang sức hoàn thiện, sản phẩm chế tác" Style="{StaticResource PanelSubtitleStyle}" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="+ Nhập thành phẩm"
+                                                        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Nhập thành phẩm"
                                                                 Style="{StaticResource RoundedPrimaryButtonStyle}"
                                                                 Command="{Binding OpenProductionFinishedReceiptCommand}"
                                                                 MinWidth="150"
@@ -1018,7 +1018,7 @@
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearBalanceFiltersCommand}" MinWidth="90" />
                                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                    <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="+ Nhập NVL"
+                                    <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="Nhập NVL"
                                             Style="{StaticResource RoundedPrimaryButtonStyle}"
                                             Command="{Binding OpenReceiptTabCommand}"
                                             MinWidth="120"
@@ -1158,7 +1158,7 @@
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearFinishedFiltersCommand}" MinWidth="90" />
                                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                                                        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="+ Nhập thành phẩm"
+                                                        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Nhập thành phẩm"
                                             Style="{StaticResource RoundedPrimaryButtonStyle}"
                                             Command="{Binding OpenProductionFinishedReceiptCommand}"
                                             MinWidth="150" />
@@ -1582,7 +1582,7 @@
                                         Command="{Binding SearchDocumentsCommand}" Margin="0,0,8,0" MinWidth="90" />
                                 <Button Content="Xóa lọc" Style="{StaticResource OutlineButtonStyle}"
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
-                                <Button access:PermissionAccess.Rule="INV_TRANSFER:Add" Content="+ Xuất kho bán hàng"
+                                <Button access:PermissionAccess.Rule="INV_TRANSFER:Add" Content="Xuất kho bán hàng"
                                         Style="{StaticResource RoundedPrimaryButtonStyle}"
                                         Command="{Binding OpenFinishedProductTransferCommand}"
                                         ToolTip="Tạo yêu cầu chuyển thành phẩm sang Kho bán hàng (chờ BH duyệt)"

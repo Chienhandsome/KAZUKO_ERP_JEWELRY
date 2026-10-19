@@ -499,7 +499,19 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
             if (errors.Count > 0)
                 throw new InvalidOperationException(string.Join(" ", errors));
 
-            var issueDocumentId = await FinishedGoodsPostingSupport.PostExistingOrderIssueAsync(
+            // One issue document completes the order: never silently deliver only
+            // the products from the largest location group.
+            await using (var count = new FbCommand("""
+                SELECT COALESCE(SUM(QUANTITY), 0) FROM SALES_ORDER_ITEMS WHERE ORDER_ID = @ORDER_ID
+                """, connection, fbTx))
+            {
+                count.Parameters.Add("@ORDER_ID", FbDbType.BigInt).Value = draft.SalesOrderId;
+                var expected = Convert.ToDecimal(await count.ExecuteScalarAsync(cancellationToken));
+                if (expected <= 0 || draft.FinishedProductIds.Distinct().Count() != expected)
+                    throw new InvalidOperationException("Phải nhập kho và giao đủ các món của đơn đặt trong một lần.");
+            }
+
+            var issueDocumentId = await FinishedGoodsPostingSupport.PostCraftOrderIssueAsync(
                 connection, fbTx, companyId, session,
                 new FinishedGoodsIssueDraft(
                     draft.SalesOrderId,

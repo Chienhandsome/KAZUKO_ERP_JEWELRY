@@ -10,6 +10,7 @@ Tài liệu quyết định cho luồng khách đặt mẫu chưa có trong kho.
 - **Báo giá đủ từ đầu:** mỗi mẫu = `(TL vàng × giá vàng/chỉ + tiền công + đá) × SL`. Cọc và phần còn theo `GRAND_TOTAL` này (không chỉ tiền công).
 - Sau hoàn tất SX: đơn đặt → `READY`; thành phẩm chỉ vào kho khi ghi phiếu nhập kho riêng cho toàn bộ lệnh.
 - **Giao hàng + thu phần còn**: tab **Đơn đặt** (Bán hàng).
+- Khi giao, xuất thẳng từ **Kho thành phẩm**, không cần chuyển sang Kho bán hàng (vẫn hỗ trợ hàng đã chuyển BH). Chỉ chọn serial của đơn đã nhập kho, giao đủ số món trong một lần; xuất kho và thu/công nợ cùng transaction. Không hoàn tất đơn nếu chỉ chọn một phần hàng.
 - Tab **Giao NVL**: hiển thị **NVL cần cấp tối thiểu** (vàng theo Σ TL ước tính × SL từng mẫu) — gợi ý, không bắt buộc khớp định mức.
 
 ## 2. Trạng thái đơn đặt (`SALES_ORDERS.STATUS_CODE`)

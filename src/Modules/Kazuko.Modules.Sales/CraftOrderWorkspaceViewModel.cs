@@ -34,6 +34,7 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
     private string _statusMessage = string.Empty;
     private int _searchVersion;
     private int _detailVersion;
+    private bool _hasStartedLoading;
 
     public CraftOrderWorkspaceViewModel(
         ICraftOrderApplicationService craftOrders,
@@ -73,19 +74,19 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
     public DateTime FromDate
     {
         get => _fromDate;
-        set => SetProperty(ref _fromDate, value.Date);
+        set { if (SetProperty(ref _fromDate, value.Date)) ScheduleFilterRefresh(); }
     }
 
     public DateTime ToDate
     {
         get => _toDate;
-        set => SetProperty(ref _toDate, value.Date);
+        set { if (SetProperty(ref _toDate, value.Date)) ScheduleFilterRefresh(); }
     }
 
     public string SearchText
     {
         get => _searchText;
-        set => SetProperty(ref _searchText, value);
+        set { if (SetProperty(ref _searchText, value ?? string.Empty)) ScheduleFilterRefresh(); }
     }
 
     public string StatusFilter
@@ -96,6 +97,7 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
             if (!SetProperty(ref _statusFilter, value))
                 return;
             OnPropertyChanged(nameof(SelectedStatusFilter));
+            ScheduleFilterRefresh();
         }
     }
 
@@ -175,8 +177,7 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
             if (total <= 0)
                 return string.Empty;
             var pct = total > 0 ? Math.Round(paid * 100m / total, 0, MidpointRounding.AwayFromZero) : 0m;
-            return $"Đã thu {FormatVnd(paid)} / tổng báo giá {FormatVnd(total)} (~{pct:N0}%). "
-                + "Cọc mặc định khi tạo lệnh ≈ 30% tiền công (có thể sửa trước khi Đặt cọc).";
+            return $"Đã thu {FormatVnd(paid)} / tổng báo giá {FormatVnd(total)} (~{pct:N0}%).";
         }
     }
     public bool HasLines => Lines.Count > 0;
@@ -270,8 +271,26 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
         }
     }
 
+    private void ScheduleFilterRefresh()
+    {
+        // Do not query an unopened tab (including users without craft-order access).
+        if (!_hasStartedLoading)
+            return;
+        // Invalidate in-flight results immediately, before the debounce expires.
+        var version = ++_searchVersion;
+        _ = RefreshFiltersAfterDelayAsync(version);
+    }
+
+    private async Task RefreshFiltersAfterDelayAsync(int version)
+    {
+        await Task.Delay(300);
+        if (version == _searchVersion)
+            await SearchAsync();
+    }
+
     private async Task SearchAsync()
     {
+        _hasStartedLoading = true;
         var version = ++_searchVersion;
         try
         {
@@ -295,6 +314,8 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (version != _searchVersion)
+                return;
             StatusMessage = ex.Message;
             ReportError?.Invoke(ex.Message);
         }
@@ -345,47 +366,37 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
     {
         if (SelectedHeader is null || !CanDeliverSelected)
             return;
+        var header = SelectedHeader;
 
         try
         {
             IsLoading = true;
             ErrorClear();
             var session = _requireSession();
-            var candidates = await _warehouse.SearchIssueCandidatesAsync(SelectedHeader.Id, session);
+            var candidates = await _warehouse.SearchIssueCandidatesAsync(header.Id, session);
             if (candidates.Count == 0)
                 throw new InvalidOperationException(
                     "Đơn chưa có thành phẩm trong kho để giao. Kiểm tra lệnh SX đã hoàn tất chưa.");
 
             var locations = await _warehouse.GetLocationsAsync(session);
-            var locationId = candidates
-                .Where(x => x.LocationId is > 0)
-                .GroupBy(x => x.LocationId!.Value)
-                .OrderByDescending(g => g.Count())
-                .Select(g => g.Key)
-                .FirstOrDefault();
-            if (locationId <= 0)
-            {
-                locationId = locations
-                    .FirstOrDefault(x => x.InventoryScope == InventoryScopes.FinishedGoods)?.Id
-                    ?? locations.FirstOrDefault()?.Id
-                    ?? 0;
-            }
+            var candidateLocations = candidates.Select(x => x.LocationId).Distinct().ToArray();
+            if (candidateLocations.Length != 1 || candidateLocations[0] is null or <= 0)
+                throw new InvalidOperationException(
+                    "Thành phẩm của đơn đang ở nhiều kho hoặc chưa có vị trí. Vui lòng tập trung đủ món về Kho thành phẩm trước khi giao.");
+            var locationId = candidateLocations[0]!.Value;
+            var location = locations.FirstOrDefault(x => x.Id == locationId
+                && x.InventoryScope is InventoryScopes.FinishedGoods or InventoryScopes.SalesFloor);
+            if (location is null)
+                throw new InvalidOperationException("Chỉ giao từ Kho thành phẩm hoặc Kho bán hàng của chi nhánh hiện tại.");
 
-            if (locationId <= 0)
-                throw new InvalidOperationException("Không tìm thấy kho xuất thành phẩm.");
-
-            var lines = candidates.Where(x => x.LocationId == locationId).ToList();
-            if (lines.Count == 0)
-                lines = candidates.ToList();
-
-            var locationName = locations.FirstOrDefault(x => x.Id == locationId)?.DisplayName
-                ?? $"#{locationId}";
+            var lines = candidates.ToList();
+            var locationName = location.DisplayName;
             var confirm = MessageBox.Show(
                 $"Giao {lines.Count} món tại {locationName}?\n"
                 + string.Join("\n", lines.Take(8).Select(x => $"• {x.Code} — {x.ProductName}"))
                 + (lines.Count > 8 ? $"\n… và {lines.Count - 8} món khác" : string.Empty)
-                + (SelectedHeader.RemainingDueVnd > 0
-                    ? $"\n\nCòn lại {FormatVnd(SelectedHeader.RemainingDueVnd)} — sẽ thu / ghi nợ sau khi xác nhận."
+                + (header.RemainingDueVnd > 0
+                    ? $"\n\nCòn lại {FormatVnd(header.RemainingDueVnd)} — sẽ thu / ghi nợ sau khi xác nhận."
                     : "\n\nĐơn đã thu đủ cọc — chỉ xuất kho và hoàn tất."),
                 "Giao hàng đơn đặt",
                 MessageBoxButton.YesNo,
@@ -396,16 +407,16 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
             IReadOnlyList<Core.Finance.PaymentAllocationDraft> collections =
                 Array.Empty<Core.Finance.PaymentAllocationDraft>();
             var receivable = 0m;
-            if (SelectedHeader.RemainingDueVnd > 0)
+            if (header.RemainingDueVnd > 0)
             {
                 var payment = _showPayment(new SalesPaymentDialogRequest(
-                    SelectedHeader.RemainingDueVnd,
+                    header.RemainingDueVnd,
                     IsPayout: false,
                     CanApproveDebt: GetCanApproveDebt(),
                     AllowReceivable: true,
                     GetCashFunds(),
                     GetBankAccounts(),
-                    $"Giao hàng / thu phần còn {SelectedHeader.Code}"));
+                    $"Giao hàng / thu phần còn {header.Code}"));
                 if (payment is null)
                     return;
                 collections = payment.Allocations;
@@ -414,11 +425,11 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
 
             var result = await _craftOrders.DeliverAsync(
                 new CraftOrderDeliverDraft(
-                    SelectedHeader.Id,
+                    header.Id,
                     DateTime.Now,
                     locationId,
                     session.DisplayName,
-                    SelectedHeader.CustomerName,
+                    header.CustomerName,
                     null,
                     lines.Select(x => x.Id).ToList(),
                     collections,

@@ -145,7 +145,7 @@ public sealed class DebtViewModel : ObservableObject
     public bool IsCustomerTab => SelectedTabIndex == 0;
     public bool IsSupplierTab => SelectedTabIndex == 1;
     public bool IsWorkerGoldDebtTab => SelectedTabIndex == 2;
-    public string AddPartyButtonText => IsCustomerTab ? "+ Thêm khách hàng" : "+ Thêm nhà cung cấp";
+    public string AddPartyButtonText => IsCustomerTab ? "Thêm khách hàng" : "Thêm nhà cung cấp";
     public string CollectOrPayButtonText => IsCustomerTab ? "Thu tiền" : "Chi tiền";
     public string DetailTitle => IsCustomerTab ? "Thông tin khách hàng" : "Thông tin nhà cung cấp";
 

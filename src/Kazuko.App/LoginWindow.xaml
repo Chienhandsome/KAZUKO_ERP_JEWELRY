@@ -6,5 +6,5 @@
         WindowStartupLocation="Manual"
         WindowStyle="SingleBorderWindow"
         ShowInTaskbar="True"
-        Background="#FFFFF8F2">
+        Background="{DynamicResource AppBackgroundBrush}">
 </Window>

@@ -212,7 +212,7 @@
         <DockPanel LastChildFill="True">
           <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="False">
             <Button access:PermissionAccess.Rule="FIN_CASH_IN:Add|FIN_CASH_OUT:Add" DockPanel.Dock="Right"
-                    Content="+ Thêm phiếu thu/chi (F1)"
+                    Content="Thêm phiếu thu/chi (F1)"
                     Style="{StaticResource FinancePrimaryButtonStyle}"
                     Command="{Binding AddVoucherCommand}"
                     MinWidth="200"

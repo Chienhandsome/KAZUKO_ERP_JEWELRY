@@ -4,16 +4,11 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
-        <SolidColorBrush x:Key="LoginBorderBrush" Color="#FFF1D8C7" />
-        <SolidColorBrush x:Key="LoginLabelBrush" Color="#FF6B5145" />
-        <SolidColorBrush x:Key="LoginMutedBrush" Color="#FF9A796A" />
-        <SolidColorBrush x:Key="LoginSuccessBrush" Color="#FF15905A" />
-
         <Style x:Key="LoginLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource LoginLabelBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,8,0,4" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+            <Setter Property="Margin" Value="0,14,0,8" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
         </Style>
 
         <ControlTemplate x:Key="LoginRoundedTextBoxTemplate" TargetType="TextBox">
@@ -61,11 +56,11 @@
         </ControlTemplate>
 
         <Style x:Key="LoginInputStyle" TargetType="TextBox">
-            <Setter Property="Height" Value="38" />
+            <Setter Property="MinHeight" Value="44" />
             <Setter Property="Padding" Value="12,0,12,0" />
-            <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1.5" />
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
@@ -74,11 +69,11 @@
         </Style>
 
         <Style x:Key="LoginPasswordStyle" TargetType="PasswordBox">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="Padding" Value="12,0,48,0" />
-            <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Padding" Value="12,0,60,0" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1.5" />
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
@@ -88,8 +83,8 @@
 
         <ControlTemplate x:Key="LoginComboToggleTemplate" TargetType="ToggleButton">
             <Border x:Name="Bd"
-                    Background="White"
-                    BorderBrush="{StaticResource LoginBorderBrush}"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1.5"
                     CornerRadius="10"
                     SnapsToDevicePixels="True">
@@ -137,7 +132,7 @@
                 <TextBlock x:Name="Placeholder"
                            Margin="12,0,36,0"
                            VerticalAlignment="Center"
-                           Foreground="{StaticResource LoginMutedBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Text="—"
                            Visibility="Collapsed"
                            IsHitTestVisible="False" />
@@ -150,8 +145,8 @@
                     <Border x:Name="DropDownBorder"
                             MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                             MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                            Background="White"
-                            BorderBrush="{StaticResource LoginBorderBrush}"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
                             BorderThickness="1.5"
                             CornerRadius="10"
                             Margin="0,4,0,0"
@@ -173,9 +168,9 @@
         </ControlTemplate>
 
         <Style x:Key="LoginComboStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
@@ -187,7 +182,7 @@
                 <Setter.Value>
                     <Style TargetType="ComboBoxItem">
                         <Setter Property="Padding" Value="10,8" />
-                        <Setter Property="Background" Value="White" />
+                        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
                         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                         <Setter Property="Template">
                             <Setter.Value>
@@ -200,10 +195,10 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsHighlighted" Value="True">
-                                            <Setter TargetName="ItemBd" Property="Background" Value="#FFFFF1E8" />
+                                            <Setter TargetName="ItemBd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBd" Property="Background" Value="#FFFFE4D4" />
+                                            <Setter TargetName="ItemBd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -215,14 +210,14 @@
         </Style>
     </UserControl.Resources>
 
-    <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
-        <Grid Width="980" Height="560" Background="#FFFFF8F2" Margin="10">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Background="{DynamicResource AppBackgroundBrush}">
+        <Grid MinWidth="760" MinHeight="540" Margin="16,20">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="57*" />
-                <ColumnDefinition Width="43*" />
+                <ColumnDefinition Width="40*" />
+                <ColumnDefinition Width="60*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Margin="4,4,14,4" Padding="28,22"
+            <Border Grid.Column="0" Margin="0,0,16,0" Padding="24"
                     Background="{DynamicResource PrimaryBrush}" CornerRadius="26">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -231,41 +226,44 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <Image Grid.Row="0"
-                           Source="/Kazuko.Modules.Authentication;component/Assets/icons/logo.png"
-                           Height="88" Margin="0,0,0,6" Stretch="Uniform"
-                           HorizontalAlignment="Center" />
-
-                    <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                        <TextBlock Text="KAZUKO ERP JEWELRY" Foreground="White" FontWeight="Bold"
-                                   FontSize="{DynamicResource FontSize.Heading}" TextAlignment="Center" />
+                    <StackPanel Grid.Row="0" Grid.RowSpan="2" VerticalAlignment="Center" Margin="0,0,0,24">
+                        <Image Source="/Kazuko.Modules.Authentication;component/Assets/icons/logo.png"
+                               Height="124" Margin="0,0,0,16" Stretch="Uniform"
+                               HorizontalAlignment="Center" />
+                        <TextBlock Text="KAZUKO ERP JEWELRY" Foreground="{DynamicResource OnPrimaryBrush}" FontWeight="Bold"
+                                   FontSize="{DynamicResource FontSize.Heading}" TextAlignment="Center" TextWrapping="Wrap" />
                         <TextBlock Text="Quản lý xưởng chế tác, bán sỉ, bán lẻ&#x0a;và tài chính ngành trang sức"
-                                   Foreground="White" Opacity="0.96" Margin="0,8,0,0"
-                                   FontSize="{DynamicResource FontSize.Body}" TextAlignment="Center" />
-                        <TextBlock Text="Hotline: 0917 66 4444" Foreground="White" FontWeight="Bold"
+                                   Foreground="{DynamicResource OnPrimaryBrush}" Opacity="0.96" Margin="0,8,0,0"
+                                   FontSize="{DynamicResource FontSize.Body}" TextAlignment="Center" TextWrapping="Wrap" />
+                        <TextBlock Text="Hotline: 0917 66 4444" Foreground="{DynamicResource OnPrimaryBrush}" FontWeight="Bold"
                                    Margin="0,14,0,0" FontSize="{DynamicResource FontSize.Subtitle}"
-                                   TextAlignment="Center" />
-                        <StackPanel Margin="36,14,0,0">
-                            <TextBlock Text="✓  Sản xuất và công đoạn" Foreground="White" Margin="0,2"
-                                       FontSize="{DynamicResource FontSize.Caption}" />
-                            <TextBlock Text="✓  Nguyên liệu – kho – giá vàng" Foreground="White" Margin="0,2"
-                                       FontSize="{DynamicResource FontSize.Caption}" />
-                            <TextBlock Text="✓  Bán sỉ, bán lẻ, POS" Foreground="White" Margin="0,2"
-                                       FontSize="{DynamicResource FontSize.Caption}" />
-                            <TextBlock Text="✓  Công nợ tiền và công nợ vàng" Foreground="White" Margin="0,2"
-                                       FontSize="{DynamicResource FontSize.Caption}" />
+                                   TextAlignment="Center" TextWrapping="Wrap" />
+                        <StackPanel Margin="0,20,0,0" HorizontalAlignment="Center">
+                            <TextBlock Text="✓  Sản xuất và công đoạn" Foreground="{DynamicResource OnPrimaryBrush}" Margin="0,2"
+                                       FontSize="{DynamicResource FontSize.Body}" />
+                            <TextBlock Text="✓  Nguyên liệu – kho – giá vàng" Foreground="{DynamicResource OnPrimaryBrush}" Margin="0,2"
+                                       FontSize="{DynamicResource FontSize.Body}" />
+                            <TextBlock Text="✓  Bán sỉ, bán lẻ, POS" Foreground="{DynamicResource OnPrimaryBrush}" Margin="0,2"
+                                       FontSize="{DynamicResource FontSize.Body}" />
+                            <TextBlock Text="✓  Công nợ tiền và công nợ vàng" Foreground="{DynamicResource OnPrimaryBrush}" Margin="0,2"
+                                       FontSize="{DynamicResource FontSize.Body}" />
                         </StackPanel>
                     </StackPanel>
 
                     <TextBlock Grid.Row="2" Text="Giải Pháp Công Nghệ - Nâng Tầm Quản Lý!"
-                               Foreground="White" Opacity="0.9" FontStyle="Italic"
-                               TextAlignment="Center" FontSize="{DynamicResource FontSize.Caption}" />
+                               Foreground="{DynamicResource OnPrimaryBrush}" Opacity="0.9" FontStyle="Italic"
+                               TextAlignment="Center" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Body}" />
                 </Grid>
             </Border>
 
-            <Border Grid.Column="1" Margin="0,8,8,8" Padding="22,18"
-                    Background="White" BorderBrush="#FFF1DDD0" BorderThickness="1" CornerRadius="22">
+            <Border Grid.Column="1" Margin="0" Padding="32,24"
+                    Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="22">
                 <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                <Grid VerticalAlignment="Center" MaxWidth="400">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -274,18 +272,18 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="36" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="0" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0">
-                        <TextBlock Text="ĐĂNG NHẬP" FontWeight="Bold"
+                        <TextBlock Text="ĐĂNG NHẬP" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold"
                                    FontSize="{DynamicResource FontSize.Heading}" />
-                        <TextBlock Text="Nhập thông tin để truy cập hệ thống" Margin="0,2,0,0"
-                                   Foreground="{StaticResource LoginMutedBrush}"
-                                   FontSize="{DynamicResource FontSize.Caption}" />
+                        <TextBlock Text="Nhập thông tin để truy cập hệ thống" Margin="0,6,0,12" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="{DynamicResource FontSize.Body}" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Margin="0,6,0,0">
@@ -306,27 +304,27 @@
 
                     <StackPanel Grid.Row="3" Margin="0,2,0,0">
                         <TextBlock Text="Mật khẩu" Style="{StaticResource LoginLabelStyle}" />
-                        <Grid Height="38">
+                        <Grid MinHeight="44">
                             <PasswordBox x:Name="PasswordInput"
                                          Style="{StaticResource LoginPasswordStyle}"
                                          PasswordChanged="PasswordBox_OnPasswordChanged"
                                          IsEnabled="{Binding IsFormEnabled}" />
                             <TextBox x:Name="VisiblePasswordInput"
                                      Style="{StaticResource LoginInputStyle}"
-                                     Padding="12,0,48,0"
+                                     Padding="12,0,60,0"
                                      Visibility="Collapsed"
                                      TextChanged="VisiblePassword_OnTextChanged"
                                      IsEnabled="{Binding IsFormEnabled}" />
                             <Button x:Name="PasswordVisibilityButton"
                                     Content="Hiện"
                                     HorizontalAlignment="Right"
-                                    Width="48"
+                                    Width="56"
                                     Margin="0,1,4,1"
                                     BorderThickness="0"
                                     Background="Transparent"
                                     Foreground="{DynamicResource PrimaryBrush}"
                                     FontWeight="SemiBold"
-                                    FontSize="{DynamicResource FontSize.Caption}"
+                                    FontSize="{DynamicResource FontSize.Body}"
                                     Click="PasswordVisibilityButton_OnClick"
                                     IsEnabled="{Binding IsFormEnabled}" />
                         </Grid>
@@ -336,47 +334,81 @@
                               Content="Ghi nhớ tên đăng nhập"
                               Margin="0,10,0,0"
                               IsChecked="{Binding RememberUsername}"
-                              Foreground="{StaticResource LoginLabelBrush}"
-                              FontSize="{DynamicResource FontSize.Caption}"
+                              Foreground="{DynamicResource TextSecondaryBrush}"
+                              FontSize="{DynamicResource FontSize.Body}"
                               IsEnabled="{Binding IsFormEnabled}" />
 
                     <TextBlock Grid.Row="5"
                                Text="Đang tải danh sách chi nhánh..."
                                Margin="0,6,0,0"
-                               Foreground="{StaticResource LoginMutedBrush}"
-                               FontSize="{DynamicResource FontSize.Caption}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Body}"
                                Visibility="{Binding IsLoadingBranches, Converter={StaticResource BoolToVis}}" />
 
                     <TextBlock Grid.Row="7"
                                Text="{Binding ErrorMessage}"
-                               VerticalAlignment="Top"
+                               Margin="0,12,0,0" VerticalAlignment="Top"
                                TextWrapping="Wrap"
                                TextTrimming="CharacterEllipsis"
-                               MaxHeight="34"
-                               LineStackingStrategy="BlockLineHeight"
-                               LineHeight="17"
                                Foreground="{DynamicResource DangerBrush}"
-                               FontSize="{DynamicResource FontSize.Caption}" />
+                               FontSize="{DynamicResource FontSize.Body}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ErrorMessage}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
-                    <Button Grid.Row="8"
-                            Content="ĐĂNG NHẬP"
-                            Margin="0,4,0,0"
-                            Height="42"
-                            Style="{DynamicResource PrimaryButtonStyle}"
-                            Command="{Binding SignInCommand}"
-                            IsEnabled="{Binding IsFormEnabled}" />
-
-                    <StackPanel Grid.Row="10" Margin="0,10,0,0" VerticalAlignment="Bottom">
-                        <TextBlock Text="● Máy chủ: Firebird Embedded 5.0.4"
-                                   Foreground="{StaticResource LoginSuccessBrush}"
-                                   FontSize="{DynamicResource FontSize.Caption}" />
-                        <TextBlock Text="● data.fdb"
-                                   Foreground="{StaticResource LoginSuccessBrush}"
-                                   Margin="0,2,0,0"
-                                   FontSize="{DynamicResource FontSize.Caption}" />
-                    </StackPanel>
+                    <Button Grid.Row="8" Content="ĐĂNG NHẬP" Margin="0,24,0,0"
+                            MinHeight="48" Padding="18,12" FontWeight="Bold" IsDefault="True"
+                            FontSize="{DynamicResource FontSize.Subtitle}"
+                            Background="{DynamicResource PrimaryBrush}"
+                            Foreground="{DynamicResource OnPrimaryBrush}" BorderThickness="0"
+                            Cursor="Hand" Command="{Binding SignInCommand}"
+                            IsEnabled="{Binding IsFormEnabled}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="ButtonBorder" CornerRadius="10"
+                                        Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                               FontWeight="{TemplateBinding FontWeight}" FontSize="{TemplateBinding FontSize}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.85" />
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.55" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+                    <TextBlock Grid.Row="1" Text="{Binding ConnectionStatusText}"
+                               Margin="0,20,0,0" HorizontalAlignment="Center" TextWrapping="Wrap"
+                               FontSize="{DynamicResource FontSize.Body}" ToolTip="{Binding ConnectionDetails}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
             </Border>
         </Grid>
-    </Viewbox>
+    </ScrollViewer>
 </UserControl>

@@ -25,7 +25,6 @@
       <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
       <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
       <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
-      <conv:AlternationIndexToSttConverter x:Key="SttConverter" />
       <conv:ObjectEqualsConverter x:Key="ObjectEqualsConverter" />
 
       <Style x:Key="ReceiptFormLabelStyle" TargetType="TextBlock"
@@ -385,7 +384,7 @@
     <!-- 2. Thanh nút action -->
     <DockPanel Grid.Row="2" Margin="0,0,0,12" LastChildFill="False">
       <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="+ Thêm (F1)"
+        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Thêm (F1)"
                 Command="{Binding AddCommand}"
                 Style="{StaticResource WhPrimaryButtonStyle}"
                 MinWidth="130" MinHeight="40" Margin="0,0,8,0" />
@@ -428,14 +427,14 @@
     <Border Grid.Row="3" Style="{DynamicResource CardBorderStyle}" Padding="0">
       <DataGrid ItemsSource="{Binding Products}"
                 SelectedItem="{Binding SelectedProduct}"
-                AlternationCount="1000000"
+                behaviors:DataGridRowNumberBehavior.IsEnabled="True"
                 Style="{StaticResource WhEditableDataGridStyle}"
                 IsReadOnly="True"
                 ColumnHeaderStyle="{StaticResource ReceiptGridHeaderStyle}"
                 Margin="8">
         <DataGrid.Columns>
           <DataGridTextColumn Header="#" Width="40"
-                              Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex, Converter={StaticResource SttConverter}}" />
+                              Binding="{Binding Header, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=OneWay}" />
           <DataGridTemplateColumn Header="" Width="36">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>

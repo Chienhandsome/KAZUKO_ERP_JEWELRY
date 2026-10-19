@@ -98,7 +98,7 @@ public sealed class WarehouseModule : IKazukoModule
             AssetRoot + "KHO.png",
             "Quản lý danh mục thợ ngoài\ncho lệnh sản xuất",
             ShowInSidebar: false,
-            ShowOnHome: true,
+            ShowOnHome: false,
             IsPlaceholder: false));
     }
 

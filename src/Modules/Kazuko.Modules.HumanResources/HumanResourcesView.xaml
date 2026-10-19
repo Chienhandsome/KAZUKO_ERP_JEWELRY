@@ -384,7 +384,7 @@
 
                     <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,10">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-                            <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add" Content="+ Thêm nhân viên (F1)" Style="{StaticResource HrPrimaryButtonStyle}"
+                            <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add" Content="Thêm nhân viên (F1)" Style="{StaticResource HrPrimaryButtonStyle}"
                                     Command="{Binding AddCommand}" Margin="0,0,8,8" MinWidth="180" />
                             <Button access:PermissionAccess.Rule="DATA_EXPORT" Content="Xuất Excel" Style="{StaticResource HrOutlineButtonStyle}"
                                     Command="{Binding ExportExcelCommand}"
