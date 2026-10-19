@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Linq;
 using FastReport;
 using FastReport.Barcode;
+using FastReport.Utils;
 
 namespace Kazuko.Modules.Warehouse.Printing;
 
@@ -24,6 +25,18 @@ namespace Kazuko.Modules.Warehouse.Printing;
 /// </summary>
 public static class VectorLabelRenderer
 {
+    // FastReport's Windows compatibility assembly omits IGraphics used by another overload.
+    // Select the public GDI+ constructor by its exact signature.
+    private static readonly System.Reflection.ConstructorInfo PaintConstructor = typeof(FRPaintEventArgs)
+        .GetConstructor([typeof(Graphics), typeof(float), typeof(float), typeof(GraphicCache)])
+        ?? throw new InvalidOperationException("Không tìm thấy bộ vẽ mã FastReport cho Windows.");
+
+    internal static void DrawNativeBarcode(Graphics graphics, BarcodeObject barcode)
+    {
+        using var cache = new GraphicCache();
+        var args = (FRPaintEventArgs)PaintConstructor.Invoke([graphics, 1f, 1f, cache]);
+        barcode.Draw(args);
+    }
     /// <summary>FastReport dùng pixel 96dpi cho tọa độ object.</summary>
     private const float MmPerPx = 25.4f / 96f;
 
@@ -40,6 +53,21 @@ public static class VectorLabelRenderer
         if (page is null)
             return;
 
+        DrawPage(g, page);
+    }
+
+    public static void DrawPreparedLabel(Graphics g, Report report)
+    {
+        ArgumentNullException.ThrowIfNull(g);
+        ArgumentNullException.ThrowIfNull(report);
+        if (report.PreparedPages.Count == 0)
+            throw new InvalidOperationException("Mẫu tem chưa có trang in.");
+        using var page = report.PreparedPages.GetPage(0);
+        DrawPage(g, page);
+    }
+
+    private static void DrawPage(Graphics g, ReportPage page)
+    {
         // Duyệt mọi object trong các band (template tem chỉ có 1 DataBand).
         foreach (var band in page.Bands.OfType<BandBase>())
         {
@@ -132,6 +160,17 @@ public static class VectorLabelRenderer
 
     private static void DrawBarcode(Graphics g, BarcodeObject obj)
     {
+        if (obj.Barcode is BarcodeQR)
+        {
+            var state = g.Save();
+            try
+            {
+                g.ScaleTransform(MmPerPx, MmPerPx);
+                DrawNativeBarcode(g, obj);
+            }
+            finally { g.Restore(state); }
+            return;
+        }
         // Sau Prepare(), Text đã được resolve từ DataColumn (BarcodeObject.GetData()).
         string data = obj.Text ?? string.Empty;
         if (string.IsNullOrEmpty(data))

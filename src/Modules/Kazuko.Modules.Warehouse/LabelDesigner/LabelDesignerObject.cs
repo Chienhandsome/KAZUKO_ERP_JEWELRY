@@ -15,12 +15,21 @@ public sealed class LabelDesignerObject : ObservableObject
     private readonly ReportComponentBase _source;
     private readonly TextObject? _text;
     private readonly BarcodeObject? _barcode;
+    private float _linearWidth;
+    private float _linearHeight;
+    private float _linearLeft;
+    private float _linearTop;
+    private float _qrSize = 8f * 96f / 25.4f;
 
     public LabelDesignerObject(ReportComponentBase source)
     {
         _source = source;
         _text = source as TextObject;
         _barcode = source as BarcodeObject;
+        _linearWidth = _barcode?.Barcode is BarcodeQR ? 24f * 96f / 25.4f : source.Width;
+        _linearHeight = _barcode?.Barcode is BarcodeQR ? 3f * 96f / 25.4f : source.Height;
+        _linearLeft = source.Left;
+        _linearTop = source.Top;
     }
 
     /// <summary>Object FastReport gốc (để code-behind truy xuất khi cần).</summary>
@@ -73,6 +82,12 @@ public sealed class LabelDesignerObject : ObservableObject
             if (value > 0 && _source.Width != value)
             {
                 _source.Width = value;
+                if (_barcode?.Barcode is BarcodeQR)
+                {
+                    _source.Height = value;
+                    OnPropertyChanged(nameof(Height));
+                    OnPropertyChanged(nameof(HeightMm));
+                }
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(WidthMm));
             }
@@ -87,6 +102,12 @@ public sealed class LabelDesignerObject : ObservableObject
             if (value > 0 && _source.Height != value)
             {
                 _source.Height = value;
+                if (_barcode?.Barcode is BarcodeQR)
+                {
+                    _source.Width = value;
+                    OnPropertyChanged(nameof(Width));
+                    OnPropertyChanged(nameof(WidthMm));
+                }
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HeightMm));
             }
@@ -239,6 +260,40 @@ public sealed class LabelDesignerObject : ObservableObject
 
     // ---- Thuộc tính BarcodeObject ----
 
+    public string BarcodeKind
+    {
+        get => _barcode?.Barcode is BarcodeQR ? "QR" : "Code128";
+        set
+        {
+            if (_barcode is null || value == BarcodeKind || value is not ("QR" or "Code128")) return;
+            if (value == "QR")
+            {
+                _linearWidth = Width;
+                _linearHeight = Height;
+                _linearLeft = Left;
+                _linearTop = Top;
+                _barcode.Barcode = new BarcodeQR();
+                Width = Height = _qrSize;
+                PlaceQrInFreeSpace();
+            }
+            else
+            {
+                _qrSize = Math.Min(Width, Height);
+                _barcode.Barcode = new Barcode128();
+                Width = _linearWidth;
+                Height = _linearHeight;
+                Left = _linearLeft;
+                Top = _linearTop;
+            }
+            _barcode.AutoSize = false;
+            _barcode.ShowText = false;
+            _barcode.DataColumn = "DataSet.MAVACH";
+            _barcode.Expression = string.Empty;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DataColumn));
+        }
+    }
+
     public string DataColumn
     {
         get => _barcode?.DataColumn ?? string.Empty;
@@ -249,6 +304,31 @@ public sealed class LabelDesignerObject : ObservableObject
                 _barcode.DataColumn = value;
                 OnPropertyChanged();
             }
+        }
+    }
+
+    private void PlaceQrInFreeSpace()
+    {
+        const float pxPerMm = 96f / 25.4f;
+        var pageWidth = FinishedGoodsLabelPrintService.PaperWidthMm * pxPerMm;
+        var pageHeight = FinishedGoodsLabelPrintService.PaperHeightMm * pxPerMm;
+        var others = (_source.Parent as BandBase)?.Objects.OfType<ReportComponentBase>()
+            .Where(item => item != _source).ToArray() ?? [];
+        bool Fits(float x, float y)
+        {
+            if (x < pxPerMm || y < pxPerMm || x + Width > pageWidth - pxPerMm || y + Height > pageHeight - pxPerMm)
+                return false;
+            var bounds = new System.Drawing.RectangleF(x - pxPerMm, y - pxPerMm, Width + 2 * pxPerMm, Height + 2 * pxPerMm);
+            return !others.Any(item => bounds.IntersectsWith(new System.Drawing.RectangleF(item.Left, item.Top, item.Width, item.Height)));
+        }
+        if (Fits(Left, Top)) return;
+        for (var x = pageWidth - Width - pxPerMm; x >= pxPerMm; x -= pxPerMm)
+        for (var y = pxPerMm; y + Height <= pageHeight - pxPerMm; y += pxPerMm)
+        {
+            if (!Fits(x, y)) continue;
+            Left = x;
+            Top = y;
+            return;
         }
     }
 
@@ -272,5 +352,6 @@ public sealed class LabelDesignerObject : ObservableObject
         OnPropertyChanged(nameof(VertAlign));
         OnPropertyChanged(nameof(Angle));
         OnPropertyChanged(nameof(DataColumn));
+        OnPropertyChanged(nameof(BarcodeKind));
     }
 }

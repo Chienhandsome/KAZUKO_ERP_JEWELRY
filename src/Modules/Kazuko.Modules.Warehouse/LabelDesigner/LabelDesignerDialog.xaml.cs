@@ -3,6 +3,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.IO;
+using System.Windows.Media.Imaging;
 using FastReport;
 using FastReport.Barcode;
 using Kazuko.Modules.Warehouse.Printing;
@@ -99,7 +101,12 @@ public partial class LabelDesignerDialog : Window
             _visuals[obj] = border;
 
             // Theo dõi thay đổi thuộc tính để vẽ lại.
-            obj.PropertyChanged += (_, args) => RefreshVisual(obj);
+            obj.PropertyChanged += (_, args) =>
+            {
+                RefreshVisual(obj);
+                if (args.PropertyName == nameof(LabelDesignerObject.BarcodeKind))
+                    RevealVisual(border);
+            };
         }
 
         RefreshSelection();
@@ -138,6 +145,32 @@ public partial class LabelDesignerDialog : Window
 
     private FrameworkElement CreateBarcodeVisual(LabelDesignerObject obj)
     {
+        if (((BarcodeObject)obj.Source).Barcode is BarcodeQR)
+        {
+            using var sample = new BarcodeObject();
+            sample.Assign(obj.Source);
+            sample.Left = sample.Top = 0;
+            sample.Text = "B600022";
+            sample.DataColumn = sample.Expression = string.Empty;
+            using var bitmap = new System.Drawing.Bitmap(
+                Math.Max(1, (int)Math.Ceiling(obj.Width * Scale)), Math.Max(1, (int)Math.Ceiling(obj.Height * Scale)));
+            using (var graphics = System.Drawing.Graphics.FromImage(bitmap))
+            {
+                graphics.Clear(System.Drawing.Color.White);
+                graphics.ScaleTransform((float)Scale, (float)Scale);
+                VectorLabelRenderer.DrawNativeBarcode(graphics, sample);
+            }
+            using var stream = new MemoryStream();
+            bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+            stream.Position = 0;
+            var source = new BitmapImage();
+            source.BeginInit();
+            source.CacheOption = BitmapCacheOption.OnLoad;
+            source.StreamSource = stream;
+            source.EndInit();
+            source.Freeze();
+            return new Image { Source = source, Stretch = Stretch.Uniform, IsHitTestVisible = false };
+        }
         var panel = new StackPanel { IsHitTestVisible = false };
 
         // Vẽ pattern mã vạch mẫu bằng Code128Encoder.
@@ -230,20 +263,37 @@ public partial class LabelDesignerDialog : Window
         foreach (var (obj, border) in _visuals)
             border.BorderBrush = obj == vm?.SelectedObject ? accent : Brushes.Transparent;
 
-        // Xóa handles cũ.
-        foreach (var h in _handles)
-            DesignCanvas.Children.Remove(h);
-        _handles.Clear();
+        ClearHandles();
 
         if (vm?.SelectedObject is not null &&
             _visuals.TryGetValue(vm.SelectedObject, out var selected))
         {
             ShowHandles(selected);
+            RevealVisual(selected);
         }
+    }
+
+    private void ClearHandles()
+    {
+        foreach (var h in _handles)
+            DesignCanvas.Children.Remove(h);
+        _handles.Clear();
+    }
+
+    private void RevealVisual(Border border)
+    {
+        // Position/size changes are arranged before asking the scroll viewer to reveal them.
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (_isDragging || _isResizing) return;
+            border.BringIntoView(new Rect(-HandleSize, -HandleSize,
+                border.Width + HandleSize * 2, border.Height + HandleSize * 2));
+        }));
     }
 
     private void ShowHandles(Border border)
     {
+        ClearHandles();
         double left = Canvas.GetLeft(border);
         double top = Canvas.GetTop(border);
         double w = border.Width;

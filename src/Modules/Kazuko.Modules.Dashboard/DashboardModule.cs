@@ -79,7 +79,6 @@ public sealed class DashboardModule : IKazukoModule
         var printTemplates = GetRequiredService<IPrintTemplateStore>(services);
         var databaseManagement = GetRequiredService<IDatabaseManagementService>(services);
         var preferences = GetRequiredService<IPreferencesService>(services);
-        var labelDesigner = services.GetService(typeof(ILabelDesignerService)) as ILabelDesignerService;
 
         navigation.Register(new NavigationItem(
             "SETTINGS",
@@ -92,7 +91,7 @@ public sealed class DashboardModule : IKazukoModule
                 DataContext = new SettingsViewModel(
                     companyProfile, sessionAccessor, appearanceService, printTemplates,
                     databaseManagement, preferences, GetRequiredService<IAuthorizationService>(services),
-                    labelDesigner)
+                    GetRequiredService<ILabelDesignerService>(services))
             },
             AssetRoot + "CAIDAT.png"));
     }

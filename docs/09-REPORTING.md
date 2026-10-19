@@ -88,6 +88,18 @@ Nếu thiếu `.frx` báo cáo A4 lúc chạy, app tự tạo mẫu mặc địn
 
 ## Tem nữ trang 28x12
 
+Trong trình thiết kế, chọn đối tượng mã để đổi giữa **Barcode (Code 128)** và **QR**.
+QR mặc định vuông 8 mm, giữ tỉ lệ vuông khi đổi kích thước; nếu vị trí cũ chồng nội dung,
+ưu tiên tìm khoảng trống trong tem. Đổi lại barcode khôi phục vị trí/kích thước thanh
+trước đó. Loại mã được lưu trong `.frx` và dùng cho canvas, xem trước,
+in thử, in hàng thật. Nội dung quét của cả hai là **mã hàng (`ProductCode`)** qua
+`DataSet.MAVACH`; không lấy mã barcode riêng nếu khác mã hàng. Dữ liệu xem trước/in thử
+dùng mã mẫu `B600022`.
+
+Trình sửa mẫu tem có **In thử**: chọn máy in và số bản, dùng dữ liệu mẫu với
+các chỉnh sửa hiện tại (kể cả chưa lưu). In vector từ trang đã chuẩn bị của FastReport,
+khổ 86 × 12 mm, lề 0. Hủy chọn máy in thì không gửi lệnh in.
+
 In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
 
 | Mục | Chi tiết |

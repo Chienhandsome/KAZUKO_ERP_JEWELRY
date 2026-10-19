@@ -13,7 +13,7 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
 
-    public LabelPrintDialogViewModel(int itemCount)
+    public LabelPrintDialogViewModel(int itemCount, string? summaryText = null)
     {
         Printers = new ObservableCollection<string>();
         foreach (string printer in PrinterSettings.InstalledPrinters)
@@ -24,7 +24,7 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
             ? lastPrinter
             : Printers.FirstOrDefault();
 
-        SummaryText = $"In tem cho {itemCount} sản phẩm đã chọn.";
+        SummaryText = summaryText ?? $"In tem cho {itemCount} sản phẩm đã chọn.";
 
         PrintCommand = new RelayCommand(Print, () => !string.IsNullOrWhiteSpace(SelectedPrinter));
         CancelCommand = new RelayCommand(() => DialogResult = false);

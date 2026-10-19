@@ -617,6 +617,9 @@
                                                 Style="{StaticResource SettingsPrimaryButtonStyle}"
                                                 MinWidth="150" />
                                     </StackPanel>
+                                <TextBlock Text="{Binding ErrorMessage}" Margin="0,12,0,0"
+                                           Foreground="{DynamicResource DangerBrush}" FontSize="{DynamicResource FontSize.Body}"
+                                           TextWrapping="Wrap" />
                                 </StackPanel>
                             </TabItem>
                         </TabControl>

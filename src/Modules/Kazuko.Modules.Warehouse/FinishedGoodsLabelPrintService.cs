@@ -2,6 +2,7 @@ using System.IO;
 using System.Data;
 using System.Globalization;
 using FastReport;
+using FastReport.Barcode;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Printing;
 using Kazuko.Core.Production;
@@ -115,7 +116,7 @@ public sealed class FinishedGoodsLabelPrintService
             var laborPurchase = item.PurchaseLaborCost ?? 0m;
             var row = table.NewRow();
             row["NGAYNHAP"] = receiptDate;
-            row["MAVACH"] = item.BarcodeValue;
+            row["MAVACH"] = item.ProductCode;
             row["THANHTIEN"] = item.SalePrice ?? 0m;
             row["TUOI"] = 0m;
             row["DONGIA"] = 0m;
@@ -166,8 +167,16 @@ public sealed class FinishedGoodsLabelPrintService
     private static string FormatChi(decimal weight)
         => weight.ToString("0.####", Vi) + " chỉ";
 
-    private static void RegisterTable(Report report, DataTable table, string name)
+    internal static void RegisterTable(Report report, DataTable table, string name)
     {
+        foreach (var barcode in report.AllObjects.OfType<BarcodeObject>())
+        {
+            barcode.DataColumn = $"{name}.MAVACH";
+            barcode.Expression = string.Empty;
+        }
+        // Keep band bindings when replacing dictionary stubs from a saved template.
+        var bands = report.AllObjects.OfType<DataBand>()
+            .Where(band => band.DataSource?.Name == name).ToArray();
         var existing = report.Dictionary.FindByName(name);
         if (existing is not null)
             existing.Dispose();
@@ -175,7 +184,11 @@ public sealed class FinishedGoodsLabelPrintService
         report.RegisterData(table, name);
         var dataSource = report.GetDataSource(name);
         if (dataSource is not null)
+        {
             dataSource.Enabled = true;
+            foreach (var band in bands)
+                band.DataSource = dataSource;
+        }
     }
 
     private static void SetParameter(Report report, string name, object value)

@@ -454,10 +454,10 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 {
                     var g = e.Graphics!;
                     // Canh theo khổ tem vật lý, bù gốc tọa độ vùng in của driver.
-                    g.TranslateTransform(-e.PageSettings.HardMarginX, -e.PageSettings.HardMarginY);
                     // Vẽ vector ở đơn vị mm (FastReport dùng pixel 96dpi).
                     g.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
-                    VectorLabelRenderer.DrawLabel(g, reports[pageIndex]);
+                    g.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
+                    VectorLabelRenderer.DrawPreparedLabel(g, reports[pageIndex]);
                     pageIndex++;
                     e.HasMorePages = pageIndex < reports.Count;
                 };

@@ -565,6 +565,7 @@ public sealed class SettingsViewModel : ObservableObject
         ((AsyncRelayCommand)ExportReceiptTemplateCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)ImportReceiptTemplateCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)ReloadReceiptTemplateCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)OpenLabelDesignerCommand).NotifyCanExecuteChanged();
     }
 
     private static string Sanitize(string message) =>

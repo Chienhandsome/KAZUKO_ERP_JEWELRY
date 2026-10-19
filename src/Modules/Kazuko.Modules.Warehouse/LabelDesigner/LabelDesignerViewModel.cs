@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Data;
+using System.Drawing.Printing;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
@@ -9,8 +10,14 @@ using FastReport.Export.Image;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Printing;
+using Kazuko.Modules.Warehouse.Printing;
 
 namespace Kazuko.Modules.Warehouse.LabelDesigner;
+
+public sealed record LabelBarcodeKind(string Code, string Label)
+{
+    public override string ToString() => Label;
+}
 
 /// <summary>
 /// ViewModel cho designer sửa mẫu tem nữ trang.
@@ -19,6 +26,10 @@ namespace Kazuko.Modules.Warehouse.LabelDesigner;
 /// </summary>
 public sealed class LabelDesignerViewModel : ObservableObject
 {
+    public IReadOnlyList<HorzAlign> HorizontalAlignments { get; } = Enum.GetValues<HorzAlign>();
+    public IReadOnlyList<VertAlign> VerticalAlignments { get; } = Enum.GetValues<VertAlign>();
+    public IReadOnlyList<LabelBarcodeKind> BarcodeKinds { get; } =
+        [new("Code128", "Barcode (Code 128)"), new("QR", "QR")];
     /// <summary>Tỷ lệ hiển thị canvas so với kích thước thật (px 96dpi).</summary>
     public const double CanvasScale = 3.0;
 
@@ -41,6 +52,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
         _session = session;
 
         PreviewCommand = new AsyncRelayCommand(PreviewAsync, () => !IsBusy && _report is not null);
+        PrintTestCommand = new AsyncRelayCommand(PrintTestAsync, () => !IsBusy && _report is not null);
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy && _report is not null);
         CancelCommand = new RelayCommand(() => DialogResult = false);
     }
@@ -73,6 +85,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
             if (SetProperty(ref _isBusy, value))
             {
                 (PreviewCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                (PrintTestCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
             }
         }
@@ -85,6 +98,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
     }
 
     public ICommand PreviewCommand { get; }
+    public ICommand PrintTestCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
 
@@ -115,7 +129,14 @@ public sealed class LabelDesignerViewModel : ObservableObject
                     foreach (var obj in band.Objects.OfType<ReportComponentBase>())
                     {
                         if (obj is TextObject || obj is BarcodeObject)
+                        {
+                            if (obj is BarcodeObject barcode)
+                            {
+                                barcode.DataColumn = "DataSet.MAVACH";
+                                barcode.Expression = string.Empty;
+                            }
                             Objects.Add(new LabelDesignerObject(obj));
+                        }
                     }
                 }
             }
@@ -151,19 +172,10 @@ public sealed class LabelDesignerViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            // Dùng bản sao của template hiện tại (kể cả chỉnh sửa chưa lưu).
-            var previewReport = new Report();
-            using (var stream = new MemoryStream(GetFrxBytes()))
-                previewReport.Load(stream);
-
-            var table = LabelDesignerSampleData.BuildSampleTable();
-            previewReport.RegisterData(table, "DataSet");
-            previewReport.SetParameterValue("Tên tiệm", "VÀNG BẠC ĐÁ QUÝ MẪU");
-            previewReport.SetParameterValue("DiaChiDoanhNghiep", "123 Đường Mẫu - Quận 1 - TP.HCM");
-            previewReport.Prepare();
+            using var previewReport = CreateSampleReport();
 
             using var imgStream = new MemoryStream();
-            var export = new ImageExport
+            using var export = new ImageExport
             {
                 ImageFormat = ImageExportFormat.Png,
                 Resolution = 200,
@@ -172,13 +184,88 @@ public sealed class LabelDesignerViewModel : ObservableObject
 
             var dialog = new LabelPreviewDialog(imgStream.ToArray())
             {
-                Owner = System.Windows.Application.Current?.MainWindow,
+                Owner = DesignerWindow,
             };
             dialog.ShowDialog();
         }
         catch (Exception ex)
         {
             StatusMessage = $"Xem trước thất bại: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    private Window? DesignerWindow => System.Windows.Application.Current?.Windows.OfType<LabelDesignerDialog>()
+        .FirstOrDefault(window => ReferenceEquals(window.DataContext, this))
+        ?? System.Windows.Application.Current?.MainWindow;
+
+    private Report CreateSampleReport()
+    {
+        var report = new Report();
+        try
+        {
+            using (var stream = new MemoryStream(GetFrxBytes()))
+                report.Load(stream);
+            foreach (var page in report.Pages.OfType<ReportPage>())
+            {
+                page.Landscape = false;
+                page.PaperWidth = PaperWidthMm;
+                page.PaperHeight = PaperHeightMm;
+                page.LeftMargin = page.TopMargin = page.RightMargin = page.BottomMargin = 0;
+            }
+            using var table = LabelDesignerSampleData.BuildSampleTable();
+            FinishedGoodsLabelPrintService.RegisterTable(report, table, "DataSet");
+            report.SetParameterValue("Tên tiệm", "VÀNG BẠC ĐÁ QUÝ MẪU");
+            report.SetParameterValue("DiaChiDoanhNghiep", "123 Đường Mẫu - Quận 1 - TP.HCM");
+            report.Prepare();
+            return report;
+        }
+        catch
+        {
+            report.Dispose();
+            throw;
+        }
+    }
+
+    private Task PrintTestAsync()
+    {
+        if (_report is null) return Task.CompletedTask;
+        IsBusy = true;
+        try
+        {
+            var selection = new LabelPrintDialogViewModel(1,
+                "In thử bằng dữ liệu mẫu, khổ 86 × 12 mm. Dùng các chỉnh sửa hiện tại, kể cả khi chưa lưu mẫu.");
+            var dialog = new LabelPrintDialog(selection) { Owner = DesignerWindow };
+            if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(selection.SelectedPrinter))
+                return Task.CompletedTask;
+
+            using var report = CreateSampleReport();
+            using var document = new PrintDocument { DocumentName = "In thử tem nữ trang KAZUKO" };
+            document.PrinterSettings.PrinterName = selection.SelectedPrinter;
+            document.PrinterSettings.Copies = (short)selection.Copies;
+            document.DefaultPageSettings.Landscape = false;
+            document.DefaultPageSettings.PaperSize = new PaperSize("Tem 86 x 12 mm",
+                (int)Math.Round(PaperWidthMm * 100 / 25.4), (int)Math.Round(PaperHeightMm * 100 / 25.4));
+            document.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+            document.OriginAtMargins = false;
+            document.PrintPage += (_, e) =>
+            {
+                var graphics = e.Graphics!;
+                graphics.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
+                graphics.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
+                VectorLabelRenderer.DrawPreparedLabel(graphics, report);
+                e.HasMorePages = false;
+            };
+            document.Print();
+            StatusMessage = $"Đã gửi {selection.Copies} tem in thử đến máy in {selection.SelectedPrinter}.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"In thử thất bại: {ex.Message}";
         }
         finally
         {
