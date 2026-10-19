@@ -8,6 +8,38 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
 
+        <Style x:Key="PrintTemplateTabStyle" TargetType="TabItem">
+            <Setter Property="Padding" Value="18,10" />
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder" Padding="{TemplateBinding Padding}"
+                                Background="Transparent" BorderThickness="0,0,0,3" BorderBrush="Transparent">
+                            <TextBlock x:Name="TabHeader" Text="{TemplateBinding Header}" Foreground="{TemplateBinding Foreground}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="NoWrap" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter TargetName="TabHeader" Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="SettingsCategoryItemStyle" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="14,12" />
             <Setter Property="Margin" Value="0,0,0,4" />
@@ -451,107 +483,143 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Mẫu in bill (FastReport .frx trong DB) -->
+                    <!-- Mẫu in (FastReport .frx trong DB): bill bán hàng + tem nữ trang -->
                     <Border HorizontalAlignment="Stretch"
                             Style="{DynamicResource CardBorderStyle}"
                             Visibility="{Binding IsReceiptTemplateSelected, Converter={StaticResource BoolToVis}}">
-                        <StackPanel>
-                            <TextBlock Text="Mẫu in bill bán hàng"
-                                       FontSize="{DynamicResource FontSize.Subtitle}"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource PrimaryBrush}" />
-                            <TextBlock Text="Mẫu A5 ngang/dọc (FastReport Open Source) lưu trong database. Xuất .frx → chỉnh bằng FastReport Designer Community (miễn phí) → Import lại. Khi in phiếu có thể chọn khổ trên hộp xem trước."
-                                       Margin="0,6,0,16"
-                                       FontSize="{DynamicResource FontSize.Body}"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       TextWrapping="Wrap" />
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                <TextBlock Text="Khổ mẫu:"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,10,0"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" />
-                                <ComboBox Width="200"
-                                          ItemsSource="{Binding ReceiptTemplateKinds}"
-                                          SelectedItem="{Binding SelectedReceiptTemplateKind}"
-                                          Style="{StaticResource SettingsComboBoxStyle}">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Label}" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                            </StackPanel>
-
-                            <TextBlock Text="{Binding ErrorMessage}"
-                                       Foreground="{DynamicResource DangerBrush}"
-                                       FontSize="{DynamicResource FontSize.Body}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,0,0,12">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ErrorMessage}" Value="">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <Border Background="{DynamicResource SurfaceAltBrush}"
-                                    BorderBrush="{DynamicResource BorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="10"
-                                    Padding="16"
-                                    Margin="0,0,0,16">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Tên mẫu" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ReceiptTemplateName, Mode=OneWay}"
-                                               Style="{StaticResource SettingsMetaValueStyle}" FontWeight="SemiBold"
+                        <TabControl x:Name="PrintTemplatesTabs" SelectedIndex="0"
+                                    Background="{DynamicResource SurfaceBrush}" BorderThickness="0"
+                                    ItemContainerStyle="{StaticResource PrintTemplateTabStyle}">
+                            <TabControl.Template>
+                                <ControlTemplate TargetType="TabControl">
+                                    <DockPanel LastChildFill="True">
+                                        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                                            <TabPanel IsItemsHost="True" KeyboardNavigation.TabIndex="1" />
+                                        </Border>
+                                        <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Margin="0,20,0,0" />
+                                    </DockPanel>
+                                </ControlTemplate>
+                            </TabControl.Template>
+                            <TabItem Header="Mẫu bill">
+                                <StackPanel>
+                                    <TextBlock Text="Mẫu in bill bán hàng"
+                                               FontSize="{DynamicResource FontSize.Subtitle}"
+                                               FontWeight="Bold"
                                                Foreground="{DynamicResource PrimaryBrush}" />
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Mã" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ReceiptTemplateCode, Mode=OneWay}"
-                                               Style="{StaticResource SettingsMetaValueStyle}" />
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Cập nhật" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReceiptTemplateUpdatedAt, Mode=OneWay}"
-                                               Style="{StaticResource SettingsMetaValueStyle}" />
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Hash" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReceiptTemplateHash, Mode=OneWay}"
-                                               Style="{StaticResource SettingsMetaValueStyle}" />
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Dung lượng" Style="{StaticResource SettingsMetaLabelStyle}" Margin="0,0,12,0" />
-                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ReceiptTemplateSize, Mode=OneWay}"
-                                               Style="{StaticResource SettingsMetaValueStyle}" Margin="0" />
-                                </Grid>
-                            </Border>
+                                    <TextBlock Text="Mẫu A5 ngang/dọc (FastReport Open Source) lưu trong database. Xuất .frx → chỉnh bằng FastReport Designer Community (miễn phí) → Import lại. Khi in phiếu có thể chọn khổ trên hộp xem trước."
+                                               Margin="0,6,0,16"
+                                               FontSize="{DynamicResource FontSize.Body}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap" />
 
-                            <StackPanel Orientation="Horizontal">
-                                <Button access:PermissionAccess.Rule="SYS_SETTINGS" Content="Xuất .frx"
-                                        Command="{Binding ExportReceiptTemplateCommand}"
-                                        Style="{StaticResource SettingsPrimaryButtonStyle}"
-                                        MinWidth="130" Margin="0,0,10,0" />
-                                <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Import .frx"
-                                        Command="{Binding ImportReceiptTemplateCommand}"
-                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
-                                        MinWidth="130" Margin="0,0,10,0" />
-                                <Button Content="Tải lại"
-                                        Command="{Binding ReloadReceiptTemplateCommand}"
-                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
-                                        MinWidth="110" />
-                            </StackPanel>
-                        </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="Khổ mẫu:"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,10,0"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <ComboBox Width="200"
+                                                  ItemsSource="{Binding ReceiptTemplateKinds}"
+                                                  SelectedItem="{Binding SelectedReceiptTemplateKind}"
+                                                  Style="{StaticResource SettingsComboBoxStyle}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Label}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <TextBlock Text="{Binding ErrorMessage}"
+                                               Foreground="{DynamicResource DangerBrush}"
+                                               FontSize="{DynamicResource FontSize.Body}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ErrorMessage}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <Border Background="{DynamicResource SurfaceAltBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="16"
+                                            Margin="0,0,0,16">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Tên mẫu" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ReceiptTemplateName, Mode=OneWay}"
+                                                       Style="{StaticResource SettingsMetaValueStyle}" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource PrimaryBrush}" />
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Mã" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ReceiptTemplateCode, Mode=OneWay}"
+                                                       Style="{StaticResource SettingsMetaValueStyle}" />
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Cập nhật" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReceiptTemplateUpdatedAt, Mode=OneWay}"
+                                                       Style="{StaticResource SettingsMetaValueStyle}" />
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Hash" Style="{StaticResource SettingsMetaLabelStyle}" />
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReceiptTemplateHash, Mode=OneWay}"
+                                                       Style="{StaticResource SettingsMetaValueStyle}" />
+                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Dung lượng" Style="{StaticResource SettingsMetaLabelStyle}" Margin="0,0,12,0" />
+                                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ReceiptTemplateSize, Mode=OneWay}"
+                                                       Style="{StaticResource SettingsMetaValueStyle}" Margin="0" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button access:PermissionAccess.Rule="SYS_SETTINGS" Content="Xuất .frx"
+                                                Command="{Binding ExportReceiptTemplateCommand}"
+                                                Style="{StaticResource SettingsPrimaryButtonStyle}"
+                                                MinWidth="130" Margin="0,0,10,0" />
+                                        <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Import .frx"
+                                                Command="{Binding ImportReceiptTemplateCommand}"
+                                                Style="{StaticResource SettingsSecondaryButtonStyle}"
+                                                MinWidth="130" Margin="0,0,10,0" />
+                                        <Button Content="Tải lại"
+                                                Command="{Binding ReloadReceiptTemplateCommand}"
+                                                Style="{StaticResource SettingsSecondaryButtonStyle}"
+                                                MinWidth="110" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="Mẫu tem">
+                                <StackPanel>
+                                    <TextBlock Text="Mẫu tem nữ trang"
+                                               FontSize="{DynamicResource FontSize.Subtitle}"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource PrimaryBrush}" />
+                                    <TextBlock Text="Kéo-thả trực quan các khối chữ và mã vạch trên canvas. Bấm &quot;Sửa mẫu tem&quot; để mở trình thiết kế."
+                                               Margin="0,6,0,16"
+                                               FontSize="{DynamicResource FontSize.Body}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Sửa mẫu tem"
+                                                Command="{Binding OpenLabelDesignerCommand}"
+                                                Style="{StaticResource SettingsPrimaryButtonStyle}"
+                                                MinWidth="150" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </TabItem>
+                        </TabControl>
                     </Border>
 
                     <!-- Giao diện: giữ DataContext ở StackPanel con để Visibility vẫn bind SettingsViewModel -->

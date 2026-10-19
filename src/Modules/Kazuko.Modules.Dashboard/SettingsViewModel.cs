@@ -18,6 +18,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly ICompanyProfileService _companyProfile;
     private readonly IPrintTemplateStore _printTemplates;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly ILabelDesignerService? _labelDesigner;
 
     private SettingsCategory _selectedCategory;
     private string _companyName = string.Empty;
@@ -42,12 +43,14 @@ public sealed class SettingsViewModel : ObservableObject
         IPrintTemplateStore printTemplates,
         IDatabaseManagementService databaseManagement,
         IPreferencesService preferences,
-        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null,
+        ILabelDesignerService? labelDesigner = null)
     {
         _companyProfile = companyProfile ?? throw new ArgumentNullException(nameof(companyProfile));
         _permissions = authorization;
         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
         _printTemplates = printTemplates ?? throw new ArgumentNullException(nameof(printTemplates));
+        _labelDesigner = labelDesigner;
         Appearance = new AppearanceSettingsViewModel(
             appearance ?? throw new ArgumentNullException(nameof(appearance)));
         Database = new DatabaseSettingsViewModel(
@@ -59,7 +62,7 @@ public sealed class SettingsViewModel : ObservableObject
         var categories = new List<SettingsCategory>
         {
             new("general", "Thông tin chung"),
-            new("receipt_template", "Mẫu in bill"),
+            new("receipt_template", "Mẫu in"),
             new("appearance", "Giao diện")
         };
         if (IsAdminUser())
@@ -78,6 +81,8 @@ public sealed class SettingsViewModel : ObservableObject
             ImportReceiptTemplateAsync, () => !IsBusy && IsReceiptTemplateSelected);
         ReloadReceiptTemplateCommand = new AsyncRelayCommand(
             LoadReceiptTemplateSummaryAsync, () => !IsBusy && IsReceiptTemplateSelected);
+        OpenLabelDesignerCommand = new AsyncRelayCommand(
+            OpenLabelDesignerAsync, () => !IsBusy && IsReceiptTemplateSelected && _labelDesigner is not null);
 
         ReceiptTemplateKinds =
         [
@@ -268,6 +273,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand ExportReceiptTemplateCommand { get; }
     public ICommand ImportReceiptTemplateCommand { get; }
     public ICommand ReloadReceiptTemplateCommand { get; }
+    public ICommand OpenLabelDesignerCommand { get; }
 
     private void SelectCategory(SettingsCategory? category)
     {
@@ -407,6 +413,32 @@ public sealed class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             ClearReceiptTemplateInfo("Không tải được mẫu in.");
+            ErrorMessage = Sanitize(ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task OpenLabelDesignerAsync()
+    {
+        if (_labelDesigner is null)
+            return;
+        var session = _sessionAccessor.Current;
+        if (session is null)
+        {
+            ErrorMessage = "Chưa đăng nhập.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _labelDesigner.OpenDesignerAsync(session);
+        }
+        catch (Exception ex)
+        {
             ErrorMessage = Sanitize(ex.Message);
         }
         finally

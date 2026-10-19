@@ -99,3 +99,17 @@ In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
 | Chọn tem | Checkbox từng dòng trong bảng SP ("In tem đang chọn") hoặc tất cả ("In tem tất cả") |
 | Máy in | Dialog chọn máy in hệ thống + số bản; nhớ máy in lần trước (`%LocalAppData%\KazukoERP\jewelry.label.printer.json`) |
 | Dữ liệu | Tự động từ `ManualFinishedProductItem` (mã vạch, tên, loại vàng, TL, công, NCC...); tên/địa chỉ tiệm từ `ICompanyProfileService` |
+| Sửa mẫu | Tab **Mẫu in** trong Cài đặt → mục "Mẫu tem nữ trang 28x12" → nút **Sửa mẫu tem** mở designer kéo-thả |
+
+### Designer sửa mẫu tem
+
+Trình thiết kế trực quan cho mẫu tem nữ trang (tab **Mẫu in** trong Cài đặt):
+
+| Mục | Chi tiết |
+|---|---|
+| Backing store | FastReport object model: `Report.Load()` từ DB → sửa `TextObject`/`BarcodeObject` → `Report.Save()` → `IPrintTemplateStore.SaveAsync()` |
+| Canvas | Tỷ lệ 3x so với kích thước thật (86×12mm, 96dpi); click chọn, kéo di chuyển, kéo 8 góc/cạnh để resize |
+| Đối tượng | Chỉ text + barcode (theo phạm vi pipeline in vector) |
+| Panel thuộc tính | Text: nội dung, font, cỡ, đậm/nghiêng, căn lề, góc xoay; Barcode: cột dữ liệu; chung: X/Y/Rộng/Cao (mm) |
+| Xem trước | Render PNG bằng `ImageExport` với dữ liệu mẫu |
+| Mở designer | Qua `ILabelDesignerService` (Core) do module Kho implement — tránh dependency Dashboard → Warehouse |

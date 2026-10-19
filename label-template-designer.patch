@@ -1,0 +1,1895 @@
+From 17f416a4f40d3028091325f4d2200e66fb3f2d58 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Mon, 19 Oct 2026 07:47:25 +0000
+Subject: [PATCH 1/5] feat(label-designer): add designer object wrappers,
+ viewmodel and preview
+
+---
+ .../LabelDesigner/LabelDesignerObject.cs      | 276 ++++++++++++++++++
+ .../LabelDesigner/LabelDesignerSampleData.cs  | 106 +++++++
+ .../LabelDesigner/LabelDesignerViewModel.cs   | 215 ++++++++++++++
+ .../LabelDesigner/LabelPreviewDialog.xaml     |  25 ++
+ .../LabelDesigner/LabelPreviewDialog.xaml.cs  |  22 ++
+ 5 files changed, 644 insertions(+)
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerObject.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerSampleData.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml.cs
+
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerObject.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerObject.cs
+new file mode 100644
+index 0000000..7fcfd07
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerObject.cs
+@@ -0,0 +1,276 @@
++using System.ComponentModel;
++using FastReport;
++using FastReport.Barcode;
++using Kazuko.Core.Mvvm;
++
++namespace Kazuko.Modules.Warehouse.LabelDesigner;
++
++/// <summary>
++/// Wrapper chỉnh sửa cho một TextObject hoặc BarcodeObject trong mẫu tem.
++/// Mọi setter ghi thẳng vào object FastReport gốc và báo PropertyChanged
++/// để canvas + panel thuộc tính cập nhật theo.
++/// </summary>
++public sealed class LabelDesignerObject : ObservableObject
++{
++    private readonly ReportComponentBase _source;
++    private readonly TextObject? _text;
++    private readonly BarcodeObject? _barcode;
++
++    public LabelDesignerObject(ReportComponentBase source)
++    {
++        _source = source;
++        _text = source as TextObject;
++        _barcode = source as BarcodeObject;
++    }
++
++    /// <summary>Object FastReport gốc (để code-behind truy xuất khi cần).</summary>
++    public ReportComponentBase Source => _source;
++
++    public bool IsText => _text is not null;
++
++    public bool IsBarcode => _barcode is not null;
++
++    public string KindName => IsText ? "Chữ" : "Mã vạch";
++
++    public string DisplayName =>
++        !string.IsNullOrWhiteSpace(_source.Name) ? _source.Name : KindName;
++
++    // ---- Vị trí / kích thước (đơn vị px 96dpi của FastReport) ----
++
++    public float Left
++    {
++        get => _source.Left;
++        set
++        {
++            if (_source.Left != value)
++            {
++                _source.Left = value;
++                OnPropertyChanged();
++                OnPropertyChanged(nameof(LeftMm));
++            }
++        }
++    }
++
++    public float Top
++    {
++        get => _source.Top;
++        set
++        {
++            if (_source.Top != value)
++            {
++                _source.Top = value;
++                OnPropertyChanged();
++                OnPropertyChanged(nameof(TopMm));
++            }
++        }
++    }
++
++    public float Width
++    {
++        get => _source.Width;
++        set
++        {
++            if (value > 0 && _source.Width != value)
++            {
++                _source.Width = value;
++                OnPropertyChanged();
++                OnPropertyChanged(nameof(WidthMm));
++            }
++        }
++    }
++
++    public float Height
++    {
++        get => _source.Height;
++        set
++        {
++            if (value > 0 && _source.Height != value)
++            {
++                _source.Height = value;
++                OnPropertyChanged();
++                OnPropertyChanged(nameof(HeightMm));
++            }
++        }
++    }
++
++    // ---- Hiển thị mm cho panel thuộc tính (1px 96dpi = 25.4/96 mm) ----
++
++    private const float MmPerPx = 25.4f / 96f;
++
++    public double LeftMm
++    {
++        get => Left * MmPerPx;
++        set => Left = (float)(value / MmPerPx);
++    }
++
++    public double TopMm
++    {
++        get => Top * MmPerPx;
++        set => Top = (float)(value / MmPerPx);
++    }
++
++    public double WidthMm
++    {
++        get => Width * MmPerPx;
++        set => Width = (float)(value / MmPerPx);
++    }
++
++    public double HeightMm
++    {
++        get => Height * MmPerPx;
++        set => Height = (float)(value / MmPerPx);
++    }
++
++    // ---- Thuộc tính TextObject ----
++
++    public string Text
++    {
++        get => _text?.Text ?? string.Empty;
++        set
++        {
++            if (_text is not null && _text.Text != value)
++            {
++                _text.Text = value;
++                OnPropertyChanged();
++            }
++        }
++    }
++
++    public string FontFamilyName
++    {
++        get => _text?.Font.Name ?? "Arial";
++        set
++        {
++            if (_text is not null && _text.Font.Name != value)
++            {
++                var old = _text.Font;
++                _text.Font = new System.Drawing.Font(value, old.Size, old.Style, System.Drawing.GraphicsUnit.Point);
++                OnPropertyChanged();
++            }
++        }
++    }
++
++    public float FontSize
++    {
++        get => _text?.Font.Size ?? 8f;
++        set
++        {
++            if (_text is not null && value >= 4 && value <= 72 && _text.Font.Size != value)
++            {
++                var old = _text.Font;
++                _text.Font = new System.Drawing.Font(old.Name, value, old.Style, System.Drawing.GraphicsUnit.Point);
++                OnPropertyChanged();
++            }
++        }
++    }
++
++    public bool Bold
++    {
++        get => _text?.Font.Bold ?? false;
++        set
++        {
++            if (_text is not null)
++                SetFontStyle(System.Drawing.FontStyle.Bold, value);
++        }
++    }
++
++    public bool Italic
++    {
++        get => _text?.Font.Italic ?? false;
++        set
++        {
++            if (_text is not null)
++                SetFontStyle(System.Drawing.FontStyle.Italic, value);
++        }
++    }
++
++    private void SetFontStyle(System.Drawing.FontStyle flag, bool on)
++    {
++        if (_text is null)
++            return;
++        var old = _text.Font;
++        var style = on ? old.Style | flag : old.Style & ~flag;
++        if (style != old.Style)
++        {
++            _text.Font = new System.Drawing.Font(old.Name, old.Size, style, System.Drawing.GraphicsUnit.Point);
++            OnPropertyChanged(nameof(Bold));
++            OnPropertyChanged(nameof(Italic));
++        }
++    }
++
++    public HorzAlign HorzAlign
++    {
++        get => _text?.HorzAlign ?? HorzAlign.Left;
++        set
++        {
++            if (_text is not null && _text.HorzAlign != value)
++            {
++                _text.HorzAlign = value;
++                OnPropertyChanged();
++            }
++        }
++    }
++
++    public VertAlign VertAlign
++    {
++        get => _text?.VertAlign ?? VertAlign.Top;
++        set
++        {
++            if (_text is not null && _text.VertAlign != value)
++            {
++                _text.VertAlign = value;
++                OnPropertyChanged();
++            }
++        }
++    }
++
++    public int Angle
++    {
++        get => _text?.Angle ?? 0;
++        set
++        {
++            if (_text is not null && _text.Angle != value)
++            {
++                _text.Angle = value;
++                OnPropertyChanged();
++            }
++        }
++    }
++
++    // ---- Thuộc tính BarcodeObject ----
++
++    public string DataColumn
++    {
++        get => _barcode?.DataColumn ?? string.Empty;
++        set
++        {
++            if (_barcode is not null && _barcode.DataColumn != value)
++            {
++                _barcode.DataColumn = value;
++                OnPropertyChanged();
++            }
++        }
++    }
++
++    /// <summary>Đọc lại toàn bộ từ object gốc (sau khi load hoặc undo).</summary>
++    public void RefreshAll()
++    {
++        OnPropertyChanged(nameof(Left));
++        OnPropertyChanged(nameof(Top));
++        OnPropertyChanged(nameof(Width));
++        OnPropertyChanged(nameof(Height));
++        OnPropertyChanged(nameof(LeftMm));
++        OnPropertyChanged(nameof(TopMm));
++        OnPropertyChanged(nameof(WidthMm));
++        OnPropertyChanged(nameof(HeightMm));
++        OnPropertyChanged(nameof(Text));
++        OnPropertyChanged(nameof(FontFamilyName));
++        OnPropertyChanged(nameof(FontSize));
++        OnPropertyChanged(nameof(Bold));
++        OnPropertyChanged(nameof(Italic));
++        OnPropertyChanged(nameof(HorzAlign));
++        OnPropertyChanged(nameof(VertAlign));
++        OnPropertyChanged(nameof(Angle));
++        OnPropertyChanged(nameof(DataColumn));
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerSampleData.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerSampleData.cs
+new file mode 100644
+index 0000000..b26e9a8
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerSampleData.cs
+@@ -0,0 +1,106 @@
++using System.Data;
++
++namespace Kazuko.Modules.Warehouse.LabelDesigner;
++
++/// <summary>
++/// Dữ liệu mẫu để xem trước mẫu tem trong designer.
++/// Các giá trị khớp định dạng thực tế khi in tem thật.
++/// </summary>
++public static class LabelDesignerSampleData
++{
++    public static DataTable BuildSampleTable()
++    {
++        var table = new DataTable();
++        table.Columns.Add("NGAYNHAP", typeof(DateTime));
++        table.Columns.Add("MAVACH", typeof(string));
++        table.Columns.Add("THANHTIEN", typeof(decimal));
++        table.Columns.Add("TUOI", typeof(decimal));
++        table.Columns.Add("DONGIA", typeof(decimal));
++        table.Columns.Add("LOAIVANG", typeof(string));
++        table.Columns.Add("QUAY", typeof(string));
++        table.Columns.Add("CONGNHAP", typeof(decimal));
++        table.Columns.Add("CONGBAN", typeof(decimal));
++        table.Columns.Add("TONGTRONGLUONG", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG", typeof(decimal));
++        table.Columns.Add("TRONGLUONGHOT", typeof(decimal));
++        table.Columns.Add("TONGTRONGLUONG_LI", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG_LI", typeof(decimal));
++        table.Columns.Add("TRONGLUONGHOT_LI", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG_CHUOI", typeof(string));
++        table.Columns.Add("DMATHANGID", typeof(string));
++        table.Columns.Add("TENHANG", typeof(string));
++        table.Columns.Add("NOTE", typeof(string));
++        table.Columns.Add("CONGNHAP_NGHIN", typeof(int));
++        table.Columns.Add("CONGBAN_NGHIN", typeof(int));
++        table.Columns.Add("NHACUNGCAP", typeof(string));
++        table.Columns.Add("TRONGLUONGVANG_CHUOI2", typeof(string));
++        table.Columns.Add("THUONGHIEU", typeof(string));
++        table.Columns.Add("MANHACUNGCAP", typeof(string));
++        table.Columns.Add("KYHIEU", typeof(string));
++        table.Columns.Add("CONGSI", typeof(decimal));
++        table.Columns.Add("CONGSI_NGHIN", typeof(int));
++        table.Columns.Add("TONGTRONGLUONG_DEM", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG_DEM", typeof(decimal));
++        table.Columns.Add("TRONGLUONGHOT_DEM", typeof(decimal));
++        table.Columns.Add("TONGTRONGLUONG_CHUOI", typeof(string));
++        table.Columns.Add("TRONGLUONGHOT_CHUOI", typeof(string));
++        table.Columns.Add("DIACHINCC", typeof(string));
++        table.Columns.Add("TIENDABAN_NGHIN", typeof(int));
++        table.Columns.Add("TIENDANHAP_NGHIN", typeof(int));
++        table.Columns.Add("GIABAN_NGHIN", typeof(int));
++        table.Columns.Add("GIABAN", typeof(decimal));
++        table.Columns.Add("TIENDABAN", typeof(decimal));
++        table.Columns.Add("TIENDANHAP", typeof(decimal));
++        table.Columns.Add("THANHTIENBAN", typeof(decimal));
++        table.Columns.Add("MAHIEU", typeof(string));
++        table.Columns.Add("TCCS", typeof(string));
++
++        var row = table.NewRow();
++        row["NGAYNHAP"] = DateTime.Today;
++        row["MAVACH"] = "B600022";
++        row["THANHTIEN"] = 0m;
++        row["TUOI"] = 750m;
++        row["DONGIA"] = 0m;
++        row["LOAIVANG"] = "750";
++        row["QUAY"] = string.Empty;
++        row["CONGNHAP"] = 200000m;
++        row["CONGBAN"] = 250000m;
++        row["TONGTRONGLUONG"] = 2.5m;
++        row["TRONGLUONGVANG"] = 2.2m;
++        row["TRONGLUONGHOT"] = 0.3m;
++        row["TONGTRONGLUONG_LI"] = 0m;
++        row["TRONGLUONGVANG_LI"] = 0m;
++        row["TRONGLUONGHOT_LI"] = 0m;
++        row["TRONGLUONGVANG_CHUOI"] = "2.2 chỉ";
++        row["DMATHANGID"] = string.Empty;
++        row["TENHANG"] = "BÔNG CHIẾC LÁ";
++        row["NOTE"] = string.Empty;
++        row["CONGNHAP_NGHIN"] = 200;
++        row["CONGBAN_NGHIN"] = 250;
++        row["NHACUNGCAP"] = "CTY KAZUKO GOLD";
++        row["TRONGLUONGVANG_CHUOI2"] = "2.2 chỉ";
++        row["THUONGHIEU"] = string.Empty;
++        row["MANHACUNGCAP"] = string.Empty;
++        row["KYHIEU"] = string.Empty;
++        row["CONGSI"] = 0m;
++        row["CONGSI_NGHIN"] = 0;
++        row["TONGTRONGLUONG_DEM"] = 0m;
++        row["TRONGLUONGVANG_DEM"] = 0m;
++        row["TRONGLUONGHOT_DEM"] = 0m;
++        row["TONGTRONGLUONG_CHUOI"] = "2.5 chỉ";
++        row["TRONGLUONGHOT_CHUOI"] = "0.3 chỉ";
++        row["DIACHINCC"] = "925/15 Âu Cơ - Tân Sơn Nhì - TPHCM";
++        row["TIENDABAN_NGHIN"] = 0;
++        row["TIENDANHAP_NGHIN"] = 0;
++        row["GIABAN_NGHIN"] = 0;
++        row["GIABAN"] = 0m;
++        row["TIENDABAN"] = 0m;
++        row["TIENDANHAP"] = 0m;
++        row["THANHTIENBAN"] = 0m;
++        row["MAHIEU"] = string.Empty;
++        row["TCCS"] = "01:2026/KZJ";
++        table.Rows.Add(row);
++
++        return table;
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs
+new file mode 100644
+index 0000000..8e8cafc
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs
+@@ -0,0 +1,216 @@
++using System.Collections.ObjectModel;
++using System.Data;
++using System.IO;
++using System.Windows.Input;
++using FastReport;
++using FastReport.Barcode;
++using FastReport.Export.Image;
++using Kazuko.Core.Authentication;
++using Kazuko.Core.Mvvm;
++using Kazuko.Core.Printing;
++
++namespace Kazuko.Modules.Warehouse.LabelDesigner;
++
++/// <summary>
++/// ViewModel cho designer sửa mẫu tem nữ trang.
++/// Backing store là FastReport Report object model: load từ DB, sửa trực tiếp
++/// các TextObject/BarcodeObject, lưu lại bằng Report.Save + IPrintTemplateStore.
++/// </summary>
++public sealed class LabelDesignerViewModel : ObservableObject
++{
++    /// <summary>Tỷ lệ hiển thị canvas so với kích thước thật (px 96dpi).</summary>
++    public const double CanvasScale = 3.0;
++
++    private const float PaperWidthMm = 86f;
++    private const float PaperHeightMm = 12f;
++    private const float PxPerMm = 96f / 25.4f;
++
++    private readonly IPrintTemplateStore _templates;
++    private readonly AuthenticatedSession _session;
++
++    private Report? _report;
++    private LabelDesignerObject? _selectedObject;
++    private bool? _dialogResult;
++    private string _statusMessage = string.Empty;
++    private bool _isBusy;
++
++    public LabelDesignerViewModel(IPrintTemplateStore templates, AuthenticatedSession session)
++    {
++        _templates = templates;
++        _session = session;
++
++        PreviewCommand = new AsyncRelayCommand(PreviewAsync, () => !IsBusy && _report is not null);
++        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy && _report is not null);
++        CancelCommand = new RelayCommand(() => DialogResult = false);
++    }
++
++    /// <summary>Chiều rộng canvas hiển thị (px màn hình).</summary>
++    public double CanvasWidth => PaperWidthMm * PxPerMm * CanvasScale;
++
++    /// <summary>Chiều cao canvas hiển thị (px màn hình).</summary>
++    public double CanvasHeight => PaperHeightMm * PxPerMm * CanvasScale;
++
++    public ObservableCollection<LabelDesignerObject> Objects { get; } = new();
++
++    public LabelDesignerObject? SelectedObject
++    {
++        get => _selectedObject;
++        set => SetProperty(ref _selectedObject, value);
++    }
++
++    public string StatusMessage
++    {
++        get => _statusMessage;
++        private set => SetProperty(ref _statusMessage, value);
++    }
++
++    public bool IsBusy
++    {
++        get => _isBusy;
++        private set
++        {
++            if (SetProperty(ref _isBusy, value))
++            {
++                (PreviewCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
++                (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
++            }
++        }
++    }
++
++    public bool? DialogResult
++    {
++        get => _dialogResult;
++        private set => SetProperty(ref _dialogResult, value);
++    }
++
++    public ICommand PreviewCommand { get; }
++    public ICommand SaveCommand { get; }
++    public ICommand CancelCommand { get; }
++
++    /// <summary>Report FastReport gốc (code-behind dùng để vẽ lại khi cần).</summary>
++    public Report? Report => _report;
++
++    /// <summary>
++    /// Nạp mẫu tem từ DB. Gọi một lần sau khi tạo ViewModel.
++    /// </summary>
++    public async Task InitializeAsync(CancellationToken cancellationToken = default)
++    {
++        IsBusy = true;
++        try
++        {
++            var dto = await _templates.GetByCodeAsync(
++                PrintTemplateCodes.JewelryLabel28x12, _session, cancellationToken);
++
++            _report = new Report();
++            using (var stream = new MemoryStream(dto.Content))
++                _report.Load(stream);
++
++            Objects.Clear();
++            var page = _report.Pages.OfType<ReportPage>().FirstOrDefault();
++            if (page is not null)
++            {
++                foreach (var band in page.Bands.OfType<BandBase>())
++                {
++                    foreach (var obj in band.Objects.OfType<ReportComponentBase>())
++                    {
++                        if (obj is TextObject || obj is BarcodeObject)
++                            Objects.Add(new LabelDesignerObject(obj));
++                    }
++                }
++            }
++
++            SelectedObject = null;
++            StatusMessage = $"Đã nạp {Objects.Count} đối tượng từ mẫu tem.";
++        }
++        catch (Exception ex)
++        {
++            StatusMessage = $"Không nạp được mẫu tem: {ex.Message}";
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
++    /// <summary>Lấy bytes .frx hiện tại (kể cả các chỉnh sửa chưa lưu).</summary>
++    public byte[] GetFrxBytes()
++    {
++        if (_report is null)
++            return Array.Empty<byte>();
++        using var stream = new MemoryStream();
++        _report.Save(stream);
++        return stream.ToArray();
++    }
++
++    private Task PreviewAsync()
++    {
++        if (_report is null)
++            return Task.CompletedTask;
++
++        IsBusy = true;
++        try
++        {
++            // Dùng bản sao của template hiện tại (kể cả chỉnh sửa chưa lưu).
++            var previewReport = new Report();
++            using (var stream = new MemoryStream(GetFrxBytes()))
++                previewReport.Load(stream);
++
++            var table = LabelDesignerSampleData.BuildSampleTable();
++            previewReport.RegisterData(table, "DataSet");
++            previewReport.SetParameterValue("Tên tiệm", "VÀNG BẠC ĐÁ QUÝ MẪU");
++            previewReport.SetParameterValue("DiaChiDoanhNghiep", "123 Đường Mẫu - Quận 1 - TP.HCM");
++            previewReport.Prepare();
++
++            using var imgStream = new MemoryStream();
++            var export = new ImageExport
++            {
++                ImageFormat = ImageExportFormat.Png,
++                Resolution = 200,
++            };
++            export.Export(previewReport, imgStream);
++
++            var dialog = new LabelPreviewDialog(imgStream.ToArray())
++            {
++                Owner = System.Windows.Application.Current?.MainWindow,
++            };
++            dialog.ShowDialog();
++        }
++        catch (Exception ex)
++        {
++            StatusMessage = $"Xem trước thất bại: {ex.Message}";
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++        return Task.CompletedTask;
++    }
++
++    private async Task SaveAsync()
++    {
++        if (_report is null)
++            return;
++
++        IsBusy = true;
++        try
++        {
++            var frxBytes = GetFrxBytes();
++            await _templates.SaveAsync(
++                PrintTemplateCodes.JewelryLabel28x12,
++                "Tem nữ trang 28x12",
++                frxBytes,
++                "Sửa bằng Label Designer",
++                _session);
++            StatusMessage = "Đã lưu mẫu tem.";
++            DialogResult = true;
++        }
++        catch (Exception ex)
++        {
++            StatusMessage = $"Lưu thất bại: {ex.Message}";
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml
+new file mode 100644
+index 0000000..d74f85c
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml
+@@ -0,0 +1,25 @@
++<Window x:Class="Kazuko.Modules.Warehouse.LabelDesigner.LabelPreviewDialog"
++        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++        Title="Xem trước mẫu tem"
++        Width="900" Height="320"
++        MinWidth="600" MinHeight="240"
++        WindowStartupLocation="CenterOwner"
++        ShowInTaskbar="False"
++        Background="{DynamicResource AppBackgroundBrush}">
++  <DockPanel Margin="16">
++    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
++                HorizontalAlignment="Right" Margin="0,12,0,0">
++      <Button Content="Đóng" MinWidth="100" MinHeight="40"
++              Style="{StaticResource WhPrimaryButtonStyle}"
++              IsCancel="True" IsDefault="True" />
++    </StackPanel>
++
++    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
++            Background="White" Padding="8"
++            HorizontalAlignment="Center" VerticalAlignment="Center">
++      <Image x:Name="PreviewImage" Stretch="None"
++             RenderOptions.BitmapScalingMode="HighQuality" />
++    </Border>
++  </DockPanel>
++</Window>
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml.cs
+new file mode 100644
+index 0000000..b34c9ab
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelPreviewDialog.xaml.cs
+@@ -0,0 +1,22 @@
++using System.IO;
++using System.Windows;
++using System.Windows.Media.Imaging;
++
++namespace Kazuko.Modules.Warehouse.LabelDesigner;
++
++/// <summary>Dialog hiển thị ảnh xem trước mẫu tem (render PNG từ FastReport).</summary>
++public partial class LabelPreviewDialog : Window
++{
++    public LabelPreviewDialog(byte[] pngBytes)
++    {
++        InitializeComponent();
++
++        var bitmap = new BitmapImage();
++        bitmap.BeginInit();
++        bitmap.StreamSource = new MemoryStream(pngBytes);
++        bitmap.CacheOption = BitmapCacheOption.OnLoad;
++        bitmap.EndInit();
++        bitmap.Freeze();
++        PreviewImage.Source = bitmap;
++    }
++}
+-- 
+2.43.0
+
+
+From 2d0781c34fe1f0a115a12d3dce3085485935a5b8 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Mon, 19 Oct 2026 07:48:57 +0000
+Subject: [PATCH 2/5] feat(label-designer): add designer dialog UI with
+ drag-drop canvas
+
+---
+ .../LabelDesigner/LabelDesignerConverters.cs  |  38 ++
+ .../LabelDesigner/LabelDesignerDialog.xaml    | 286 +++++++++++++
+ .../LabelDesigner/LabelDesignerDialog.xaml.cs | 405 ++++++++++++++++++
+ 3 files changed, 729 insertions(+)
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerConverters.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs
+
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerConverters.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerConverters.cs
+new file mode 100644
+index 0000000..0600503
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerConverters.cs
+@@ -0,0 +1,38 @@
++using System.Globalization;
++using System.Windows.Data;
++using FastReport;
++
++namespace Kazuko.Modules.Warehouse.LabelDesigner;
++
++/// <summary>Chuyển HorzAlign sang tiếng Việt cho ComboBox.</summary>
++public sealed class HorzAlignConverter : IValueConverter
++{
++    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
++        value is HorzAlign align ? align switch
++        {
++            HorzAlign.Left => "Trái",
++            HorzAlign.Center => "Giữa",
++            HorzAlign.Right => "Phải",
++            HorzAlign.Justify => "Căn đều",
++            _ => value.ToString() ?? string.Empty,
++        } : string.Empty;
++
++    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
++        throw new NotSupportedException();
++}
++
++/// <summary>Chuyển VertAlign sang tiếng Việt cho ComboBox.</summary>
++public sealed class VertAlignConverter : IValueConverter
++{
++    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
++        value is VertAlign align ? align switch
++        {
++            VertAlign.Top => "Trên",
++            VertAlign.Center => "Giữa",
++            VertAlign.Bottom => "Dưới",
++            _ => value.ToString() ?? string.Empty,
++        } : string.Empty;
++
++    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
++        throw new NotSupportedException();
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml
+new file mode 100644
+index 0000000..429f630
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml
+@@ -0,0 +1,286 @@
++<Window x:Class="Kazuko.Modules.Warehouse.LabelDesigner.LabelDesignerDialog"
++        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++        xmlns:sys="clr-namespace:System;assembly=mscorlib"
++        xmlns:fr="clr-namespace:FastReport;assembly=FastReport"
++        xmlns:local="clr-namespace:Kazuko.Modules.Warehouse.LabelDesigner"
++        Title="Sửa mẫu tem nữ trang"
++        Width="1200" Height="700"
++        MinWidth="900" MinHeight="550"
++        WindowStartupLocation="CenterOwner"
++        ShowInTaskbar="False"
++        Background="{DynamicResource AppBackgroundBrush}">
++  <Window.Resources>
++    <ResourceDictionary>
++      <ResourceDictionary.MergedDictionaries>
++        <ResourceDictionary Source="../Themes/WarehouseResources.xaml" />
++      </ResourceDictionary.MergedDictionaries>
++      <BooleanToVisibilityConverter x:Key="BoolToVis" />
++      <local:HorzAlignConverter x:Key="HorzAlignConverter" />
++      <local:VertAlignConverter x:Key="VertAlignConverter" />
++      <ObjectDataProvider x:Key="HorzAlignValues" MethodName="GetValues"
++                          ObjectType="{x:Type sys:Enum}">
++        <ObjectDataProvider.MethodParameters>
++          <x:Type TypeName="fr:HorzAlign" />
++        </ObjectDataProvider.MethodParameters>
++      </ObjectDataProvider>
++      <ObjectDataProvider x:Key="VertAlignValues" MethodName="GetValues"
++                          ObjectType="{x:Type sys:Enum}">
++        <ObjectDataProvider.MethodParameters>
++          <x:Type TypeName="fr:VertAlign" />
++        </ObjectDataProvider.MethodParameters>
++      </ObjectDataProvider>
++    </ResourceDictionary>
++  </Window.Resources>
++
++  <DockPanel Margin="12">
++    <!-- Toolbar trên -->
++    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
++      <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
++        <TextBlock Text="Sửa mẫu tem nữ trang 28x12"
++                   FontSize="{DynamicResource FontSize.Subtitle}"
++                   FontWeight="SemiBold"
++                   Foreground="{DynamicResource TextPrimaryBrush}" />
++        <TextBlock Text="{Binding StatusMessage}"
++                   FontSize="{DynamicResource FontSize.Caption}"
++                   Foreground="{DynamicResource TextSecondaryBrush}"
++                   Margin="0,2,0,0" />
++      </StackPanel>
++      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
++        <Button Content="Xem trước"
++                Command="{Binding PreviewCommand}"
++                Style="{StaticResource WhOutlineButtonStyle}"
++                MinWidth="110" MinHeight="40" Margin="0,0,8,0" />
++        <Button Content="Lưu mẫu"
++                Command="{Binding SaveCommand}"
++                Style="{StaticResource WhPrimaryButtonStyle}"
++                MinWidth="110" MinHeight="40" Margin="0,0,8,0" IsDefault="True" />
++        <Button Content="Hủy"
++                Command="{Binding CancelCommand}"
++                Style="{StaticResource WhOutlineButtonStyle}"
++                MinWidth="90" MinHeight="40" IsCancel="True" />
++      </StackPanel>
++    </DockPanel>
++
++    <Grid>
++      <Grid.ColumnDefinitions>
++        <ColumnDefinition Width="*" />
++        <ColumnDefinition Width="320" />
++      </Grid.ColumnDefinitions>
++
++      <!-- Canvas thiết kế -->
++      <Border Grid.Column="0" Margin="0,0,12,0"
++              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
++              Background="{DynamicResource SurfaceBrush}"
++              CornerRadius="4">
++        <ScrollViewer HorizontalScrollBarVisibility="Auto"
++                      VerticalScrollBarVisibility="Auto"
++                      Padding="24">
++          <Canvas x:Name="DesignCanvas"
++                  Width="{Binding CanvasWidth}"
++                  Height="{Binding CanvasHeight}"
++                  Background="White" />
++        </ScrollViewer>
++      </Border>
++
++      <!-- Panel thuộc tính -->
++      <Border Grid.Column="1"
++              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
++              Background="{DynamicResource SurfaceBrush}"
++              CornerRadius="4" Padding="12">
++        <ScrollViewer VerticalScrollBarVisibility="Auto">
++          <StackPanel>
++            <TextBlock Text="Danh sách đối tượng"
++                       FontWeight="SemiBold"
++                       Foreground="{DynamicResource TextPrimaryBrush}"
++                       Margin="0,0,0,6" />
++            <ListBox ItemsSource="{Binding Objects}"
++                     SelectedItem="{Binding SelectedObject}"
++                     DisplayMemberPath="DisplayName"
++                     MinHeight="80" MaxHeight="160"
++                     Margin="0,0,0,12" />
++
++            <StackPanel x:Name="NoSelectionPanel">
++              <TextBlock Text="Chọn một đối tượng trên canvas để sửa thuộc tính."
++                         TextWrapping="Wrap"
++                         Foreground="{DynamicResource TextSecondaryBrush}"
++                         FontSize="{DynamicResource FontSize.Caption}" />
++              <StackPanel.Style>
++                <Style TargetType="StackPanel">
++                  <Setter Property="Visibility" Value="Collapsed" />
++                  <Style.Triggers>
++                    <DataTrigger Binding="{Binding SelectedObject}" Value="{x:Null}">
++                      <Setter Property="Visibility" Value="Visible" />
++                    </DataTrigger>
++                  </Style.Triggers>
++                </Style>
++              </StackPanel.Style>
++            </StackPanel>
++
++            <StackPanel x:Name="PropsPanel">
++              <StackPanel.Style>
++                <Style TargetType="StackPanel">
++                  <Setter Property="Visibility" Value="Visible" />
++                  <Style.Triggers>
++                    <DataTrigger Binding="{Binding SelectedObject}" Value="{x:Null}">
++                      <Setter Property="Visibility" Value="Collapsed" />
++                    </DataTrigger>
++                  </Style.Triggers>
++                </Style>
++              </StackPanel.Style>
++
++              <TextBlock Text="{Binding SelectedObject.DisplayName, StringFormat='{}{0}'}"
++                         FontWeight="SemiBold"
++                         Foreground="{DynamicResource PrimaryBrush}"
++                         Margin="0,0,0,8" />
++
++              <!-- Vị trí / kích thước (mm) -->
++              <TextBlock Text="Vị trí và kích thước (mm)" FontWeight="SemiBold"
++                         Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
++              <Grid Margin="0,0,0,12">
++                <Grid.ColumnDefinitions>
++                  <ColumnDefinition Width="*" />
++                  <ColumnDefinition Width="*" />
++                </Grid.ColumnDefinitions>
++                <Grid.RowDefinitions>
++                  <RowDefinition Height="Auto" />
++                  <RowDefinition Height="Auto" />
++                  <RowDefinition Height="Auto" />
++                  <RowDefinition Height="Auto" />
++                </Grid.RowDefinitions>
++                <TextBlock Text="X" Grid.Row="0" Grid.Column="0"
++                           Foreground="{DynamicResource TextSecondaryBrush}"
++                           FontSize="{DynamicResource FontSize.Caption}" />
++                <TextBox Text="{Binding SelectedObject.LeftMm, StringFormat='{}{0:F1}'}"
++                         Grid.Row="1" Grid.Column="0" MinHeight="36" Margin="0,2,4,6" />
++                <TextBlock Text="Y" Grid.Row="0" Grid.Column="1"
++                           Foreground="{DynamicResource TextSecondaryBrush}"
++                           FontSize="{DynamicResource FontSize.Caption}" />
++                <TextBox Text="{Binding SelectedObject.TopMm, StringFormat='{}{0:F1}'}"
++                         Grid.Row="1" Grid.Column="1" MinHeight="36" Margin="4,2,0,6" />
++                <TextBlock Text="Rộng" Grid.Row="2" Grid.Column="0"
++                           Foreground="{DynamicResource TextSecondaryBrush}"
++                           FontSize="{DynamicResource FontSize.Caption}" />
++                <TextBox Text="{Binding SelectedObject.WidthMm, StringFormat='{}{0:F1}'}"
++                         Grid.Row="3" Grid.Column="0" MinHeight="36" Margin="0,2,4,0" />
++                <TextBlock Text="Cao" Grid.Row="2" Grid.Column="1"
++                           Foreground="{DynamicResource TextSecondaryBrush}"
++                           FontSize="{DynamicResource FontSize.Caption}" />
++                <TextBox Text="{Binding SelectedObject.HeightMm, StringFormat='{}{0:F1}'}"
++                         Grid.Row="3" Grid.Column="1" MinHeight="36" Margin="4,2,0,0" />
++              </Grid>
++
++              <!-- Thuộc tính chữ -->
++              <StackPanel x:Name="TextPropsPanel" Margin="0,0,0,12">
++                <StackPanel.Style>
++                  <Style TargetType="StackPanel">
++                    <Setter Property="Visibility" Value="Collapsed" />
++                    <Style.Triggers>
++                      <DataTrigger Binding="{Binding SelectedObject.IsText}" Value="True">
++                        <Setter Property="Visibility" Value="Visible" />
++                      </DataTrigger>
++                    </Style.Triggers>
++                  </Style>
++                </StackPanel.Style>
++
++                <TextBlock Text="Nội dung" FontWeight="SemiBold"
++                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
++                <TextBox Text="{Binding SelectedObject.Text, UpdateSourceTrigger=PropertyChanged}"
++                         MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"
++                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,8" />
++
++                <TextBlock Text="Font chữ" Foreground="{DynamicResource TextSecondaryBrush}"
++                           FontSize="{DynamicResource FontSize.Caption}" />
++                <ComboBox x:Name="FontFamilyCombo"
++                          SelectedItem="{Binding SelectedObject.FontFamilyName}"
++                          MinHeight="36" Margin="0,2,0,8" />
++
++                <Grid Margin="0,0,0,8">
++                  <Grid.ColumnDefinitions>
++                    <ColumnDefinition Width="*" />
++                    <ColumnDefinition Width="*" />
++                  </Grid.ColumnDefinitions>
++                  <StackPanel Grid.Column="0" Margin="0,0,4,0">
++                    <TextBlock Text="Cỡ chữ (pt)" Foreground="{DynamicResource TextSecondaryBrush}"
++                               FontSize="{DynamicResource FontSize.Caption}" />
++                    <TextBox Text="{Binding SelectedObject.FontSize, StringFormat='{}{0:F1}'}"
++                             MinHeight="36" Margin="0,2,0,0" />
++                  </StackPanel>
++                  <StackPanel Grid.Column="1" Margin="4,0,0,0">
++                    <TextBlock Text="Góc xoay (độ)" Foreground="{DynamicResource TextSecondaryBrush}"
++                               FontSize="{DynamicResource FontSize.Caption}" />
++                    <TextBox Text="{Binding SelectedObject.Angle, StringFormat='{}{0:F0}'}"
++                             MinHeight="36" Margin="0,2,0,0" />
++                  </StackPanel>
++                </Grid>
++
++                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
++                  <CheckBox Content="Đậm" IsChecked="{Binding SelectedObject.Bold}"
++                            VerticalContentAlignment="Center" Margin="0,0,16,0" />
++                  <CheckBox Content="Nghiêng" IsChecked="{Binding SelectedObject.Italic}"
++                            VerticalContentAlignment="Center" />
++                </StackPanel>
++
++                <Grid>
++                  <Grid.ColumnDefinitions>
++                    <ColumnDefinition Width="*" />
++                    <ColumnDefinition Width="*" />
++                  </Grid.ColumnDefinitions>
++                  <StackPanel Grid.Column="0" Margin="0,0,4,0">
++                    <TextBlock Text="Căn ngang" Foreground="{DynamicResource TextSecondaryBrush}"
++                               FontSize="{DynamicResource FontSize.Caption}" />
++                    <ComboBox ItemsSource="{StaticResource HorzAlignValues}"
++                              SelectedItem="{Binding SelectedObject.HorzAlign}"
++                              MinHeight="36" Margin="0,2,0,0">
++                      <ComboBox.ItemTemplate>
++                        <DataTemplate>
++                          <TextBlock Text="{Binding Converter={StaticResource HorzAlignConverter}}" />
++                        </DataTemplate>
++                      </ComboBox.ItemTemplate>
++                    </ComboBox>
++                  </StackPanel>
++                  <StackPanel Grid.Column="1" Margin="4,0,0,0">
++                    <TextBlock Text="Căn dọc" Foreground="{DynamicResource TextSecondaryBrush}"
++                               FontSize="{DynamicResource FontSize.Caption}" />
++                    <ComboBox ItemsSource="{StaticResource VertAlignValues}"
++                              SelectedItem="{Binding SelectedObject.VertAlign}"
++                              MinHeight="36" Margin="0,2,0,0">
++                      <ComboBox.ItemTemplate>
++                        <DataTemplate>
++                          <TextBlock Text="{Binding Converter={StaticResource VertAlignConverter}}" />
++                        </DataTemplate>
++                      </ComboBox.ItemTemplate>
++                    </ComboBox>
++                  </StackPanel>
++                </Grid>
++              </StackPanel>
++
++              <!-- Thuộc tính mã vạch -->
++              <StackPanel x:Name="BarcodePropsPanel">
++                <StackPanel.Style>
++                  <Style TargetType="StackPanel">
++                    <Setter Property="Visibility" Value="Collapsed" />
++                    <Style.Triggers>
++                      <DataTrigger Binding="{Binding SelectedObject.IsBarcode}" Value="True">
++                        <Setter Property="Visibility" Value="Visible" />
++                      </DataTrigger>
++                    </Style.Triggers>
++                  </Style>
++                </StackPanel.Style>
++
++                <TextBlock Text="Cột dữ liệu" FontWeight="SemiBold"
++                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
++                <TextBox Text="{Binding SelectedObject.DataColumn, UpdateSourceTrigger=PropertyChanged}"
++                         MinHeight="36" Margin="0,0,0,6" />
++                <TextBlock Text="Ví dụ: DataSet.MAVACH. Loại mã vạch cố định là Code128."
++                           TextWrapping="Wrap"
++                           Foreground="{DynamicResource TextSecondaryBrush}"
++                           FontSize="{DynamicResource FontSize.Caption}" />
++              </StackPanel>
++            </StackPanel>
++          </StackPanel>
++        </ScrollViewer>
++      </Border>
++    </Grid>
++  </DockPanel>
++</Window>
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs
+new file mode 100644
+index 0000000..cfb0367
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs
+@@ -0,0 +1,406 @@
++using System.Windows;
++using System.Windows.Controls;
++using System.Windows.Input;
++using System.Windows.Media;
++using System.Windows.Shapes;
++using FastReport;
++using FastReport.Barcode;
++using Kazuko.Modules.Warehouse.Printing;
++using Border = System.Windows.Controls.Border;
++
++namespace Kazuko.Modules.Warehouse.LabelDesigner;
++
++/// <summary>
++/// Code-behind cho designer: vẽ object lên canvas, kéo di chuyển, kéo góc resize.
++/// </summary>
++public partial class LabelDesignerDialog : Window
++{
++    private const double HandleSize = 10.0;
++
++    private readonly Dictionary<LabelDesignerObject, Border> _visuals = new();
++    private readonly List<Rectangle> _handles = new();
++
++    private LabelDesignerViewModel? _vm;
++    private LabelDesignerObject? _dragObject;
++    private ResizeHandleKind _resizeHandle;
++    private Point _dragStartScreen;
++    private double _dragStartLeft;
++    private double _dragStartTop;
++    private double _dragStartWidth;
++    private double _dragStartHeight;
++    private bool _isDragging;
++    private bool _isResizing;
++
++    public LabelDesignerDialog()
++    {
++        InitializeComponent();
++        Loaded += OnLoaded;
++
++        // Danh sách font hệ thống cho ComboBox.
++        FontFamilyCombo.ItemsSource = Fonts.SystemFontFamilies
++            .Select(f => f.Source)
++            .OrderBy(n => n)
++            .ToList();
++    }
++
++    public LabelDesignerDialog(LabelDesignerViewModel viewModel) : this()
++    {
++        DataContext = viewModel;
++        viewModel.PropertyChanged += (_, e) =>
++        {
++            if (e.PropertyName == nameof(LabelDesignerViewModel.DialogResult) &&
++                viewModel.DialogResult is not null)
++                DialogResult = viewModel.DialogResult;
++        };
++    }
++
++    private LabelDesignerViewModel ViewModel => _vm ??= (LabelDesignerViewModel)DataContext;
++
++    private double Scale => LabelDesignerViewModel.CanvasScale;
++
++    private async void OnLoaded(object sender, RoutedEventArgs e)
++    {
++        await ViewModel.InitializeAsync();
++        BuildCanvas();
++        ViewModel.PropertyChanged += (_, args) =>
++        {
++            if (args.PropertyName == nameof(LabelDesignerViewModel.SelectedObject))
++                RefreshSelection();
++        };
++    }
++
++    #region Dựng visual
++
++    private void BuildCanvas()
++    {
++        DesignCanvas.Children.Clear();
++        _visuals.Clear();
++        _handles.Clear();
++
++        foreach (var obj in ViewModel.Objects)
++        {
++            var border = new Border
++            {
++                Background = Brushes.Transparent, // để bắt hit-test
++                BorderThickness = new Thickness(1),
++                Tag = obj,
++            };
++            border.Child = obj.IsText ? CreateTextVisual(obj) : CreateBarcodeVisual(obj);
++            border.MouseLeftButtonDown += OnObjectMouseDown;
++
++            PositionVisual(obj, border);
++            DesignCanvas.Children.Add(border);
++            _visuals[obj] = border;
++
++            // Theo dõi thay đổi thuộc tính để vẽ lại.
++            obj.PropertyChanged += (_, args) => RefreshVisual(obj);
++        }
++
++        RefreshSelection();
++    }
++
++    private FrameworkElement CreateTextVisual(LabelDesignerObject obj)
++    {
++        var src = (TextObject)obj.Source;
++        var tb = new TextBlock
++        {
++            Text = obj.Text,
++            FontFamily = new FontFamily(obj.FontFamilyName),
++            FontSize = obj.FontSize * 96.0 / 72.0 * Scale, // pt → px màn hình
++            FontWeight = obj.Bold ? FontWeights.Bold : FontWeights.Normal,
++            FontStyle = obj.Italic ? FontStyles.Italic : FontStyles.Normal,
++            Foreground = new SolidColorBrush(ToMediaColor(src.TextColor)),
++            TextWrapping = TextWrapping.NoWrap,
++            TextTrimming = TextTrimming.None,
++        };
++        tb.SetValue(TextBlock.TextAlignmentProperty, ToTextAlignment(obj.HorzAlign));
++        // Căn dọc: dùng VerticalAlignment trong Border.
++        tb.VerticalAlignment = obj.VertAlign switch
++        {
++            VertAlign.Center => VerticalAlignment.Center,
++            VertAlign.Bottom => VerticalAlignment.Bottom,
++            _ => VerticalAlignment.Top,
++        };
++        if (obj.Angle != 0)
++        {
++            tb.RenderTransformOrigin = new Point(0.5, 0.5);
++            tb.RenderTransform = new RotateTransform(obj.Angle);
++        }
++        tb.IsHitTestVisible = false;
++        return tb;
++    }
++
++    private FrameworkElement CreateBarcodeVisual(LabelDesignerObject obj)
++    {
++        var panel = new StackPanel { IsHitTestVisible = false };
++
++        // Vẽ pattern mã vạch mẫu bằng Code128Encoder.
++        var bars = new Canvas
++        {
++            Width = obj.Width * Scale,
++            Height = Math.Max(10, obj.Height * Scale - 16),
++            Background = Brushes.White,
++            ClipToBounds = true,
++        };
++        try
++        {
++            int[] widths = Code128Encoder.Encode("B600022");
++            int total = Code128Encoder.QuietZoneModules * 2 + widths.Sum();
++            double moduleW = bars.Width / total;
++            double cx = Code128Encoder.QuietZoneModules * moduleW;
++            for (int i = 0; i < widths.Length; i++)
++            {
++                double bw = widths[i] * moduleW;
++                if ((i & 1) == 0)
++                {
++                    bars.Children.Add(new Rectangle
++                    {
++                        Fill = Brushes.Black,
++                        Width = Math.Max(1, bw),
++                        Height = bars.Height,
++                    });
++                    Canvas.SetLeft(bars.Children[^1], cx);
++                }
++                cx += bw;
++            }
++        }
++        catch
++        {
++            // Nếu encode lỗi, để nền trắng.
++        }
++        panel.Children.Add(bars);
++
++        panel.Children.Add(new TextBlock
++        {
++            Text = string.IsNullOrWhiteSpace(obj.DataColumn) ? "[?]" : $"[{obj.DataColumn}]",
++            FontSize = 10,
++            HorizontalAlignment = HorizontalAlignment.Center,
++            Foreground = Brushes.Gray,
++        });
++        return panel;
++    }
++
++    private static System.Windows.Media.Color ToMediaColor(System.Drawing.Color c) =>
++        System.Windows.Media.Color.FromArgb(c.A, c.R, c.G, c.B);
++
++    private static TextAlignment ToTextAlignment(HorzAlign align) => align switch
++    {
++        HorzAlign.Center => TextAlignment.Center,
++        HorzAlign.Right => TextAlignment.Right,
++        _ => TextAlignment.Left,
++    };
++
++    private void PositionVisual(LabelDesignerObject obj, Border border)
++    {
++        double left = obj.Left * Scale;
++        double top = obj.Top * Scale;
++        double width = Math.Max(8, obj.Width * Scale);
++        double height = Math.Max(8, obj.Height * Scale);
++        Canvas.SetLeft(border, left);
++        Canvas.SetTop(border, top);
++        border.Width = width;
++        border.Height = height;
++    }
++
++    private void RefreshVisual(LabelDesignerObject obj)
++    {
++        if (!_visuals.TryGetValue(obj, out var border))
++            return;
++        // Dựng lại nội dung (text/font/căn lề có thể đổi).
++        border.Child = obj.IsText ? CreateTextVisual(obj) : CreateBarcodeVisual(obj);
++        PositionVisual(obj, border);
++        if (ViewModel.SelectedObject == obj)
++            ShowHandles(border);
++    }
++
++    #endregion
++
++    #region Chọn + handles
++
++    private void RefreshSelection()
++    {
++        var accent = (Brush)FindResource("PrimaryBrush");
++        foreach (var (obj, border) in _visuals)
++            border.BorderBrush = obj == ViewModel.SelectedObject ? accent : Brushes.Transparent;
++
++        // Xóa handles cũ.
++        foreach (var h in _handles)
++            DesignCanvas.Children.Remove(h);
++        _handles.Clear();
++
++        if (ViewModel.SelectedObject is not null &&
++            _visuals.TryGetValue(ViewModel.SelectedObject, out var selected))
++        {
++            ShowHandles(selected);
++        }
++    }
++
++    private void ShowHandles(Border border)
++    {
++        double left = Canvas.GetLeft(border);
++        double top = Canvas.GetTop(border);
++        double w = border.Width;
++        double h = border.Height;
++        var accent = (Brush)FindResource("PrimaryBrush");
++
++        var positions = new (double x, double y, ResizeHandleKind kind)[]
++        {
++            (left - HandleSize / 2, top - HandleSize / 2, ResizeHandleKind.TopLeft),
++            (left + w / 2 - HandleSize / 2, top - HandleSize / 2, ResizeHandleKind.Top),
++            (left + w - HandleSize / 2, top - HandleSize / 2, ResizeHandleKind.TopRight),
++            (left + w - HandleSize / 2, top + h / 2 - HandleSize / 2, ResizeHandleKind.Right),
++            (left + w - HandleSize / 2, top + h - HandleSize / 2, ResizeHandleKind.BottomRight),
++            (left + w / 2 - HandleSize / 2, top + h - HandleSize / 2, ResizeHandleKind.Bottom),
++            (left - HandleSize / 2, top + h - HandleSize / 2, ResizeHandleKind.BottomLeft),
++            (left - HandleSize / 2, top + h / 2 - HandleSize / 2, ResizeHandleKind.Left),
++        };
++
++        foreach (var (x, y, kind) in positions)
++        {
++            var rect = new Rectangle
++            {
++                Width = HandleSize,
++                Height = HandleSize,
++                Fill = Brushes.White,
++                Stroke = accent,
++                StrokeThickness = 1.5,
++                Tag = kind,
++                Cursor = GetHandleCursor(kind),
++            };
++            Canvas.SetLeft(rect, x);
++            Canvas.SetTop(rect, y);
++            Canvas.SetZIndex(rect, 100);
++            rect.MouseLeftButtonDown += OnHandleMouseDown;
++            DesignCanvas.Children.Add(rect);
++            _handles.Add(rect);
++        }
++    }
++
++    private static Cursor GetHandleCursor(ResizeHandleKind kind) => kind switch
++    {
++        ResizeHandleKind.TopLeft or ResizeHandleKind.BottomRight => Cursors.SizeNWSE,
++        ResizeHandleKind.TopRight or ResizeHandleKind.BottomLeft => Cursors.SizeNESW,
++        ResizeHandleKind.Top or ResizeHandleKind.Bottom => Cursors.SizeNS,
++        _ => Cursors.SizeWE,
++    };
++
++    #endregion
++
++    #region Kéo di chuyển / resize
++
++    private void OnObjectMouseDown(object sender, MouseButtonEventArgs e)
++    {
++        if (sender is not Border border || border.Tag is not LabelDesignerObject obj)
++            return;
++
++        ViewModel.SelectedObject = obj;
++        _dragObject = obj;
++        _dragStartScreen = e.GetPosition(DesignCanvas);
++        _dragStartLeft = Canvas.GetLeft(border);
++        _dragStartTop = Canvas.GetTop(border);
++        _isDragging = true;
++        DesignCanvas.CaptureMouse();
++        e.Handled = true;
++    }
++
++    private void OnHandleMouseDown(object sender, MouseButtonEventArgs e)
++    {
++        if (sender is not Rectangle rect || rect.Tag is not ResizeHandleKind kind)
++            return;
++        if (ViewModel.SelectedObject is null ||
++            !_visuals.TryGetValue(ViewModel.SelectedObject, out var border))
++            return;
++
++        _dragObject = ViewModel.SelectedObject;
++        _resizeHandle = kind;
++        _dragStartScreen = e.GetPosition(DesignCanvas);
++        _dragStartLeft = Canvas.GetLeft(border);
++        _dragStartTop = Canvas.GetTop(border);
++        _dragStartWidth = border.Width;
++        _dragStartHeight = border.Height;
++        _isResizing = true;
++        DesignCanvas.CaptureMouse();
++        e.Handled = true;
++    }
++
++    protected override void OnMouseMove(MouseEventArgs e)
++    {
++        base.OnMouseMove(e);
++        if (_dragObject is null || (!_isDragging && !_isResizing))
++            return;
++
++        var pos = e.GetPosition(DesignCanvas);
++        double dx = pos.X - _dragStartScreen.X;
++        double dy = pos.Y - _dragStartScreen.Y;
++
++        if (_isDragging)
++        {
++            // Đổi px màn hình → px FastReport rồi gán vào object.
++            _dragObject.Left = (float)Math.Max(0, (_dragStartLeft + dx) / Scale);
++            _dragObject.Top = (float)Math.Max(0, (_dragStartTop + dy) / Scale);
++        }
++        else if (_isResizing)
++        {
++            double newLeft = _dragStartLeft;
++            double newTop = _dragStartTop;
++            double newWidth = _dragStartWidth;
++            double newHeight = _dragStartHeight;
++
++            switch (_resizeHandle)
++            {
++                case ResizeHandleKind.TopLeft:
++                    newLeft = _dragStartLeft + dx; newTop = _dragStartTop + dy;
++                    newWidth = _dragStartWidth - dx; newHeight = _dragStartHeight - dy;
++                    break;
++                case ResizeHandleKind.Top:
++                    newTop = _dragStartTop + dy; newHeight = _dragStartHeight - dy;
++                    break;
++                case ResizeHandleKind.TopRight:
++                    newTop = _dragStartTop + dy;
++                    newWidth = _dragStartWidth + dx; newHeight = _dragStartHeight - dy;
++                    break;
++                case ResizeHandleKind.Right:
++                    newWidth = _dragStartWidth + dx;
++                    break;
++                case ResizeHandleKind.BottomRight:
++                    newWidth = _dragStartWidth + dx; newHeight = _dragStartHeight + dy;
++                    break;
++                case ResizeHandleKind.Bottom:
++                    newHeight = _dragStartHeight + dy;
++                    break;
++                case ResizeHandleKind.BottomLeft:
++                    newLeft = _dragStartLeft + dx;
++                    newWidth = _dragStartWidth - dx; newHeight = _dragStartHeight + dy;
++                    break;
++                case ResizeHandleKind.Left:
++                    newLeft = _dragStartLeft + dx; newWidth = _dragStartWidth - dx;
++                    break;
++            }
++
++            if (newWidth >= 8 && newHeight >= 8)
++            {
++                _dragObject.Left = (float)Math.Max(0, newLeft / Scale);
++                _dragObject.Top = (float)Math.Max(0, newTop / Scale);
++                _dragObject.Width = (float)(newWidth / Scale);
++                _dragObject.Height = (float)(newHeight / Scale);
++            }
++        }
++    }
++
++    protected override void OnMouseUp(MouseButtonEventArgs e)
++    {
++        base.OnMouseUp(e);
++        _isDragging = false;
++        _isResizing = false;
++        _dragObject = null;
++        if (DesignCanvas.IsMouseCaptured)
++            DesignCanvas.ReleaseMouseCapture();
++    }
++
++    private enum ResizeHandleKind
++    {
++        TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left,
++    }
++
++    #endregion
++}
+-- 
+2.43.0
+
+
+From d7ae8ccd8b8f84a95b58cb19a26b543bdab1b3b9 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Mon, 19 Oct 2026 07:50:54 +0000
+Subject: [PATCH 3/5] feat(label-designer): integrate designer into Settings
+ print templates tab
+
+---
+ .../Printing/LabelDesignerContracts.cs        | 15 ++++++++
+ .../DashboardModule.cs                        |  4 ++-
+ .../SettingsView.xaml                         | 27 +++++++++++++-
+ .../SettingsViewModel.cs                      | 36 +++++++++++++++++--
+ .../LabelDesignerService.cs                   | 30 ++++++++++++++++
+ .../WarehouseModule.cs                        |  4 +++
+ 6 files changed, 112 insertions(+), 4 deletions(-)
+ create mode 100644 src/Kazuko.Core/Printing/LabelDesignerContracts.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelDesignerService.cs
+
+diff --git a/src/Kazuko.Core/Printing/LabelDesignerContracts.cs b/src/Kazuko.Core/Printing/LabelDesignerContracts.cs
+new file mode 100644
+index 0000000..3b88dba
+--- /dev/null
++++ b/src/Kazuko.Core/Printing/LabelDesignerContracts.cs
+@@ -0,0 +1,15 @@
++using Kazuko.Core.Authentication;
++
++namespace Kazuko.Core.Printing;
++
++/// <summary>
++/// Dịch vụ mở designer sửa mẫu tem nữ trang.
++/// Implementation WPF (LabelDesignerDialog) do module Kho cung cấp.
++/// </summary>
++public interface ILabelDesignerService
++{
++    /// <summary>
++    /// Mở designer sửa mẫu tem. Trả về true nếu người dùng đã lưu mẫu.
++    /// </summary>
++    Task<bool> OpenDesignerAsync(AuthenticatedSession session);
++}
+diff --git a/src/Modules/Kazuko.Modules.Dashboard/DashboardModule.cs b/src/Modules/Kazuko.Modules.Dashboard/DashboardModule.cs
+index ba90a3b..ec1fef7 100644
+--- a/src/Modules/Kazuko.Modules.Dashboard/DashboardModule.cs
++++ b/src/Modules/Kazuko.Modules.Dashboard/DashboardModule.cs
+@@ -79,6 +79,7 @@ public sealed class DashboardModule : IKazukoModule
+         var printTemplates = GetRequiredService<IPrintTemplateStore>(services);
+         var databaseManagement = GetRequiredService<IDatabaseManagementService>(services);
+         var preferences = GetRequiredService<IPreferencesService>(services);
++        var labelDesigner = services.GetService(typeof(ILabelDesignerService)) as ILabelDesignerService;
+ 
+         navigation.Register(new NavigationItem(
+             "SETTINGS",
+@@ -90,7 +91,8 @@ public sealed class DashboardModule : IKazukoModule
+             {
+                 DataContext = new SettingsViewModel(
+                     companyProfile, sessionAccessor, appearanceService, printTemplates,
+-                    databaseManagement, preferences, GetRequiredService<IAuthorizationService>(services))
++                    databaseManagement, preferences, GetRequiredService<IAuthorizationService>(services),
++                    labelDesigner)
+             },
+             AssetRoot + "CAIDAT.png"));
+     }
+diff --git a/src/Modules/Kazuko.Modules.Dashboard/SettingsView.xaml b/src/Modules/Kazuko.Modules.Dashboard/SettingsView.xaml
+index d229620..0c6701a 100644
+--- a/src/Modules/Kazuko.Modules.Dashboard/SettingsView.xaml
++++ b/src/Modules/Kazuko.Modules.Dashboard/SettingsView.xaml
+@@ -451,7 +451,7 @@
+                         </StackPanel>
+                     </Border>
+ 
+-                    <!-- Mẫu in bill (FastReport .frx trong DB) -->
++                    <!-- Mẫu in (FastReport .frx trong DB): bill bán hàng + tem nữ trang -->
+                     <Border HorizontalAlignment="Stretch"
+                             Style="{DynamicResource CardBorderStyle}"
+                             Visibility="{Binding IsReceiptTemplateSelected, Converter={StaticResource BoolToVis}}">
+@@ -554,6 +554,31 @@
+                         </StackPanel>
+                     </Border>
+ 
++                    <!-- Mẫu tem nữ trang 28x12 -->
++                    <Border HorizontalAlignment="Stretch"
++                            Style="{DynamicResource CardBorderStyle}"
++                            Margin="0,16,0,0"
++                            Visibility="{Binding IsReceiptTemplateSelected, Converter={StaticResource BoolToVis}}">
++                        <StackPanel>
++                            <TextBlock Text="Mẫu tem nữ trang 28x12"
++                                       FontSize="{DynamicResource FontSize.Subtitle}"
++                                       FontWeight="Bold"
++                                       Foreground="{DynamicResource PrimaryBrush}" />
++                            <TextBlock Text="Kéo-thả trực quan các khối chữ và mã vạch trên canvas. Bấm &quot;Sửa mẫu tem&quot; để mở trình thiết kế."
++                                       Margin="0,6,0,16"
++                                       FontSize="{DynamicResource FontSize.Body}"
++                                       Foreground="{DynamicResource TextSecondaryBrush}"
++                                       TextWrapping="Wrap" />
++
++                            <StackPanel Orientation="Horizontal">
++                                <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Sửa mẫu tem"
++                                        Command="{Binding OpenLabelDesignerCommand}"
++                                        Style="{StaticResource SettingsPrimaryButtonStyle}"
++                                        MinWidth="150" />
++                            </StackPanel>
++                        </StackPanel>
++                    </Border>
++
+                     <!-- Giao diện: giữ DataContext ở StackPanel con để Visibility vẫn bind SettingsViewModel -->
+                     <Border HorizontalAlignment="Stretch"
+                             Style="{DynamicResource CardBorderStyle}"
+diff --git a/src/Modules/Kazuko.Modules.Dashboard/SettingsViewModel.cs b/src/Modules/Kazuko.Modules.Dashboard/SettingsViewModel.cs
+index 2e6da3a..e760088 100644
+--- a/src/Modules/Kazuko.Modules.Dashboard/SettingsViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Dashboard/SettingsViewModel.cs
+@@ -18,6 +18,7 @@ public sealed class SettingsViewModel : ObservableObject
+     private readonly ICompanyProfileService _companyProfile;
+     private readonly IPrintTemplateStore _printTemplates;
+     private readonly ICurrentSessionAccessor _sessionAccessor;
++    private readonly ILabelDesignerService? _labelDesigner;
+ 
+     private SettingsCategory _selectedCategory;
+     private string _companyName = string.Empty;
+@@ -42,12 +43,14 @@ public sealed class SettingsViewModel : ObservableObject
+         IPrintTemplateStore printTemplates,
+         IDatabaseManagementService databaseManagement,
+         IPreferencesService preferences,
+-        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
++        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null,
++        ILabelDesignerService? labelDesigner = null)
+     {
+         _companyProfile = companyProfile ?? throw new ArgumentNullException(nameof(companyProfile));
+         _permissions = authorization;
+         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
+         _printTemplates = printTemplates ?? throw new ArgumentNullException(nameof(printTemplates));
++        _labelDesigner = labelDesigner;
+         Appearance = new AppearanceSettingsViewModel(
+             appearance ?? throw new ArgumentNullException(nameof(appearance)));
+         Database = new DatabaseSettingsViewModel(
+@@ -59,7 +62,7 @@ public sealed class SettingsViewModel : ObservableObject
+         var categories = new List<SettingsCategory>
+         {
+             new("general", "Thông tin chung"),
+-            new("receipt_template", "Mẫu in bill"),
++            new("receipt_template", "Mẫu in"),
+             new("appearance", "Giao diện")
+         };
+         if (IsAdminUser())
+@@ -78,6 +81,8 @@ public sealed class SettingsViewModel : ObservableObject
+             ImportReceiptTemplateAsync, () => !IsBusy && IsReceiptTemplateSelected);
+         ReloadReceiptTemplateCommand = new AsyncRelayCommand(
+             LoadReceiptTemplateSummaryAsync, () => !IsBusy && IsReceiptTemplateSelected);
++        OpenLabelDesignerCommand = new AsyncRelayCommand(
++            OpenLabelDesignerAsync, () => !IsBusy && IsReceiptTemplateSelected && _labelDesigner is not null);
+ 
+         ReceiptTemplateKinds =
+         [
+@@ -268,6 +273,7 @@ public sealed class SettingsViewModel : ObservableObject
+     public ICommand ExportReceiptTemplateCommand { get; }
+     public ICommand ImportReceiptTemplateCommand { get; }
+     public ICommand ReloadReceiptTemplateCommand { get; }
++    public ICommand OpenLabelDesignerCommand { get; }
+ 
+     private void SelectCategory(SettingsCategory? category)
+     {
+@@ -415,6 +421,32 @@ public sealed class SettingsViewModel : ObservableObject
+         }
+     }
+ 
++    private async Task OpenLabelDesignerAsync()
++    {
++        if (_labelDesigner is null)
++            return;
++        var session = _sessionAccessor.Current;
++        if (session is null)
++        {
++            ErrorMessage = "Chưa đăng nhập.";
++            return;
++        }
++
++        IsBusy = true;
++        try
++        {
++            await _labelDesigner.OpenDesignerAsync(session);
++        }
++        catch (Exception ex)
++        {
++            ErrorMessage = Sanitize(ex.Message);
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
+     private void ApplyReceiptTemplateInfo(PrintTemplateDto template)
+     {
+         ReceiptTemplateName = template.Name;
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesignerService.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesignerService.cs
+new file mode 100644
+index 0000000..1865c6a
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesignerService.cs
+@@ -0,0 +1,30 @@
++using System.Windows;
++using Kazuko.Core.Authentication;
++using Kazuko.Core.Printing;
++using Kazuko.Modules.Warehouse.LabelDesigner;
++
++namespace Kazuko.Modules.Warehouse;
++
++/// <summary>
++/// Mở designer sửa mẫu tem nữ trang (LabelDesignerDialog).
++/// </summary>
++public sealed class LabelDesignerService : ILabelDesignerService
++{
++    private readonly IPrintTemplateStore _templates;
++
++    public LabelDesignerService(IPrintTemplateStore templates)
++    {
++        _templates = templates;
++    }
++
++    public Task<bool> OpenDesignerAsync(AuthenticatedSession session)
++    {
++        var vm = new LabelDesignerViewModel(_templates, session);
++        var dialog = new LabelDesignerDialog(vm)
++        {
++            Owner = Application.Current?.MainWindow,
++        };
++        // ViewModel tự nạp template trong OnLoaded của dialog.
++        return Task.FromResult(dialog.ShowDialog() == true);
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs b/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs
+index ad5d56b..bc8d371 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs
+@@ -26,6 +26,10 @@ public sealed class WarehouseModule : IKazukoModule
+         var session = GetRequiredService<ICurrentSessionAccessor>(services);
+         services.AddSingleton<IExternalWorkerEditorService>(
+             new ExternalWorkerEditorService(workers, craft, session));
++
++        var templates = GetRequiredService<IPrintTemplateStore>(services);
++        services.AddSingleton<ILabelDesignerService>(
++            new LabelDesignerService(templates));
+     }
+ 
+     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
+-- 
+2.43.0
+
+
+From 135bd79bb314db8fbfbe5d7c5ff36efba6461ba4 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Mon, 19 Oct 2026 07:52:23 +0000
+Subject: [PATCH 4/5] feat(label-designer): fix nullability and resource lookup
+ issues
+
+---
+ .../LabelDesigner/LabelDesignerDialog.xaml.cs | 43 ++++++++++++-------
+ .../LabelDesigner/LabelDesignerViewModel.cs   |  1 +
+ 2 files changed, 28 insertions(+), 16 deletions(-)
+
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs
+index cfb0367..455c0e6 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerDialog.xaml.cs
+@@ -19,7 +19,8 @@ public partial class LabelDesignerDialog : Window
+     private readonly Dictionary<LabelDesignerObject, Border> _visuals = new();
+     private readonly List<Rectangle> _handles = new();
+ 
+-    private LabelDesignerViewModel? _vm;
++    private LabelDesignerViewModel? ViewModel => DataContext as LabelDesignerViewModel;
++
+     private LabelDesignerObject? _dragObject;
+     private ResizeHandleKind _resizeHandle;
+     private Point _dragStartScreen;
+@@ -53,15 +54,16 @@ public partial class LabelDesignerDialog : Window
+         };
+     }
+ 
+-    private LabelDesignerViewModel ViewModel => _vm ??= (LabelDesignerViewModel)DataContext;
+-
+     private double Scale => LabelDesignerViewModel.CanvasScale;
+ 
+     private async void OnLoaded(object sender, RoutedEventArgs e)
+     {
+-        await ViewModel.InitializeAsync();
++        var vm = ViewModel;
++        if (vm is null)
++            return;
++        await vm.InitializeAsync();
+         BuildCanvas();
+-        ViewModel.PropertyChanged += (_, args) =>
++        vm.PropertyChanged += (_, args) =>
+         {
+             if (args.PropertyName == nameof(LabelDesignerViewModel.SelectedObject))
+                 RefreshSelection();
+@@ -72,11 +74,15 @@ public partial class LabelDesignerDialog : Window
+ 
+     private void BuildCanvas()
+     {
++        var vm = ViewModel;
++        if (vm is null)
++            return;
++
+         DesignCanvas.Children.Clear();
+         _visuals.Clear();
+         _handles.Clear();
+ 
+-        foreach (var obj in ViewModel.Objects)
++        foreach (var obj in vm.Objects)
+         {
+             var border = new Border
+             {
+@@ -208,7 +214,7 @@ public partial class LabelDesignerDialog : Window
+         // Dựng lại nội dung (text/font/căn lề có thể đổi).
+         border.Child = obj.IsText ? CreateTextVisual(obj) : CreateBarcodeVisual(obj);
+         PositionVisual(obj, border);
+-        if (ViewModel.SelectedObject == obj)
++        if (ViewModel?.SelectedObject == obj)
+             ShowHandles(border);
+     }
+ 
+@@ -218,17 +224,18 @@ public partial class LabelDesignerDialog : Window
+ 
+     private void RefreshSelection()
+     {
+-        var accent = (Brush)FindResource("PrimaryBrush");
++        var vm = ViewModel;
++        var accent = (TryFindResource("PrimaryBrush") as Brush) ?? Brushes.Orange;
+         foreach (var (obj, border) in _visuals)
+-            border.BorderBrush = obj == ViewModel.SelectedObject ? accent : Brushes.Transparent;
++            border.BorderBrush = obj == vm?.SelectedObject ? accent : Brushes.Transparent;
+ 
+         // Xóa handles cũ.
+         foreach (var h in _handles)
+             DesignCanvas.Children.Remove(h);
+         _handles.Clear();
+ 
+-        if (ViewModel.SelectedObject is not null &&
+-            _visuals.TryGetValue(ViewModel.SelectedObject, out var selected))
++        if (vm?.SelectedObject is not null &&
++            _visuals.TryGetValue(vm.SelectedObject, out var selected))
+         {
+             ShowHandles(selected);
+         }
+@@ -240,7 +247,7 @@ public partial class LabelDesignerDialog : Window
+         double top = Canvas.GetTop(border);
+         double w = border.Width;
+         double h = border.Height;
+-        var accent = (Brush)FindResource("PrimaryBrush");
++        var accent = (TryFindResource("PrimaryBrush") as Brush) ?? Brushes.Orange;
+ 
+         var positions = new (double x, double y, ResizeHandleKind kind)[]
+         {
+@@ -291,8 +298,11 @@ public partial class LabelDesignerDialog : Window
+     {
+         if (sender is not Border border || border.Tag is not LabelDesignerObject obj)
+             return;
++        var vm = ViewModel;
++        if (vm is null)
++            return;
+ 
+-        ViewModel.SelectedObject = obj;
++        vm.SelectedObject = obj;
+         _dragObject = obj;
+         _dragStartScreen = e.GetPosition(DesignCanvas);
+         _dragStartLeft = Canvas.GetLeft(border);
+@@ -306,11 +316,12 @@ public partial class LabelDesignerDialog : Window
+     {
+         if (sender is not Rectangle rect || rect.Tag is not ResizeHandleKind kind)
+             return;
+-        if (ViewModel.SelectedObject is null ||
+-            !_visuals.TryGetValue(ViewModel.SelectedObject, out var border))
++        var vm = ViewModel;
++        if (vm?.SelectedObject is null ||
++            !_visuals.TryGetValue(vm.SelectedObject, out var border))
+             return;
+ 
+-        _dragObject = ViewModel.SelectedObject;
++        _dragObject = vm.SelectedObject;
+         _resizeHandle = kind;
+         _dragStartScreen = e.GetPosition(DesignCanvas);
+         _dragStartLeft = Canvas.GetLeft(border);
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs
+index 8e8cafc..b0cdb4e 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelDesigner/LabelDesignerViewModel.cs
+@@ -1,6 +1,7 @@
+ using System.Collections.ObjectModel;
+ using System.Data;
+ using System.IO;
++using System.Windows;
+ using System.Windows.Input;
+ using FastReport;
+ using FastReport.Barcode;
+-- 
+2.43.0
+
+
+From 749e7a06fb454a7c4b0e7ac8dfa82c0b20bb84d1 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Mon, 19 Oct 2026 07:52:39 +0000
+Subject: [PATCH 5/5] feat(label-designer): document label template designer
+
+---
+ docs/09-REPORTING.md | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/docs/09-REPORTING.md b/docs/09-REPORTING.md
+index 81dc848..beb2647 100644
+--- a/docs/09-REPORTING.md
++++ b/docs/09-REPORTING.md
+@@ -99,3 +99,17 @@ In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
+ | Chọn tem | Checkbox từng dòng trong bảng SP ("In tem đang chọn") hoặc tất cả ("In tem tất cả") |
+ | Máy in | Dialog chọn máy in hệ thống + số bản; nhớ máy in lần trước (`%LocalAppData%\KazukoERP\jewelry.label.printer.json`) |
+ | Dữ liệu | Tự động từ `ManualFinishedProductItem` (mã vạch, tên, loại vàng, TL, công, NCC...); tên/địa chỉ tiệm từ `ICompanyProfileService` |
++| Sửa mẫu | Tab **Mẫu in** trong Cài đặt → mục "Mẫu tem nữ trang 28x12" → nút **Sửa mẫu tem** mở designer kéo-thả |
++
++### Designer sửa mẫu tem
++
++Trình thiết kế trực quan cho mẫu tem nữ trang (tab **Mẫu in** trong Cài đặt):
++
++| Mục | Chi tiết |
++|---|---|
++| Backing store | FastReport object model: `Report.Load()` từ DB → sửa `TextObject`/`BarcodeObject` → `Report.Save()` → `IPrintTemplateStore.SaveAsync()` |
++| Canvas | Tỷ lệ 3x so với kích thước thật (86×12mm, 96dpi); click chọn, kéo di chuyển, kéo 8 góc/cạnh để resize |
++| Đối tượng | Chỉ text + barcode (theo phạm vi pipeline in vector) |
++| Panel thuộc tính | Text: nội dung, font, cỡ, đậm/nghiêng, căn lề, góc xoay; Barcode: cột dữ liệu; chung: X/Y/Rộng/Cao (mm) |
++| Xem trước | Render PNG bằng `ImageExport` với dữ liệu mẫu |
++| Mở designer | Qua `ILabelDesignerService` (Core) do module Kho implement — tránh dependency Dashboard → Warehouse |
+-- 
+2.43.0
+

@@ -1,0 +1,286 @@
+<Window x:Class="Kazuko.Modules.Warehouse.LabelDesigner.LabelDesignerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:fr="clr-namespace:FastReport;assembly=FastReport"
+        xmlns:local="clr-namespace:Kazuko.Modules.Warehouse.LabelDesigner"
+        Title="Sửa mẫu tem nữ trang"
+        Width="1200" Height="700"
+        MinWidth="900" MinHeight="550"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Themes/WarehouseResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <BooleanToVisibilityConverter x:Key="BoolToVis" />
+      <local:HorzAlignConverter x:Key="HorzAlignConverter" />
+      <local:VertAlignConverter x:Key="VertAlignConverter" />
+      <ObjectDataProvider x:Key="HorzAlignValues" MethodName="GetValues"
+                          ObjectType="{x:Type sys:Enum}">
+        <ObjectDataProvider.MethodParameters>
+          <x:Type TypeName="fr:HorzAlign" />
+        </ObjectDataProvider.MethodParameters>
+      </ObjectDataProvider>
+      <ObjectDataProvider x:Key="VertAlignValues" MethodName="GetValues"
+                          ObjectType="{x:Type sys:Enum}">
+        <ObjectDataProvider.MethodParameters>
+          <x:Type TypeName="fr:VertAlign" />
+        </ObjectDataProvider.MethodParameters>
+      </ObjectDataProvider>
+    </ResourceDictionary>
+  </Window.Resources>
+
+  <DockPanel Margin="12">
+    <!-- Toolbar trên -->
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+      <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+        <TextBlock Text="Sửa mẫu tem nữ trang 28x12"
+                   FontSize="{DynamicResource FontSize.Subtitle}"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+        <TextBlock Text="{Binding StatusMessage}"
+                   FontSize="{DynamicResource FontSize.Caption}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="0,2,0,0" />
+      </StackPanel>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button Content="Xem trước"
+                Command="{Binding PreviewCommand}"
+                Style="{StaticResource WhOutlineButtonStyle}"
+                MinWidth="110" MinHeight="40" Margin="0,0,8,0" />
+        <Button Content="Lưu mẫu"
+                Command="{Binding SaveCommand}"
+                Style="{StaticResource WhPrimaryButtonStyle}"
+                MinWidth="110" MinHeight="40" Margin="0,0,8,0" IsDefault="True" />
+        <Button Content="Hủy"
+                Command="{Binding CancelCommand}"
+                Style="{StaticResource WhOutlineButtonStyle}"
+                MinWidth="90" MinHeight="40" IsCancel="True" />
+      </StackPanel>
+    </DockPanel>
+
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="320" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Canvas thiết kế -->
+      <Border Grid.Column="0" Margin="0,0,12,0"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+              Background="{DynamicResource SurfaceBrush}"
+              CornerRadius="4">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="24">
+          <Canvas x:Name="DesignCanvas"
+                  Width="{Binding CanvasWidth}"
+                  Height="{Binding CanvasHeight}"
+                  Background="White" />
+        </ScrollViewer>
+      </Border>
+
+      <!-- Panel thuộc tính -->
+      <Border Grid.Column="1"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+              Background="{DynamicResource SurfaceBrush}"
+              CornerRadius="4" Padding="12">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Text="Danh sách đối tượng"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       Margin="0,0,0,6" />
+            <ListBox ItemsSource="{Binding Objects}"
+                     SelectedItem="{Binding SelectedObject}"
+                     DisplayMemberPath="DisplayName"
+                     MinHeight="80" MaxHeight="160"
+                     Margin="0,0,0,12" />
+
+            <StackPanel x:Name="NoSelectionPanel">
+              <TextBlock Text="Chọn một đối tượng trên canvas để sửa thuộc tính."
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="{DynamicResource FontSize.Caption}" />
+              <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                  <Setter Property="Visibility" Value="Collapsed" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding SelectedObject}" Value="{x:Null}">
+                      <Setter Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </StackPanel.Style>
+            </StackPanel>
+
+            <StackPanel x:Name="PropsPanel">
+              <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                  <Setter Property="Visibility" Value="Visible" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding SelectedObject}" Value="{x:Null}">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </StackPanel.Style>
+
+              <TextBlock Text="{Binding SelectedObject.DisplayName, StringFormat='{}{0}'}"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource PrimaryBrush}"
+                         Margin="0,0,0,8" />
+
+              <!-- Vị trí / kích thước (mm) -->
+              <TextBlock Text="Vị trí và kích thước (mm)" FontWeight="SemiBold"
+                         Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+              <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="X" Grid.Row="0" Grid.Column="0"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Caption}" />
+                <TextBox Text="{Binding SelectedObject.LeftMm, StringFormat='{}{0:F1}'}"
+                         Grid.Row="1" Grid.Column="0" MinHeight="36" Margin="0,2,4,6" />
+                <TextBlock Text="Y" Grid.Row="0" Grid.Column="1"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Caption}" />
+                <TextBox Text="{Binding SelectedObject.TopMm, StringFormat='{}{0:F1}'}"
+                         Grid.Row="1" Grid.Column="1" MinHeight="36" Margin="4,2,0,6" />
+                <TextBlock Text="Rộng" Grid.Row="2" Grid.Column="0"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Caption}" />
+                <TextBox Text="{Binding SelectedObject.WidthMm, StringFormat='{}{0:F1}'}"
+                         Grid.Row="3" Grid.Column="0" MinHeight="36" Margin="0,2,4,0" />
+                <TextBlock Text="Cao" Grid.Row="2" Grid.Column="1"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Caption}" />
+                <TextBox Text="{Binding SelectedObject.HeightMm, StringFormat='{}{0:F1}'}"
+                         Grid.Row="3" Grid.Column="1" MinHeight="36" Margin="4,2,0,0" />
+              </Grid>
+
+              <!-- Thuộc tính chữ -->
+              <StackPanel x:Name="TextPropsPanel" Margin="0,0,0,12">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding SelectedObject.IsText}" Value="True">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+
+                <TextBlock Text="Nội dung" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding SelectedObject.Text, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,8" />
+
+                <TextBlock Text="Font chữ" Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Caption}" />
+                <ComboBox x:Name="FontFamilyCombo"
+                          SelectedItem="{Binding SelectedObject.FontFamilyName}"
+                          MinHeight="36" Margin="0,2,0,8" />
+
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                    <TextBlock Text="Cỡ chữ (pt)" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding SelectedObject.FontSize, StringFormat='{}{0:F1}'}"
+                             MinHeight="36" Margin="0,2,0,0" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                    <TextBlock Text="Góc xoay (độ)" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Caption}" />
+                    <TextBox Text="{Binding SelectedObject.Angle, StringFormat='{}{0:F0}'}"
+                             MinHeight="36" Margin="0,2,0,0" />
+                  </StackPanel>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                  <CheckBox Content="Đậm" IsChecked="{Binding SelectedObject.Bold}"
+                            VerticalContentAlignment="Center" Margin="0,0,16,0" />
+                  <CheckBox Content="Nghiêng" IsChecked="{Binding SelectedObject.Italic}"
+                            VerticalContentAlignment="Center" />
+                </StackPanel>
+
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                    <TextBlock Text="Căn ngang" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Caption}" />
+                    <ComboBox ItemsSource="{StaticResource HorzAlignValues}"
+                              SelectedItem="{Binding SelectedObject.HorzAlign}"
+                              MinHeight="36" Margin="0,2,0,0">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Converter={StaticResource HorzAlignConverter}}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                    <TextBlock Text="Căn dọc" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="{DynamicResource FontSize.Caption}" />
+                    <ComboBox ItemsSource="{StaticResource VertAlignValues}"
+                              SelectedItem="{Binding SelectedObject.VertAlign}"
+                              MinHeight="36" Margin="0,2,0,0">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Converter={StaticResource VertAlignConverter}}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+
+              <!-- Thuộc tính mã vạch -->
+              <StackPanel x:Name="BarcodePropsPanel">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding SelectedObject.IsBarcode}" Value="True">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+
+                <TextBlock Text="Cột dữ liệu" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding SelectedObject.DataColumn, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="36" Margin="0,0,0,6" />
+                <TextBlock Text="Ví dụ: DataSet.MAVACH. Loại mã vạch cố định là Code128."
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource FontSize.Caption}" />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

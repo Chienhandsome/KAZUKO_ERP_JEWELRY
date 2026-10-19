@@ -26,6 +26,10 @@ public sealed class WarehouseModule : IKazukoModule
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
         services.AddSingleton<IExternalWorkerEditorService>(
             new ExternalWorkerEditorService(workers, craft, session));
+
+        var templates = GetRequiredService<IPrintTemplateStore>(services);
+        services.AddSingleton<ILabelDesignerService>(
+            new LabelDesignerService(templates));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
