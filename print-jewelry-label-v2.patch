@@ -1,0 +1,997 @@
+From cfa3ea1ef9049d03ab0477b3ae24b9552862e21f Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Mon, 19 Oct 2026 13:39:09 +0700
+Subject: [PATCH] fix: add missing using System.IO
+
+---
+ docs/09-REPORTING.md                          |  14 ++
+ src/Assets/examples/tem_nu_trang_28x12.frx    |  68 +++++++
+ .../Printing/PrintTemplateContracts.cs        |   3 +
+ .../Kazuko.Infrastructure.csproj              |   3 +
+ .../Printing/FirebirdPrintTemplateStore.cs    |   4 +
+ .../FinishedGoodsLabelPrintService.cs         | 178 ++++++++++++++++++
+ .../Kazuko.Modules.Warehouse.csproj           |   4 +
+ .../LabelPrintDialog.xaml                     |  53 ++++++
+ .../LabelPrintDialog.xaml.cs                  |  21 +++
+ .../LabelPrintDialogViewModel.cs              |  95 ++++++++++
+ .../LabelPrinterPreferences.cs                |  58 ++++++
+ .../ProductionFinishedReceiptDialog.xaml      |  20 +-
+ .../ProductionFinishedReceiptDialog.xaml.cs   |  16 ++
+ ...roductionFinishedReceiptDialogViewModel.cs | 148 ++++++++++++++-
+ .../WarehouseModule.cs                        |   9 +-
+ .../WarehouseViewModel.cs                     |  12 +-
+ 16 files changed, 688 insertions(+), 18 deletions(-)
+ create mode 100644 src/Assets/examples/tem_nu_trang_28x12.frx
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/FinishedGoodsLabelPrintService.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialogViewModel.cs
+ create mode 100644 src/Modules/Kazuko.Modules.Warehouse/LabelPrinterPreferences.cs
+
+diff --git a/docs/09-REPORTING.md b/docs/09-REPORTING.md
+index c13b8d9..a04d76a 100644
+--- a/docs/09-REPORTING.md
++++ b/docs/09-REPORTING.md
+@@ -84,3 +84,17 @@ Nếu thiếu `.frx` báo cáo A4 lúc chạy, app tự tạo mẫu mặc địn
+ | `reports.warehouse.jewelry_on_hand` | `jewelry_on_hand_v3.frx` |
+ | `reports.warehouse.jewelry_on_hand_summary` | `jewelry_on_hand_summary_v1.frx` |
+ | Bill bán hàng (Sales) | `SALES_RECEIPT_A5` trong `PRINT_TEMPLATES` |
++| Tem nữ trang 28x12 (Warehouse) | `TEM_NU_TRANG_28x12` trong `PRINT_TEMPLATES` |
++
++## Tem nữ trang 28x12
++
++In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
++
++| Mục | Chi tiết |
++|---|---|
++| Mã mẫu | `TEM_NU_TRANG_28x12` trong `PRINT_TEMPLATES` |
++| Seed mặc định | Embedded `tem_nu_trang_28x12.frx` |
++| Runtime in | `FinishedGoodsLabelPrintService` — load BLOB → bind DataTable `DataSet` → `ImageExport` PNG 300DPI → `PrintDocument` |
++| Chọn tem | Checkbox từng dòng trong bảng SP ("In tem đang chọn") hoặc tất cả ("In tem tất cả") |
++| Máy in | Dialog chọn máy in hệ thống + số bản; nhớ máy in lần trước (`%LocalAppData%\KazukoERP\jewelry.label.printer.json`) |
++| Dữ liệu | Tự động từ `ManualFinishedProductItem` (mã vạch, tên, loại vàng, TL, công, NCC...); tên/địa chỉ tiệm từ `ICompanyProfileService` |
+diff --git a/src/Assets/examples/tem_nu_trang_28x12.frx b/src/Assets/examples/tem_nu_trang_28x12.frx
+new file mode 100644
+index 0000000..4e1f2ce
+--- /dev/null
++++ b/src/Assets/examples/tem_nu_trang_28x12.frx
+@@ -0,0 +1,68 @@
++﻿<?xml version="1.0" encoding="utf-8"?>
++<Report ReportInfo.Created="05/16/2014 00:11:31" ReportInfo.Modified="10/06/2026 15:27:42" ReportInfo.CreatorVersion="1.2.47.0">
++  <Dictionary>
++    <TableDataSource Name="DataSet" ReferenceName="Data.DataSet" DataType="System.Int32" Enabled="true">
++      <Column Name="NGAYNHAP" DataType="System.DateTime"/>
++      <Column Name="MAVACH" DataType="System.String"/>
++      <Column Name="THANHTIEN" DataType="System.Decimal"/>
++      <Column Name="TUOI" DataType="System.Decimal"/>
++      <Column Name="DONGIA" DataType="System.Decimal"/>
++      <Column Name="LOAIVANG" DataType="System.String"/>
++      <Column Name="QUAY" DataType="System.String"/>
++      <Column Name="CONGNHAP" DataType="System.Decimal"/>
++      <Column Name="CONGBAN" DataType="System.Decimal"/>
++      <Column Name="TONGTRONGLUONG" DataType="System.Decimal"/>
++      <Column Name="TRONGLUONGVANG" DataType="System.Decimal"/>
++      <Column Name="TRONGLUONGHOT" DataType="System.Decimal"/>
++      <Column Name="TONGTRONGLUONG_LI" DataType="System.Decimal"/>
++      <Column Name="TRONGLUONGVANG_LI" DataType="System.Decimal"/>
++      <Column Name="TRONGLUONGHOT_LI" DataType="System.Decimal"/>
++      <Column Name="TRONGLUONGVANG_CHUOI" DataType="System.String"/>
++      <Column Name="DMATHANGID" DataType="System.String"/>
++      <Column Name="TENHANG" DataType="System.String"/>
++      <Column Name="NOTE" DataType="System.String"/>
++      <Column Name="CONGNHAP_NGHIN" DataType="System.Int32"/>
++      <Column Name="CONGBAN_NGHIN" DataType="System.Int32"/>
++      <Column Name="NHACUNGCAP" DataType="System.String"/>
++      <Column Name="TRONGLUONGVANG_CHUOI2" DataType="System.String"/>
++      <Column Name="THUONGHIEU" DataType="System.String"/>
++      <Column Name="MANHACUNGCAP" DataType="System.String"/>
++      <Column Name="KYHIEU" DataType="System.String"/>
++      <Column Name="CONGSI" DataType="System.Decimal"/>
++      <Column Name="CONGSI_NGHIN" DataType="System.Int32"/>
++      <Column Name="TONGTRONGLUONG_DEM" DataType="System.Decimal"/>
++      <Column Name="TRONGLUONGVANG_DEM" DataType="System.Decimal"/>
++      <Column Name="TRONGLUONGHOT_DEM" DataType="System.Decimal"/>
++      <Column Name="TONGTRONGLUONG_CHUOI" DataType="System.String"/>
++      <Column Name="TRONGLUONGHOT_CHUOI" DataType="System.String"/>
++      <Column Name="DIACHINCC" DataType="System.String"/>
++      <Column Name="TIENDABAN_NGHIN" DataType="System.Int32"/>
++      <Column Name="TIENDANHAP_NGHIN" DataType="System.Int32"/>
++      <Column Name="GIABAN_NGHIN" DataType="System.Int32"/>
++      <Column Name="GIABAN" DataType="System.Decimal"/>
++      <Column Name="TIENDABAN" DataType="System.Decimal"/>
++      <Column Name="TIENDANHAP" DataType="System.Decimal"/>
++      <Column Name="THANHTIENBAN" DataType="System.Decimal"/>
++      <Column Name="MAHIEU" DataType="System.String"/>
++      <Column Name="TCCS" DataType="System.String"/>
++    </TableDataSource>
++  </Dictionary>
++  <ReportPage Name="Page1" PaperWidth="86" PaperHeight="12" LeftMargin="0" TopMargin="0" RightMargin="0" BottomMargin="0">
++    <DataBand Name="Data1" Width="325.08" Height="45.36" DataSource="DataSet" Indent="45.36">
++      <TextObject Name="Text3" Left="92.57" Top="4.07" Width="11.45" Height="37.83" Text="HLV : [DataSet.LOAIVANG]" AutoShrink="FontSize" Angle="90" Font="Arial, 6pt, style=Bold"/>
++      <BarcodeObject Name="Barcode1" Left="112.3" Top="14.45" Width="91.17" Height="11.22" AutoSize="false" DataColumn="DataSet.MAVACH" Text="1D400005" ShowText="false" Barcode="Code128" Barcode.AutoEncode="true"/>
++      <TextObject Name="Text1" Left="108.4" Top="1.96" Width="102.15" Height="9.25" Text="[Tên tiệm]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold"/>
++      <TextObject Name="Text4" Left="1" Top="2.32" Width="90.25" Height="14.29" CanBreak="false" Text="[DataSet.TENHANG]" AutoShrink="FontSize" VertAlign="Center" WordWrap="false" Font="Bahnschrift Condensed, 8pt, style=Bold"/>
++      <TextObject Name="Text5" Left="2" Top="12.45" Width="88.88" Height="8" Text="TKL:[DataSet.TONGTRONGLUONG_CHUOI]  H-: [DataSet.TRONGLUONGHOT]" AutoShrink="FontWidth" Font="Arial, 6pt, style=Bold"/>
++      <TextObject Name="Text6" Left="2" Top="19.8" Width="78.82" Height="11.34" Text="KLV: [DataSet.TRONGLUONGVANG_CHUOI]" AutoShrink="FontWidth" Font="Arial, 8pt, style=Bold"/>
++      <TextObject Name="Text7" Left="2" Top="29.8" Width="59.07" Height="9.45" Text="C:[DataSet.CONGBAN]" Format="Currency" Format.UseLocale="false" Format.DecimalDigits="0" Format.DecimalSeparator="," Format.GroupSeparator="." Format.CurrencySymbol="₫" Format.PositivePattern="3" Format.NegativePattern="8" AutoShrink="FontWidth" Font="Arial, 7pt, style=Bold"/>
++      <TextObject Name="Text9" Left="108.2" Top="32.35" Width="101.29" Height="5.96" Text="NCC:[DataSet.NHACUNGCAP]" AutoShrink="FontWidth" VertAlign="Center" Font="Arial, 4pt, style=Bold"/>
++      <TextObject Name="Text10" Left="108.4" Top="9.02" Width="102.48" Height="6.1" Text="[DiaChiDoanhNghiep]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial Narrow, 4pt, style=Bold"/>
++      <TextObject Name="Text12" Left="108.2" Top="37.55" Width="101.2" Height="6.8" Text="[DataSet.DIACHINCC]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 4pt, style=Bold"/>
++      <TextObject Name="Text13" Left="164.11" Top="26.36" Width="42.12" Height="6.52" Text="TCCS: [DataSet.TCCS]" AutoShrink="FontWidth" VertAlign="Center" Font="Arial, 4pt, style=Bold"/>
++      <TextObject Name="Text14" Left="112.1" Top="26.39" Width="48.08" Height="6.52" Text="[DataSet.MAVACH]" AutoShrink="FontWidth" VertAlign="Center" Font="Arial, 4pt, style=Bold"/>
++      <TextObject Name="Text15" Left="64.15" Top="30.35" Width="29.9" Height="7.71" Text="KH:[DataSet.KYHIEU]" Format="Currency" Format.UseLocale="false" Format.DecimalDigits="0" Format.DecimalSeparator="," Format.GroupSeparator="." Format.CurrencySymbol="₫" Format.PositivePattern="3" Format.NegativePattern="8" AutoShrink="FontWidth" Font="Arial, 5pt, style=Bold"/>
++      <TextObject Name="Text16" Left="45.25" Top="37.77" Width="58.02" Height="5.62" Text="Xuất xứ : Vietnam" Format="Currency" Format.UseLocale="false" Format.DecimalDigits="0" Format.DecimalSeparator="," Format.GroupSeparator="." Format.CurrencySymbol="₫" Format.PositivePattern="3" Format.NegativePattern="8" AutoShrink="FontWidth" Font="Arial, 4pt, style=Bold"/>
++    </DataBand>
++  </ReportPage>
++</Report>
+diff --git a/src/Kazuko.Core/Printing/PrintTemplateContracts.cs b/src/Kazuko.Core/Printing/PrintTemplateContracts.cs
+index 6af3b27..c4b7e2b 100644
+--- a/src/Kazuko.Core/Printing/PrintTemplateContracts.cs
++++ b/src/Kazuko.Core/Printing/PrintTemplateContracts.cs
+@@ -10,6 +10,9 @@ public static class PrintTemplateCodes
+ 
+     /// <summary>Bill A5 dọc (portrait).</summary>
+     public const string SalesReceiptA5Portrait = "SALES_RECEIPT_A5_PORTRAIT";
++
++    /// <summary>Tem nữ trang 28x12 (máy in tem nhiệt).</summary>
++    public const string JewelryLabel28x12 = "TEM_NU_TRANG_28x12";
+ }
+ 
+ /// <summary>Orientation for sales receipt print (local preference).</summary>
+diff --git a/src/Kazuko.Infrastructure/Kazuko.Infrastructure.csproj b/src/Kazuko.Infrastructure/Kazuko.Infrastructure.csproj
+index e6b4455..12dc516 100644
+--- a/src/Kazuko.Infrastructure/Kazuko.Infrastructure.csproj
++++ b/src/Kazuko.Infrastructure/Kazuko.Infrastructure.csproj
+@@ -20,5 +20,8 @@
+     <EmbeddedResource Include="..\Assets\examples\phoi_a5_doc.frx"
+                       Link="PrintTemplates\phoi_a5_doc.frx"
+                       LogicalName="Kazuko.Infrastructure.PrintTemplates.phoi_a5_doc.frx" />
++    <EmbeddedResource Include="..\Assets\examples\tem_nu_trang_28x12.frx"
++                      Link="PrintTemplates\tem_nu_trang_28x12.frx"
++                      LogicalName="Kazuko.Infrastructure.PrintTemplates.tem_nu_trang_28x12.frx" />
+   </ItemGroup>
+ </Project>
+diff --git a/src/Kazuko.Infrastructure/Printing/FirebirdPrintTemplateStore.cs b/src/Kazuko.Infrastructure/Printing/FirebirdPrintTemplateStore.cs
+index 19e7ab9..e1a6d90 100644
+--- a/src/Kazuko.Infrastructure/Printing/FirebirdPrintTemplateStore.cs
++++ b/src/Kazuko.Infrastructure/Printing/FirebirdPrintTemplateStore.cs
+@@ -21,6 +21,10 @@ public sealed class FirebirdPrintTemplateStore : IPrintTemplateStore
+                 "Kazuko.Infrastructure.PrintTemplates.phoi_a5_doc.frx",
+                 "Bill bán hàng A5 dọc",
+                 "Seed từ phoi_a5_doc.frx"),
++            [PrintTemplateCodes.JewelryLabel28x12] = new(
++                "Kazuko.Infrastructure.PrintTemplates.tem_nu_trang_28x12.frx",
++                "Tem nữ trang 28x12",
++                "Seed từ tem_nu_trang_28x12.frx"),
+         };
+ 
+     public async Task<PrintTemplateDto> GetByCodeAsync(
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/FinishedGoodsLabelPrintService.cs b/src/Modules/Kazuko.Modules.Warehouse/FinishedGoodsLabelPrintService.cs
+new file mode 100644
+index 0000000..a4470fa
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/FinishedGoodsLabelPrintService.cs
+@@ -0,0 +1,178 @@
++using System.IO;
++using System.Data;
++using System.Globalization;
++using FastReport;
++using Kazuko.Core.Authentication;
++using Kazuko.Core.Printing;
++using Kazuko.Core.Production;
++
++namespace Kazuko.Modules.Warehouse;
++
++/// <summary>
++/// In tem nữ trang 28x12 cho sản phẩm nhập kho thành phẩm.
++/// Template lấy từ PRINT_TEMPLATES (mã TEM_NU_TRANG_28x12), dữ liệu tự động từ thông tin SP.
++/// </summary>
++public sealed class FinishedGoodsLabelPrintService
++{
++    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
++
++    private readonly IPrintTemplateStore _templates;
++
++    public FinishedGoodsLabelPrintService(IPrintTemplateStore templates)
++    {
++        _templates = templates;
++    }
++
++    public async Task<Report> CreatePreparedReportAsync(
++        IReadOnlyList<ManualFinishedProductItem> items,
++        DateTime receiptDate,
++        AuthenticatedSession session,
++        string shopName,
++        string shopAddress,
++        CancellationToken cancellationToken = default)
++    {
++        ArgumentNullException.ThrowIfNull(items);
++        ArgumentNullException.ThrowIfNull(session);
++
++        var template = await _templates.GetByCodeAsync(
++            PrintTemplateCodes.JewelryLabel28x12, session, cancellationToken);
++
++        var report = new Report();
++        using (var stream = new MemoryStream(template.Content))
++            report.Load(stream);
++
++        var table = BuildLabelTable(items, receiptDate);
++        RegisterTable(report, table, "DataSet");
++
++        SetParameter(report, "Tên tiệm", shopName);
++        SetParameter(report, "DiaChiDoanhNghiep", shopAddress);
++
++        report.Prepare();
++        return report;
++    }
++
++    private static DataTable BuildLabelTable(
++        IReadOnlyList<ManualFinishedProductItem> items, DateTime receiptDate)
++    {
++        var table = new DataTable();
++        table.Columns.Add("NGAYNHAP", typeof(DateTime));
++        table.Columns.Add("MAVACH", typeof(string));
++        table.Columns.Add("THANHTIEN", typeof(decimal));
++        table.Columns.Add("TUOI", typeof(decimal));
++        table.Columns.Add("DONGIA", typeof(decimal));
++        table.Columns.Add("LOAIVANG", typeof(string));
++        table.Columns.Add("QUAY", typeof(string));
++        table.Columns.Add("CONGNHAP", typeof(decimal));
++        table.Columns.Add("CONGBAN", typeof(decimal));
++        table.Columns.Add("TONGTRONGLUONG", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG", typeof(decimal));
++        table.Columns.Add("TRONGLUONGHOT", typeof(decimal));
++        table.Columns.Add("TONGTRONGLUONG_LI", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG_LI", typeof(decimal));
++        table.Columns.Add("TRONGLUONGHOT_LI", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG_CHUOI", typeof(string));
++        table.Columns.Add("DMATHANGID", typeof(string));
++        table.Columns.Add("TENHANG", typeof(string));
++        table.Columns.Add("NOTE", typeof(string));
++        table.Columns.Add("CONGNHAP_NGHIN", typeof(int));
++        table.Columns.Add("CONGBAN_NGHIN", typeof(int));
++        table.Columns.Add("NHACUNGCAP", typeof(string));
++        table.Columns.Add("TRONGLUONGVANG_CHUOI2", typeof(string));
++        table.Columns.Add("THUONGHIEU", typeof(string));
++        table.Columns.Add("MANHACUNGCAP", typeof(string));
++        table.Columns.Add("KYHIEU", typeof(string));
++        table.Columns.Add("CONGSI", typeof(decimal));
++        table.Columns.Add("CONGSI_NGHIN", typeof(int));
++        table.Columns.Add("TONGTRONGLUONG_DEM", typeof(decimal));
++        table.Columns.Add("TRONGLUONGVANG_DEM", typeof(decimal));
++        table.Columns.Add("TRONGLUONGHOT_DEM", typeof(decimal));
++        table.Columns.Add("TONGTRONGLUONG_CHUOI", typeof(string));
++        table.Columns.Add("TRONGLUONGHOT_CHUOI", typeof(string));
++        table.Columns.Add("DIACHINCC", typeof(string));
++        table.Columns.Add("TIENDABAN_NGHIN", typeof(int));
++        table.Columns.Add("TIENDANHAP_NGHIN", typeof(int));
++        table.Columns.Add("GIABAN_NGHIN", typeof(int));
++        table.Columns.Add("GIABAN", typeof(decimal));
++        table.Columns.Add("TIENDABAN", typeof(decimal));
++        table.Columns.Add("TIENDANHAP", typeof(decimal));
++        table.Columns.Add("THANHTIENBAN", typeof(decimal));
++        table.Columns.Add("MAHIEU", typeof(string));
++        table.Columns.Add("TCCS", typeof(string));
++
++        foreach (var item in items)
++        {
++            var laborSale = item.SaleLaborCost ?? item.CraftLaborCost ?? 0m;
++            var laborPurchase = item.PurchaseLaborCost ?? 0m;
++            var row = table.NewRow();
++            row["NGAYNHAP"] = receiptDate;
++            row["MAVACH"] = item.BarcodeValue;
++            row["THANHTIEN"] = item.SalePrice ?? 0m;
++            row["TUOI"] = 0m;
++            row["DONGIA"] = 0m;
++            row["LOAIVANG"] = item.GoldPurityCode ?? string.Empty;
++            row["QUAY"] = string.Empty;
++            row["CONGNHAP"] = laborPurchase;
++            row["CONGBAN"] = laborSale;
++            row["TONGTRONGLUONG"] = item.TotalWeight;
++            row["TRONGLUONGVANG"] = item.GoldWeight;
++            row["TRONGLUONGHOT"] = item.StoneWeight;
++            row["TONGTRONGLUONG_LI"] = 0m;
++            row["TRONGLUONGVANG_LI"] = 0m;
++            row["TRONGLUONGHOT_LI"] = 0m;
++            row["TRONGLUONGVANG_CHUOI"] = FormatChi(item.GoldWeight);
++            row["DMATHANGID"] = item.ProductGroup ?? string.Empty;
++            row["TENHANG"] = item.ProductName;
++            row["NOTE"] = item.Notes ?? string.Empty;
++            row["CONGNHAP_NGHIN"] = (int)(laborPurchase / 1000m);
++            row["CONGBAN_NGHIN"] = (int)(laborSale / 1000m);
++            row["NHACUNGCAP"] = item.SupplierName ?? string.Empty;
++            row["TRONGLUONGVANG_CHUOI2"] = FormatChi(item.GoldWeight);
++            row["THUONGHIEU"] = string.Empty;
++            row["MANHACUNGCAP"] = string.Empty;
++            row["KYHIEU"] = item.SymbolCode ?? string.Empty;
++            row["CONGSI"] = 0m;
++            row["CONGSI_NGHIN"] = 0;
++            row["TONGTRONGLUONG_DEM"] = 0m;
++            row["TRONGLUONGVANG_DEM"] = 0m;
++            row["TRONGLUONGHOT_DEM"] = 0m;
++            row["TONGTRONGLUONG_CHUOI"] = FormatChi(item.TotalWeight);
++            row["TRONGLUONGHOT_CHUOI"] = FormatChi(item.StoneWeight);
++            row["DIACHINCC"] = string.Empty;
++            row["TIENDABAN_NGHIN"] = 0;
++            row["TIENDANHAP_NGHIN"] = 0;
++            row["GIABAN_NGHIN"] = (int)((item.SalePrice ?? 0m) / 1000m);
++            row["GIABAN"] = item.SalePrice ?? 0m;
++            row["TIENDABAN"] = 0m;
++            row["TIENDANHAP"] = 0m;
++            row["THANHTIENBAN"] = item.SalePrice ?? 0m;
++            row["MAHIEU"] = item.ModelCode ?? string.Empty;
++            row["TCCS"] = string.Empty;
++            table.Rows.Add(row);
++        }
++
++        return table;
++    }
++
++    private static string FormatChi(decimal weight)
++        => weight.ToString("0.####", Vi) + " chỉ";
++
++    private static void RegisterTable(Report report, DataTable table, string name)
++    {
++        var existing = report.Dictionary.FindByName(name);
++        if (existing is not null)
++            existing.Dispose();
++
++        report.RegisterData(table, name);
++        var dataSource = report.GetDataSource(name);
++        if (dataSource is not null)
++            dataSource.Enabled = true;
++    }
++
++    private static void SetParameter(Report report, string name, object value)
++    {
++        var param = report.Parameters.FindByName(name);
++        if (param is not null)
++            param.DataType = value.GetType();
++        report.SetParameterValue(name, value);
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/Kazuko.Modules.Warehouse.csproj b/src/Modules/Kazuko.Modules.Warehouse/Kazuko.Modules.Warehouse.csproj
+index de47147..0648c6f 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/Kazuko.Modules.Warehouse.csproj
++++ b/src/Modules/Kazuko.Modules.Warehouse/Kazuko.Modules.Warehouse.csproj
+@@ -7,6 +7,10 @@
+     <ProjectReference Include="..\..\Kazuko.Core\Kazuko.Core.csproj" />
+     <ProjectReference Include="..\..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
+   </ItemGroup>
++  <ItemGroup>
++    <PackageReference Include="FastReport.OpenSource" Version="2025.2.0" />
++    <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
++  </ItemGroup>
+   <ItemGroup>
+     <Resource Include="..\..\Assets\icons\KHO.png">
+       <Link>Assets\icons\KHO.png</Link>
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml
+new file mode 100644
+index 0000000..083abe3
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml
+@@ -0,0 +1,53 @@
++<Window x:Class="Kazuko.Modules.Warehouse.LabelPrintDialog"
++        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++        Title="In tem nữ trang"
++        Width="460" SizeToContent="Height" MinWidth="420"
++        WindowStartupLocation="CenterOwner"
++        ShowInTaskbar="False"
++        ResizeMode="NoResize"
++        Background="{DynamicResource AppBackgroundBrush}">
++  <Window.Resources>
++    <ResourceDictionary>
++      <ResourceDictionary.MergedDictionaries>
++        <ResourceDictionary Source="Themes/WarehouseResources.xaml" />
++      </ResourceDictionary.MergedDictionaries>
++    </ResourceDictionary>
++  </Window.Resources>
++
++  <DockPanel Margin="16">
++    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
++      <Button Content="Hủy" Style="{StaticResource WhOutlineButtonStyle}"
++              Command="{Binding CancelCommand}" MinHeight="40" IsCancel="True" Margin="0,0,8,0" />
++      <Button Content="In" Style="{StaticResource WhPrimaryButtonStyle}"
++              Command="{Binding PrintCommand}" MinHeight="40" IsDefault="True" />
++    </StackPanel>
++
++    <StackPanel>
++      <TextBlock Text="In tem nữ trang"
++                 FontSize="{DynamicResource FontSize.Subtitle}"
++                 FontWeight="SemiBold"
++                 Foreground="{DynamicResource TextPrimaryBrush}"
++                 Margin="0,0,0,4" />
++      <TextBlock Text="{Binding SummaryText}"
++                 Foreground="{DynamicResource TextSecondaryBrush}"
++                 FontSize="{DynamicResource FontSize.Caption}"
++                 TextWrapping="Wrap"
++                 Margin="0,0,0,12" />
++
++      <TextBlock Text="Máy in" Style="{StaticResource WhFieldLabelStyle}" />
++      <ComboBox ItemsSource="{Binding Printers}"
++                SelectedItem="{Binding SelectedPrinter}"
++                MinHeight="40" Margin="0,4,0,12" />
++
++      <TextBlock Text="Số bản in" Style="{StaticResource WhFieldLabelStyle}" />
++      <TextBox Text="{Binding CopiesText, UpdateSourceTrigger=PropertyChanged}"
++               MinHeight="40" Margin="0,4,0,0" />
++
++      <TextBlock Text="{Binding ErrorMessage}"
++                 Foreground="{DynamicResource DangerBrush}"
++                 TextWrapping="Wrap"
++                 Margin="0,8,0,0" />
++    </StackPanel>
++  </DockPanel>
++</Window>
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml.cs
+new file mode 100644
+index 0000000..7de0f59
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialog.xaml.cs
+@@ -0,0 +1,21 @@
++using System.ComponentModel;
++using System.Windows;
++
++namespace Kazuko.Modules.Warehouse;
++
++public partial class LabelPrintDialog : Window
++{
++    public LabelPrintDialog(LabelPrintDialogViewModel viewModel)
++    {
++        InitializeComponent();
++        DataContext = viewModel;
++        viewModel.PropertyChanged += OnViewModelPropertyChanged;
++    }
++
++    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
++    {
++        if (e.PropertyName == nameof(LabelPrintDialogViewModel.DialogResult)
++            && DataContext is LabelPrintDialogViewModel { DialogResult: not null } vm)
++            DialogResult = vm.DialogResult;
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialogViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialogViewModel.cs
+new file mode 100644
+index 0000000..b6adc90
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelPrintDialogViewModel.cs
+@@ -0,0 +1,95 @@
++using System.Collections.ObjectModel;
++using System.Drawing.Printing;
++using System.Windows.Input;
++using Kazuko.Core.Mvvm;
++
++namespace Kazuko.Modules.Warehouse;
++
++/// <summary>Dialog chọn máy in tem + số bản in.</summary>
++public sealed class LabelPrintDialogViewModel : ObservableObject
++{
++    private string? _selectedPrinter;
++    private string _copiesText = "1";
++    private string _errorMessage = string.Empty;
++    private bool? _dialogResult;
++
++    public LabelPrintDialogViewModel(int itemCount)
++    {
++        Printers = new ObservableCollection<string>();
++        foreach (string printer in PrinterSettings.InstalledPrinters)
++            Printers.Add(printer);
++
++        var lastPrinter = LabelPrinterPreferences.LoadPrinterName();
++        _selectedPrinter = !string.IsNullOrWhiteSpace(lastPrinter) && Printers.Contains(lastPrinter)
++            ? lastPrinter
++            : Printers.FirstOrDefault();
++
++        SummaryText = $"In tem cho {itemCount} sản phẩm đã chọn.";
++
++        PrintCommand = new RelayCommand(Print, () => !string.IsNullOrWhiteSpace(SelectedPrinter));
++        CancelCommand = new RelayCommand(() => DialogResult = false);
++    }
++
++    public ObservableCollection<string> Printers { get; }
++
++    public string SummaryText { get; }
++
++    public string? SelectedPrinter
++    {
++        get => _selectedPrinter;
++        set
++        {
++            if (SetProperty(ref _selectedPrinter, value))
++                ((RelayCommand)PrintCommand).NotifyCanExecuteChanged();
++        }
++    }
++
++    public string CopiesText
++    {
++        get => _copiesText;
++        set => SetProperty(ref _copiesText, value);
++    }
++
++    public int Copies
++    {
++        get
++        {
++            if (int.TryParse(CopiesText, out var copies) && copies > 0 && copies <= 999)
++                return copies;
++            return 1;
++        }
++    }
++
++    public string ErrorMessage
++    {
++        get => _errorMessage;
++        private set => SetProperty(ref _errorMessage, value);
++    }
++
++    public bool? DialogResult
++    {
++        get => _dialogResult;
++        private set => SetProperty(ref _dialogResult, value);
++    }
++
++    public ICommand PrintCommand { get; }
++    public ICommand CancelCommand { get; }
++
++    private void Print()
++    {
++        if (string.IsNullOrWhiteSpace(SelectedPrinter))
++        {
++            ErrorMessage = "Vui lòng chọn máy in.";
++            return;
++        }
++
++        if (!int.TryParse(CopiesText, out var copies) || copies <= 0 || copies > 999)
++        {
++            ErrorMessage = "Số bản in phải từ 1 đến 999.";
++            return;
++        }
++
++        LabelPrinterPreferences.SavePrinterName(SelectedPrinter);
++        DialogResult = true;
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/LabelPrinterPreferences.cs b/src/Modules/Kazuko.Modules.Warehouse/LabelPrinterPreferences.cs
+new file mode 100644
+index 0000000..e75f252
+--- /dev/null
++++ b/src/Modules/Kazuko.Modules.Warehouse/LabelPrinterPreferences.cs
+@@ -0,0 +1,58 @@
++using System.IO;
++using System.Text.Json;
++
++namespace Kazuko.Modules.Warehouse;
++
++/// <summary>Nhớ máy in tem đã chọn lần trước, lưu dưới %LocalAppData%\KazukoERP.</summary>
++public static class LabelPrinterPreferences
++{
++    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
++    private static readonly object Gate = new();
++
++    public static string? LoadPrinterName()
++    {
++        try
++        {
++            var path = GetPath();
++            if (!File.Exists(path))
++                return null;
++
++            var json = File.ReadAllText(path);
++            var dto = JsonSerializer.Deserialize<PrefsDto>(json);
++            return string.IsNullOrWhiteSpace(dto?.PrinterName) ? null : dto.PrinterName;
++        }
++        catch
++        {
++            return null;
++        }
++    }
++
++    public static void SavePrinterName(string? printerName)
++    {
++        lock (Gate)
++        {
++            try
++            {
++                var dir = Path.GetDirectoryName(GetPath())!;
++                Directory.CreateDirectory(dir);
++                var dto = new PrefsDto { PrinterName = printerName ?? string.Empty };
++                File.WriteAllText(GetPath(), JsonSerializer.Serialize(dto, JsonOptions));
++            }
++            catch
++            {
++                // preference is best-effort
++            }
++        }
++    }
++
++    private static string GetPath() =>
++        Path.Combine(
++            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
++            "KazukoERP",
++            "jewelry.label.printer.json");
++
++    private sealed class PrefsDto
++    {
++        public string PrinterName { get; set; } = string.Empty;
++    }
++}
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
+index ab398f6..979e9aa 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml
+@@ -412,8 +412,12 @@
+                 IsCancel="True" />
+       </StackPanel>
+       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+-        <Button Content="In lại tem"
+-                Command="{Binding PrintLabelCommand}"
++        <Button Content="In tem đang chọn"
++                Command="{Binding PrintSelectedLabelsCommand}"
++                Style="{StaticResource WhOutlineButtonStyle}"
++                MinWidth="130" MinHeight="40" Margin="8,0,0,0" />
++        <Button Content="In tem tất cả"
++                Command="{Binding PrintAllLabelsCommand}"
+                 Style="{StaticResource WhOutlineButtonStyle}"
+                 MinWidth="110" MinHeight="40" Margin="8,0,0,0" />
+         <Button Content="In phiếu (Ctrl+P)"
+@@ -439,15 +443,9 @@
+             <DataGridTemplateColumn.CellTemplate>
+               <DataTemplate>
+                 <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+-                          IsHitTestVisible="False" Focusable="False">
+-                  <CheckBox.IsChecked>
+-                    <MultiBinding Converter="{StaticResource ObjectEqualsConverter}" Mode="OneWay">
+-                      <Binding />
+-                      <Binding Path="DataContext.SelectedProduct"
+-                               RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+-                    </MultiBinding>
+-                  </CheckBox.IsChecked>
+-                </CheckBox>
++                          Tag="{Binding}"
++                          Checked="PrintCheckBox_Checked"
++                          Unchecked="PrintCheckBox_Unchecked" />
+               </DataTemplate>
+             </DataGridTemplateColumn.CellTemplate>
+           </DataGridTemplateColumn>
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml.cs b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml.cs
+index 816817a..34fa0cf 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialog.xaml.cs
+@@ -1,5 +1,7 @@
+ using System.ComponentModel;
+ using System.Windows;
++using System.Windows.Controls;
++using Kazuko.Core.Production;
+ 
+ namespace Kazuko.Modules.Warehouse;
+ 
+@@ -18,4 +20,18 @@ public partial class ProductionFinishedReceiptDialog : Window
+             && DataContext is ProductionFinishedReceiptDialogViewModel { DialogResult: not null } vm)
+             DialogResult = vm.DialogResult;
+     }
++
++    private void PrintCheckBox_Checked(object sender, RoutedEventArgs e)
++    {
++        if (sender is CheckBox { Tag: ManualFinishedProductItem item }
++            && DataContext is ProductionFinishedReceiptDialogViewModel vm)
++            vm.SetPrintChecked(item, true);
++    }
++
++    private void PrintCheckBox_Unchecked(object sender, RoutedEventArgs e)
++    {
++        if (sender is CheckBox { Tag: ManualFinishedProductItem item }
++            && DataContext is ProductionFinishedReceiptDialogViewModel vm)
++            vm.SetPrintChecked(item, false);
++    }
+ }
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
+index fb9a1ac..6088f37 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
+@@ -1,11 +1,16 @@
+ using System.Collections.ObjectModel;
+ using System.Collections.Specialized;
++using System.Drawing.Printing;
+ using System.Globalization;
+ using System.IO;
+ using System.Windows;
+ using System.Windows.Input;
++using FastReport;
++using FastReport.Export.Image;
+ using Kazuko.Core.Authentication;
++using Kazuko.Core.Company;
+ using Kazuko.Core.Mvvm;
++using Kazuko.Core.Printing;
+ using Kazuko.Core.Production;
+ using Kazuko.Core.Warehouse;
+ 
+@@ -30,7 +35,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+     private readonly IProductionQueryRepository _queries;
+     private readonly IProductionApplicationService _application;
+     private readonly AuthenticatedSession _session;
++    private readonly IPrintTemplateStore _printTemplates;
++    private readonly ICompanyProfileService _companyProfile;
++    private readonly FinishedGoodsLabelPrintService _labelPrintService;
+     private readonly Dictionary<string, int> _codeSequences = new(StringComparer.OrdinalIgnoreCase);
++    private readonly HashSet<ManualFinishedProductItem> _printChecked = new();
+ 
+     private ProductionFinishedReceiptOrderOption? _selectedOrder;
+     private ProductionOrderDetail? _detail;
+@@ -75,12 +84,17 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+         IWarehouseRepository warehouse,
+         IProductionQueryRepository queries,
+         IProductionApplicationService application,
+-        AuthenticatedSession session)
++        AuthenticatedSession session,
++        IPrintTemplateStore printTemplates,
++        ICompanyProfileService companyProfile)
+     {
+         _warehouse = warehouse;
+         _queries = queries;
+         _application = application;
+         _session = session;
++        _printTemplates = printTemplates;
++        _companyProfile = companyProfile;
++        _labelPrintService = new FinishedGoodsLabelPrintService(printTemplates);
+ 
+         AddCommand = new RelayCommand(AddOrUpdateProduct);
+         EditCommand = new RelayCommand(LoadSelectedForEdit, () => SelectedProduct is not null && !IsBusy);
+@@ -96,9 +110,12 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+         RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => !IsBusy && !_debtRecorded);
+         OpenReconcileCommand = new RelayCommand(OpenReconcileDialog);
+         CreateProductGroupCommand = new RelayCommand(CreateProductGroup, () => !IsBusy);
+-        PrintLabelCommand = new RelayCommand(() => MessageBox.Show(
+-            "Chức năng in tem đang phát triển.", "In lại tem",
+-            MessageBoxButton.OK, MessageBoxImage.Information));
++        PrintSelectedLabelsCommand = new AsyncRelayCommand(
++            () => PrintLabelsAsync(onlyChecked: true),
++            () => !IsBusy && Products.Count > 0);
++        PrintAllLabelsCommand = new AsyncRelayCommand(
++            () => PrintLabelsAsync(onlyChecked: false),
++            () => !IsBusy && Products.Count > 0);
+         PrintReceiptCommand = new RelayCommand(() => MessageBox.Show(
+             "Chức năng in phiếu đang phát triển.", "In phiếu",
+             MessageBoxButton.OK, MessageBoxImage.Information));
+@@ -341,6 +358,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+                 (CreateProductGroupCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                 (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                 (RecordDebtCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
++                (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
++                (PrintAllLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+             }
+         }
+     }
+@@ -350,11 +369,128 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+     public ICommand DeleteCommand { get; }
+     public ICommand CancelEditCommand { get; }
+     public ICommand CreateProductGroupCommand { get; }
+-    public ICommand PrintLabelCommand { get; }
++    public ICommand PrintSelectedLabelsCommand { get; }
++    public ICommand PrintAllLabelsCommand { get; }
+     public ICommand PrintReceiptCommand { get; }
+ 
+     #endregion
+ 
++    #region Label printing
++
++    /// <summary>Đánh dấu / bỏ đánh dấu một SP để in tem.</summary>
++    public void SetPrintChecked(ManualFinishedProductItem item, bool isChecked)
++    {
++        if (isChecked)
++            _printChecked.Add(item);
++        else
++            _printChecked.Remove(item);
++        (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
++    }
++
++    public bool IsPrintChecked(ManualFinishedProductItem item) => _printChecked.Contains(item);
++
++    public int PrintCheckedCount => _printChecked.Count;
++
++    private async Task PrintLabelsAsync(bool onlyChecked)
++    {
++        IReadOnlyList<ManualFinishedProductItem> items = onlyChecked
++            ? Products.Where(p => _printChecked.Contains(p)).ToList()
++            : Products.ToList();
++
++        if (items.Count == 0)
++        {
++            MessageBox.Show(
++                "Vui lòng chọn ít nhất một sản phẩm để in tem.",
++                "In tem",
++                MessageBoxButton.OK, MessageBoxImage.Warning);
++            return;
++        }
++
++        var dialogVm = new LabelPrintDialogViewModel(items.Count);
++        var dialog = new LabelPrintDialog(dialogVm)
++        {
++            Owner = Application.Current?.MainWindow
++        };
++        if (dialog.ShowDialog() != true || dialogVm.DialogResult != true)
++            return;
++
++        var printerName = dialogVm.SelectedPrinter;
++        var copies = dialogVm.Copies;
++        if (string.IsNullOrWhiteSpace(printerName))
++            return;
++
++        try
++        {
++            IsBusy = true;
++
++            var profile = await _companyProfile.GetAsync(_session);
++            var shopName = profile.Name;
++            var shopAddress = profile.Address ?? string.Empty;
++
++            // Mỗi SP in riêng 1 report 1 trang → mỗi tem 1 ảnh PNG, đơn giản và chắc chắn.
++            var images = new List<System.Drawing.Image>();
++            try
++            {
++                foreach (var item in items)
++                {
++                    using var report = await _labelPrintService.CreatePreparedReportAsync(
++                        [item], ReceiptDate, _session, shopName, shopAddress);
++                    images.Add(ExportSingleLabelToImage(report));
++                }
++
++                using var document = new PrintDocument();
++                document.DocumentName = "Tem nữ trang KAZUKO";
++                document.PrinterSettings.PrinterName = printerName;
++                document.PrinterSettings.Copies = (short)copies;
++
++                var pageIndex = 0;
++                document.PrintPage += (_, e) =>
++                {
++                    var g = e.Graphics!;
++                    var image = images[pageIndex];
++                    // Vẽ vừa khít vùng in của tem.
++                    g.DrawImage(image, e.MarginBounds);
++                    pageIndex++;
++                    e.HasMorePages = pageIndex < images.Count;
++                };
++                document.Print();
++            }
++            finally
++            {
++                foreach (var image in images)
++                    image.Dispose();
++            }
++        }
++        catch (Exception ex)
++        {
++            MessageBox.Show(
++                $"In tem thất bại: {ex.Message}",
++                "In tem",
++                MessageBoxButton.OK, MessageBoxImage.Error);
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
++    private static System.Drawing.Image ExportSingleLabelToImage(Report report)
++    {
++        using var imageExport = new ImageExport
++        {
++            ImageFormat = ImageExportFormat.Png,
++            Resolution = 300
++        };
++        using var stream = new MemoryStream();
++        imageExport.Export(report, stream);
++        stream.Position = 0;
++        // Clone ảnh để đóng stream ngay.
++        using var temp = System.Drawing.Image.FromStream(stream);
++        return new System.Drawing.Bitmap(temp);
++    }
++
++    #endregion
++
+     #region Footer totals
+ 
+     public string FooterLineCountText => $"{Products.Count} món";
+@@ -561,6 +697,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+     {
+         NotifyTotalsChanged();
+         RefreshReconcileReceived();
++        (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
++        (PrintAllLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+     }
+ 
+     /// <summary>
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs b/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs
+index f524e99..ad5d56b 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/WarehouseModule.cs
+@@ -1,9 +1,11 @@
+ using Kazuko.Core.Appearance;
+ using Kazuko.Core.Authentication;
++using Kazuko.Core.Company;
+ using Kazuko.Core.DependencyInjection;
+ using Kazuko.Core.Finance;
+ using Kazuko.Core.Modules;
+ using Kazuko.Core.PriceBoard;
++using Kazuko.Core.Printing;
+ using Kazuko.Core.Production;
+ using Kazuko.Core.Suppliers;
+ using Kazuko.Core.Warehouse;
+@@ -44,6 +46,8 @@ public sealed class WarehouseModule : IKazukoModule
+         var productionApplication = GetRequiredService<IProductionApplicationService>(services);
+         var workerEditor = GetRequiredService<IExternalWorkerEditorService>(services);
+         var preferences = GetRequiredService<IPreferencesService>(services);
++        var printTemplates = GetRequiredService<IPrintTemplateStore>(services);
++        var companyProfile = GetRequiredService<ICompanyProfileService>(services);
+ 
+         navigation.Register(new NavigationItem(
+             "WAREHOUSE",
+@@ -67,7 +71,10 @@ public sealed class WarehouseModule : IKazukoModule
+                     goldTypes,
+                     productionQueries,
+                     productionApplication,
+-                    preferences, GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
++                    preferences,
++                    printTemplates,
++                    companyProfile,
++                    GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
+             },
+             AssetRoot + "KHO.png",
+             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/WarehouseViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/WarehouseViewModel.cs
+index bff7ead..1857d0f 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/WarehouseViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/WarehouseViewModel.cs
+@@ -4,9 +4,11 @@ using System.Windows;
+ using System.Windows.Input;
+ using Kazuko.Core.Appearance;
+ using Kazuko.Core.Authentication;
++using Kazuko.Core.Company;
+ using Kazuko.Core.Finance;
+ using Kazuko.Core.Mvvm;
+ using Kazuko.Core.PriceBoard;
++using Kazuko.Core.Printing;
+ using Kazuko.Core.Production;
+ using Kazuko.Core.Suppliers;
+ using Kazuko.Core.Warehouse;
+@@ -37,6 +39,8 @@ public sealed class WarehouseViewModel : ObservableObject
+     private readonly IProductionQueryRepository _productionQueries;
+     private readonly IProductionApplicationService _productionApplication;
+     private readonly IPreferencesService _preferences;
++    private readonly IPrintTemplateStore _printTemplates;
++    private readonly ICompanyProfileService _companyProfile;
+     private CancellationTokenSource? _loadCts;
+     private bool _suppressDocumentDetailLoad;
+     private bool _suppressTabSideEffects;
+@@ -130,6 +134,8 @@ public sealed class WarehouseViewModel : ObservableObject
+         IProductionQueryRepository productionQueries,
+         IProductionApplicationService productionApplication,
+         IPreferencesService preferences,
++        IPrintTemplateStore printTemplates,
++        ICompanyProfileService companyProfile,
+         Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
+     {
+         _repository = repository;
+@@ -146,6 +152,8 @@ public sealed class WarehouseViewModel : ObservableObject
+         _productionQueries = productionQueries;
+         _productionApplication = productionApplication;
+         _preferences = preferences;
++        _printTemplates = printTemplates;
++        _companyProfile = companyProfile;
+         _permissions = authorization;
+ 
+         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
+@@ -1627,7 +1635,9 @@ public sealed class WarehouseViewModel : ObservableObject
+         }
+ 
+         var dialog = new ProductionFinishedReceiptDialog(
+-            new ProductionFinishedReceiptDialogViewModel(_repository, _productionQueries, _productionApplication, session))
++            new ProductionFinishedReceiptDialogViewModel(
++                _repository, _productionQueries, _productionApplication, session,
++                _printTemplates, _companyProfile))
+         {
+             Owner = Application.Current?.MainWindow
+         };
+-- 
+2.43.0
+

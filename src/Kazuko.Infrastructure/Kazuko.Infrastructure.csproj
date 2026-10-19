@@ -20,5 +20,8 @@
     <EmbeddedResource Include="..\Assets\examples\phoi_a5_doc.frx"
                       Link="PrintTemplates\phoi_a5_doc.frx"
                       LogicalName="Kazuko.Infrastructure.PrintTemplates.phoi_a5_doc.frx" />
+    <EmbeddedResource Include="..\Assets\examples\tem_nu_trang_28x12.frx"
+                      Link="PrintTemplates\tem_nu_trang_28x12.frx"
+                      LogicalName="Kazuko.Infrastructure.PrintTemplates.tem_nu_trang_28x12.frx" />
   </ItemGroup>
 </Project>

@@ -1,11 +1,16 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Drawing.Printing;
 using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using FastReport;
+using FastReport.Export.Image;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Printing;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 
@@ -30,7 +35,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private readonly IProductionQueryRepository _queries;
     private readonly IProductionApplicationService _application;
     private readonly AuthenticatedSession _session;
+    private readonly IPrintTemplateStore _printTemplates;
+    private readonly ICompanyProfileService _companyProfile;
+    private readonly FinishedGoodsLabelPrintService _labelPrintService;
     private readonly Dictionary<string, int> _codeSequences = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<ManualFinishedProductItem> _printChecked = new();
 
     private ProductionFinishedReceiptOrderOption? _selectedOrder;
     private ProductionOrderDetail? _detail;
@@ -75,12 +84,17 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         IWarehouseRepository warehouse,
         IProductionQueryRepository queries,
         IProductionApplicationService application,
-        AuthenticatedSession session)
+        AuthenticatedSession session,
+        IPrintTemplateStore printTemplates,
+        ICompanyProfileService companyProfile)
     {
         _warehouse = warehouse;
         _queries = queries;
         _application = application;
         _session = session;
+        _printTemplates = printTemplates;
+        _companyProfile = companyProfile;
+        _labelPrintService = new FinishedGoodsLabelPrintService(printTemplates);
 
         AddCommand = new RelayCommand(AddOrUpdateProduct);
         EditCommand = new RelayCommand(LoadSelectedForEdit, () => SelectedProduct is not null && !IsBusy);
@@ -96,9 +110,12 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => !IsBusy && !_debtRecorded);
         OpenReconcileCommand = new RelayCommand(OpenReconcileDialog);
         CreateProductGroupCommand = new RelayCommand(CreateProductGroup, () => !IsBusy);
-        PrintLabelCommand = new RelayCommand(() => MessageBox.Show(
-            "Chức năng in tem đang phát triển.", "In lại tem",
-            MessageBoxButton.OK, MessageBoxImage.Information));
+        PrintSelectedLabelsCommand = new AsyncRelayCommand(
+            () => PrintLabelsAsync(onlyChecked: true),
+            () => !IsBusy && Products.Count > 0);
+        PrintAllLabelsCommand = new AsyncRelayCommand(
+            () => PrintLabelsAsync(onlyChecked: false),
+            () => !IsBusy && Products.Count > 0);
         PrintReceiptCommand = new RelayCommand(() => MessageBox.Show(
             "Chức năng in phiếu đang phát triển.", "In phiếu",
             MessageBoxButton.OK, MessageBoxImage.Information));
@@ -341,6 +358,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 (CreateProductGroupCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (RecordDebtCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                (PrintAllLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
             }
         }
     }
@@ -350,8 +369,132 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ICommand DeleteCommand { get; }
     public ICommand CancelEditCommand { get; }
     public ICommand CreateProductGroupCommand { get; }
-    public ICommand PrintLabelCommand { get; }
+    public ICommand PrintSelectedLabelsCommand { get; }
+    public ICommand PrintAllLabelsCommand { get; }
     public ICommand PrintReceiptCommand { get; }
+
+    #endregion
+
+    #region Label printing
+
+    /// <summary>Đánh dấu / bỏ đánh dấu một SP để in tem.</summary>
+    public void SetPrintChecked(ManualFinishedProductItem item, bool isChecked)
+    {
+        if (isChecked)
+            _printChecked.Add(item);
+        else
+            _printChecked.Remove(item);
+        (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+    }
+
+    public bool IsPrintChecked(ManualFinishedProductItem item) => _printChecked.Contains(item);
+
+    public int PrintCheckedCount => _printChecked.Count;
+
+    private async Task PrintLabelsAsync(bool onlyChecked)
+    {
+        IReadOnlyList<ManualFinishedProductItem> items = onlyChecked
+            ? Products.Where(p => _printChecked.Contains(p)).ToList()
+            : Products.ToList();
+
+        if (items.Count == 0)
+        {
+            MessageBox.Show(
+                "Vui lòng chọn ít nhất một sản phẩm để in tem.",
+                "In tem",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var dialogVm = new LabelPrintDialogViewModel(items.Count);
+        var dialog = new LabelPrintDialog(dialogVm)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true || dialogVm.DialogResult != true)
+            return;
+
+        var printerName = dialogVm.SelectedPrinter;
+        var copies = dialogVm.Copies;
+        if (string.IsNullOrWhiteSpace(printerName))
+            return;
+
+        try
+        {
+            IsBusy = true;
+
+            var profile = await _companyProfile.GetAsync(_session);
+            var shopName = profile.Name;
+            var shopAddress = profile.Address ?? string.Empty;
+
+            // Mỗi SP in riêng 1 report 1 trang → mỗi tem 1 ảnh PNG, đơn giản và chắc chắn.
+            var images = new List<System.Drawing.Image>();
+            try
+            {
+                foreach (var item in items)
+                {
+                    using var report = await _labelPrintService.CreatePreparedReportAsync(
+                        [item], ReceiptDate, _session, shopName, shopAddress);
+                    images.Add(ExportSingleLabelToImage(report));
+                }
+
+                using var document = new PrintDocument();
+                document.DocumentName = "Tem nữ trang KAZUKO";
+                document.PrinterSettings.PrinterName = printerName;
+                document.PrinterSettings.Copies = (short)copies;
+                document.DefaultPageSettings.Landscape = false;
+                document.DefaultPageSettings.PaperSize = new PaperSize("Tem 86 x 12 mm",
+                    (int)Math.Round(FinishedGoodsLabelPrintService.PaperWidthMm * 100 / 25.4),
+                    (int)Math.Round(FinishedGoodsLabelPrintService.PaperHeightMm * 100 / 25.4));
+                document.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+                document.OriginAtMargins = false;
+
+                var pageIndex = 0;
+                document.PrintPage += (_, e) =>
+                {
+                    var g = e.Graphics!;
+                    var image = images[pageIndex];
+                    // Canh theo khổ tem vật lý, bù gốc tọa độ vùng in của driver.
+                    g.TranslateTransform(-e.PageSettings.HardMarginX, -e.PageSettings.HardMarginY);
+                    g.DrawImage(image, new System.Drawing.Rectangle(0, 0, e.PageBounds.Width, e.PageBounds.Height));
+                    pageIndex++;
+                    e.HasMorePages = pageIndex < images.Count;
+                };
+                document.Print();
+            }
+            finally
+            {
+                foreach (var image in images)
+                    image.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"In tem thất bại: {ex.Message}",
+                "In tem",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static System.Drawing.Image ExportSingleLabelToImage(Report report)
+    {
+        using var imageExport = new ImageExport
+        {
+            ImageFormat = ImageExportFormat.Png,
+            Resolution = 300
+        };
+        using var stream = new MemoryStream();
+        imageExport.Export(report, stream);
+        stream.Position = 0;
+        // Clone ảnh để đóng stream ngay.
+        using var temp = System.Drawing.Image.FromStream(stream);
+        return new System.Drawing.Bitmap(temp);
+    }
 
     #endregion
 
@@ -561,6 +704,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     {
         NotifyTotalsChanged();
         RefreshReconcileReceived();
+        (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+        (PrintAllLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
     }
 
     /// <summary>

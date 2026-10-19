@@ -4,9 +4,11 @@ using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.PriceBoard;
+using Kazuko.Core.Printing;
 using Kazuko.Core.Production;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
@@ -37,6 +39,8 @@ public sealed class WarehouseViewModel : ObservableObject
     private readonly IProductionQueryRepository _productionQueries;
     private readonly IProductionApplicationService _productionApplication;
     private readonly IPreferencesService _preferences;
+    private readonly IPrintTemplateStore _printTemplates;
+    private readonly ICompanyProfileService _companyProfile;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
     private bool _suppressTabSideEffects;
@@ -130,6 +134,8 @@ public sealed class WarehouseViewModel : ObservableObject
         IProductionQueryRepository productionQueries,
         IProductionApplicationService productionApplication,
         IPreferencesService preferences,
+        IPrintTemplateStore printTemplates,
+        ICompanyProfileService companyProfile,
         Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _repository = repository;
@@ -146,6 +152,8 @@ public sealed class WarehouseViewModel : ObservableObject
         _productionQueries = productionQueries;
         _productionApplication = productionApplication;
         _preferences = preferences;
+        _printTemplates = printTemplates;
+        _companyProfile = companyProfile;
         _permissions = authorization;
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -1627,7 +1635,9 @@ public sealed class WarehouseViewModel : ObservableObject
         }
 
         var dialog = new ProductionFinishedReceiptDialog(
-            new ProductionFinishedReceiptDialogViewModel(_repository, _productionQueries, _productionApplication, session))
+            new ProductionFinishedReceiptDialogViewModel(
+                _repository, _productionQueries, _productionApplication, session,
+                _printTemplates, _companyProfile))
         {
             Owner = Application.Current?.MainWindow
         };
