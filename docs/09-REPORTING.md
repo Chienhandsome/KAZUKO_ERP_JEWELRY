@@ -84,3 +84,17 @@ Nếu thiếu `.frx` báo cáo A4 lúc chạy, app tự tạo mẫu mặc địn
 | `reports.warehouse.jewelry_on_hand` | `jewelry_on_hand_v3.frx` |
 | `reports.warehouse.jewelry_on_hand_summary` | `jewelry_on_hand_summary_v1.frx` |
 | Bill bán hàng (Sales) | `SALES_RECEIPT_A5` trong `PRINT_TEMPLATES` |
+| Tem nữ trang 28x12 (Warehouse) | `TEM_NU_TRANG_28x12` trong `PRINT_TEMPLATES` |
+
+## Tem nữ trang 28x12
+
+In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
+
+| Mục | Chi tiết |
+|---|---|
+| Mã mẫu | `TEM_NU_TRANG_28x12` trong `PRINT_TEMPLATES` |
+| Seed mặc định | Embedded `tem_nu_trang_28x12.frx` |
+| Runtime in | `FinishedGoodsLabelPrintService` — load BLOB → bind DataTable `DataSet` → `ImageExport` PNG 300DPI → `PrintDocument` |
+| Chọn tem | Checkbox từng dòng trong bảng SP ("In tem đang chọn") hoặc tất cả ("In tem tất cả") |
+| Máy in | Dialog chọn máy in hệ thống + số bản; nhớ máy in lần trước (`%LocalAppData%\KazukoERP\jewelry.label.printer.json`) |
+| Dữ liệu | Tự động từ `ManualFinishedProductItem` (mã vạch, tên, loại vàng, TL, công, NCC...); tên/địa chỉ tiệm từ `ICompanyProfileService` |

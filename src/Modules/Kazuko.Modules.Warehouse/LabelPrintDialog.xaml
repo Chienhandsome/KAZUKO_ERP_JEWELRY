@@ -1,0 +1,53 @@
+<Window x:Class="Kazuko.Modules.Warehouse.LabelPrintDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="In tem nữ trang"
+        Width="460" SizeToContent="Height" MinWidth="420"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Background="{DynamicResource AppBackgroundBrush}">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/WarehouseResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Window.Resources>
+
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button Content="Hủy" Style="{StaticResource WhOutlineButtonStyle}"
+              Command="{Binding CancelCommand}" MinHeight="40" IsCancel="True" Margin="0,0,8,0" />
+      <Button Content="In" Style="{StaticResource WhPrimaryButtonStyle}"
+              Command="{Binding PrintCommand}" MinHeight="40" IsDefault="True" />
+    </StackPanel>
+
+    <StackPanel>
+      <TextBlock Text="In tem nữ trang"
+                 FontSize="{DynamicResource FontSize.Subtitle}"
+                 FontWeight="SemiBold"
+                 Foreground="{DynamicResource TextPrimaryBrush}"
+                 Margin="0,0,0,4" />
+      <TextBlock Text="{Binding SummaryText}"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 FontSize="{DynamicResource FontSize.Caption}"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,12" />
+
+      <TextBlock Text="Máy in" Style="{StaticResource WhFieldLabelStyle}" />
+      <ComboBox ItemsSource="{Binding Printers}"
+                SelectedItem="{Binding SelectedPrinter}"
+                MinHeight="40" Margin="0,4,0,12" />
+
+      <TextBlock Text="Số bản in" Style="{StaticResource WhFieldLabelStyle}" />
+      <TextBox Text="{Binding CopiesText, UpdateSourceTrigger=PropertyChanged}"
+               MinHeight="40" Margin="0,4,0,0" />
+
+      <TextBlock Text="{Binding ErrorMessage}"
+                 Foreground="{DynamicResource DangerBrush}"
+                 TextWrapping="Wrap"
+                 Margin="0,8,0,0" />
+    </StackPanel>
+  </DockPanel>
+</Window>
