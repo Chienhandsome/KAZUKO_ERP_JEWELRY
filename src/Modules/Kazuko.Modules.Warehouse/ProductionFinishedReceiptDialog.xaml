@@ -412,12 +412,8 @@
                 IsCancel="True" />
       </StackPanel>
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-        <Button Content="In tem đang chọn"
-                Command="{Binding PrintSelectedLabelsCommand}"
-                Style="{StaticResource WhOutlineButtonStyle}"
-                MinWidth="130" MinHeight="40" Margin="8,0,0,0" />
-        <Button Content="In tem tất cả"
-                Command="{Binding PrintAllLabelsCommand}"
+        <Button Content="In lại tem"
+                Command="{Binding PrintLabelCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="110" MinHeight="40" Margin="8,0,0,0" />
         <Button Content="In phiếu (Ctrl+P)"
@@ -443,9 +439,15 @@
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
-                          Tag="{Binding}"
-                          Checked="PrintCheckBox_Checked"
-                          Unchecked="PrintCheckBox_Unchecked" />
+                          IsHitTestVisible="False" Focusable="False">
+                  <CheckBox.IsChecked>
+                    <MultiBinding Converter="{StaticResource ObjectEqualsConverter}" Mode="OneWay">
+                      <Binding />
+                      <Binding Path="DataContext.SelectedProduct"
+                               RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+                    </MultiBinding>
+                  </CheckBox.IsChecked>
+                </CheckBox>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>

@@ -10,9 +10,6 @@ public static class PrintTemplateCodes
 
     /// <summary>Bill A5 dọc (portrait).</summary>
     public const string SalesReceiptA5Portrait = "SALES_RECEIPT_A5_PORTRAIT";
-
-    /// <summary>Tem nữ trang 28x12 (máy in tem nhiệt).</summary>
-    public const string JewelryLabel28x12 = "TEM_NU_TRANG_28x12";
 }
 
 /// <summary>Orientation for sales receipt print (local preference).</summary>

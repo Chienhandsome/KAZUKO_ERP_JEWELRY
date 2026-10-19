@@ -1,11 +1,9 @@
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
-using Kazuko.Core.Company;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
 using Kazuko.Core.PriceBoard;
-using Kazuko.Core.Printing;
 using Kazuko.Core.Production;
 using Kazuko.Core.Suppliers;
 using Kazuko.Core.Warehouse;
@@ -46,8 +44,6 @@ public sealed class WarehouseModule : IKazukoModule
         var productionApplication = GetRequiredService<IProductionApplicationService>(services);
         var workerEditor = GetRequiredService<IExternalWorkerEditorService>(services);
         var preferences = GetRequiredService<IPreferencesService>(services);
-        var printTemplates = GetRequiredService<IPrintTemplateStore>(services);
-        var companyProfile = GetRequiredService<ICompanyProfileService>(services);
 
         navigation.Register(new NavigationItem(
             "WAREHOUSE",
@@ -71,10 +67,7 @@ public sealed class WarehouseModule : IKazukoModule
                     goldTypes,
                     productionQueries,
                     productionApplication,
-                    preferences,
-                    printTemplates,
-                    companyProfile,
-                    GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
+                    preferences, GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",
