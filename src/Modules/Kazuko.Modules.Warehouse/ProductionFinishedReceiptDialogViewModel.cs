@@ -6,13 +6,13 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using FastReport;
-using FastReport.Export.Image;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Printing;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
+using Kazuko.Modules.Warehouse.Printing;
 
 namespace Kazuko.Modules.Warehouse;
 
@@ -427,15 +427,15 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             var shopName = profile.Name;
             var shopAddress = profile.Address ?? string.Empty;
 
-            // Mỗi SP in riêng 1 report 1 trang → mỗi tem 1 ảnh PNG, đơn giản và chắc chắn.
-            var images = new List<System.Drawing.Image>();
+            // Mỗi SP in riêng 1 report 1 trang → vẽ vector trực tiếp lên máy in
+            // (không qua PNG trung gian) để chữ mịn, không răng cưa.
+            var reports = new List<Report>();
             try
             {
                 foreach (var item in items)
                 {
-                    using var report = await _labelPrintService.CreatePreparedReportAsync(
-                        [item], ReceiptDate, _session, shopName, shopAddress);
-                    images.Add(ExportSingleLabelToImage(report));
+                    reports.Add(await _labelPrintService.CreatePreparedReportAsync(
+                        [item], ReceiptDate, _session, shopName, shopAddress));
                 }
 
                 using var document = new PrintDocument();
@@ -453,19 +453,20 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 document.PrintPage += (_, e) =>
                 {
                     var g = e.Graphics!;
-                    var image = images[pageIndex];
                     // Canh theo khổ tem vật lý, bù gốc tọa độ vùng in của driver.
                     g.TranslateTransform(-e.PageSettings.HardMarginX, -e.PageSettings.HardMarginY);
-                    g.DrawImage(image, new System.Drawing.Rectangle(0, 0, e.PageBounds.Width, e.PageBounds.Height));
+                    // Vẽ vector ở đơn vị mm (FastReport dùng pixel 96dpi).
+                    g.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
+                    VectorLabelRenderer.DrawLabel(g, reports[pageIndex]);
                     pageIndex++;
-                    e.HasMorePages = pageIndex < images.Count;
+                    e.HasMorePages = pageIndex < reports.Count;
                 };
                 document.Print();
             }
             finally
             {
-                foreach (var image in images)
-                    image.Dispose();
+                foreach (var report in reports)
+                    report.Dispose();
             }
         }
         catch (Exception ex)
@@ -479,21 +480,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         {
             IsBusy = false;
         }
-    }
-
-    private static System.Drawing.Image ExportSingleLabelToImage(Report report)
-    {
-        using var imageExport = new ImageExport
-        {
-            ImageFormat = ImageExportFormat.Png,
-            Resolution = 300
-        };
-        using var stream = new MemoryStream();
-        imageExport.Export(report, stream);
-        stream.Position = 0;
-        // Clone ảnh để đóng stream ngay.
-        using var temp = System.Drawing.Image.FromStream(stream);
-        return new System.Drawing.Bitmap(temp);
     }
 
     #endregion

@@ -94,8 +94,8 @@ In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
 |---|---|
 | Mã mẫu | `TEM_NU_TRANG_28x12` trong `PRINT_TEMPLATES` |
 | Seed mặc định | Embedded `tem_nu_trang_28x12.frx` |
-| Khổ giấy in | Ngang **86 mm**, cao **12 mm**, lề 0; áp dụng khi chuẩn bị FastReport và cho `PrintDocument`, bù hard margin của driver khi vẽ ảnh |
-| Runtime in | `FinishedGoodsLabelPrintService` — load BLOB → bind DataTable `DataSet` → `ImageExport` PNG 300DPI → `PrintDocument` |
+| Khổ giấy in | Ngang **86 mm**, cao **12 mm**, lề 0; áp dụng khi chuẩn bị FastReport và cho `PrintDocument`, bù hard margin của driver khi vẽ vector |
+| Runtime in | `FinishedGoodsLabelPrintService` — load BLOB → bind DataTable `DataSet` → `Prepare()` → `VectorLabelRenderer` vẽ vector trực tiếp (text/mã vạch) lên `PrintDocument` ở đơn vị mm |
 | Chọn tem | Checkbox từng dòng trong bảng SP ("In tem đang chọn") hoặc tất cả ("In tem tất cả") |
 | Máy in | Dialog chọn máy in hệ thống + số bản; nhớ máy in lần trước (`%LocalAppData%\KazukoERP\jewelry.label.printer.json`) |
 | Dữ liệu | Tự động từ `ManualFinishedProductItem` (mã vạch, tên, loại vàng, TL, công, NCC...); tên/địa chỉ tiệm từ `ICompanyProfileService` |
