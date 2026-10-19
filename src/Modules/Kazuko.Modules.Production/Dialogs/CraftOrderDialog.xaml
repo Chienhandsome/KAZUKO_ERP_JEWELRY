@@ -1,4 +1,4 @@
-﻿<Window x:Class="Kazuko.Modules.Production.Dialogs.CraftOrderDialog"
+<Window x:Class="Kazuko.Modules.Production.Dialogs.CraftOrderDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
@@ -73,7 +73,7 @@
                                    Style="{StaticResource ProductionHintStyle}"
                                    Visibility="{Binding HasSelectedCustomer, Converter={StaticResource BoolToVis}}" />
                         <TextBlock Text="Ngày đặt" Style="{StaticResource ProductionFieldLabelStyle}" />
-                        <DatePicker SelectedDate="{Binding OrderDate}" Margin="0,0,0,8" MinHeight="36" />
+                        <DatePicker SelectedDate="{Binding OrderDate}" Margin="0,0,0,8" />
                         <TextBlock Text="Ghi chú" Style="{StaticResource ProductionFieldLabelStyle}" />
                         <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource ProductionDialogFieldStyle}"

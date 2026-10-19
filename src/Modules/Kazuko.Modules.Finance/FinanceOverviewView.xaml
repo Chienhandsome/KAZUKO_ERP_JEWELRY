@@ -240,11 +240,11 @@
                         Style="{StaticResource FinanceFilterComboStyle}" MinWidth="140" />
               <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                          Style="{StaticResource FinanceFieldLabelStyle}" />
-              <DatePicker SelectedDate="{Binding FromDate}" Width="120" Height="36" Margin="0,0,8,0"
+              <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
                           VerticalContentAlignment="Center" />
               <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                          Style="{StaticResource FinanceFieldLabelStyle}" />
-              <DatePicker SelectedDate="{Binding ToDate}" Width="120" Height="36" Margin="0,0,8,0"
+              <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
                           VerticalContentAlignment="Center" />
               <TextBox MinWidth="180" Style="{StaticResource FinanceFilterFieldStyle}"
                        Text="{Binding Keyword, UpdateSourceTrigger=PropertyChanged}"

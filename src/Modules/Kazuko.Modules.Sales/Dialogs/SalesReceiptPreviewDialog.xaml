@@ -8,6 +8,13 @@
         Background="{DynamicResource AppBackgroundBrush}"
         PreviewKeyDown="Window_PreviewKeyDown"
         Closed="Window_Closed">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Kazuko.Modules.Sales;component/Themes/SalesResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <DockPanel Margin="16">
         <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" LastChildFill="False">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
@@ -18,7 +25,7 @@
                            Margin="20,0,8,0"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
-                <ComboBox Width="130"
+                <ComboBox Width="130" Style="{StaticResource SalesComboStyle}"
                           ItemsSource="{Binding OrientationOptions}"
                           SelectedItem="{Binding SelectedOrientation}"
                           DisplayMemberPath="Label" />

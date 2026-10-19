@@ -1,4 +1,4 @@
-﻿<Window x:Class="Kazuko.Modules.Warehouse.ProductionFinishedReceiptDialog"
+<Window x:Class="Kazuko.Modules.Warehouse.ProductionFinishedReceiptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
@@ -119,7 +119,7 @@
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Ngày nhập:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <DatePicker Grid.Column="1" SelectedDate="{Binding ReceiptDate}" MinHeight="30"
+          <DatePicker Grid.Column="1" SelectedDate="{Binding ReceiptDate}"
                       VerticalContentAlignment="Center" />
         </Grid>
         <Grid Margin="0,0,0,6">

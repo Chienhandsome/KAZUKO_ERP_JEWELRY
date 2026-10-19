@@ -24,6 +24,10 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Khai báo `MinWidth` hợp lý; khi nội dung không đủ chỗ, cho cuộn thay vì thu nhỏ chữ.
 - Nút cần chiều cao tối thiểu 40 px tại scale 100%.
 - Text quan trọng phải wrap hoặc trim kèm tooltip; không để chồng lấn.
+- Ô ngày dùng `RoundedDatePickerStyle` trong `Shared.UI/Themes/DatePicker.xaml`;
+  style `DatePicker` mặc định kế thừa mẫu này. Style riêng phải `BasedOn` cùng mẫu,
+  giữ các binding và trạng thái khóa form. Định dạng ngày ngắn theo `vi-VN`,
+  chiều cao tối thiểu 40 px; không dùng template ngày mặc định của Windows.
 - Kiểm tra bằng keyboard: tab order, default button, focus visible và access key khi phù hợp.
 - Ô nhập một dòng (`TextBox`, `PasswordBox`) bôi đen toàn bộ nội dung khi nhận focus bằng click hoặc Tab. Ô chỉ đọc và ô nhiều dòng (`AcceptsReturn`) không bôi đen. Hành vi gắn ở `TextBoxSelectAllBehavior.Register` lúc khởi động, vì style có key riêng không kế thừa setter của style `TextBox` mặc định.
 - Ô tiền và số lượng ngắt hàng nghìn theo vi-VN (`1.000.000`, số lượng lẻ `1.250,5`) bằng `NumericThousandSeparatorBehavior`. Sau khi sửa chữ, behavior phải đẩy binding lên source (kể cả lúc rời ô): gán `Text` trong `TextChanged` nằm trong lượt cập nhật của WPF nên nếu không đẩy lại thì ô hiện số nhưng thuộc tính vẫn bằng 0. Ô binding vào `decimal` dùng `ViMoneyConverter` hoặc `ViQuantityConverter`, không dùng `StringFormat=N0` trên ô đang gõ — binding WPF mặc định đọc dấu chấm theo en-US.
@@ -36,6 +40,12 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Trang chủ lấy các tile có `ShowOnHome` từ cùng registry. Icon dùng pack URI tới resource do module sở hữu.
 - Logo/background thương hiệu là hình minh họa cố định; text, card, border và trạng thái tương tác vẫn dùng semantic `DynamicResource`.
 - Khi không đủ chiều cao hoặc font scale lớn, nội dung trang chủ cuộn theo chiều dọc; không giảm cỡ chữ để ép vừa.
+- Góc trên phải trang chủ có Thiết lập shortcut: chọn tối đa 10 chức năng từ registry
+  (`ShowOnHome` hoặc `ShowInSidebar`, trừ trang chủ), chỉ gồm chức năng được phép truy cập.
+  Mặc định lấy tối đa 10 mục `ShowOnHome` theo thứ tự registry. Cho phép ẩn toàn bộ;
+  lựa chọn tự lưu riêng theo UserId trên máy trong `%LocalAppData%\KazukoERP\home-shortcuts\`.
+  Mất quyền thì ẩn shortcut ngay, không xóa lựa chọn đã lưu; khi được cấp lại quyền
+  vẫn giữ giới hạn 10 mục hiển thị. Tùy chọn trang chủ không thay đổi sidebar hay phân quyền.
 
 ## DataGrid (convention module-local + shared column layout)
 

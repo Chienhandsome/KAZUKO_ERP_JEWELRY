@@ -12,6 +12,10 @@
         Background="{DynamicResource AppBackgroundBrush}"
         PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Kazuko.Shared.UI;component/Themes/DatePicker.xaml" />
+            </ResourceDictionary.MergedDictionaries>
         <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
@@ -127,7 +131,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="DialogDateStyle" TargetType="DatePicker">
+        <Style x:Key="DialogDateStyle" TargetType="DatePicker" BasedOn="{StaticResource RoundedDatePickerStyle}">
             <Setter Property="Margin" Value="0,0,0,4" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
             <Setter Property="IsEnabled" Value="{Binding IsFormEnabled, Mode=OneWay}" />
@@ -194,6 +198,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+            </ResourceDictionary>
     </Window.Resources>
 
     <Grid Margin="18">

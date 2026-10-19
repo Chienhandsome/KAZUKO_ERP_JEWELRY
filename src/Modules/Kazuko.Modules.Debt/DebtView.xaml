@@ -513,12 +513,12 @@
                 <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding FromDate}" Width="120" Height="36" Margin="0,0,8,0"
+                <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
                             VerticalContentAlignment="Center" />
                 <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding ToDate}" Width="120" Height="36" Margin="0,0,8,0"
+                <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
                             VerticalContentAlignment="Center" />
                 <TextBox Width="200" Style="{StaticResource FilterFieldStyle}"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
@@ -758,12 +758,12 @@
                 <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding FromDate}" Width="120" Height="36" Margin="0,0,8,0"
+                <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
                             VerticalContentAlignment="Center" />
                 <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding ToDate}" Width="120" Height="36" Margin="0,0,8,0"
+                <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
                             VerticalContentAlignment="Center" />
                 <TextBox Width="200" Style="{StaticResource FilterFieldStyle}"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
@@ -998,12 +998,12 @@
                 <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding FromDate}" Width="120" Height="36" Margin="0,0,8,0"
+                <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
                             VerticalContentAlignment="Center" />
                 <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding ToDate}" Width="120" Height="36" Margin="0,0,8,0"
+                <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
                             VerticalContentAlignment="Center" />
                 <TextBox Width="220" Style="{StaticResource FilterFieldStyle}"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"

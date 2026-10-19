@@ -4,6 +4,37 @@
              xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
              MinWidth="760" MinHeight="560">
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="ShortcutSettingsButtonStyle" TargetType="ToggleButton">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="SettingsBorder" CornerRadius="8" Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SettingsBorder" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SettingsBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="SettingsBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter TargetName="SettingsBorder" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="HomeTileButtonStyle" TargetType="Button">
             <Setter Property="MinHeight" Value="178" />
             <Setter Property="Margin" Value="12,8" />
@@ -77,6 +108,10 @@
                                FontStyle="Italic" />
                 </StackPanel>
 
+                <TextBlock Grid.Row="1" Text="Chưa có shortcut. Chọn Thiết lập để thêm nút trên trang chủ."
+                           Margin="26" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                           FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
+                           Visibility="{Binding HasNoShortcuts, Converter={StaticResource BoolToVisibility}}" />
                 <ItemsControl Grid.Row="1" Margin="14,0" ItemsSource="{Binding HomeTiles}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -177,5 +212,46 @@
                 </Border>
             </Grid>
         </ScrollViewer>
+
+        <Grid x:Name="ShortcutSettingsAnchor" Width="360" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,18,0">
+            <ToggleButton x:Name="ShortcutSettingsButton" HorizontalAlignment="Right"
+                          Style="{StaticResource ShortcutSettingsButtonStyle}"
+                          IsChecked="{Binding IsShortcutSettingsOpen, Mode=TwoWay}"
+                          ToolTip="Ẩn/hiện shortcut trang chủ" AutomationProperties.Name="Thiết lập shortcut trang chủ">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" Margin="0,0,6,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource PrimaryBrush}" />
+                    <TextBlock Text="Thiết lập" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryBrush}" />
+                </StackPanel>
+            </ToggleButton>
+            <Popup Placement="Bottom" PlacementTarget="{Binding ElementName=ShortcutSettingsAnchor}"
+                   Opened="ShortcutSettings_Opened" PreviewKeyDown="ShortcutSettings_PreviewKeyDown"
+                   IsOpen="{Binding IsShortcutSettingsOpen, Mode=TwoWay}" StaysOpen="False" AllowsTransparency="True">
+                <Border Width="360" Margin="0,6,0,0" Padding="16" CornerRadius="10"
+                        Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                    <StackPanel KeyboardNavigation.TabNavigation="Cycle">
+                        <TextBlock Text="Shortcut trang chủ" FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ShortcutCountText}" Margin="0,6,0,4"
+                                   Foreground="{DynamicResource PrimaryBrush}" FontSize="{DynamicResource FontSize.Body}" />
+                        <TextBlock Text="Chọn tối đa 10 nút. Bỏ chọn một nút để chọn thêm. Thay đổi được lưu tự động."
+                                   FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,10" />
+                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding ShortcutOptions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  IsEnabled="{Binding CanToggle}" Padding="6" Margin="0,2" MinHeight="36"
+                                                  VerticalContentAlignment="Center" FontSize="{DynamicResource FontSize.Body}">
+                                            <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        <TextBlock Text="{Binding ShortcutError}" Foreground="{DynamicResource DangerBrush}" FontSize="{DynamicResource FontSize.Caption}" />
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
     </Grid>
 </UserControl>

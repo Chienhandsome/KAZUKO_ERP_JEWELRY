@@ -169,8 +169,10 @@
                             <TextBlock Text="{Binding OffsetText}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Net" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                            <TextBlock Text="{Binding NetAmountText}" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}" FontSize="{DynamicResource FontSize.Subtitle}" />
+                            <TextBlock Text="Chênh lệch thu/chi" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}"
+                                       ToolTip="Tiền khách còn phải trả hoặc cửa hàng cần hoàn lại sau khi bù trừ vàng cũ." />
+                            <TextBlock Text="{Binding NetAmountText}" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}" FontSize="{DynamicResource FontSize.Subtitle}"
+                                       ToolTip="Số dương: khách còn phải trả. Số âm: cửa hàng cần hoàn lại." />
                             <TextBlock Text="Công nợ" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" Margin="0,6,0,0" />
                             <TextBlock Text="{Binding ReceivableText}" />
                         </StackPanel>

@@ -2,6 +2,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:conv="clr-namespace:Kazuko.Shared.UI.Converters"
                     xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="DatePicker.xaml" />
+    </ResourceDictionary.MergedDictionaries>
     <conv:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
     <conv:VietnameseMoneyConverter x:Key="ViMoneyConverter" />
     <conv:VietnameseQuantityConverter x:Key="ViQuantityConverter" />
@@ -56,9 +59,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
-    <Style TargetType="DatePicker">
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    </Style>
+    <Style TargetType="DatePicker" BasedOn="{StaticResource RoundedDatePickerStyle}" />
 
     <Style x:Key="PrimaryButtonStyle" TargetType="Button">
         <Setter Property="MinHeight" Value="42" />

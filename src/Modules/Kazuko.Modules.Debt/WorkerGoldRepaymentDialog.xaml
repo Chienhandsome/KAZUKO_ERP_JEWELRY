@@ -91,7 +91,7 @@
              behaviors:NumericThousandSeparatorBehavior.AllowDecimal="True" />
 
     <TextBlock Text="Ngày trả" Style="{StaticResource RepayLabelStyle}" />
-    <DatePicker x:Name="PaidDatePicker" MinHeight="36" Margin="0,0,0,10"
+    <DatePicker x:Name="PaidDatePicker" Margin="0,0,0,10"
                 VerticalContentAlignment="Center" />
 
     <TextBlock Text="Ghi chú" Style="{StaticResource RepayLabelStyle}" />

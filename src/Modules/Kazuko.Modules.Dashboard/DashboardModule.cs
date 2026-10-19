@@ -18,6 +18,7 @@ public sealed class DashboardModule : IKazukoModule
 
     public void RegisterServices(IServiceRegistry services)
     {
+        services.AddSingleton<IDashboardShortcutStore>(new JsonDashboardShortcutStore());
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
@@ -32,7 +33,9 @@ public sealed class DashboardModule : IKazukoModule
             null,
             () => new DashboardView
             {
-                DataContext = new DashboardViewModel(navigation, navigationService, GetRequiredService<IAuthorizationService>(services))
+                DataContext = new DashboardViewModel(navigation, navigationService,
+                    GetRequiredService<IAuthorizationService>(services), GetRequiredService<IDashboardShortcutStore>(services),
+                    GetRequiredService<ICurrentSessionAccessor>(services).Current?.UserId ?? 0)
             }));
 
         var placeholders = new[]

@@ -35,7 +35,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock Text="Ngày" Style="{StaticResource SalesFieldLabelStyle}" />
-                    <DatePicker SelectedDate="{Binding DocumentDate}" MinHeight="36"
+                    <DatePicker SelectedDate="{Binding DocumentDate}"
                                 VerticalContentAlignment="Center" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">

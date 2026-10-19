@@ -1,5 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Kazuko.Shared.UI;component/Themes/DatePicker.xaml" />
+    </ResourceDictionary.MergedDictionaries>
         <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
             <Setter Property="MinHeight" Value="36" />
             <Setter Property="Padding" Value="12,6" />
@@ -255,58 +258,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
-        <Style x:Key="ReportDateStyle" TargetType="DatePicker">
-            <Setter Property="MinHeight" Value="40" />
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="SelectedDateFormat" Value="Short" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DatePicker">
-                        <Border x:Name="DateBorder" CornerRadius="8" Padding="{TemplateBinding Padding}"
-                                Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <DatePickerTextBox x:Name="PART_TextBox" BorderThickness="0" Padding="0"
-                                                   Background="Transparent" Foreground="{TemplateBinding Foreground}"
-                                                   VerticalContentAlignment="Center">
-                                    <DatePickerTextBox.Template>
-                                        <ControlTemplate TargetType="DatePickerTextBox">
-                                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
-                                        </ControlTemplate>
-                                    </DatePickerTextBox.Template>
-                                </DatePickerTextBox>
-                                <Button x:Name="PART_Button" Grid.Column="1" Width="28" MinHeight="28" Margin="4,0,0,0"
-                                        Style="{StaticResource GridActionButtonStyle}" ToolTip="Chọn ngày"
-                                        AutomationProperties.Name="Mở lịch">
-                                    <Path Data="M 1 4 L 15 4 L 15 16 L 1 16 Z M 1 8 L 15 8 M 5 1 L 5 6 M 11 1 L 11 6"
-                                          Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.5"
-                                          Width="16" Height="17" Stretch="Uniform" />
-                                </Button>
-                                <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True"
-                                       StaysOpen="False" PlacementTarget="{Binding ElementName=DateBorder}" />
-                            </Grid>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                <Setter TargetName="DateBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="DateBorder" Property="Opacity" Value="0.55" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <Style x:Key="ReportDateStyle" TargetType="DatePicker" BasedOn="{StaticResource RoundedDatePickerStyle}" />
 
         <Style x:Key="WorkspaceEmptyStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
