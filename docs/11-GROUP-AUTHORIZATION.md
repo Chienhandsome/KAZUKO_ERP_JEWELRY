@@ -47,6 +47,10 @@ nghiệp vụ cần DATA_EXPORT. Xem báo cáo trong app chỉ cần REP_VIEW.
 Từ chối quyền và thay đổi ma trận được ghi qua AuditLogWriter hiện có; thay đổi
 ma trận ghi kèm quyền trước đó và yêu cầu mới trong transaction của thao tác lưu.
 
+Báo cáo Top khách hàng trong màn Khách hàng (`ICustomerRepository.GetTopCustomersAsync`)
+được ánh xạ `REP_VIEW` tại `BackendAccess`, gồm cả đường gọi qua proxy của Admin.
+Các phương thức chưa được ánh xạ vẫn bị từ chối mặc định.
+
 ## Ánh xạ thao tác đặc biệt
 
 | Chức năng | Cột dùng để cho phép thao tác |

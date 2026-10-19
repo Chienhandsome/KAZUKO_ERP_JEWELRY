@@ -119,6 +119,16 @@ public sealed record CustomerDebtSnapshot(
     decimal CurrentDebt,
     decimal Overdue);
 
+/// <summary>Một dòng trong báo cáo Top khách hàng theo doanh số.</summary>
+public sealed record CustomerTopSalesItem(
+    long CustomerId,
+    string Code,
+    string Name,
+    string Phone,
+    string CustomerGroupName,
+    int OrderCount,
+    decimal TotalSales);
+
 public interface ICustomerEditorService
 {
     CustomerEditResult? ShowCreate();
@@ -149,6 +159,12 @@ public interface ICustomerRepository
 
     Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(
         long customerId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CustomerTopSalesItem>> GetTopCustomersAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int topN,
         CancellationToken cancellationToken = default);
 
     Task<string> FindDuplicateWarningAsync(

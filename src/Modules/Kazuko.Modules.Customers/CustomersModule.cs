@@ -1,5 +1,6 @@
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
+using Kazuko.Core.Finance;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 
@@ -33,7 +34,11 @@ public sealed class CustomersModule : IKazukoModule
             null,
             () => new CustomerView
             {
-                DataContext = new CustomerViewModel(repository, editor, session)
+                // Finance registers its dialog after Customers registers navigation.
+                // Resolve shared services when the view is opened, after module registration.
+                DataContext = new CustomerViewModel(repository, editor, session,
+                    GetRequiredService<IDebtWorkbenchRepository>(services),
+                    GetRequiredService<IDebtSettlementDialogService>(services))
             },
             AssetRoot + "KH.png",
             "Quản lý thông tin\nkhách hàng",

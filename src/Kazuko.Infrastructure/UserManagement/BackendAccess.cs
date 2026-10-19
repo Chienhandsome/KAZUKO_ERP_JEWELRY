@@ -21,6 +21,7 @@ public static class BackendAccess
                 "SaveAsync" => Has("CAT_CUSTOMERS", SaveAction()), "SetActiveAsync" => Has("CAT_CUSTOMERS", args.ElementAtOrDefault(1) is true ? PermissionAction.Edit : PermissionAction.Delete),
                 "CreateGroupAsync" => Has("CAT_CUSTOMERS", PermissionAction.Add),
                 "GetDebtSnapshotAsync" => Has("DEBT_CUSTOMER"), "GetPurchaseHistoryAsync" => Has("SALES_HISTORY"),
+                "GetTopCustomersAsync" => Has("REP_VIEW"),
                 "GetGroupsAsync" or "FindDuplicateWarningAsync" or "GetByIdAsync" or "SearchAsync" => Any("CAT_CUSTOMERS", "SALES_RETAIL", "SALES_WHOLESALE", "OLD_GOLD_PURCHASE", "CRAFT_ORDER", "DEBT_CUSTOMER", "DEBT_SETTLEMENT", "INV_MATERIAL_RECEIPT", "PROD_ORDER", "REP_VIEW"), _ => false },
             "ISupplierRepository" => method switch {
                 "SaveAsync" => Has("CAT_SUPPLIERS", SaveAction()), "SetActiveAsync" => Has("CAT_SUPPLIERS", args.ElementAtOrDefault(1) is true ? PermissionAction.Edit : PermissionAction.Delete),

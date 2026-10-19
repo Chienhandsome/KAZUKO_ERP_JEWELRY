@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
+using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
 using Kazuko.Shared.UI.Services;
 
@@ -25,14 +26,17 @@ public sealed class CustomerViewModel : ObservableObject
 
     private const int PurchaseHistoryPreviewLimit = 5;
     private const int PurchaseHistoryFullLimit = 100;
-    private const int PurchaseHistoryTabIndex = 3;
-    private const int DebtTabIndex = 4;
+    private const int PurchaseHistoryTabIndex = 1;
+    private const int DebtTabIndex = 2;
+    private const int ReportsTabIndex = 3;
 
     private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
 
     private readonly ICustomerRepository _repository;
     private readonly ICustomerEditorService _editor;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly IDebtWorkbenchRepository? _debtWorkbench;
+    private readonly IDebtSettlementDialogService? _settlementDialog;
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _detailCts;
     private string _searchText = string.Empty;
@@ -46,15 +50,25 @@ public sealed class CustomerViewModel : ObservableObject
     private bool _isEmpty;
     private int _selectedTabIndex;
     private CustomerDebtSnapshot _debtSnapshot = new(0, 0, 0, 0);
+    private DateTime _reportFromDate = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime _reportToDate = DateTime.Today;
+    private int _reportTopN = 10;
+    private int _reportInactiveDays = 30;
+    private bool _isReportLoading;
+    private bool _isDetailLoading;
 
     public CustomerViewModel(
         ICustomerRepository repository,
         ICustomerEditorService editor,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        IDebtWorkbenchRepository? debtWorkbench = null,
+        IDebtSettlementDialogService? settlementDialog = null)
     {
         _repository = repository;
         _editor = editor;
         _sessionAccessor = sessionAccessor;
+        _debtWorkbench = debtWorkbench;
+        _settlementDialog = settlementDialog;
 
         Groups.Add(new CustomerGroupOption(0, string.Empty, "Tất cả nhóm", true, false));
         Regions.Add("Tất cả khu vực");
@@ -90,6 +104,17 @@ public sealed class CustomerViewModel : ObservableObject
         ViewDebtDetailsCommand = new RelayCommand(
             () => SelectedTabIndex = DebtTabIndex,
             () => HasSelection);
+        CollectPaymentCommand = new AsyncRelayCommand(
+            CollectPaymentAsync,
+            () => !IsLoading && !IsDetailLoading && HasSelection && HasCurrentDebt
+                && _debtWorkbench is not null && _settlementDialog is not null
+                && _sessionAccessor.Current is not null);
+        LoadTopCustomersCommand = new AsyncRelayCommand(LoadTopCustomersAsync, () => !IsReportLoading);
+        LoadInactiveCustomersCommand = new AsyncRelayCommand(LoadInactiveCustomersAsync, () => !IsReportLoading);
+        LoadDistributionCommand = new AsyncRelayCommand(LoadDistributionAsync, () => !IsReportLoading);
+        ExportTopCustomersCommand = new RelayCommand<object?>(ExportTopCustomers, _ => !IsReportLoading && TopCustomers.Count > 0);
+        ExportInactiveCustomersCommand = new RelayCommand<object?>(ExportInactiveCustomers, _ => !IsReportLoading && InactiveCustomers.Count > 0);
+        ExportDistributionCommand = new RelayCommand<object?>(ExportDistribution, _ => !IsReportLoading && GroupDistribution.Count > 0);
         ViewPlaceholderCommand = new RelayCommand(() => { }, () => false);
         ImportExcelCommand = new RelayCommand(() => { }, () => false);
 
@@ -102,6 +127,11 @@ public sealed class CustomerViewModel : ObservableObject
     public ObservableCollection<string> StatusOptions { get; } = new();
     public ObservableCollection<PurchaseHistoryRowViewModel> RecentPurchases { get; } = new();
     public ObservableCollection<PurchaseHistoryRowViewModel> FullPurchaseHistory { get; } = new();
+    public ObservableCollection<PaymentHistoryRowViewModel> PaymentHistory { get; } = new();
+    public ObservableCollection<TopCustomerRowViewModel> TopCustomers { get; } = new();
+    public ObservableCollection<InactiveCustomerRowViewModel> InactiveCustomers { get; } = new();
+    public ObservableCollection<DistributionRowViewModel> GroupDistribution { get; } = new();
+    public ObservableCollection<DistributionRowViewModel> RegionDistribution { get; } = new();
 
     public string SearchText
     {
@@ -164,6 +194,7 @@ public sealed class CustomerViewModel : ObservableObject
                 ((ParameterRelayCommand)DeleteCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)ViewAllPurchasesCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)ViewDebtDetailsCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)CollectPaymentCommand).NotifyCanExecuteChanged();
                 _ = LoadSelectionDetailsAsync();
             }
         }
@@ -235,6 +266,7 @@ public sealed class CustomerViewModel : ObservableObject
                 ((RelayCommand)DeleteSelectedCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(CanDeleteSelected));
                 OnPropertyChanged(nameof(IsBusyOverlayVisible));
+                ((AsyncRelayCommand)CollectPaymentCommand).NotifyCanExecuteChanged();
             }
         }
     }
@@ -250,7 +282,32 @@ public sealed class CustomerViewModel : ObservableObject
     public int SelectedTabIndex
     {
         get => _selectedTabIndex;
-        set => SetProperty(ref _selectedTabIndex, value);
+        set
+        {
+            if (SetProperty(ref _selectedTabIndex, value) && value == ReportsTabIndex)
+                _ = LoadReportsAsync();
+            else if (value == DebtTabIndex && !IsDetailLoading)
+                _ = LoadSelectionDetailsAsync();
+        }
+    }
+
+    public bool IsDetailLoading
+    {
+        get => _isDetailLoading;
+        private set
+        {
+            if (SetProperty(ref _isDetailLoading, value))
+                ((AsyncRelayCommand)CollectPaymentCommand).NotifyCanExecuteChanged();
+        }
+    }
+
+    public string PaymentHistoryError { get; private set; } = string.Empty;
+    public string ReportErrorMessage { get; private set; } = string.Empty;
+
+    private void SetReportError(string message)
+    {
+        ReportErrorMessage = message;
+        OnPropertyChanged(nameof(ReportErrorMessage));
     }
 
     public ICommand SearchCommand { get; }
@@ -286,6 +343,52 @@ public sealed class CustomerViewModel : ObservableObject
     public ICommand ToggleActiveCommand { get; }
     public ICommand ViewAllPurchasesCommand { get; }
     public ICommand ViewDebtDetailsCommand { get; }
+    public ICommand CollectPaymentCommand { get; }
+    public ICommand LoadTopCustomersCommand { get; }
+    public ICommand LoadInactiveCustomersCommand { get; }
+    public ICommand LoadDistributionCommand { get; }
+    public ICommand ExportTopCustomersCommand { get; }
+    public ICommand ExportInactiveCustomersCommand { get; }
+    public ICommand ExportDistributionCommand { get; }
+
+    public DateTime ReportFromDate
+    {
+        get => _reportFromDate;
+        set => SetProperty(ref _reportFromDate, value);
+    }
+
+    public DateTime ReportToDate
+    {
+        get => _reportToDate;
+        set => SetProperty(ref _reportToDate, value);
+    }
+
+    public int ReportTopN
+    {
+        get => _reportTopN;
+        set => SetProperty(ref _reportTopN, value < 1 ? 1 : value);
+    }
+
+    public int ReportInactiveDays
+    {
+        get => _reportInactiveDays;
+        set => SetProperty(ref _reportInactiveDays, value < 1 ? 1 : value);
+    }
+
+    public bool IsReportLoading
+    {
+        get => _isReportLoading;
+        private set
+        {
+            if (!SetProperty(ref _isReportLoading, value)) return;
+            ((AsyncRelayCommand)LoadTopCustomersCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)LoadInactiveCustomersCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)LoadDistributionCommand).NotifyCanExecuteChanged();
+            ((RelayCommand<object?>)ExportTopCustomersCommand).NotifyCanExecuteChanged();
+            ((RelayCommand<object?>)ExportInactiveCustomersCommand).NotifyCanExecuteChanged();
+            ((RelayCommand<object?>)ExportDistributionCommand).NotifyCanExecuteChanged();
+        }
+    }
     public ICommand ViewPlaceholderCommand { get; }
     public ICommand ImportExcelCommand { get; }
 
@@ -387,8 +490,14 @@ public sealed class CustomerViewModel : ObservableObject
         _detailCts = new CancellationTokenSource();
         var token = _detailCts.Token;
 
+        IsDetailLoading = true;
+        ErrorMessage = string.Empty;
+        PaymentHistoryError = string.Empty;
+        OnPropertyChanged(nameof(PaymentHistoryError));
+
         RecentPurchases.Clear();
         FullPurchaseHistory.Clear();
+        PaymentHistory.Clear();
         SetDebtSnapshot(new CustomerDebtSnapshot(0, 0, 0, 0));
         OnPropertyChanged(nameof(RecentPurchasesTitle));
         OnPropertyChanged(nameof(HasRecentPurchases));
@@ -396,7 +505,10 @@ public sealed class CustomerViewModel : ObservableObject
 
         var customerId = SelectedCustomer?.Id;
         if (customerId is null)
+        {
+            IsDetailLoading = false;
             return;
+        }
 
         try
         {
@@ -413,6 +525,33 @@ public sealed class CustomerViewModel : ObservableObject
                 RecentPurchases.Add(new PurchaseHistoryRowViewModel(item));
 
             SetDebtSnapshot(await debtTask);
+            ((AsyncRelayCommand)CollectPaymentCommand).NotifyCanExecuteChanged();
+
+            // Include receipts and refunds, excluding order charges and non-cash offsets.
+            if (_debtWorkbench is not null)
+            {
+                try
+                {
+                    var session = _sessionAccessor.Current;
+                    if (session is not null)
+                    {
+                        var ledger = await _debtWorkbench.GetCustomerLedgerAsync(customerId.Value, session, token);
+                        token.ThrowIfCancellationRequested();
+                        foreach (var entry in ledger.Where(e => e.SourceType == DebtLedgerSourceTypes.OrderPayment))
+                            PaymentHistory.Add(new PaymentHistoryRowViewModel(entry));
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        PaymentHistoryError = "Không thể tải lịch sử thanh toán. Vui lòng mở lại tab để thử lại.";
+                        OnPropertyChanged(nameof(PaymentHistoryError));
+                    }
+                }
+            }
+
             OnPropertyChanged(nameof(RecentPurchasesTitle));
             OnPropertyChanged(nameof(HasRecentPurchases));
             OnPropertyChanged(nameof(HasFullPurchaseHistory));
@@ -426,7 +565,259 @@ public sealed class CustomerViewModel : ObservableObject
             if (!token.IsCancellationRequested)
                 ErrorMessage = "Không thể tải lịch sử mua hàng / công nợ của khách hàng.";
         }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+                IsDetailLoading = false;
+        }
     }
+
+
+    /// <summary>
+    /// Thu tiền nhanh ngay trong tab Công nợ: mở dialog thu tiền chung của module Công nợ
+    /// (CashVoucherDialog ở debt mode), xong refresh lại dữ liệu.
+    /// </summary>
+    private async Task CollectPaymentAsync()
+    {
+        if (IsLoading || SelectedCustomer is null || _debtWorkbench is null || _settlementDialog is null)
+            return;
+
+        var customerId = SelectedCustomer.Id;
+        var customerCode = SelectedCustomer.Code;
+        var customerName = SelectedCustomer.Name;
+
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = string.Empty;
+            var session = _sessionAccessor.Current;
+            if (session is null)
+                return;
+
+            var openLines = await _debtWorkbench.GetCustomerOpenReceivablesAsync(customerId, session);
+            if (openLines.Count == 0)
+            {
+                MessageBox.Show("Không còn khoản phải thu nào.", "Thu tiền",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var allocations = openLines.Select(x => new DebtSettlementAllocationLine(
+                DebtLedgerSourceTypes.SalesOrder, x.OrderId, x.OrderCode, x.OrderCode,
+                x.RemainingAmountVnd, x.RemainingAmountVnd)).ToList();
+
+            var result = _settlementDialog.ShowDialog(new DebtSettlementDialogRequest(
+                FinancialVoucherTypes.In,
+                $"{customerCode} — {customerName}",
+                allocations,
+                $"Thu công nợ khách hàng {customerCode}",
+                AllowAmountEdit: true));
+            if (result is null)
+                return;
+
+            await _debtWorkbench.SettleDebtAllocationsAsync(
+                new DebtAllocationSettleRequest(
+                    result.Allocations
+                        .Where(x => x.PaymentAmountVnd > 0)
+                        .Select(x => new DebtAllocationSettleLine(x.SourceType, x.SourceId, x.PaymentAmountVnd))
+                        .ToList(),
+                    result.CashAmountVnd,
+                    result.BankTransferAmountVnd,
+                    result.CardAmountVnd,
+                    result.FundId,
+                    result.BankAccountId,
+                    string.IsNullOrWhiteSpace(result.Notes) ? null : result.Notes.Trim()),
+                session);
+
+            StatusMessage = "Đã thu tiền khách hàng.";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            MessageBox.Show(ex.Message, "Thu tiền", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+
+    #region Báo cáo
+
+    private async Task LoadReportsAsync()
+    {
+        if (IsReportLoading) return;
+        var errors = new List<string>();
+        await LoadTopCustomersAsync();
+        if (!string.IsNullOrEmpty(ReportErrorMessage)) errors.Add(ReportErrorMessage);
+        await LoadInactiveCustomersAsync();
+        if (!string.IsNullOrEmpty(ReportErrorMessage)) errors.Add(ReportErrorMessage);
+        await LoadDistributionAsync();
+        if (!string.IsNullOrEmpty(ReportErrorMessage)) errors.Add(ReportErrorMessage);
+        SetReportError(string.Join(Environment.NewLine, errors));
+    }
+
+    private async Task LoadTopCustomersAsync()
+    {
+        if (IsReportLoading)
+            return;
+        try
+        {
+            IsReportLoading = true;
+            SetReportError(string.Empty);
+            TopCustomers.Clear();
+            if (ReportFromDate.Date > ReportToDate.Date)
+                throw new InvalidOperationException("Từ ngày phải nhỏ hơn hoặc bằng Đến ngày.");
+            var items = await _repository.GetTopCustomersAsync(ReportFromDate, ReportToDate, ReportTopN);
+            var rank = 1;
+            foreach (var item in items)
+                TopCustomers.Add(new TopCustomerRowViewModel(item, rank++));
+            StatusMessage = $"Đã tải {TopCustomers.Count} khách hàng top doanh số.";
+            ((RelayCommand<object?>)ExportTopCustomersCommand).NotifyCanExecuteChanged();
+        }
+        catch (Exception ex)
+        {
+            SetReportError(ex.Message);
+        }
+        finally
+        {
+            IsReportLoading = false;
+        }
+    }
+
+    private async Task LoadInactiveCustomersAsync()
+    {
+        if (IsReportLoading)
+            return;
+        try
+        {
+            IsReportLoading = true;
+            SetReportError(string.Empty);
+            InactiveCustomers.Clear();
+            var cutoff = DateTime.Today.AddDays(-ReportInactiveDays);
+            var items = await _repository.SearchAsync(
+                new CustomerSearchFilter(string.Empty, 0, string.Empty, true));
+            foreach (var item in items
+                .Where(x => x.LastPurchaseDate is null || x.LastPurchaseDate.Value.Date < cutoff)
+                .OrderBy(x => x.LastPurchaseDate))
+            {
+                var days = item.LastPurchaseDate is null
+                    ? -1
+                    : (DateTime.Today - item.LastPurchaseDate.Value.Date).Days;
+                InactiveCustomers.Add(new InactiveCustomerRowViewModel(item, days));
+            }
+            StatusMessage = $"Tìm thấy {InactiveCustomers.Count} khách hàng chưa mua lại quá {ReportInactiveDays} ngày.";
+            ((RelayCommand<object?>)ExportInactiveCustomersCommand).NotifyCanExecuteChanged();
+        }
+        catch (Exception ex)
+        {
+            SetReportError(ex.Message);
+        }
+        finally
+        {
+            IsReportLoading = false;
+        }
+    }
+
+    private async Task LoadDistributionAsync()
+    {
+        if (IsReportLoading)
+            return;
+        try
+        {
+            IsReportLoading = true;
+            SetReportError(string.Empty);
+            GroupDistribution.Clear();
+            RegionDistribution.Clear();
+            var items = await _repository.SearchAsync(
+                new CustomerSearchFilter(string.Empty, 0, string.Empty, null));
+
+            foreach (var g in items
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.CustomerGroupName) ? "(Chưa phân nhóm)" : x.CustomerGroupName)
+                .OrderByDescending(g => g.Sum(x => x.TotalSales)))
+            {
+                GroupDistribution.Add(new DistributionRowViewModel(
+                    g.Key, g.Count(), g.Sum(x => x.TotalSales)));
+            }
+
+            foreach (var g in items
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.Region) ? "(Chưa rõ khu vực)" : x.Region)
+                .OrderByDescending(g => g.Sum(x => x.TotalSales)))
+            {
+                RegionDistribution.Add(new DistributionRowViewModel(
+                    g.Key, g.Count(), g.Sum(x => x.TotalSales)));
+            }
+
+            StatusMessage = $"Đã tổng hợp phân bố {GroupDistribution.Count} nhóm / {RegionDistribution.Count} khu vực.";
+            ((RelayCommand<object?>)ExportDistributionCommand).NotifyCanExecuteChanged();
+        }
+        catch (Exception ex)
+        {
+            SetReportError(ex.Message);
+        }
+        finally
+        {
+            IsReportLoading = false;
+        }
+    }
+
+    private void ExportTopCustomers(object? parameter)
+    {
+        var grid = parameter as System.Windows.Controls.DataGrid;
+        var columns = new ExcelExportColumn<TopCustomerRowViewModel>[]
+        {
+            new("Rank", "Hạng", o => o.Rank, ExcelCellKind.Integer),
+            new("Code", "Mã KH", o => o.Code),
+            new("Name", "Tên khách hàng", o => o.Name),
+            new("Phone", "SĐT", o => o.Phone),
+            new("Group", "Nhóm KH", o => o.CustomerGroupName),
+            new("OrderCount", "Số đơn", o => o.OrderCount, ExcelCellKind.Integer),
+            new("TotalSales", "Tổng mua (VND)", o => o.TotalSales, ExcelCellKind.Money),
+        };
+        ExcelExportService.Export(
+            "Xuất top khách hàng",
+            $"TopKhachHang_{ReportFromDate:yyyyMMdd}_{ReportToDate:yyyyMMdd}",
+            grid, TopCustomers, columns);
+    }
+
+    private void ExportInactiveCustomers(object? parameter)
+    {
+        var grid = parameter as System.Windows.Controls.DataGrid;
+        var columns = new ExcelExportColumn<InactiveCustomerRowViewModel>[]
+        {
+            new("Code", "Mã KH", o => o.Code),
+            new("Name", "Tên khách hàng", o => o.Name),
+            new("Phone", "SĐT", o => o.Phone),
+            new("Group", "Nhóm KH", o => o.CustomerGroupName),
+            new("LastPurchase", "Mua cuối", o => o.Item.LastPurchaseDate, ExcelCellKind.Date),
+            new("DaysInactive", "Số ngày chưa mua", o => o.DaysSinceLastPurchase < 0 ? null : o.DaysSinceLastPurchase, ExcelCellKind.Integer),
+            new("TotalSales", "Tổng mua (VND)", o => o.Item.TotalSales, ExcelCellKind.Money),
+        };
+        ExcelExportService.Export(
+            "Xuất khách hàng chưa mua lại",
+            $"KhachHangChuaMuaLai_{DateTime.Now:yyyyMMdd}",
+            grid, InactiveCustomers, columns);
+    }
+
+    private void ExportDistribution(object? parameter)
+    {
+        var grid = parameter as System.Windows.Controls.DataGrid;
+        var columns = new ExcelExportColumn<DistributionRowViewModel>[]
+        {
+            new("Kind", "Phân bố", o => GroupDistribution.Contains(o) ? "Nhóm khách hàng" : "Khu vực"),
+            new("Name", "Tên", o => o.Name),
+            new("Count", "Số KH", o => o.CustomerCount, ExcelCellKind.Integer),
+            new("TotalSales", "Tổng mua (VND)", o => o.TotalSales, ExcelCellKind.Money),
+        };
+        ExcelExportService.Export(
+            "Xuất phân bố khách hàng",
+            $"PhanBoKhachHang_{DateTime.Now:yyyyMMdd}",
+            grid, GroupDistribution.Concat(RegionDistribution).ToList(), columns);
+    }
+
+    #endregion
 
     private void SetDebtSnapshot(CustomerDebtSnapshot snapshot)
     {

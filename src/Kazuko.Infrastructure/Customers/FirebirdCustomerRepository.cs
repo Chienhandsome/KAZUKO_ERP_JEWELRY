@@ -512,6 +512,40 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         return new CustomerDebtSnapshot(incurred, paid, current, overdue);
     }
 
+    public async Task<IReadOnlyList<CustomerTopSalesItem>> GetTopCustomersAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int topN,
+        CancellationToken cancellationToken = default)
+    {
+        if (topN <= 0)
+            return Array.Empty<CustomerTopSalesItem>();
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<CustomerTopSalesItem>(
+            new CommandDefinition("""
+                SELECT FIRST @TOP
+                       C.ID AS CustomerId, C.CODE AS Code, C.NAME AS Name,
+                       COALESCE(C.PHONE, '') AS Phone,
+                       COALESCE(G.NAME, '') AS CustomerGroupName,
+                       CAST(COUNT(O.ID) AS INTEGER) AS OrderCount,
+                       SUM(O.GRAND_TOTAL) AS TotalSales
+                FROM SALES_ORDERS O
+                JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
+                LEFT JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
+                WHERE O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+                  AND O.ORDER_DATE >= @FROMD AND O.ORDER_DATE < @TOD
+                  AND C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                GROUP BY C.ID, C.CODE, C.NAME, C.PHONE, G.NAME
+                ORDER BY TotalSales DESC, C.ID
+                """,
+                new { TOP = topN, FROMD = fromDate.Date, TOD = toDate.Date.AddDays(1) },
+                cancellationToken: cancellationToken));
+
+        return rows.ToList();
+    }
+
     private static CustomerSaveRequest Normalize(CustomerSaveRequest request) =>
         request with
         {
