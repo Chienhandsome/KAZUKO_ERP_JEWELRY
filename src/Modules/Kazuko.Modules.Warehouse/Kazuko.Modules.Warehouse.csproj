@@ -4,6 +4,9 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Kazuko.Modules.Warehouse.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\Kazuko.Core\Kazuko.Core.csproj" />
     <ProjectReference Include="..\..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
   </ItemGroup>

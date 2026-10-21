@@ -120,7 +120,7 @@ Trình thiết kế trực quan cho mẫu tem nữ trang (tab **Mẫu in** trong
 | Mục | Chi tiết |
 |---|---|
 | Backing store | FastReport object model: `Report.Load()` từ DB → sửa `TextObject`/`BarcodeObject` → `Report.Save()` → `IPrintTemplateStore.SaveAsync()` |
-| Canvas | Tỷ lệ 3x so với kích thước thật (86×12mm, 96dpi); click chọn, kéo di chuyển, kéo 8 góc/cạnh để resize |
+| Canvas | Tỷ lệ 3x so với kích thước thật (86×12mm, 96dpi); lưới 1 mm (nét đậm mỗi 5 mm) chỉ trên mặt thiết kế; click chọn, kéo di chuyển, kéo 8 góc/cạnh để resize. Mặc định bám lưới 1 mm khi kéo; tắt bằng ô **Bám lưới 1 mm**. Ô X/Y/Rộng/Cao vẫn nhập số lẻ |
 | Đối tượng | Chỉ text + barcode (theo phạm vi pipeline in vector) |
 | Panel thuộc tính | Text: nội dung, font, cỡ, đậm/nghiêng, căn lề, góc xoay; Barcode: cột dữ liệu; chung: X/Y/Rộng/Cao (mm) |
 | Xem trước | Render PNG bằng `ImageExport` với dữ liệu mẫu |

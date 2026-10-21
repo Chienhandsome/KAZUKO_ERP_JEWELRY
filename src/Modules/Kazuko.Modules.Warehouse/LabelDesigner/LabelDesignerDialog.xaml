@@ -35,6 +35,16 @@
                    FontSize="{DynamicResource FontSize.Caption}"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    Margin="0,2,0,0" />
+        <TextBlock Text="Lưới 1 mm trên khổ tem, nét đậm mỗi 5 mm."
+                   FontSize="{DynamicResource FontSize.Caption}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="0,2,0,0" />
+        <CheckBox x:Name="SnapToGridCheck"
+                  Content="Bám lưới 1 mm"
+                  IsChecked="True"
+                  Margin="0,6,0,0"
+                  Foreground="{DynamicResource TextPrimaryBrush}"
+                  ToolTip="Khi kéo hoặc đổi kích thước, cạnh đối tượng bám đường lưới. Ô X, Y, Rộng, Cao vẫn nhập được số lẻ." />
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
         <Button Content="Xem trước"
@@ -70,11 +80,15 @@
               CornerRadius="4">
         <ScrollViewer HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto"
+                      Background="{DynamicResource AppBackgroundBrush}"
                       Padding="24">
           <Canvas x:Name="DesignCanvas"
                   Width="{Binding CanvasWidth}"
                   Height="{Binding CanvasHeight}"
-                  Background="White" />
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Top"
+                  Background="White"
+                  SnapsToDevicePixels="True" />
         </ScrollViewer>
       </Border>
 

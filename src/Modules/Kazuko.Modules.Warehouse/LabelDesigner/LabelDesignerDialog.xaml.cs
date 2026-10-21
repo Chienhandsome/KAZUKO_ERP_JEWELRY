@@ -7,6 +7,7 @@ using System.IO;
 using System.Windows.Media.Imaging;
 using FastReport;
 using FastReport.Barcode;
+using Kazuko.Modules.Warehouse;
 using Kazuko.Modules.Warehouse.Printing;
 using Border = System.Windows.Controls.Border;
 
@@ -65,6 +66,7 @@ public partial class LabelDesignerDialog : Window
         if (vm is null)
             return;
         await vm.InitializeAsync();
+        ApplyDesignGrid();
         BuildCanvas();
         vm.PropertyChanged += (_, args) =>
         {
@@ -74,6 +76,19 @@ public partial class LabelDesignerDialog : Window
     }
 
     #region Dựng visual
+
+    private void ApplyDesignGrid()
+    {
+        var vm = ViewModel;
+        if (vm is null)
+            return;
+        DesignCanvas.Background = LabelDesignerGrid.CreatePaperBrush(
+            vm.CanvasWidth,
+            vm.CanvasHeight,
+            Scale,
+            widthMm: (int)FinishedGoodsLabelPrintService.PaperWidthMm,
+            heightMm: (int)FinishedGoodsLabelPrintService.PaperHeightMm);
+    }
 
     private void BuildCanvas()
     {
@@ -397,56 +412,64 @@ public partial class LabelDesignerDialog : Window
         if (_isDragging)
         {
             // Đổi px màn hình → px FastReport rồi gán vào object.
-            _dragObject.Left = (float)Math.Max(0, (_dragStartLeft + dx) / Scale);
-            _dragObject.Top = (float)Math.Max(0, (_dragStartTop + dy) / Scale);
+            var left = SnapScreen(Math.Max(0, _dragStartLeft + dx));
+            var top = SnapScreen(Math.Max(0, _dragStartTop + dy));
+            _dragObject.Left = (float)(left / Scale);
+            _dragObject.Top = (float)(top / Scale);
         }
         else if (_isResizing)
         {
-            double newLeft = _dragStartLeft;
-            double newTop = _dragStartTop;
-            double newWidth = _dragStartWidth;
-            double newHeight = _dragStartHeight;
+            var left = _dragStartLeft;
+            var top = _dragStartTop;
+            var right = _dragStartLeft + _dragStartWidth;
+            var bottom = _dragStartTop + _dragStartHeight;
 
             switch (_resizeHandle)
             {
                 case ResizeHandleKind.TopLeft:
-                    newLeft = _dragStartLeft + dx; newTop = _dragStartTop + dy;
-                    newWidth = _dragStartWidth - dx; newHeight = _dragStartHeight - dy;
+                    left = SnapScreen(_dragStartLeft + dx);
+                    top = SnapScreen(_dragStartTop + dy);
                     break;
                 case ResizeHandleKind.Top:
-                    newTop = _dragStartTop + dy; newHeight = _dragStartHeight - dy;
+                    top = SnapScreen(_dragStartTop + dy);
                     break;
                 case ResizeHandleKind.TopRight:
-                    newTop = _dragStartTop + dy;
-                    newWidth = _dragStartWidth + dx; newHeight = _dragStartHeight - dy;
+                    top = SnapScreen(_dragStartTop + dy);
+                    right = SnapScreen(_dragStartLeft + _dragStartWidth + dx);
                     break;
                 case ResizeHandleKind.Right:
-                    newWidth = _dragStartWidth + dx;
+                    right = SnapScreen(_dragStartLeft + _dragStartWidth + dx);
                     break;
                 case ResizeHandleKind.BottomRight:
-                    newWidth = _dragStartWidth + dx; newHeight = _dragStartHeight + dy;
+                    right = SnapScreen(_dragStartLeft + _dragStartWidth + dx);
+                    bottom = SnapScreen(_dragStartTop + _dragStartHeight + dy);
                     break;
                 case ResizeHandleKind.Bottom:
-                    newHeight = _dragStartHeight + dy;
+                    bottom = SnapScreen(_dragStartTop + _dragStartHeight + dy);
                     break;
                 case ResizeHandleKind.BottomLeft:
-                    newLeft = _dragStartLeft + dx;
-                    newWidth = _dragStartWidth - dx; newHeight = _dragStartHeight + dy;
+                    left = SnapScreen(_dragStartLeft + dx);
+                    bottom = SnapScreen(_dragStartTop + _dragStartHeight + dy);
                     break;
                 case ResizeHandleKind.Left:
-                    newLeft = _dragStartLeft + dx; newWidth = _dragStartWidth - dx;
+                    left = SnapScreen(_dragStartLeft + dx);
                     break;
             }
 
+            var newWidth = right - left;
+            var newHeight = bottom - top;
             if (newWidth >= 8 && newHeight >= 8)
             {
-                _dragObject.Left = (float)Math.Max(0, newLeft / Scale);
-                _dragObject.Top = (float)Math.Max(0, newTop / Scale);
+                _dragObject.Left = (float)Math.Max(0, left / Scale);
+                _dragObject.Top = (float)Math.Max(0, top / Scale);
                 _dragObject.Width = (float)(newWidth / Scale);
                 _dragObject.Height = (float)(newHeight / Scale);
             }
         }
     }
+
+    private double SnapScreen(double screenPx) =>
+        LabelDesignerGrid.SnapScreen(screenPx, Scale, SnapToGridCheck.IsChecked == true);
 
     protected override void OnMouseUp(MouseButtonEventArgs e)
     {
