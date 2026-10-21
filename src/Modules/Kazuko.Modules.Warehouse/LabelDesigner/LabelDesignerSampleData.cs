@@ -1,4 +1,5 @@
 using System.Data;
+using Kazuko.Modules.Warehouse;
 
 namespace Kazuko.Modules.Warehouse.LabelDesigner;
 
@@ -8,7 +9,7 @@ namespace Kazuko.Modules.Warehouse.LabelDesigner;
 /// </summary>
 public static class LabelDesignerSampleData
 {
-    public static DataTable BuildSampleTable()
+    public static DataTable BuildSampleTable(string companyName, string companyAddress, string? facilityStandard)
     {
         var table = new DataTable();
         table.Columns.Add("NGAYNHAP", typeof(DateTime));
@@ -77,7 +78,6 @@ public static class LabelDesignerSampleData
         row["NOTE"] = string.Empty;
         row["CONGNHAP_NGHIN"] = 200;
         row["CONGBAN_NGHIN"] = 250;
-        row["NHACUNGCAP"] = "CTY KAZUKO GOLD";
         row["TRONGLUONGVANG_CHUOI2"] = "2.2 chỉ";
         row["THUONGHIEU"] = string.Empty;
         row["MANHACUNGCAP"] = string.Empty;
@@ -89,7 +89,6 @@ public static class LabelDesignerSampleData
         row["TRONGLUONGHOT_DEM"] = 0m;
         row["TONGTRONGLUONG_CHUOI"] = "2.5 chỉ";
         row["TRONGLUONGHOT_CHUOI"] = "0.3 chỉ";
-        row["DIACHINCC"] = "925/15 Âu Cơ - Tân Sơn Nhì - TPHCM";
         row["TIENDABAN_NGHIN"] = 0;
         row["TIENDANHAP_NGHIN"] = 0;
         row["GIABAN_NGHIN"] = 0;
@@ -98,7 +97,7 @@ public static class LabelDesignerSampleData
         row["TIENDANHAP"] = 0m;
         row["THANHTIENBAN"] = 0m;
         row["MAHIEU"] = string.Empty;
-        row["TCCS"] = "01:2026/KZJ";
+        FinishedGoodsLabelPrintService.ApplyCompanyLabelFields(row, companyName, companyAddress, facilityStandard);
         table.Rows.Add(row);
 
         return table;

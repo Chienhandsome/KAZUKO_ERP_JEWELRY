@@ -101,6 +101,62 @@ public sealed class FirebirdWarehouseRepository : IWarehouseRepository
         return new FinishedProductGroupOption(id, normalizedCode, normalizedName);
     }
 
+    public async Task<IReadOnlyList<FinishedProductSymbolOption>> GetFinishedProductSymbolsAsync(
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<FinishedProductSymbolOption>(
+            new CommandDefinition("""
+                SELECT S.ID AS Id, S.CODE AS Code
+                FROM FINISHED_PRODUCT_SYMBOLS S
+                WHERE S.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND S.IS_ACTIVE = TRUE
+                ORDER BY S.CODE
+                """, cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    public async Task<FinishedProductSymbolOption> CreateFinishedProductSymbolAsync(
+        string code,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var normalized = FinishedProductSymbolRules.Normalize(code);
+
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var exists = await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition("""
+                SELECT COUNT(*)
+                FROM FINISHED_PRODUCT_SYMBOLS S
+                WHERE S.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND UPPER(S.CODE) = UPPER(@CODE)
+                """,
+                new { CODE = normalized },
+                cancellationToken: cancellationToken));
+        if (exists > 0)
+            throw new InvalidOperationException($"Ký hiệu '{normalized}' đã có.");
+
+        var id = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition("""
+                INSERT INTO FINISHED_PRODUCT_SYMBOLS (COMPANY_ID, CODE, IS_ACTIVE)
+                VALUES (
+                    (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'),
+                    @CODE,
+                    TRUE)
+                RETURNING ID
+                """,
+                new { CODE = normalized },
+                cancellationToken: cancellationToken));
+
+        return new FinishedProductSymbolOption(id, normalized);
+    }
+
     public async Task<IReadOnlyList<WarehouseLocationOption>> GetLocationsAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default)

@@ -41,7 +41,7 @@
                    Margin="0,2,0,0" />
         <CheckBox x:Name="SnapToGridCheck"
                   Content="Bám lưới 1 mm"
-                  IsChecked="True"
+                  IsChecked="False"
                   Margin="0,6,0,0"
                   Foreground="{DynamicResource TextPrimaryBrush}"
                   ToolTip="Khi kéo hoặc đổi kích thước, cạnh đối tượng bám đường lưới. Ô X, Y, Rộng, Cao vẫn nhập được số lẻ." />

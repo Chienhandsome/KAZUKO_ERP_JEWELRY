@@ -190,6 +190,11 @@ public sealed record FinishedProductGroupOption(long Id, string Code, string Nam
     public override string ToString() => Name;
 }
 
+public sealed record FinishedProductSymbolOption(long Id, string Code)
+{
+    public override string ToString() => Code;
+}
+
 public sealed record StockDocumentSearchFilter(
     string SearchText,
     string DocumentType,
@@ -211,6 +216,15 @@ public interface IWarehouseRepository
     Task<FinishedProductGroupOption> CreateFinishedProductGroupAsync(
         string code,
         string name,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<FinishedProductSymbolOption>> GetFinishedProductSymbolsAsync(
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<FinishedProductSymbolOption> CreateFinishedProductSymbolAsync(
+        string code,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 

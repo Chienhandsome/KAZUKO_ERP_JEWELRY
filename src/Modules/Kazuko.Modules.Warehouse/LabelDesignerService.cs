@@ -1,5 +1,6 @@
 using System.Windows;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
 using Kazuko.Core.Printing;
 using Kazuko.Modules.Warehouse.LabelDesigner;
 
@@ -11,15 +12,17 @@ namespace Kazuko.Modules.Warehouse;
 public sealed class LabelDesignerService : ILabelDesignerService
 {
     private readonly IPrintTemplateStore _templates;
+    private readonly ICompanyProfileService _companyProfile;
 
-    public LabelDesignerService(IPrintTemplateStore templates)
+    public LabelDesignerService(IPrintTemplateStore templates, ICompanyProfileService companyProfile)
     {
         _templates = templates;
+        _companyProfile = companyProfile;
     }
 
     public Task<bool> OpenDesignerAsync(AuthenticatedSession session)
     {
-        var vm = new LabelDesignerViewModel(_templates, session);
+        var vm = new LabelDesignerViewModel(_templates, _companyProfile, session);
         var dialog = new LabelDesignerDialog(vm)
         {
             Owner = Application.Current?.MainWindow,

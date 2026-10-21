@@ -285,10 +285,19 @@
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="Ký hiệu:" Style="{StaticResource ReceiptFormLabelStyle}" />
-          <TextBox Grid.Column="1" Text="{Binding SymbolCode, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding Symbols}"
+                    SelectedItem="{Binding SelectedSymbol}"
+                    DisplayMemberPath="Code"
+                    Style="{StaticResource ReceiptComboStyle}" />
+          <Button Grid.Column="3" Content="Thêm KH"
+                  Command="{Binding CreateSymbolCommand}"
+                  Style="{StaticResource WhOutlineButtonStyle}"
+                  MinHeight="30" Padding="12,4"
+                  ToolTip="Thêm ký hiệu mới" />
         </Grid>
         <CheckBox Content="Tạo mã riêng cho từng món"
                   IsChecked="{Binding GenerateSeparateCodes}"
@@ -466,6 +475,7 @@
           <DataGridTextColumn Header="Công nhập" Binding="{Binding PurchaseLaborCost, StringFormat=N0, TargetNullValue=—}"
                               Width="100" ElementStyle="{StaticResource WhRightAlignTextStyle}" />
           <DataGridTextColumn Header="Nhà cung cấp" Binding="{Binding SupplierName, TargetNullValue=—}" Width="110" />
+          <DataGridTextColumn Header="KH" Binding="{Binding SymbolCode, TargetNullValue=—}" Width="70" />
           <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, TargetNullValue=—}" Width="120" />
           <DataGridTextColumn Header="Giá nhập" Binding="{Binding CostPrice, StringFormat=N0, TargetNullValue=—}"
                               Width="110" ElementStyle="{StaticResource WhRightAlignTextStyle}" />

@@ -66,6 +66,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private string _supplierName = string.Empty;
     private string _modelCode = string.Empty;
     private string _symbolCode = string.Empty;
+    private FinishedProductSymbolOption? _selectedSymbol;
     private string _notes = string.Empty;
     private bool _goldWeightManual;
     private bool _isEditing;
@@ -110,6 +111,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => !IsBusy && !_debtRecorded);
         OpenReconcileCommand = new RelayCommand(OpenReconcileDialog);
         CreateProductGroupCommand = new RelayCommand(CreateProductGroup, () => !IsBusy);
+        CreateSymbolCommand = new RelayCommand(CreateSymbol, () => !IsBusy);
         PrintSelectedLabelsCommand = new AsyncRelayCommand(
             () => PrintLabelsAsync(onlyChecked: true),
             () => !IsBusy && Products.Count > 0);
@@ -129,6 +131,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ObservableCollection<ReceiptImageItem> ImageItems { get; } = [];
     public ObservableCollection<WarehouseLocationOption> Locations { get; } = [];
     public ObservableCollection<FinishedProductGroupOption> ProductGroups { get; } = [];
+    public ObservableCollection<FinishedProductSymbolOption> Symbols { get; } = [];
     public ObservableCollection<ProductionOrderWorkerDto> WorkerOptions { get; } = [];
 
     public IReadOnlyList<string> GoldPurityChoices => GoldPurityOptions;
@@ -298,6 +301,16 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         set => SetProperty(ref _symbolCode, value);
     }
 
+    public FinishedProductSymbolOption? SelectedSymbol
+    {
+        get => _selectedSymbol;
+        set
+        {
+            if (SetProperty(ref _selectedSymbol, value))
+                SymbolCode = value?.Code ?? string.Empty;
+        }
+    }
+
     public string FormNotes
     {
         get => _notes;
@@ -356,6 +369,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 (EditCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (DeleteCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (CreateProductGroupCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                (CreateSymbolCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (RecordDebtCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
@@ -369,6 +383,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ICommand DeleteCommand { get; }
     public ICommand CancelEditCommand { get; }
     public ICommand CreateProductGroupCommand { get; }
+    public ICommand CreateSymbolCommand { get; }
     public ICommand PrintSelectedLabelsCommand { get; }
     public ICommand PrintAllLabelsCommand { get; }
     public ICommand PrintReceiptCommand { get; }
@@ -426,6 +441,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             var profile = await _companyProfile.GetAsync(_session);
             var shopName = profile.Name;
             var shopAddress = profile.Address ?? string.Empty;
+            var facilityStandard = profile.FacilityStandard;
 
             // Mỗi SP in riêng 1 report 1 trang → vẽ vector trực tiếp lên máy in
             // (không qua PNG trung gian) để chữ mịn, không răng cưa.
@@ -435,7 +451,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 foreach (var item in items)
                 {
                     reports.Add(await _labelPrintService.CreatePreparedReportAsync(
-                        [item], ReceiptDate, _session, shopName, shopAddress));
+                        [item], ReceiptDate, _session, shopName, shopAddress, facilityStandard));
                 }
 
                 using var document = new PrintDocument();
@@ -453,10 +469,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 document.PrintPage += (_, e) =>
                 {
                     var g = e.Graphics!;
-                    // Canh theo khổ tem vật lý, bù gốc tọa độ vùng in của driver.
-                    // Vẽ vector ở đơn vị mm (FastReport dùng pixel 96dpi).
-                    g.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
-                    g.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
+                    // Canh theo khổ tem vật lý, bù hard margin của driver rồi cộng lệch dọc của máy in.
+                    LabelPrintOrigin.Apply(g, e.PageSettings, dialogVm.VerticalOffsetMm);
                     VectorLabelRenderer.DrawPreparedLabel(g, reports[pageIndex]);
                     pageIndex++;
                     e.HasMorePages = pageIndex < reports.Count;
@@ -577,6 +591,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             foreach (var group in groups)
                 ProductGroups.Add(group);
             SelectedProductGroup = ProductGroups.FirstOrDefault();
+
+            var symbols = await _warehouse.GetFinishedProductSymbolsAsync(_session);
+            Symbols.Clear();
+            foreach (var symbol in symbols)
+                Symbols.Add(symbol);
 
             var existingCodes = await _queries.GetExistingFinishedProductCodesAsync(_session.BranchId);
             InitializeCodeSequences(existingCodes);
@@ -955,7 +974,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         PurchaseLaborCostText = (item.PurchaseLaborCost ?? item.CraftLaborCost)?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
         SupplierName = item.SupplierName ?? string.Empty;
         ModelCode = item.ModelCode ?? string.Empty;
-        SymbolCode = item.SymbolCode ?? string.Empty;
+        SelectSymbol(item.SymbolCode);
         FormNotes = item.Notes ?? string.Empty;
 
         _editingIndex = index;
@@ -1002,6 +1021,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         PurchaseLaborCostText = string.Empty;
         SupplierName = string.Empty;
         ModelCode = string.Empty;
+        SelectedSymbol = null;
         SymbolCode = string.Empty;
         FormNotes = string.Empty;
         _editingIndex = -1;
@@ -1101,6 +1121,55 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         {
             ErrorMessage = ex.Message;
         }
+    }
+
+    private void CreateSymbol()
+    {
+        try
+        {
+            var viewModel = new FinishedProductSymbolDialogViewModel(_warehouse, _session);
+            var dialog = new FinishedProductSymbolDialog(viewModel);
+            var owner = Application.Current.Windows
+                .OfType<ProductionFinishedReceiptDialog>()
+                .FirstOrDefault();
+            if (owner is not null)
+                dialog.Owner = owner;
+
+            if (dialog.ShowDialog() != true || viewModel.CreatedSymbol is null)
+                return;
+
+            var created = viewModel.CreatedSymbol;
+            var existing = Symbols.FirstOrDefault(symbol =>
+                string.Equals(symbol.Code, created.Code, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                Symbols.Add(created);
+                existing = created;
+            }
+            SelectedSymbol = existing;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private void SelectSymbol(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            SelectedSymbol = null;
+            return;
+        }
+
+        var match = Symbols.FirstOrDefault(symbol =>
+            string.Equals(symbol.Code, code, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            match = new FinishedProductSymbolOption(0, code.Trim());
+            Symbols.Add(match);
+        }
+        SelectedSymbol = match;
     }
 
     private async Task RecordDebtAsync()

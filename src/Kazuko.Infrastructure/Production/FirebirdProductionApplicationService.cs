@@ -1328,13 +1328,13 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                          CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT,
                          MATERIAL_COST, LABOR_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST,
                          LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT,
-                         FINISHED_PRODUCT_GROUP_ID)
+                         FINISHED_PRODUCT_GROUP_ID, SYMBOL_CODE)
                     VALUES
                         (@CID, @BID, @PO, @SO, NULL,
                          @CODE, @BARCODE, @QR, @NAME, @PURITY, @TW, @GW,
                          @MAT, @LABOR, 0, @TOTAL,
                          @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP,
-                         @GROUP)
+                         @GROUP, @SYMBOL)
                     RETURNING ID
                     """, connection, fbTx))
                 {
@@ -1360,6 +1360,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                         session.UserId > 0 ? session.UserId : DBNull.Value;
                     insertFp.Parameters.Add("@GROUP", FbDbType.BigInt).Value =
                         groupId is > 0 ? groupId.Value : DBNull.Value;
+                    insertFp.Parameters.Add("@SYMBOL", FbDbType.VarChar, 40).Value =
+                        string.IsNullOrWhiteSpace(item.SymbolCode) ? DBNull.Value : item.SymbolCode.Trim();
                     productId = Convert.ToInt64(await insertFp.ExecuteScalarAsync(cancellationToken));
                 }
 

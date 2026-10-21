@@ -75,7 +75,7 @@ public sealed class LabelDesignerCommandTests
         {
             "get_Current" when method.DeclaringType == typeof(IAuthorizationService) => new PermissionSnapshot(true, []),
             "get_Current" or "Load" => new AppPreferences(),
-            "GetAsync" => Task.FromResult(new CompanyProfileDto(1, "KAZUKO", null, null, null)),
+            "GetAsync" => Task.FromResult(new CompanyProfileDto(1, "KAZUKO", null, null, null, null)),
             "GetInfoAsync" => Task.FromResult(new DatabaseInfo("test.fdb", 0, "0", 1, "1", 1, 1)),
             "GetByCodeAsync" => Task.FromResult(new PrintTemplateDto(1, "BILL", "Bill", [], "hash", DateTime.Today, null)),
             _ => null

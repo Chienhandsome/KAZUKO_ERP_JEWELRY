@@ -32,6 +32,7 @@ public sealed class FinishedGoodsLabelPrintService
         AuthenticatedSession session,
         string shopName,
         string shopAddress,
+        string? facilityStandard,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(items);
@@ -52,7 +53,7 @@ public sealed class FinishedGoodsLabelPrintService
             page.LeftMargin = page.TopMargin = page.RightMargin = page.BottomMargin = 0;
         }
 
-        var table = BuildLabelTable(items, receiptDate);
+        var table = BuildLabelTable(items, receiptDate, shopName, shopAddress, facilityStandard);
         RegisterTable(report, table, "DataSet");
 
         SetParameter(report, "Tên tiệm", shopName);
@@ -63,7 +64,11 @@ public sealed class FinishedGoodsLabelPrintService
     }
 
     private static DataTable BuildLabelTable(
-        IReadOnlyList<ManualFinishedProductItem> items, DateTime receiptDate)
+        IReadOnlyList<ManualFinishedProductItem> items,
+        DateTime receiptDate,
+        string companyName,
+        string companyAddress,
+        string? facilityStandard)
     {
         var table = new DataTable();
         table.Columns.Add("NGAYNHAP", typeof(DateTime));
@@ -136,7 +141,6 @@ public sealed class FinishedGoodsLabelPrintService
             row["NOTE"] = item.Notes ?? string.Empty;
             row["CONGNHAP_NGHIN"] = (int)(laborPurchase / 1000m);
             row["CONGBAN_NGHIN"] = (int)(laborSale / 1000m);
-            row["NHACUNGCAP"] = item.SupplierName ?? string.Empty;
             row["TRONGLUONGVANG_CHUOI2"] = FormatChi(item.GoldWeight);
             row["THUONGHIEU"] = string.Empty;
             row["MANHACUNGCAP"] = string.Empty;
@@ -157,11 +161,22 @@ public sealed class FinishedGoodsLabelPrintService
             row["TIENDANHAP"] = 0m;
             row["THANHTIENBAN"] = item.SalePrice ?? 0m;
             row["MAHIEU"] = item.ModelCode ?? string.Empty;
-            row["TCCS"] = string.Empty;
+            ApplyCompanyLabelFields(row, companyName, companyAddress, facilityStandard);
             table.Rows.Add(row);
         }
 
         return table;
+    }
+
+    /// <summary>
+    /// NCC trên tem là tên doanh nghiệp. Địa chỉ NCC và TCCS lấy từ Thông tin chung.
+    /// </summary>
+    internal static void ApplyCompanyLabelFields(
+        DataRow row, string companyName, string companyAddress, string? facilityStandard)
+    {
+        row["NHACUNGCAP"] = companyName ?? string.Empty;
+        row["DIACHINCC"] = companyAddress ?? string.Empty;
+        row["TCCS"] = facilityStandard ?? string.Empty;
     }
 
     private static string FormatChi(decimal weight)

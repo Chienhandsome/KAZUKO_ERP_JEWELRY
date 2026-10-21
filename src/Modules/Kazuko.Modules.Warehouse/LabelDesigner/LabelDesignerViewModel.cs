@@ -8,6 +8,7 @@ using FastReport;
 using FastReport.Barcode;
 using FastReport.Export.Image;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Printing;
 using Kazuko.Modules.Warehouse.Printing;
@@ -38,6 +39,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
     private const float PxPerMm = 96f / 25.4f;
 
     private readonly IPrintTemplateStore _templates;
+    private readonly ICompanyProfileService _companyProfile;
     private readonly AuthenticatedSession _session;
 
     private Report? _report;
@@ -46,9 +48,13 @@ public sealed class LabelDesignerViewModel : ObservableObject
     private string _statusMessage = string.Empty;
     private bool _isBusy;
 
-    public LabelDesignerViewModel(IPrintTemplateStore templates, AuthenticatedSession session)
+    public LabelDesignerViewModel(
+        IPrintTemplateStore templates,
+        ICompanyProfileService companyProfile,
+        AuthenticatedSession session)
     {
         _templates = templates;
+        _companyProfile = companyProfile;
         _session = session;
 
         PreviewCommand = new AsyncRelayCommand(PreviewAsync, () => !IsBusy && _report is not null);
@@ -164,15 +170,16 @@ public sealed class LabelDesignerViewModel : ObservableObject
         return stream.ToArray();
     }
 
-    private Task PreviewAsync()
+    private async Task PreviewAsync()
     {
         if (_report is null)
-            return Task.CompletedTask;
+            return;
 
         IsBusy = true;
         try
         {
-            using var previewReport = CreateSampleReport();
+            var profile = await _companyProfile.GetAsync(_session);
+            using var previewReport = CreateSampleReport(profile);
 
             using var imgStream = new MemoryStream();
             using var export = new ImageExport
@@ -196,14 +203,13 @@ public sealed class LabelDesignerViewModel : ObservableObject
         {
             IsBusy = false;
         }
-        return Task.CompletedTask;
     }
 
     private Window? DesignerWindow => System.Windows.Application.Current?.Windows.OfType<LabelDesignerDialog>()
         .FirstOrDefault(window => ReferenceEquals(window.DataContext, this))
         ?? System.Windows.Application.Current?.MainWindow;
 
-    private Report CreateSampleReport()
+    private Report CreateSampleReport(CompanyProfileDto profile)
     {
         var report = new Report();
         try
@@ -217,10 +223,11 @@ public sealed class LabelDesignerViewModel : ObservableObject
                 page.PaperHeight = PaperHeightMm;
                 page.LeftMargin = page.TopMargin = page.RightMargin = page.BottomMargin = 0;
             }
-            using var table = LabelDesignerSampleData.BuildSampleTable();
+            var address = profile.Address ?? string.Empty;
+            using var table = LabelDesignerSampleData.BuildSampleTable(profile.Name, address, profile.FacilityStandard);
             FinishedGoodsLabelPrintService.RegisterTable(report, table, "DataSet");
-            report.SetParameterValue("Tên tiệm", "VÀNG BẠC ĐÁ QUÝ MẪU");
-            report.SetParameterValue("DiaChiDoanhNghiep", "123 Đường Mẫu - Quận 1 - TP.HCM");
+            report.SetParameterValue("Tên tiệm", profile.Name);
+            report.SetParameterValue("DiaChiDoanhNghiep", address);
             report.Prepare();
             return report;
         }
@@ -231,19 +238,20 @@ public sealed class LabelDesignerViewModel : ObservableObject
         }
     }
 
-    private Task PrintTestAsync()
+    private async Task PrintTestAsync()
     {
-        if (_report is null) return Task.CompletedTask;
+        if (_report is null) return;
         IsBusy = true;
         try
         {
+            var profile = await _companyProfile.GetAsync(_session);
             var selection = new LabelPrintDialogViewModel(1,
-                "In thử bằng dữ liệu mẫu, khổ 86 × 12 mm. Dùng các chỉnh sửa hiện tại, kể cả khi chưa lưu mẫu.");
+                "In thử bằng dữ liệu hàng mẫu, khổ 86 × 12 mm. Tên doanh nghiệp, địa chỉ và TCCS lấy từ Thông tin chung. Dùng các chỉnh sửa hiện tại, kể cả khi chưa lưu mẫu.");
             var dialog = new LabelPrintDialog(selection) { Owner = DesignerWindow };
             if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(selection.SelectedPrinter))
-                return Task.CompletedTask;
+                return;
 
-            using var report = CreateSampleReport();
+            using var report = CreateSampleReport(profile);
             using var document = new PrintDocument { DocumentName = "In thử tem nữ trang KAZUKO" };
             document.PrinterSettings.PrinterName = selection.SelectedPrinter;
             document.PrinterSettings.Copies = (short)selection.Copies;
@@ -255,8 +263,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
             document.PrintPage += (_, e) =>
             {
                 var graphics = e.Graphics!;
-                graphics.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
-                graphics.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
+                LabelPrintOrigin.Apply(graphics, e.PageSettings, selection.VerticalOffsetMm);
                 VectorLabelRenderer.DrawPreparedLabel(graphics, report);
                 e.HasMorePages = false;
             };
@@ -271,7 +278,6 @@ public sealed class LabelDesignerViewModel : ObservableObject
         {
             IsBusy = false;
         }
-        return Task.CompletedTask;
     }
 
     private async Task SaveAsync()

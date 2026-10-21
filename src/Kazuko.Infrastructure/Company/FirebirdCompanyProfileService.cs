@@ -21,7 +21,8 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
                    C.NAME,
                    COALESCE(C.PHONE, ''),
                    COALESCE(C.ADDRESS, ''),
-                   COALESCE(C.LOGO_PATH, '')
+                   COALESCE(C.LOGO_PATH, ''),
+                   COALESCE(C.TCCS, '')
             FROM BRANCHES B
             JOIN COMPANIES C ON C.ID = B.COMPANY_ID
             WHERE B.ID = @BRANCH_ID
@@ -39,7 +40,8 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
             reader.GetString(1).Trim(),
             NullIfEmpty(reader.GetString(2)),
             NullIfEmpty(reader.GetString(3)),
-            NullIfEmpty(reader.GetString(4)));
+            NullIfEmpty(reader.GetString(4)),
+            NullIfEmpty(reader.GetString(5)));
     }
 
     public async Task SaveAsync(
@@ -60,6 +62,7 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
         var phone = NormalizeOptional(request.Phone, 40);
         var address = NormalizeOptional(request.Address, 500);
         var logoPath = NormalizeOptional(request.LogoPath, 500);
+        var facilityStandard = NormalizeOptional(request.FacilityStandard, 100, "TCCS");
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -90,6 +93,7 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
                        PHONE = @PHONE,
                        ADDRESS = @ADDRESS,
                        LOGO_PATH = @LOGO_PATH,
+                       TCCS = @TCCS,
                        UPDATED_AT = CURRENT_TIMESTAMP
                  WHERE ID = @ID
                    AND IS_ACTIVE = TRUE
@@ -99,6 +103,7 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
                 update.Parameters.Add("@PHONE", FbDbType.VarChar, 40).Value = (object?)phone ?? DBNull.Value;
                 update.Parameters.Add("@ADDRESS", FbDbType.VarChar, 500).Value = (object?)address ?? DBNull.Value;
                 update.Parameters.Add("@LOGO_PATH", FbDbType.VarChar, 500).Value = (object?)logoPath ?? DBNull.Value;
+                update.Parameters.Add("@TCCS", FbDbType.VarChar, 100).Value = (object?)facilityStandard ?? DBNull.Value;
                 update.Parameters.Add("@ID", FbDbType.BigInt).Value = companyId;
 
                 var affected = await update.ExecuteNonQueryAsync(cancellationToken);
@@ -121,13 +126,16 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
             throw new InvalidOperationException("Phiên làm việc thiếu chi nhánh.");
     }
 
-    private static string? NormalizeOptional(string? value, int maxLength)
+    private static string? NormalizeOptional(string? value, int maxLength, string? fieldName = null)
     {
         if (string.IsNullOrWhiteSpace(value))
             return null;
         var trimmed = value.Trim();
         if (trimmed.Length > maxLength)
-            throw new InvalidOperationException($"Giá trị vượt quá {maxLength} ký tự.");
+            throw new InvalidOperationException(
+                fieldName is null
+                    ? $"Giá trị vượt quá {maxLength} ký tự."
+                    : $"{fieldName} tối đa {maxLength} ký tự.");
         return trimmed;
     }
 

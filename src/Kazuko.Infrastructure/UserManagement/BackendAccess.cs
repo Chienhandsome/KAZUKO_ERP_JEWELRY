@@ -54,8 +54,8 @@ public static class BackendAccess
                 "ApproveAsync" or "RejectAsync" => Has("INV_SALES_INTAKE", PermissionAction.Edit),
                 "ListRequestsAsync" or "GetRequestDetailAsync" => Any("INV_SALES_INTAKE", "INV_TRANSFER"), _ => false },
             "IWarehouseRepository" => method switch {
-                "CreateFinishedProductGroupAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add),
-                "GetLocationsAsync" or "GetFinishedProductGroupsAsync" or "SearchMaterialsAsync" or "SearchIssueSalesOrdersAsync" or "SearchIssueCandidatesAsync" => NavigationAccess.Allows(rights, "WAREHOUSE") || NavigationAccess.Allows(rights, "SALES") || NavigationAccess.Allows(rights, "PRODUCTION"),
+                "CreateFinishedProductGroupAsync" or "CreateFinishedProductSymbolAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add),
+                "GetLocationsAsync" or "GetFinishedProductGroupsAsync" or "GetFinishedProductSymbolsAsync" or "SearchMaterialsAsync" or "SearchIssueSalesOrdersAsync" or "SearchIssueCandidatesAsync" => NavigationAccess.Allows(rights, "WAREHOUSE") || NavigationAccess.Allows(rights, "SALES") || NavigationAccess.Allows(rights, "PRODUCTION"),
                 "SearchMaterialBalancesAsync" or "SearchFinishedProductStockAsync" or "SearchSaleItemStockAsync" => Has("INV_STOCK_VIEW"),
                 "SearchDocumentsAsync" or "GetDocumentAsync" or "GetDocumentLinesAsync" or "SearchMovementsAsync" => Has("INV_HISTORY"), _ => false },
             "IProductionApplicationService" => method switch {

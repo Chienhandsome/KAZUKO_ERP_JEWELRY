@@ -94,11 +94,13 @@ QR mặc định vuông 8 mm, giữ tỉ lệ vuông khi đổi kích thước; 
 trước đó. Loại mã được lưu trong `.frx` và dùng cho canvas, xem trước,
 in thử, in hàng thật. Nội dung quét của cả hai là **mã hàng (`ProductCode`)** qua
 `DataSet.MAVACH`; không lấy mã barcode riêng nếu khác mã hàng. Dữ liệu xem trước/in thử
-dùng mã mẫu `B600022`.
+dùng mã hàng mẫu `B600022` và số liệu hàng mẫu. Tên tiệm, địa chỉ, NCC, địa chỉ NCC và TCCS
+lấy từ **Thông tin chung**: NCC là tên doanh nghiệp.
 
-Trình sửa mẫu tem có **In thử**: chọn máy in và số bản, dùng dữ liệu mẫu với
-các chỉnh sửa hiện tại (kể cả chưa lưu). In vector từ trang đã chuẩn bị của FastReport,
-khổ 86 × 12 mm, lề 0. Hủy chọn máy in thì không gửi lệnh in.
+Trình sửa mẫu tem có **In thử**: chọn máy in và số bản, dùng dữ liệu hàng mẫu với
+các chỉnh sửa hiện tại (kể cả chưa lưu). Tên doanh nghiệp, địa chỉ và TCCS lấy từ Thông tin chung.
+In vector từ trang đã chuẩn bị của FastReport,
+khổ 86 × 12 mm, lề 0. Hộp **Lệch dọc (mm)** cộng thêm vào trục dọc (dương đẩy xuống, âm kéo lên), nhớ riêng theo tên máy in. Hủy chọn máy in thì không gửi lệnh in.
 
 In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
 
@@ -106,11 +108,11 @@ In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
 |---|---|
 | Mã mẫu | `TEM_NU_TRANG_28x12` trong `PRINT_TEMPLATES` |
 | Seed mặc định | Embedded `tem_nu_trang_28x12.frx` |
-| Khổ giấy in | Ngang **86 mm**, cao **12 mm**, lề 0; áp dụng khi chuẩn bị FastReport và cho `PrintDocument`, bù hard margin của driver khi vẽ vector |
+| Khổ giấy in | Ngang **86 mm**, cao **12 mm**, lề 0; áp dụng khi chuẩn bị FastReport và cho `PrintDocument`. Khi vẽ vector: bù hard margin của driver, rồi cộng **lệch dọc** (mm) của máy in đang chọn |
 | Runtime in | `FinishedGoodsLabelPrintService` — load BLOB → bind DataTable `DataSet` → `Prepare()` → `VectorLabelRenderer` vẽ vector trực tiếp (text/mã vạch) lên `PrintDocument` ở đơn vị mm |
 | Chọn tem | Checkbox từng dòng trong bảng SP ("In tem đang chọn") hoặc tất cả ("In tem tất cả") |
-| Máy in | Dialog chọn máy in hệ thống + số bản; nhớ máy in lần trước (`%LocalAppData%\KazukoERP\jewelry.label.printer.json`) |
-| Dữ liệu | Tự động từ `ManualFinishedProductItem` (mã vạch, tên, loại vàng, TL, công, NCC...); tên/địa chỉ tiệm từ `ICompanyProfileService` |
+| Máy in | Dialog chọn máy in hệ thống, số bản và lệch dọc (từ -20 đến 20 mm). Nhớ máy in lần trước và lệch dọc theo từng tên máy (`%LocalAppData%\KazukoERP\jewelry.label.printer.json`) |
+| Dữ liệu | Hàng từ `ManualFinishedProductItem` (mã vạch, tên, loại vàng, TL, công, KH). Tên tiệm, địa chỉ doanh nghiệp, NCC, địa chỉ NCC và TCCS từ `ICompanyProfileService`: NCC là tên doanh nghiệp, TCCS là ô **TCCS (tiêu chuẩn cơ sở)** trong Cài đặt → Thông tin chung. `DataSet.KYHIEU` là KH đã chọn lúc nhập kho |
 | Sửa mẫu | Tab **Mẫu in** trong Cài đặt → mục "Mẫu tem nữ trang 28x12" → nút **Sửa mẫu tem** mở designer kéo-thả |
 
 ### Designer sửa mẫu tem
@@ -123,5 +125,5 @@ Trình thiết kế trực quan cho mẫu tem nữ trang (tab **Mẫu in** trong
 | Canvas | Tỷ lệ 3x so với kích thước thật (86×12mm, 96dpi); lưới 1 mm (nét đậm mỗi 5 mm) chỉ trên mặt thiết kế; click chọn, kéo di chuyển, kéo 8 góc/cạnh để resize. Mặc định bám lưới 1 mm khi kéo; tắt bằng ô **Bám lưới 1 mm**. Ô X/Y/Rộng/Cao vẫn nhập số lẻ |
 | Đối tượng | Chỉ text + barcode (theo phạm vi pipeline in vector) |
 | Panel thuộc tính | Text: nội dung, font, cỡ, đậm/nghiêng, căn lề, góc xoay; Barcode: cột dữ liệu; chung: X/Y/Rộng/Cao (mm) |
-| Xem trước | Render PNG bằng `ImageExport` với dữ liệu mẫu |
+| Xem trước | Render PNG bằng `ImageExport` với dữ liệu hàng mẫu; tên, địa chỉ, NCC và TCCS lấy từ Thông tin chung |
 | Mở designer | Qua `ILabelDesignerService` (Core) do module Kho implement — tránh dependency Dashboard → Warehouse |

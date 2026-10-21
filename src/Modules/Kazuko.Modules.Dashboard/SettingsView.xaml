@@ -363,7 +363,7 @@
                                        FontSize="{DynamicResource FontSize.Subtitle}"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}" />
-                            <TextBlock Text="Tên doanh nghiệp, số điện thoại, địa chỉ và logo dùng trên hồ sơ công ty."
+                            <TextBlock Text="Tên doanh nghiệp, số điện thoại, địa chỉ, TCCS và logo. Tem nữ trang in tên doanh nghiệp làm NCC, cùng địa chỉ và TCCS tại đây."
                                        Margin="0,6,0,20"
                                        FontSize="{DynamicResource FontSize.Body}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
@@ -405,6 +405,12 @@
                                      AcceptsReturn="True"
                                      VerticalContentAlignment="Top"
                                      Padding="12,10" />
+
+                            <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="TCCS (tiêu chuẩn cơ sở)" />
+                            <TextBox Text="{Binding FacilityStandard, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SettingsTextBoxStyle}"
+                                     MaxLength="100"
+                                     Margin="0,0,0,18" />
 
                             <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Logo" />
                             <Grid Margin="0,0,0,20">

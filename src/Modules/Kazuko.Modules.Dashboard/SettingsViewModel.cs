@@ -24,6 +24,7 @@ public sealed class SettingsViewModel : ObservableObject
     private string _companyName = string.Empty;
     private string _phone = string.Empty;
     private string _address = string.Empty;
+    private string _facilityStandard = string.Empty;
     private string? _logoPath;
     private string _statusMessage = string.Empty;
     private string _errorMessage = string.Empty;
@@ -192,6 +193,16 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
 
+    public string FacilityStandard
+    {
+        get => _facilityStandard;
+        set
+        {
+            if (SetProperty(ref _facilityStandard, value ?? string.Empty))
+                MarkDirty();
+        }
+    }
+
     public string? LogoPath
     {
         get => _logoPath;
@@ -299,10 +310,12 @@ public sealed class SettingsViewModel : ObservableObject
             _companyName = profile.Name;
             _phone = profile.Phone ?? string.Empty;
             _address = profile.Address ?? string.Empty;
+            _facilityStandard = profile.FacilityStandard ?? string.Empty;
             _logoPath = profile.LogoPath;
             OnPropertyChanged(nameof(CompanyName));
             OnPropertyChanged(nameof(Phone));
             OnPropertyChanged(nameof(Address));
+            OnPropertyChanged(nameof(FacilityStandard));
             OnPropertyChanged(nameof(LogoPath));
             OnPropertyChanged(nameof(HasLogo));
             IsDirty = false;
@@ -337,7 +350,8 @@ public sealed class SettingsViewModel : ObservableObject
                     CompanyName,
                     Phone,
                     Address,
-                    LogoPath),
+                    LogoPath,
+                    FacilityStandard),
                 session);
             IsDirty = false;
             StatusMessage = "Đã lưu thông tin doanh nghiệp.";

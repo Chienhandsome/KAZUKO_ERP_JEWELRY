@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Drawing.Printing;
+using System.Globalization;
 using System.Windows.Input;
 using Kazuko.Core.Mvvm;
 
@@ -8,10 +9,15 @@ namespace Kazuko.Modules.Warehouse;
 /// <summary>Dialog chọn máy in tem + số bản in.</summary>
 public sealed class LabelPrintDialogViewModel : ObservableObject
 {
+    private const double MaxOffsetMm = 20;
+    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
+
     private string? _selectedPrinter;
     private string _copiesText = "1";
+    private string _verticalOffsetText = "0";
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
+    private readonly Dictionary<string, string> _offsetDrafts = new(StringComparer.OrdinalIgnoreCase);
 
     public LabelPrintDialogViewModel(int itemCount, string? summaryText = null)
     {
@@ -23,6 +29,7 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
         _selectedPrinter = !string.IsNullOrWhiteSpace(lastPrinter) && Printers.Contains(lastPrinter)
             ? lastPrinter
             : Printers.FirstOrDefault();
+        _verticalOffsetText = FormatOffset(LabelPrinterPreferences.LoadVerticalOffsetMm(_selectedPrinter));
 
         SummaryText = summaryText ?? $"In tem cho {itemCount} sản phẩm đã chọn.";
 
@@ -39,10 +46,27 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
         get => _selectedPrinter;
         set
         {
-            if (SetProperty(ref _selectedPrinter, value))
-                ((RelayCommand)PrintCommand).NotifyCanExecuteChanged();
+            if (string.Equals(_selectedPrinter, value, StringComparison.OrdinalIgnoreCase))
+                return;
+            if (!string.IsNullOrWhiteSpace(_selectedPrinter))
+                _offsetDrafts[_selectedPrinter] = _verticalOffsetText;
+            if (!SetProperty(ref _selectedPrinter, value))
+                return;
+            VerticalOffsetText = value is not null && _offsetDrafts.TryGetValue(value, out var draft)
+                ? draft
+                : FormatOffset(LabelPrinterPreferences.LoadVerticalOffsetMm(value));
+            ((RelayCommand)PrintCommand).NotifyCanExecuteChanged();
         }
     }
+
+    public string VerticalOffsetText
+    {
+        get => _verticalOffsetText;
+        set => SetProperty(ref _verticalOffsetText, value);
+    }
+
+    public double VerticalOffsetMm =>
+        TryParseVerticalOffset(VerticalOffsetText, out var offset) ? offset : 0;
 
     public string CopiesText
     {
@@ -89,7 +113,30 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
             return;
         }
 
-        LabelPrinterPreferences.SavePrinterName(SelectedPrinter);
+        if (!TryParseVerticalOffset(VerticalOffsetText, out var offset))
+        {
+            ErrorMessage = "Lệch dọc phải là số từ -20 đến 20 mm. Số dương đẩy nội dung xuống.";
+            return;
+        }
+
+        LabelPrinterPreferences.Save(SelectedPrinter, offset);
         DialogResult = true;
     }
+
+    internal static bool TryParseVerticalOffset(string? text, out double millimeters)
+    {
+        millimeters = 0;
+        if (string.IsNullOrWhiteSpace(text))
+            return true;
+
+        var trimmed = text.Trim();
+        const NumberStyles styles = NumberStyles.Float | NumberStyles.AllowLeadingSign;
+        var ok = trimmed.Contains(',')
+            ? double.TryParse(trimmed, styles, Vi, out millimeters)
+            : double.TryParse(trimmed, styles, CultureInfo.InvariantCulture, out millimeters);
+        return ok && millimeters is >= -MaxOffsetMm and <= MaxOffsetMm;
+    }
+
+    private static string FormatOffset(double millimeters) =>
+        millimeters.ToString("0.##", Vi);
 }

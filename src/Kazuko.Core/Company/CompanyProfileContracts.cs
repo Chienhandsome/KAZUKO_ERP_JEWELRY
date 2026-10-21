@@ -7,13 +7,15 @@ public sealed record CompanyProfileDto(
     string Name,
     string? Phone,
     string? Address,
-    string? LogoPath);
+    string? LogoPath,
+    string? FacilityStandard);
 
 public sealed record CompanyProfileUpdateRequest(
     string Name,
     string? Phone,
     string? Address,
-    string? LogoPath);
+    string? LogoPath,
+    string? FacilityStandard);
 
 public interface ICompanyProfileService
 {
