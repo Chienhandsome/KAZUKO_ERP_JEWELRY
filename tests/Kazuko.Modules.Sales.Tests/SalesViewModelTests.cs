@@ -14,11 +14,28 @@ public sealed class SalesViewModelTests
         await WaitForIdleAsync(vm);
 
         Assert.Equal(2, vm.BuySell.CustomerOptions.Count);
+        Assert.False(Assert.Single(vm.BuyOldGold.CustomerOptions).IsWalkIn);
+        Assert.True(vm.BuySell.SelectedCustomer!.IsWalkIn);
+        Assert.False(vm.BuyOldGold.SelectedCustomer!.IsWalkIn);
         Assert.Equal(2, vm.BuySell.StaffOptions.Count);
         Assert.Single(vm.BuySell.OldGoldTypeOptions);
         Assert.Empty(vm.BuySell.SellLines);
         Assert.Empty(vm.BuySell.BuyLines);
         Assert.Equal(9, vm.BuySell.SelectedStaff?.Id);
+    }
+
+    [Fact]
+    public async Task Old_gold_has_no_default_customer_when_only_walk_in_exists()
+    {
+        var (vm, _, _, _, queries) = SalesTestFactory.Create();
+        await WaitForIdleAsync(vm);
+        queries.Customers.RemoveAll(x => !x.IsWalkIn);
+        await vm.InitializeAsync();
+        Assert.Empty(vm.BuyOldGold.CustomerOptions);
+        Assert.Null(vm.BuyOldGold.SelectedCustomer);
+        await ((Core.Mvvm.AsyncRelayCommand)vm.NewCommand).ExecuteAsyncForTests();
+        Assert.Null(vm.BuyOldGold.SelectedCustomer);
+        Assert.True(vm.BuySell.SelectedCustomer!.IsWalkIn);
     }
 
     [Fact]

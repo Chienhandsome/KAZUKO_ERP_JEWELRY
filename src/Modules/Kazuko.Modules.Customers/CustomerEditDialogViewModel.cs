@@ -75,7 +75,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
         MembershipRanks.Add("Bạch kim");
         MembershipRanks.Add("Kim cương");
 
-        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy && !IsLoading);
+        SaveCommand = new AsyncRelayCommand(SaveAsync, () => IsFormEnabled);
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(null), () => !IsBusy);
         PickPhotoCommand = new RelayCommand(PickPhoto, () => !IsBusy && !IsLoading);
         ClearPhotoCommand = new RelayCommand(ClearPhoto, () => !IsBusy && !IsLoading && HasPhoto);
@@ -377,7 +377,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
         }
     }
 
-    public bool IsFormEnabled => !IsBusy && !IsLoading;
+    private bool _isSystemCustomer;
+    public bool IsFormEnabled => !IsBusy && !IsLoading && !_isSystemCustomer;
 
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
@@ -495,6 +496,10 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                     return;
                 }
 
+                _isSystemCustomer = detail.IsWalkIn;
+                if (_isSystemCustomer)
+                    FormError = "Khách vãng lai là bản ghi hệ thống, chỉ được xem lịch sử tại danh mục khách hàng.";
+                OnPropertyChanged(nameof(IsFormEnabled));
                 CodeDisplay = detail.Code;
                 Name = detail.Name;
                 Phone = detail.Phone;
@@ -549,6 +554,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
 
     private async Task SaveAsync()
     {
+        if (_isSystemCustomer) return;
         if (!ValidateLocal())
             return;
 

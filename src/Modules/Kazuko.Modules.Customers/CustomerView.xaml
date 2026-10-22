@@ -508,7 +508,8 @@
                         BorderThickness="0"
                         ItemContainerStyle="{StaticResource CustomerTabItemStyle}">
                 <TabItem Header="Danh sách khách hàng">
-                    <Grid Margin="0,12,0,0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="0,12,0,0" MinHeight="640">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="0.72*" MinHeight="150" />
@@ -534,6 +535,9 @@
                                       Style="{StaticResource FilterComboStyle}"
                                       ItemsSource="{Binding Regions}"
                                       SelectedItem="{Binding SelectedRegion}" />
+                            <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
+                                      ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"
+                                      ToolTip="Loại khách hàng" />
                             <ComboBox Width="150"
                                       Style="{StaticResource FilterComboStyle}"
                                       ItemsSource="{Binding StatusOptions}"
@@ -566,6 +570,14 @@
                                       behaviors:DataGridRowActions.DeleteCommand="{Binding DeleteCommand}"
                                       behaviors:DataGridRowActions.ToggleActiveCommand="{Binding ToggleActiveCommand}">
                                 <DataGrid.Columns>
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Kind" Header="Loại khách" Binding="{Binding KindText, Mode=OneWay}" Width="170">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                                <Setter Property="ToolTip" Value="{Binding KindText}" />
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
                                     <DataGridTextColumn Header="STT"
                                                         grid:DataGridColumnLayout.Key="Index"
                                                         Binding="{Binding Index, Mode=OneWay}" Width="50" />
@@ -629,17 +641,17 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Edit" Content="Sửa"
                                                             Style="{StaticResource GridActionButtonStyle}"
-                                                            ToolTip="Sửa"
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding ProtectionHint}"
                                                             Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Delete" Content="Xóa"
                                                             Style="{StaticResource GridActionButtonStyle}"
-                                                            ToolTip="Xóa (ngừng giao dịch)"
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding ProtectionHint}"
                                                             Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Edit" Content="TT"
                                                             Style="{StaticResource GridActionButtonStyle}"
-                                                            ToolTip="{Binding ToggleActiveLabel, Mode=OneWay}"
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding ProtectionHint}"
                                                             Command="{Binding DataContext.ToggleActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                 </StackPanel>
@@ -691,6 +703,7 @@
                                                     <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Edit" Content="Sửa"
                                                         Style="{StaticResource RoundedPrimaryButtonStyle}"
                                                         Command="{Binding EditSelectedCommand}"
+                                                        ToolTipService.ShowOnDisabled="True" ToolTip="{Binding SelectedProtectionHint}"
                                                         MinWidth="90"
                                                         MinHeight="32"
                                                         Padding="12,4"
@@ -698,12 +711,15 @@
                                                     <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Delete" Content="Xóa"
                                                         Style="{StaticResource OutlineButtonStyle}"
                                                         Command="{Binding DeleteSelectedCommand}"
+                                                        ToolTipService.ShowOnDisabled="True" ToolTip="{Binding SelectedProtectionHint}"
                                                         MinWidth="90"
                                                         MinHeight="32"
                                                         Padding="12,4"
                                                         Margin="0" />
                                             </StackPanel>
                                         </DockPanel>
+                                        <TextBlock Text="{Binding SelectedKindText}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
 
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -939,6 +955,7 @@
                             </ScrollViewer>
                         </Grid>
                     </Grid>
+                    </ScrollViewer>
                 </TabItem>
 
                 <TabItem Header="Lịch sử mua hàng">
@@ -1184,6 +1201,18 @@
                                         <Button Content="Xuất Excel" Style="{DynamicResource WorkspaceExportStyle}" Command="{Binding ExportTopCustomersCommand}"
                                                 CommandParameter="{Binding ElementName=TopCustomersGrid}" />
                                     </WrapPanel>
+                                    <TextBlock Text="Tổng hợp doanh thu theo loại khách" FontWeight="SemiBold" Margin="0,8,0,8" />
+                                    <DataGrid x:Name="SalesSummaryGrid" ItemsSource="{Binding SalesSummary}" Style="{DynamicResource WorkspaceGridStyle}"
+                                              AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="150">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Kind" Header="Loại khách" Binding="{Binding Kind, Mode=OneWay}" Width="*" />
+                                            <DataGridTextColumn grid:DataGridColumnLayout.Key="OrderCount" Header="Số đơn" Binding="{Binding OrderCountText, Mode=OneWay}" Width="100" />
+                                            <DataGridTextColumn grid:DataGridColumnLayout.Key="TotalSales" Header="Doanh thu" Binding="{Binding TotalSalesText, Mode=OneWay}" Width="180" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Text="{Binding SalesSummaryText}" TextWrapping="Wrap" Margin="0,8,0,8" />
+                                    <Button Content="Xuất tổng hợp" Style="{DynamicResource WorkspaceExportStyle}" HorizontalAlignment="Left"
+                                            Command="{Binding ExportSalesSummaryCommand}" CommandParameter="{Binding ElementName=SalesSummaryGrid}" Margin="0,0,0,12" />
                                     <DataGrid grid:DataGridColumnLayout.SettingsKey="customers.TopCustomers" grid:DataGridColumnLayout.EnableHeaderMenu="True" x:Name="TopCustomersGrid" ItemsSource="{Binding TopCustomers}"
                                               Style="{DynamicResource WorkspaceGridStyle}" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="280" Margin="0,0,0,4">
                                         <DataGrid.Columns>

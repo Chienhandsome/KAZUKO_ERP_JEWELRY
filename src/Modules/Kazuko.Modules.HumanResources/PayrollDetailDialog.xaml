@@ -1,0 +1,40 @@
+<Window x:Class="Kazuko.Modules.HumanResources.PayrollDetailDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:layout="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
+ xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+ Title="Chi tiết lương" Width="900" Height="760" MinWidth="720" MinHeight="540" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource AppBackgroundBrush}">
+ <Window.Resources><ResourceDictionary Source="Themes/HumanResourcesDialogResources.xaml"/></Window.Resources>
+ <Grid Margin="18">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0">
+   <StackPanel>
+    <Border Padding="14" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,0,0,12">
+     <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
+    </Border>
+    <TextBlock Text="Chấm công ghi nhận trong kỳ" FontWeight="SemiBold" Margin="0,0,0,6"/>
+    <DataGrid layout:DataGridColumnLayout.SettingsKey="HR.Payroll.Attendance.v1" layout:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding Attendance}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MinHeight="100" MaxHeight="230"
+     FontSize="{DynamicResource FontSize.Body}" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"
+     RowBackground="{DynamicResource SurfaceBrush}" AlternatingRowBackground="{DynamicResource SurfaceAltBrush}">
+     <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="Padding" Value="8,7"/><Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/></Style></DataGrid.ColumnHeaderStyle>
+     <DataGrid.CellStyle><Style TargetType="DataGridCell"><Setter Property="Padding" Value="8,4"/><Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="DataGridCell"><Border Padding="{TemplateBinding Padding}" Background="{DynamicResource SurfaceBrush}"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style></DataGrid.CellStyle>
+     <DataGrid.Columns><DataGridTextColumn layout:DataGridColumnLayout.Key="Date" Header="Ngày" Binding="{Binding Date,StringFormat=dd/MM/yyyy}" Width="150"/><DataGridTextColumn layout:DataGridColumnLayout.Key="Shift" Header="Ca" Binding="{Binding Shift}" Width="*"/><DataGridTextColumn layout:DataGridColumnLayout.Key="Status" Header="Trạng thái" Binding="{Binding Status}" Width="180"/></DataGrid.Columns>
+    </DataGrid>
+    <Grid Margin="0,14,0,0" IsEnabled="{Binding IsEditable}">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <StackPanel><TextBlock Text="Thưởng (VND)"/><TextBox Text="{Binding BonusText,UpdateSourceTrigger=PropertyChanged}" behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>
+      <TextBlock Text="Diễn giải thưởng" Margin="0,8,0,0"/><TextBox Text="{Binding BonusNote,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxLength="500"/>
+     </StackPanel>
+     <StackPanel Grid.Column="2"><TextBlock Text="Khấu trừ (VND)"/><TextBox Text="{Binding DeductionText,UpdateSourceTrigger=PropertyChanged}" behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>
+      <TextBlock Text="Diễn giải khấu trừ" Margin="0,8,0,0"/><TextBox Text="{Binding DeductionNote,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxLength="500"/>
+     </StackPanel>
+    </Grid>
+    <TextBlock Text="{Binding NetText}" FontSize="{DynamicResource FontSize.Subtitle}" Foreground="{DynamicResource SuccessBrush}" FontWeight="SemiBold" Margin="0,12,0,0"/>
+    <TextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+   </StackPanel>
+  </ScrollViewer>
+  <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+   <Button Content="Đóng" Command="{Binding CancelCommand}" IsCancel="True" MinWidth="100"/>
+   <Button IsDefault="True" Content="Lưu điều chỉnh" Command="{Binding SaveCommand}" behaviors:PermissionAccess.Rule="HR_PAYROLL:Edit" Style="{StaticResource HrDialogBasePrimaryButtonStyle}" MinWidth="150"/>
+  </StackPanel>
+ </Grid>
+</Window>

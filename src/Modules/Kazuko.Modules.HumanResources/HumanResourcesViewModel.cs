@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.UserManagement;
 using Kazuko.Shared.UI.Services;
 
 namespace Kazuko.Modules.HumanResources;
@@ -12,6 +13,7 @@ namespace Kazuko.Modules.HumanResources;
 public sealed class HumanResourcesViewModel : ObservableObject
 {
     private readonly IHumanResourcesRepository _repository;
+    private readonly IAuthorizationService? _authorization;
     private readonly IEmployeeEditorService _editor;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private CancellationTokenSource? _searchCts;
@@ -28,11 +30,20 @@ public sealed class HumanResourcesViewModel : ObservableObject
     public HumanResourcesViewModel(
         IHumanResourcesRepository repository,
         IEmployeeEditorService editor,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        IShiftEditorService? shiftEditor = null, IPayrollService? payroll = null, IAuthorizationService? authorization = null)
     {
         _repository = repository;
+        _authorization = authorization;
         _editor = editor;
         _sessionAccessor = sessionAccessor;
+
+        Attendance = new AttendanceTabViewModel(
+            repository,
+            sessionAccessor,
+            shiftEditor ?? new ShiftEditorService(repository, sessionAccessor));
+
+        Payroll = payroll is null ? null : new PayrollTabViewModel(payroll, sessionAccessor, authorization);
 
         StatusOptions.Add("Tất cả");
         StatusOptions.Add("Đang làm việc");
@@ -62,6 +73,10 @@ public sealed class HumanResourcesViewModel : ObservableObject
 
     public ObservableCollection<EmployeeRowViewModel> Employees { get; } = new();
     public ObservableCollection<string> StatusOptions { get; } = new();
+
+    /// <summary>ViewModel tab Chấm công (index 1 sau khi bỏ tab Cơ cấu tổ chức/Hợp đồng).</summary>
+    public AttendanceTabViewModel Attendance { get; }
+    public PayrollTabViewModel? Payroll { get; }
 
     public string SearchText
     {
@@ -109,8 +124,6 @@ public sealed class HumanResourcesViewModel : ObservableObject
                 OnPropertyChanged(nameof(SelectedAddress));
                 OnPropertyChanged(nameof(SelectedHireDateText));
                 OnPropertyChanged(nameof(SelectedContractType));
-                OnPropertyChanged(nameof(SelectedBaseSalaryText));
-                OnPropertyChanged(nameof(SelectedAllowanceText));
                 OnPropertyChanged(nameof(SelectedNotes));
                 OnPropertyChanged(nameof(SelectedStatusText));
                 OnPropertyChanged(nameof(SelectedPhotoPath));
@@ -133,10 +146,6 @@ public sealed class HumanResourcesViewModel : ObservableObject
     public string SelectedHireDateText =>
         SelectedDetail?.HireDate?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) ?? "—";
     public string SelectedContractType => SelectedDetail?.ContractType ?? string.Empty;
-    public string SelectedBaseSalaryText =>
-        SelectedDetail?.BaseSalary.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) ?? "0";
-    public string SelectedAllowanceText =>
-        SelectedDetail?.Allowance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) ?? "0";
     public string SelectedNotes => SelectedDetail?.Notes ?? string.Empty;
     public string SelectedStatusText =>
         SelectedDetail is null ? string.Empty : EmployeeStatusCodes.ToDisplay(SelectedDetail.StatusCode);
@@ -188,7 +197,14 @@ public sealed class HumanResourcesViewModel : ObservableObject
     public int SelectedTabIndex
     {
         get => _selectedTabIndex;
-        set => SetProperty(ref _selectedTabIndex, value);
+        set
+        {
+            if (SetProperty(ref _selectedTabIndex, value))
+            {
+                if (value == 1) _ = Attendance.EnsureLoadedAsync();
+                if (value == 2 && Payroll is not null) _ = Payroll.EnsureLoadedAsync();
+            }
+        }
     }
 
     public ICommand SearchCommand { get; }
@@ -222,7 +238,12 @@ public sealed class HumanResourcesViewModel : ObservableObject
             grid, Employees, columns);
     }
 
-    private async Task InitializeAsync() => await SearchAsync();
+    private async Task InitializeAsync()
+    {
+        if (_authorization is not null && !_authorization.Current.Allows("CAT_EMPLOYEES"))
+        { SelectedTabIndex = 2; if (Payroll is not null) await Payroll.EnsureLoadedAsync(); return; }
+        await SearchAsync();
+    }
 
     private async Task RefreshAsync() => await SearchAsync();
 

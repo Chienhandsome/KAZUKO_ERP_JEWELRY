@@ -55,8 +55,7 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
         var rows = await connection.QueryAsync<SalesCustomerOption>(
             new CommandDefinition($"""
                 SELECT C.ID AS Id, C.CODE AS Code, C.NAME AS Name, C.PHONE AS Phone,
-                       CASE WHEN UPPER(TRIM(C.CODE)) IN ('KH-VL', 'WALK_IN', 'KHACH_LE')
-                            THEN TRUE ELSE FALSE END AS IsWalkIn
+                       C.IS_WALK_IN AS IsWalkIn
                 FROM CUSTOMERS C
                 WHERE C.COMPANY_ID = @COMPANY_ID
                   AND C.IS_ACTIVE = TRUE
@@ -64,7 +63,7 @@ public sealed class FirebirdSalesQueryRepository : ISalesQueryRepository
                        OR CAST(C.CODE AS VARCHAR(30) CHARACTER SET UTF8) CONTAINING @SEARCH
                        OR C.NAME CONTAINING @SEARCH
                        OR COALESCE(C.PHONE, '') CONTAINING @SEARCH)
-                ORDER BY C.NAME, C.CODE, C.ID
+                ORDER BY C.IS_WALK_IN DESC, CASE WHEN C.IS_WALK_IN THEN C.ID ELSE 0 END, C.NAME, C.CODE, C.ID
                 ROWS {CustomerLimit}
                 """,
                 new

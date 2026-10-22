@@ -59,7 +59,7 @@ public static class ExcelExportService
         if (_authorization is not null)
         {
             var type = typeof(T).FullName ?? string.Empty;
-            var domain = type.Contains("Customers") ? "CAT_CUSTOMERS" : type.Contains("Suppliers") ? "CAT_SUPPLIERS"
+            var domain = type.Contains("Payroll") ? "HR_PAYROLL" : type.Contains("Customers") ? "CAT_CUSTOMERS" : type.Contains("Suppliers") ? "CAT_SUPPLIERS"
                 : type.Contains("HumanResources") ? "CAT_EMPLOYEES" : type.Contains("Production") ? "PROD_ORDER"
                 : type.Contains("WorkerGold") ? "DEBT_WORKER_GOLD" : type.Contains("Debt") ? "DEBT_CUSTOMER" : null;
             var requirements = new List<PermissionRequirement> { new("DATA_EXPORT") };

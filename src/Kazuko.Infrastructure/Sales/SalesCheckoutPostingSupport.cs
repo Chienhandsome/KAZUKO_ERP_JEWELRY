@@ -758,7 +758,7 @@ public static class SalesCheckoutPostingSupport
         long customerId, CancellationToken cancellationToken)
     {
         await using var command = new FbCommand("""
-            SELECT CODE, NAME, PHONE
+            SELECT IS_WALK_IN, NAME, PHONE
             FROM CUSTOMERS
             WHERE ID = @ID AND COMPANY_ID = @CID AND IS_ACTIVE = TRUE
             WITH LOCK
@@ -768,8 +768,7 @@ public static class SalesCheckoutPostingSupport
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
             throw new InvalidOperationException("Khách hàng không còn hoạt động hoặc không thuộc công ty.");
-        var code = reader.GetString(0).Trim().ToUpperInvariant();
-        return new CustomerState(code is "KH-VL" or "WALK_IN" or "KHACH_LE");
+        return new CustomerState(reader.GetBoolean(0));
     }
 
     private static async Task EnsureSalespersonAsync(

@@ -25,7 +25,8 @@ public sealed record CustomerListItem(
     DateTime? BirthOrEstablishedDate,
     DateTime? JoinDate,
     long CustomerGroupId,
-    string? PhotoPath);
+    string? PhotoPath,
+    bool IsWalkIn = false);
 
 public sealed record CustomerDetail(
     long Id,
@@ -52,7 +53,8 @@ public sealed record CustomerDetail(
     string IdIssuePlace,
     string BankName,
     string BuyerName,
-    string BankAccountNumber);
+    string BankAccountNumber,
+    bool IsWalkIn = false);
 
 public sealed record CustomerGroupOption(long Id, string Code, string Name, bool IsActive, bool IsDefault)
 {
@@ -63,7 +65,8 @@ public sealed record CustomerSearchFilter(
     string SearchText,
     long GroupId,
     string Region,
-    bool? IsActive);
+    bool? IsActive,
+    bool? IsWalkIn = false);
 
 public sealed record CustomerSaveRequest(
     long? Id,
@@ -98,7 +101,8 @@ public sealed record CustomerEditResult(
     string Name,
     string Phone,
     string Address,
-    bool IsActive);
+    bool IsActive,
+    bool IsWalkIn = false);
 
 public sealed record CustomerPurchaseHistoryItem(
     long OrderId,
@@ -135,6 +139,8 @@ public interface ICustomerEditorService
     CustomerEditResult? ShowEdit(long customerId);
 }
 
+public sealed record CustomerSalesSummary(bool IsWalkIn, int OrderCount, decimal TotalSales);
+
 public interface ICustomerRepository
 {
     Task<IReadOnlyList<CustomerGroupOption>> GetGroupsAsync(
@@ -160,6 +166,9 @@ public interface ICustomerRepository
     Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(
         long customerId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CustomerSalesSummary>> GetSalesSummaryAsync(
+        DateTime fromDate, DateTime toDate, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CustomerTopSalesItem>> GetTopCustomersAsync(
         DateTime fromDate,

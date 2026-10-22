@@ -1013,9 +1013,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 return;
 
             var code = result.Code.Trim();
-            var isWalkIn = string.Equals(code, "KH-VL", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(code, "WALK_IN", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(code, "KHACH_LE", StringComparison.OrdinalIgnoreCase);
+            var isWalkIn = result.IsWalkIn;
             if (isWalkIn)
             {
                 ErrorMessage = "Đơn đặt không dùng khách lẻ.";

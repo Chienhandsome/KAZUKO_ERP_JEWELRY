@@ -14,6 +14,14 @@ public sealed class MasterCustomersReportViewModel : ReportWorkspaceViewModel
     private readonly IMasterCustomersReportService _reportService;
     private readonly MasterCustomersPrintService _printService = new();
 
+    private string _selectedKind = "Có hồ sơ";
+    public string[] KindOptions { get; } = ["Có hồ sơ", "Vãng lai", "Tất cả"];
+    public string SelectedKind
+    {
+        get => _selectedKind;
+        set { if (SetProperty(ref _selectedKind, value)) ScheduleReload(350); }
+    }
+
     private string _searchText = string.Empty;
 
     public MasterCustomersReportViewModel(
@@ -45,11 +53,12 @@ public sealed class MasterCustomersReportViewModel : ReportWorkspaceViewModel
     protected override void ResetFiltersCore()
     {
         SearchText = string.Empty;
+        SelectedKind = "Có hồ sơ";
     }
 
     protected override async Task LoadDataAsync(AuthenticatedSession session, CancellationToken token)
     {
-        var filter = new MasterCustomersReportFilter(SearchText);
+        var filter = new MasterCustomersReportFilter(SearchText, SelectedKind switch { "Có hồ sơ" => false, "Vãng lai" => true, _ => (bool?)null });
 
         var result = await _reportService.GetAsync(filter, session, token);
         token.ThrowIfCancellationRequested();
@@ -70,7 +79,7 @@ public sealed class MasterCustomersReportViewModel : ReportWorkspaceViewModel
             Rows.ToArray(),
             session,
             SearchText,
-            ActiveColumns);
+            ActiveColumns, SelectedKind);
 
     protected override void OnLoadFailed() => Rows.Clear();
 

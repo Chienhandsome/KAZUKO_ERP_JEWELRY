@@ -4,6 +4,7 @@
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:conv="clr-namespace:Kazuko.Modules.HumanResources.Converters"
              xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+             xmlns:local="clr-namespace:Kazuko.Modules.HumanResources"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              MinWidth="900" MinHeight="520"
              PreviewKeyDown="UserControl_PreviewKeyDown">
@@ -11,6 +12,8 @@
         <KeyBinding Key="F1" Command="{Binding AddCommand}" />
     </UserControl.InputBindings>
     <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Themes/HumanResourcesDialogResources.xaml" /></ResourceDictionary.MergedDictionaries>
         <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
         <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
@@ -277,6 +280,40 @@
             <Setter Property="MinHeight" Value="160" />
         </Style>
 
+        <!-- Ô chấm công: nền theo trạng thái, viền cam khi đang chọn -->
+        <Style x:Key="AttendanceCellStyle" TargetType="Border">
+            <Setter Property="Width" Value="25" />
+            <Setter Property="Height" Value="25" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="AttendanceCell_PreviewMouseLeftButtonDown" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding StatusCode}" Value="WORK">
+                    <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusCode}" Value="PAID_LEAVE">
+                    <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusCode}" Value="UNPAID_LEAVE">
+                    <Setter Property="Background" Value="{DynamicResource InfoBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                    <Setter Property="BorderThickness" Value="2" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="AttendanceHeaderCellStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0.5,0.5" />
+        </Style>
+
         <Style x:Key="HrTabItemStyle" TargetType="TabItem">
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="0,0,8,0" />
@@ -327,6 +364,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+            </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid Margin="16">
@@ -373,7 +411,7 @@
                     </Grid>
                 </ControlTemplate>
             </TabControl.Template>
-            <TabItem Header="Danh sách nhân viên">
+            <TabItem Header="Danh sách nhân viên" access:PermissionAccess.Rule="CAT_EMPLOYEES">
                 <Grid Margin="0,4,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -594,12 +632,6 @@
                                                 <TextBlock Text="{Binding SelectedHireDateText, Mode=OneWay}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource FontSize.Body}" Margin="0,0,0,6" />
                                                 <TextBlock Text="Trạng thái" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
                                                 <TextBlock Text="{Binding SelectedStatusText, Mode=OneWay}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource FontSize.Body}" Margin="0,0,0,6" />
-                                                <TextBlock Text="Lương CB / Phụ cấp" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                                                <TextBlock Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource FontSize.Body}">
-                                                    <Run Text="{Binding SelectedBaseSalaryText, Mode=OneWay}" />
-                                                    <Run Text=" / " />
-                                                    <Run Text="{Binding SelectedAllowanceText, Mode=OneWay}" />
-                                                </TextBlock>
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
@@ -617,7 +649,7 @@
                                 <TextBlock Text="Chấm công tháng"
                                            FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Body}"
                                            Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" />
-                                <TextBlock Text="Chức năng chấm công theo tháng sẽ được bổ sung ở giai đoạn sau. Không hiển thị số liệu giả."
+                                <TextBlock Text="Chấm công theo ca/ngày được thực hiện ở tab Chấm công."
                                            FontSize="{DynamicResource FontSize.Caption}"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" />
@@ -629,7 +661,7 @@
                                 <TextBlock Text="Lương tháng"
                                            FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Body}"
                                            Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" />
-                                <TextBlock Text="Bảng lương, thưởng và khấu trừ sẽ được bổ sung ở giai đoạn sau. Không hiển thị số liệu giả."
+                                <TextBlock Text="Mở tab Tính lương để tính theo chấm công, điều chỉnh thưởng/khấu trừ và chốt bảng lương từng tháng."
                                            FontSize="{DynamicResource FontSize.Caption}"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" />
@@ -639,37 +671,276 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Cơ cấu tổ chức">
-                <Border Style="{StaticResource HrStubPanelStyle}" Margin="0,12,0,0">
-                    <TextBlock Text="Tab Cơ cấu tổ chức chưa triển khai. Sẽ quản lý sơ đồ phòng ban/chức vụ ở giai đoạn sau."
-                               FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
-                </Border>
+            <TabItem Header="Chấm công" access:PermissionAccess.Rule="CAT_EMPLOYEES">
+                <Grid Margin="0,4,0,0" DataContext="{Binding Attendance}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="190" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Pane trái: danh sách kỳ tháng -->
+                    <Border Grid.Column="0" Style="{StaticResource HrPanelStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Bảng chấm công" FontWeight="SemiBold"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8" />
+                            <ListBox Grid.Row="1" ItemsSource="{Binding Periods}"
+                                     SelectedItem="{Binding SelectedPeriod}"
+                                     Background="Transparent" BorderThickness="0"
+                                     FontSize="{DynamicResource FontSize.Body}"
+                                     Foreground="{DynamicResource TextPrimaryBrush}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}" Padding="4,3" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add" Content="Thêm kỳ tháng"
+                                        Style="{StaticResource HrPrimaryButtonStyle}"
+                                        Command="{Binding AddPeriodCommand}" Margin="0,0,0,8" />
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Delete" Content="Xóa kỳ"
+                                        Style="{StaticResource HrOutlineButtonStyle}"
+                                        Command="{Binding DeletePeriodCommand}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Phần chính: toolbar + lưới -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,8">
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Edit"
+                                        Style="{StaticResource HrOutlineButtonStyle}" Margin="0,0,8,0"
+                                        Command="{Binding SetStatusCommand}" CommandParameter="NONE"
+                                        ToolTip="Đặt các ô đang chọn về Không có lịch">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="14" Height="14" CornerRadius="3" Margin="0,0,6,0"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource SurfaceBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                                        <TextBlock Text="Không có lịch" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Edit"
+                                        Style="{StaticResource HrOutlineButtonStyle}" Margin="0,0,8,0"
+                                        Command="{Binding SetStatusCommand}" CommandParameter="WORK"
+                                        ToolTip="Đặt các ô đang chọn là Đi làm">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="14" Height="14" CornerRadius="3" Margin="0,0,6,0"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource DangerBrush}" />
+                                        <TextBlock Text="Đi làm" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Edit"
+                                        Style="{StaticResource HrOutlineButtonStyle}" Margin="0,0,8,0"
+                                        Command="{Binding SetStatusCommand}" CommandParameter="PAID_LEAVE"
+                                        ToolTip="Đặt các ô đang chọn là Nghỉ có phép">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="14" Height="14" CornerRadius="3" Margin="0,0,6,0"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource SuccessBrush}" />
+                                        <TextBlock Text="Nghỉ có phép" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Edit"
+                                        Style="{StaticResource HrOutlineButtonStyle}" Margin="0,0,8,0"
+                                        Command="{Binding SetStatusCommand}" CommandParameter="UNPAID_LEAVE"
+                                        ToolTip="Đặt các ô đang chọn là Nghỉ không phép">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="14" Height="14" CornerRadius="3" Margin="0,0,6,0"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource InfoBrush}" />
+                                        <TextBlock Text="Nghỉ không phép" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add" Content="Thêm ca"
+                                        Style="{StaticResource HrPrimaryButtonStyle}"
+                                        Command="{Binding AddShiftCommand}" Margin="0,0,8,0" MinWidth="110" />
+                                <Button Content="Làm mới" Style="{StaticResource HrOutlineButtonStyle}"
+                                        Command="{Binding RefreshCommand}" MinWidth="100" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <DockPanel Grid.Row="1" Margin="0,0,0,8" LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding SelectionText, Mode=OneWay}"
+                                       FontWeight="SemiBold"
+                                       FontSize="{DynamicResource FontSize.Caption}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
+                                       Foreground="{DynamicResource DangerBrush}"
+                                       FontSize="{DynamicResource FontSize.Caption}"
+                                       TextWrapping="Wrap" VerticalAlignment="Center"
+                                       Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="{DynamicResource FontSize.Caption}"
+                                       TextWrapping="Wrap" VerticalAlignment="Center"
+                                       Visibility="{Binding HasError, Converter={StaticResource InverseBoolToVis}}" />
+                        </DockPanel>
+
+                        <Border Grid.Row="2" Style="{StaticResource HrPanelStyle}" Padding="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Hàng tiêu đề ngày (cuộn ngang đồng bộ với thân lưới) -->
+                                <ScrollViewer x:Name="AttendanceHeaderScroller" Grid.Row="0"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Disabled">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="66" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Style="{StaticResource AttendanceHeaderCellStyle}">
+                                            <TextBlock Text="Nhân viên" FontWeight="SemiBold"
+                                                       FontSize="{DynamicResource FontSize.Caption}"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       VerticalAlignment="Center" Margin="8,4" />
+                                        </Border>
+                                        <Border Grid.Column="1" Style="{StaticResource AttendanceHeaderCellStyle}">
+                                            <TextBlock Text="Ca" FontWeight="SemiBold"
+                                                       FontSize="{DynamicResource FontSize.Caption}"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4" />
+                                        </Border>
+                                        <ItemsControl Grid.Column="2" ItemsSource="{Binding Days}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="27" Style="{StaticResource AttendanceHeaderCellStyle}">
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Day}" HorizontalAlignment="Center"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="{DynamicResource FontSize.Caption}"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                            <TextBlock Text="{Binding WeekdayLabel}" HorizontalAlignment="Center"
+                                                                       FontSize="{DynamicResource FontSize.Caption}">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsSunday}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Grid>
+                                </ScrollViewer>
+
+                                <!-- Thân lưới: nhóm nhân viên > hàng ca > ô ngày -->
+                                <ScrollViewer x:Name="AttendanceBodyScroller" Grid.Row="1"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Auto"
+                                              ScrollChanged="AttendanceBodyScroller_ScrollChanged">
+                                    <ItemsControl x:Name="AttendanceGroupsControl" ItemsSource="{Binding Groups}"
+                                                  MouseMove="AttendanceGrid_MouseMove"
+                                                  MouseLeftButtonUp="AttendanceGrid_MouseLeftButtonUp">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="150" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0"
+                                                            Background="{DynamicResource SurfaceAltBrush}"
+                                                            BorderBrush="{DynamicResource BorderBrush}"
+                                                            BorderThickness="0,0,1,1">
+                                                        <TextBlock Text="{Binding EmployeeName}"
+                                                                   FontSize="{DynamicResource FontSize.Body}"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   VerticalAlignment="Center" Margin="8,2"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   ToolTip="{Binding EmployeeName}" />
+                                                    </Border>
+                                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding ShiftRows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="66" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Border Grid.Column="0"
+                                                                            BorderBrush="{DynamicResource BorderBrush}"
+                                                                            BorderThickness="0,0,1,1">
+                                                                        <TextBlock Text="{Binding ShiftName}"
+                                                                                   FontSize="{DynamicResource FontSize.Caption}"
+                                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                                   HorizontalAlignment="Center"
+                                                                                   VerticalAlignment="Center" Margin="4,2" />
+                                                                    </Border>
+                                                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
+                                                                        <ItemsControl.ItemsPanel>
+                                                                            <ItemsPanelTemplate>
+                                                                                <StackPanel Orientation="Horizontal" />
+                                                                            </ItemsPanelTemplate>
+                                                                        </ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Border Style="{StaticResource AttendanceCellStyle}" />
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <TextBlock Text="Chưa có nhân viên đang làm việc hoặc chưa có ca làm việc."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="{DynamicResource FontSize.Body}"
+                                           Visibility="{Binding HasRows, Converter={StaticResource InverseBoolToVis}}" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
             </TabItem>
-            <TabItem Header="Chấm công">
-                <Border Style="{StaticResource HrStubPanelStyle}" Margin="0,12,0,0">
-                    <TextBlock Text="Tab Chấm công chưa triển khai (đi muộn/về sớm, nghỉ phép). Không có số liệu mẫu."
-                               FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
-                </Border>
-            </TabItem>
-            <TabItem Header="Tính lương">
-                <Border Style="{StaticResource HrStubPanelStyle}" Margin="0,12,0,0">
-                    <TextBlock Text="Tab Tính lương chưa triển khai. Không hiển thị lương giả."
-                               FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
-                </Border>
+            <TabItem Header="Tính lương" access:PermissionAccess.Rule="HR_PAYROLL">
+                <local:PayrollTabView DataContext="{Binding Payroll}"/>
             </TabItem>
             <TabItem Header="Khen thưởng - Kỷ luật">
                 <Border Style="{StaticResource HrStubPanelStyle}" Margin="0,12,0,0">
                     <TextBlock Text="Tab Khen thưởng - Kỷ luật chưa triển khai."
-                               FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
-                </Border>
-            </TabItem>
-            <TabItem Header="Hợp đồng">
-                <Border Style="{StaticResource HrStubPanelStyle}" Margin="0,12,0,0">
-                    <TextBlock Text="Tab Hợp đồng chưa triển khai."
                                FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
                 </Border>

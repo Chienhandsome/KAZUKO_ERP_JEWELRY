@@ -145,11 +145,12 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                        C.OPENING_POINTS AS OpeningPoints, COALESCE(C.CREDIT_LIMIT, 0) AS CreditLimit,
                        C.BIRTH_OR_ESTABLISHED_DATE AS BirthOrEstablishedDate,
                        C.JOIN_DATE AS JoinDate, C.CUSTOMER_GROUP_ID AS CustomerGroupId,
-                       C.PHOTO_PATH AS PhotoPath
+                       C.PHOTO_PATH AS PhotoPath, C.IS_WALK_IN AS IsWalkIn
                 FROM CUSTOMERS C
                 JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
                 WHERE C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                   AND (@HAS_ACTIVE = 0 OR C.IS_ACTIVE = @ACTIVE_VALUE)
+                  AND (@HAS_KIND = 0 OR C.IS_WALK_IN = @WALK_IN)
                   AND (@HAS_SEARCH = 0
                        OR CAST(C.CODE AS VARCHAR(30) CHARACTER SET UTF8) CONTAINING @SEARCH
                        OR C.NAME CONTAINING @SEARCH
@@ -168,7 +169,9 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                     HAS_REGION = region.Length > 0 ? 1 : 0,
                     REGION = region,
                     HAS_ACTIVE = filter.IsActive.HasValue ? 1 : 0,
-                    ACTIVE_VALUE = filter.IsActive ?? true
+                    ACTIVE_VALUE = filter.IsActive ?? true,
+                    HAS_KIND = filter.IsWalkIn.HasValue ? 1 : 0,
+                    WALK_IN = filter.IsWalkIn ?? false
                 },
                 cancellationToken: cancellationToken));
         return rows.AsList();
@@ -196,7 +199,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                        COALESCE(C.ID_ISSUE_PLACE, '') AS IdIssuePlace,
                        COALESCE(C.BANK_NAME, '') AS BankName,
                        COALESCE(C.BUYER_NAME, '') AS BuyerName,
-                       COALESCE(C.BANK_ACCOUNT_NUMBER, '') AS BankAccountNumber
+                       COALESCE(C.BANK_ACCOUNT_NUMBER, '') AS BankAccountNumber, C.IS_WALK_IN AS IsWalkIn
                 FROM CUSTOMERS C
                 JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
                 WHERE C.ID = @ID
@@ -265,6 +268,9 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
 
         try
         {
+            if (normalized.Id is > 0)
+                await EnsureEditableAsync(connection, transaction, normalized.Id.Value, cancellationToken);
+
             var oldGroupId = normalized.Id is > 0
                 ? await GetCustomerGroupIdAsync(connection, transaction, normalized.Id.Value, cancellationToken)
                 : 0L;
@@ -282,7 +288,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 id = await connection.ExecuteScalarAsync<long>(
                     new CommandDefinition("""
                         INSERT INTO CUSTOMERS
-                            (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
+                            (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE, IS_WALK_IN,
                              NAME, ADDRESS, PHONE, EMAIL, BIRTH_OR_ESTABLISHED_DATE, OPENING_POINTS,
                              TAX_CODE, NOTES, GENDER, REGION, OCCUPATION, MEMBERSHIP_RANK,
                              JOIN_DATE, CREDIT_LIMIT, IS_ACTIVE, PHOTO_PATH,
@@ -290,7 +296,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                              CREATED_BY, UPDATED_BY, UPDATED_AT)
                         VALUES
                             ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
-                             @TEMP_CODE, 'INDIVIDUAL', @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
+                             @TEMP_CODE, 'INDIVIDUAL', FALSE, @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
                              @POINTS, @TAX_CODE, @NOTES, @GENDER, @REGION, @OCCUPATION, @MEMBERSHIP_RANK,
                              @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH,
                              @ID_ISSUE_DATE, @ID_ISSUE_PLACE, @BANK_NAME, @BUYER_NAME, @BANK_ACCOUNT_NUMBER,
@@ -305,7 +311,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 await connection.ExecuteAsync(
                     new CommandDefinition("""
                         UPDATE CUSTOMERS SET CODE=@CODE
-                        WHERE ID=@ID
+                        WHERE ID=@ID AND IS_WALK_IN = FALSE
                           AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                         """,
                         new { CODE = code, ID = id },
@@ -330,7 +336,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                             BANK_NAME=@BANK_NAME, BUYER_NAME=@BUYER_NAME,
                             BANK_ACCOUNT_NUMBER=@BANK_ACCOUNT_NUMBER,
                             UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
-                        WHERE ID=@ID
+                        WHERE ID=@ID AND IS_WALK_IN = FALSE
                           AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                         """,
                         updateParameters,
@@ -397,11 +403,12 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         ArgumentNullException.ThrowIfNull(session);
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
+        await EnsureEditableAsync(connection, null, id, cancellationToken);
         var affected = await connection.ExecuteAsync(
             new CommandDefinition("""
                 UPDATE CUSTOMERS
                 SET IS_ACTIVE=@ACTIVE, UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
-                WHERE ID=@ID
+                WHERE ID=@ID AND IS_WALK_IN = FALSE
                   AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                 """,
                 new
@@ -537,6 +544,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 WHERE O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
                   AND O.ORDER_DATE >= @FROMD AND O.ORDER_DATE < @TOD
                   AND C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND C.IS_WALK_IN = FALSE
                 GROUP BY C.ID, C.CODE, C.NAME, C.PHONE, G.NAME
                 ORDER BY TotalSales DESC, C.ID
                 """,
@@ -544,6 +552,37 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 cancellationToken: cancellationToken));
 
         return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<CustomerSalesSummary>> GetSalesSummaryAsync(
+        DateTime fromDate, DateTime toDate, CancellationToken cancellationToken = default)
+    {
+        if (fromDate.Date > toDate.Date)
+            throw new InvalidOperationException("Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.");
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<CustomerSalesSummary>(new CommandDefinition("""
+            SELECT C.IS_WALK_IN AS IsWalkIn, CAST(COUNT(O.ID) AS INTEGER) AS OrderCount,
+                   SUM(O.GRAND_TOTAL) AS TotalSales
+            FROM SALES_ORDERS O JOIN CUSTOMERS C ON C.ID = O.CUSTOMER_ID
+            WHERE O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+              AND O.ORDER_DATE >= @FROMD AND O.ORDER_DATE < @TOD
+              AND C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+            GROUP BY C.IS_WALK_IN
+            """, new { FROMD = fromDate.Date, TOD = toDate.Date.AddDays(1) },
+            cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    private static async Task EnsureEditableAsync(IDbConnection connection, IDbTransaction? transaction,
+        long id, CancellationToken cancellationToken)
+    {
+        var walkIn = await connection.QuerySingleOrDefaultAsync<bool?>(new CommandDefinition("""
+            SELECT IS_WALK_IN FROM CUSTOMERS WHERE ID = @ID
+              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+            """, new { ID = id }, transaction, cancellationToken: cancellationToken));
+        if (walkIn is null) throw new InvalidOperationException("Khách hàng không còn tồn tại.");
+        if (walkIn.Value) throw new InvalidOperationException("Khách vãng lai là bản ghi hệ thống, không được sửa hoặc đổi trạng thái.");
     }
 
     private static CustomerSaveRequest Normalize(CustomerSaveRequest request) =>
@@ -593,7 +632,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         parameters.Add("@ADDRESS", item.Address);
         parameters.Add("@PHONE", item.Phone);
         parameters.Add("@EMAIL", item.Email);
-        parameters.Add("@DATE_VALUE", item.BirthOrEstablishedDate ?? (object)DBNull.Value);
+        parameters.Add("@DATE_VALUE", item.BirthOrEstablishedDate, DbType.Date);
         parameters.Add("@POINTS", item.OpeningPoints);
         parameters.Add("@TAX_CODE", item.TaxCode);
         parameters.Add("@NOTES", item.Notes);
@@ -601,11 +640,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         parameters.Add("@REGION", NullIfEmpty(item.Region));
         parameters.Add("@OCCUPATION", NullIfEmpty(item.Occupation));
         parameters.Add("@MEMBERSHIP_RANK", NullIfEmpty(item.MembershipRank));
-        parameters.Add("@JOIN_DATE", item.JoinDate ?? (object)DBNull.Value);
+        parameters.Add("@JOIN_DATE", item.JoinDate, DbType.Date);
         parameters.Add("@CREDIT_LIMIT", item.CreditLimit);
         parameters.Add("@IS_ACTIVE", item.IsActive);
-        parameters.Add("@PHOTO_PATH", (object?)item.PhotoPath ?? DBNull.Value);
-        parameters.Add("@ID_ISSUE_DATE", item.IdIssueDate ?? (object)DBNull.Value);
+        parameters.Add("@PHOTO_PATH", item.PhotoPath, DbType.String);
+        parameters.Add("@ID_ISSUE_DATE", item.IdIssueDate, DbType.Date);
         parameters.Add("@ID_ISSUE_PLACE", NullIfEmpty(item.IdIssuePlace));
         parameters.Add("@BANK_NAME", NullIfEmpty(item.BankName));
         parameters.Add("@BUYER_NAME", NullIfEmpty(item.BuyerName));
@@ -614,8 +653,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         return parameters;
     }
 
-    private static object NullIfEmpty(string value) =>
-        string.IsNullOrWhiteSpace(value) ? DBNull.Value : value;
+    private static string? NullIfEmpty(string value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static async Task<long> GetCustomerGroupIdAsync(
         IDbConnection connection,

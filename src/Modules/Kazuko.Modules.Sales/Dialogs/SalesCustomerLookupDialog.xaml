@@ -40,6 +40,7 @@
                       GridLinesVisibility="Horizontal"
                       MouseDoubleClick="DataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
+                    <DataGridTextColumn Header="Loại khách" Binding="{Binding KindText}" Width="160" />
                     <DataGridTextColumn Header="Mã" Binding="{Binding Code}" Width="100" />
                     <DataGridTextColumn Header="Tên khách" Binding="{Binding Name}" Width="*" MinWidth="160" />
                     <DataGridTextColumn Header="Điện thoại" Binding="{Binding Phone}" Width="120" />

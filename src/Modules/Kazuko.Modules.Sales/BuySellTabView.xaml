@@ -45,7 +45,7 @@
                 <StackPanel Grid.Column="4">
                     <TextBlock Text="Khách hàng" Style="{StaticResource SalesFieldLabelStyle}" />
                     <ComboBox ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding SelectedCustomer}"
-                              DisplayMemberPath="Name"
+                              DisplayMemberPath="DisplayName"
                               Style="{StaticResource SalesComboStyle}" IsEditable="True" />
                 </StackPanel>
                 <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Add" Grid.Column="6" Content="+"

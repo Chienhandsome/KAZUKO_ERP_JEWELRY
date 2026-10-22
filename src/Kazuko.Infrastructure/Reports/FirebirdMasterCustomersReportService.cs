@@ -27,10 +27,11 @@ public sealed class FirebirdMasterCustomersReportService : IMasterCustomersRepor
                    COALESCE(C.ADDRESS, ''),
                    COALESCE(G.NAME, ''),
                    COALESCE(C.TAX_CODE, ''),
-                   COALESCE(C.CREDIT_LIMIT, 0)
+                   COALESCE(C.CREDIT_LIMIT, 0), C.IS_WALK_IN
             FROM CUSTOMERS C
             LEFT JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
             WHERE C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+              AND (@HAS_KIND = 0 OR C.IS_WALK_IN = @WALK_IN)
               AND (@HAS_SEARCH = 0
                    OR CAST(C.CODE AS VARCHAR(30) CHARACTER SET UTF8) CONTAINING @SEARCH
                    OR C.NAME CONTAINING @SEARCH
@@ -40,6 +41,8 @@ public sealed class FirebirdMasterCustomersReportService : IMasterCustomersRepor
             ORDER BY C.NAME, C.CODE
             """, connection);
 
+        command.Parameters.Add("@HAS_KIND", FbDbType.Integer).Value = filter.IsWalkIn.HasValue ? 1 : 0;
+        command.Parameters.Add("@WALK_IN", FbDbType.Boolean).Value = filter.IsWalkIn ?? false;
         var search = (filter.SearchText ?? string.Empty).Trim();
 
         command.Parameters.Add("@HAS_SEARCH", FbDbType.Integer).Value = search.Length > 0 ? 1 : 0;
@@ -60,7 +63,7 @@ public sealed class FirebirdMasterCustomersReportService : IMasterCustomersRepor
                 reader.GetString(5),
                 reader.GetString(6),
                 reader.GetString(7),
-                creditLimit));
+                creditLimit, reader.GetBoolean(9)));
         }
 
         return new MasterCustomersReportResult(rows, rows.Count, totalCreditLimit);

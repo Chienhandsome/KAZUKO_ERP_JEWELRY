@@ -18,11 +18,10 @@ public sealed class EmployeeValidatorTests
             "HCM",
             DateTime.Today,
             "Chính thức",
-            10_000_000m,
-            500_000m,
             string.Empty,
             EmployeeStatusCodes.Working,
-            true);
+            true,
+            SalaryMethodCodes.MonthlyByDay, 0m, 10_000_000m, true, false);
 
     [Fact]
     public void Validate_ReturnsNull_WhenRequestIsValid()
@@ -35,17 +34,6 @@ public sealed class EmployeeValidatorTests
     {
         var error = EmployeeValidator.Validate(ValidRequest() with { FullName = "  " });
         Assert.Equal("Họ và tên là bắt buộc.", error);
-    }
-
-    [Fact]
-    public void Validate_RejectsNegativeSalaryAndAllowance()
-    {
-        Assert.Equal(
-            "Lương cơ bản không được âm.",
-            EmployeeValidator.Validate(ValidRequest() with { BaseSalary = -1 }));
-        Assert.Equal(
-            "Phụ cấp không được âm.",
-            EmployeeValidator.Validate(ValidRequest() with { Allowance = -1 }));
     }
 
     [Fact]

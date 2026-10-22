@@ -25,7 +25,10 @@ public sealed class CustomerTabsViewTests
     {
         CustomerTestContext.Sta(() =>
         {
-            var repo = new CustomerRepositoryFake();
+            var repo = new CustomerRepositoryFake
+            {
+                Customers = [CustomerRepositoryFake.Sample(), CustomerRepositoryFake.Sample(2) with { IsWalkIn = true, Name = "Khách vãng lai" }]
+            };
             var vm = new CustomerViewModel(repo, new CustomerEditorFake(), CustomerTestContext.Session());
             var view = new CustomerView { DataContext = vm };
             foreach (var resource in new[] { theme, "Typography", "Controls" })
@@ -37,8 +40,9 @@ public sealed class CustomerTabsViewTests
             view.FontSize = (double)view.FindResource("FontSize.Body");
             view.Foreground = (Brush)view.FindResource("TextPrimaryBrush");
             foreach (var size in new[] { new Size(900, 520), new Size(1500, 900) })
-            foreach (var tab in new[] { 2, 3 })
+            foreach (var tab in new[] { 0, 2, 3 })
             {
+                if (tab == 0) { vm.SelectedKind = "Tất cả"; vm.SearchCommand.Execute(null); }
                 vm.SelectedTabIndex = tab;
                 if (tab == 2 && vm.PaymentHistory.Count == 0)
                     vm.PaymentHistory.Add(new(new(DateTime.Today, "MB26/00001", "PAYMENT / CASH", 25470000, 0, 0)));
@@ -48,9 +52,10 @@ public sealed class CustomerTabsViewTests
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
                 view.UpdateLayout();
                 var grids = Descendants(view).OfType<DataGrid>().ToList();
-                Assert.Equal(tab == 2 ? 1 : 4, grids.Count);
+                Assert.Equal(tab == 3 ? 5 : tab == 0 ? 2 : 1, grids.Count);
                 foreach (var grid in grids)
                 {
+                    if (tab == 0) continue;
                     Assert.Same(view.FindResource("WorkspaceGridStyle"), grid.Style);
                     Assert.Same(view.FindResource("WorkspaceHeaderStyle"), grid.ColumnHeaderStyle);
                     Assert.Equal(28, grid.RowHeight);
@@ -58,7 +63,7 @@ public sealed class CustomerTabsViewTests
                     Assert.False(grid.CanUserAddRows);
                     Assert.Equal(grid.Columns.Count, grid.Columns.Select(DataGridColumnLayout.GetColumnKey).Where(x => !string.IsNullOrEmpty(x)).Distinct().Count());
                 }
-                foreach (var button in Descendants(view).OfType<Button>().Where(x => Equals(x.Content, "Xuất Excel")))
+                foreach (var button in Descendants(view).OfType<Button>().Where(x => tab != 0 && Equals(x.Content, "Xuất Excel")))
                 {
                     Assert.Same(view.FindResource("WorkspaceExportStyle"), button.Style);
                     Assert.True(button.ActualHeight >= 40);

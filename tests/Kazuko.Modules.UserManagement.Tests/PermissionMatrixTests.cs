@@ -134,7 +134,7 @@ public sealed class PermissionMatrixRowViewModelTests
     {
         var rows = PermissionMatrixRowViewModel.BuildFrom(Array.Empty<GroupPermissionRow>());
 
-        Assert.Equal(41, rows.Count);
+        Assert.Equal(43, rows.Count);
         Assert.Equal(
             SystemFunctionCatalog.All.Select(f => f.Code),
             rows.Select(r => r.FunctionCode));
@@ -195,7 +195,7 @@ public sealed class SystemFunctionCatalogTests
         "PROD_ORDER", "PROD_MATERIAL_ISSUE", "PROD_GOLD_RECONCILE",
         "DEBT_CUSTOMER", "DEBT_WORKER_GOLD", "DEBT_SETTLEMENT",
         "FIN_CASH_IN", "FIN_CASH_OUT", "FIN_FUND",
-        "CAT_CUSTOMERS", "CAT_SUPPLIERS", "CAT_EXTERNAL_WORKERS", "CAT_EMPLOYEES", "CAT_GOLD_PRICE",
+        "CAT_CUSTOMERS", "CAT_SUPPLIERS", "CAT_EXTERNAL_WORKERS", "CAT_EMPLOYEES", "HR_PAYROLL", "HR_PAYROLL_REOPEN", "CAT_GOLD_PRICE",
         "REP_VIEW", "REP_EXPORT",
         "SYS_USER_MANAGEMENT", "SYS_SETTINGS", "SYS_DATABASE", "SYS_DATA_DELETE",
         "INV_STOCK_VIEW", "INV_HISTORY", "INV_SALES_INTAKE", "INV_REVERSE",
@@ -204,10 +204,10 @@ public sealed class SystemFunctionCatalogTests
     ];
 
     [Fact]
-    public void Catalog_has_exactly_41_unique_codes()
+    public void Catalog_has_exactly_43_unique_codes()
     {
-        Assert.Equal(41, SystemFunctionCatalog.All.Count);
-        Assert.Equal(41, SystemFunctionCatalog.All.Select(f => f.Code.ToUpperInvariant()).Distinct().Count());
+        Assert.Equal(43, SystemFunctionCatalog.All.Count);
+        Assert.Equal(43, SystemFunctionCatalog.All.Select(f => f.Code.ToUpperInvariant()).Distinct().Count());
         Assert.Equal(ExpectedCodes, SystemFunctionCatalog.All.Select(f => f.Code));
     }
 

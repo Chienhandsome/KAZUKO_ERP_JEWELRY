@@ -15,6 +15,7 @@ public static class MasterCustomersReportColumns
     [
         new("Index", "STT", 0.05f),
         new("Code", "Mã KH", 0.10f),
+        new("Kind", "Loại khách", 0.13f),
         new("Name", "Tên khách hàng", 0.22f),
         new("Phone", "Điện thoại", 0.11f),
         new("Email", "Email", 0.15f),
@@ -27,6 +28,7 @@ public static class MasterCustomersReportColumns
     public static (string Expression, HorzAlign Align) Bind(string key) => key switch
     {
         "Index" => ("[CustomerRows.Index]", HorzAlign.Center),
+        "Kind" => ("[CustomerRows.Kind]", HorzAlign.Left),
         "Code" => ("[CustomerRows.Code]", HorzAlign.Left),
         "Name" => ("[CustomerRows.Name]", HorzAlign.Left),
         "Phone" => ("[CustomerRows.Phone]", HorzAlign.Left),
@@ -47,12 +49,14 @@ public sealed class MasterCustomersPrintService
         IReadOnlyList<MasterCustomersRowViewModel> rows,
         AuthenticatedSession session,
         string searchText,
-        IReadOnlyList<ReportColumnDefinition> activeColumns)
+        IReadOnlyList<ReportColumnDefinition> activeColumns,
+        string customerKind = "Có hồ sơ")
     {
         var printRows = rows.Select(r => new MasterCustomersPrintRow
         {
             Index = r.Index,
             Code = r.Code,
+            Kind = r.Item.IsWalkIn ? "Vãng lai · Hệ thống" : "Có hồ sơ",
             Name = r.Name,
             Phone = r.Phone,
             Email = r.Email,
@@ -78,6 +82,7 @@ public sealed class MasterCustomersPrintService
             "FilterText",
             FastReportTemplateHelper.JoinFilterParts(
             [
+                $"Loại khách: {customerKind}",
                 string.IsNullOrWhiteSpace(searchText) ? null : $"Từ khóa: {searchText.Trim()}"
             ]));
         report.SetParameterValue("ItemCount", printRows.Count.ToString("N0", Vi));

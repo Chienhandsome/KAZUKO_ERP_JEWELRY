@@ -24,11 +24,14 @@ public sealed class HumanResourcesRepositoryTests
             string.Empty,
             DateTime.Today,
             "Chính thức",
-            1_000_000m,
-            0m,
             string.Empty,
             EmployeeStatusCodes.Working,
-            true);
+            true,
+            SalaryMethodCodes.MonthlyByDay,
+            0m,
+            1_000_000m,
+            true,
+            false);
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             _repository.SaveAsync(request, null!));
@@ -52,11 +55,14 @@ public sealed class HumanResourcesRepositoryTests
             string.Empty,
             null,
             string.Empty,
-            0m,
-            0m,
             string.Empty,
             EmployeeStatusCodes.Working,
-            true);
+            true,
+            SalaryMethodCodes.MonthlyByDay,
+            0m,
+            1_000_000m,
+            true,
+            false);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _repository.SaveAsync(request, session));

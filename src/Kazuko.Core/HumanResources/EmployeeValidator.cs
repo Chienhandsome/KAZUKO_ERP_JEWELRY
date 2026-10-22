@@ -19,11 +19,14 @@ public static class EmployeeValidator
         if (string.IsNullOrWhiteSpace(request.FullName))
             return "Họ và tên là bắt buộc.";
 
-        if (request.BaseSalary < 0)
-            return "Lương cơ bản không được âm.";
+        if (!SalaryMethodCodes.IsValid(request.SalaryMethod))
+            return "Cách tính lương không hợp lệ.";
 
-        if (request.Allowance < 0)
-            return "Phụ cấp không được âm.";
+        if (request.ShiftSalary < 0)
+            return "Lương ca không được âm.";
+
+        if (request.MonthlySalary < 0)
+            return "Lương tháng không được âm.";
 
         var email = request.Email?.Trim() ?? string.Empty;
         if (email.Length > 0 && !EmailRegex.IsMatch(email))

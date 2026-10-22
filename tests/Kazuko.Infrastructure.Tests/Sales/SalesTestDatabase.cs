@@ -116,6 +116,16 @@ internal sealed class SalesTestDatabase : IDisposable
     {
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync();
+        await using (var schema = new FbCommand("SELECT COUNT(*) FROM RDB$RELATION_FIELDS WHERE RDB$RELATION_NAME='CUSTOMERS' AND RDB$FIELD_NAME='IS_WALK_IN'", connection))
+        {
+            if (Convert.ToInt32(await schema.ExecuteScalarAsync()) == 0)
+            {
+                await using var add = new FbCommand("ALTER TABLE CUSTOMERS ADD IS_WALK_IN BOOLEAN DEFAULT FALSE NOT NULL", connection);
+                await add.ExecuteNonQueryAsync();
+                await using var backfill = new FbCommand("UPDATE CUSTOMERS SET IS_WALK_IN=TRUE WHERE UPPER(TRIM(CODE)) IN ('KH-VL','WALK_IN','KHACH_LE')", connection);
+                await backfill.ExecuteNonQueryAsync();
+            }
+        }
         await using var transaction = (FbTransaction)await connection.BeginTransactionAsync();
 
         try
@@ -196,7 +206,7 @@ internal sealed class SalesTestDatabase : IDisposable
             NamedCustomerId = await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
                 groupId, "T3_NAMED", "Task 3 Named Customer", "0903000001", true);
             _ = await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
-                groupId, "WALK_IN", "Task 3 Walk-in Customer", "0903000004", true);
+                groupId, "WALK_IN", "Task 3 Walk-in Customer", "0903000004", true, isWalkIn: true);
             _ = await InsertCustomerAsync(connection, transaction, CompanyId, BranchId,
                 groupId, "T3_INACTIVE", "Task 3 Inactive Customer", "0903000002", false);
             _ = await InsertCustomerAsync(connection, transaction, OtherCompanyId, OtherCompanyBranchId,
@@ -418,15 +428,15 @@ internal sealed class SalesTestDatabase : IDisposable
         string code,
         string name,
         string phone,
-        bool active) =>
+        bool active, bool isWalkIn = false) =>
         InsertIdAsync(connection, transaction, """
             INSERT INTO CUSTOMERS
                 (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
-                 NAME, PHONE, OPENING_POINTS, IS_ACTIVE)
-            VALUES (@CID, @BID, @GID, @CODE, 'INDIVIDUAL', @NAME, @PHONE, 0, @ACTIVE)
+                 NAME, PHONE, OPENING_POINTS, IS_ACTIVE, IS_WALK_IN)
+            VALUES (@CID, @BID, @GID, @CODE, 'INDIVIDUAL', @NAME, @PHONE, 0, @ACTIVE, @WALK_IN)
             RETURNING ID
             """, ("@CID", companyId), ("@BID", branchId), ("@GID", groupId),
-            ("@CODE", code), ("@NAME", name), ("@PHONE", phone), ("@ACTIVE", active));
+            ("@CODE", code), ("@NAME", name), ("@PHONE", phone), ("@ACTIVE", active), ("@WALK_IN", isWalkIn));
 
     private static Task<long> InsertLocationAsync(
         FbConnection connection,

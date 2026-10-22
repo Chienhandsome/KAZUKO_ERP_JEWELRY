@@ -42,6 +42,10 @@ public sealed class CustomerViewModel : ObservableObject
     private string _searchText = string.Empty;
     private CustomerGroupOption? _selectedGroup;
     private string? _selectedRegion;
+    private string _loadedKind = "Có hồ sơ";
+    private DateTime _summaryFromDate;
+    private DateTime _summaryToDate;
+    private string _selectedKind = "Có hồ sơ";
     private string _selectedStatus = "Tất cả";
     private CustomerRowViewModel? _selectedCustomer;
     private string _statusMessage = string.Empty;
@@ -87,17 +91,17 @@ public sealed class CustomerViewModel : ObservableObject
         AddCommand = new RelayCommand(AddCustomer, () => !IsLoading);
         EditCommand = new ParameterRelayCommand(
             EditCustomer,
-            parameter => !IsLoading && (parameter is CustomerRowViewModel || SelectedCustomer is not null));
-        EditSelectedCommand = new RelayCommand(EditSelected, () => !IsLoading && SelectedCustomer is not null);
+            parameter => !IsLoading && (parameter as CustomerRowViewModel ?? SelectedCustomer) is { IsWalkIn: false });
+        EditSelectedCommand = new RelayCommand(EditSelected, () => !IsLoading && SelectedCustomer is { IsWalkIn: false });
         DeleteCommand = new ParameterRelayCommand(
             DeleteCustomer,
             parameter => !IsLoading && ResolveActiveRow(parameter) is not null);
         DeleteSelectedCommand = new RelayCommand(
             () => DeleteCustomer(SelectedCustomer),
-            () => !IsLoading && SelectedCustomer?.IsActive == true);
+            () => !IsLoading && SelectedCustomer is { IsActive: true, IsWalkIn: false });
         ToggleActiveCommand = new ParameterRelayCommand(
             ToggleActive,
-            parameter => !IsLoading && (parameter is CustomerRowViewModel || SelectedCustomer is not null));
+            parameter => !IsLoading && (parameter as CustomerRowViewModel ?? SelectedCustomer) is { IsWalkIn: false });
         ViewAllPurchasesCommand = new RelayCommand(
             () => SelectedTabIndex = PurchaseHistoryTabIndex,
             () => HasSelection);
@@ -112,6 +116,7 @@ public sealed class CustomerViewModel : ObservableObject
         LoadTopCustomersCommand = new AsyncRelayCommand(LoadTopCustomersAsync, () => !IsReportLoading);
         LoadInactiveCustomersCommand = new AsyncRelayCommand(LoadInactiveCustomersAsync, () => !IsReportLoading);
         LoadDistributionCommand = new AsyncRelayCommand(LoadDistributionAsync, () => !IsReportLoading);
+        ExportSalesSummaryCommand = new RelayCommand<object?>(ExportSalesSummary, _ => !IsReportLoading && SalesSummary.Count > 0);
         ExportTopCustomersCommand = new RelayCommand<object?>(ExportTopCustomers, _ => !IsReportLoading && TopCustomers.Count > 0);
         ExportInactiveCustomersCommand = new RelayCommand<object?>(ExportInactiveCustomers, _ => !IsReportLoading && InactiveCustomers.Count > 0);
         ExportDistributionCommand = new RelayCommand<object?>(ExportDistribution, _ => !IsReportLoading && GroupDistribution.Count > 0);
@@ -128,6 +133,8 @@ public sealed class CustomerViewModel : ObservableObject
     public ObservableCollection<PurchaseHistoryRowViewModel> RecentPurchases { get; } = new();
     public ObservableCollection<PurchaseHistoryRowViewModel> FullPurchaseHistory { get; } = new();
     public ObservableCollection<PaymentHistoryRowViewModel> PaymentHistory { get; } = new();
+    public ObservableCollection<CustomerSalesSummaryRow> SalesSummary { get; } = new();
+    public string SalesSummaryText => SalesSummary.Count == 0 ? string.Empty : $"Kỳ {_summaryFromDate:dd/MM/yyyy}–{_summaryToDate:dd/MM/yyyy} · Tổng cộng: {SalesSummary.Sum(x => x.OrderCount).ToString("N0", Vi)} đơn · {SalesSummary.Sum(x => x.TotalSales).ToString("N0", Vi)} VND";
     public ObservableCollection<TopCustomerRowViewModel> TopCustomers { get; } = new();
     public ObservableCollection<InactiveCustomerRowViewModel> InactiveCustomers { get; } = new();
     public ObservableCollection<DistributionRowViewModel> GroupDistribution { get; } = new();
@@ -151,6 +158,13 @@ public sealed class CustomerViewModel : ObservableObject
         set => SetProperty(ref _selectedRegion, value);
     }
 
+    public string[] KindOptions { get; } = ["Có hồ sơ", "Vãng lai", "Tất cả"];
+    public string SelectedKind
+    {
+        get => _selectedKind;
+        set => SetProperty(ref _selectedKind, value);
+    }
+
     public string SelectedStatus
     {
         get => _selectedStatus;
@@ -165,6 +179,10 @@ public sealed class CustomerViewModel : ObservableObject
             if (SetProperty(ref _selectedCustomer, value))
             {
                 OnPropertyChanged(nameof(HasSelection));
+                OnPropertyChanged(nameof(SelectedKindText));
+                OnPropertyChanged(nameof(SelectedProtectionHint));
+                ((ParameterRelayCommand)EditCommand).NotifyCanExecuteChanged();
+                ((ParameterRelayCommand)ToggleActiveCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(SelectedCode));
                 OnPropertyChanged(nameof(SelectedName));
                 OnPropertyChanged(nameof(SelectedPhone));
@@ -200,8 +218,10 @@ public sealed class CustomerViewModel : ObservableObject
         }
     }
 
+    public string SelectedProtectionHint => SelectedCustomer?.ProtectionHint ?? string.Empty;
+    public string SelectedKindText => SelectedCustomer?.KindText ?? string.Empty;
     public bool HasSelection => SelectedCustomer is not null;
-    public bool CanDeleteSelected => !IsLoading && SelectedCustomer?.IsActive == true;
+    public bool CanDeleteSelected => !IsLoading && SelectedCustomer is { IsActive: true, IsWalkIn: false };
     public string SelectedCode => SelectedCustomer?.Code ?? string.Empty;
     public string SelectedName => SelectedCustomer?.Name ?? string.Empty;
     public string SelectedPhone => SelectedCustomer?.Phone ?? string.Empty;
@@ -322,6 +342,7 @@ public sealed class CustomerViewModel : ObservableObject
             new("Index", "STT", o => o.Index, ExcelCellKind.Integer),
             new("Code", "Mã KH", o => o.Code),
             new("Name", "Tên khách hàng", o => o.Name),
+            new("Kind", "Loại khách", o => o.KindText),
             new("Phone", "SĐT", o => o.Phone),
             new("CustomerGroup", "Nhóm KH", o => o.CustomerGroupName),
             new("Region", "Khu vực", o => o.Region),
@@ -332,7 +353,7 @@ public sealed class CustomerViewModel : ObservableObject
         };
         ExcelExportService.Export(
             "Xuất danh sách khách hàng",
-            $"DanhSachKhachHang_{DateTime.Now:yyyyMMdd_HHmmss}",
+            $"DanhSachKhachHang_{_loadedKind}_{DateTime.Now:yyyyMMdd_HHmmss}",
             grid, Customers, columns);
     }
     public ICommand AddCommand { get; }
@@ -347,6 +368,7 @@ public sealed class CustomerViewModel : ObservableObject
     public ICommand LoadTopCustomersCommand { get; }
     public ICommand LoadInactiveCustomersCommand { get; }
     public ICommand LoadDistributionCommand { get; }
+    public ICommand ExportSalesSummaryCommand { get; }
     public ICommand ExportTopCustomersCommand { get; }
     public ICommand ExportInactiveCustomersCommand { get; }
     public ICommand ExportDistributionCommand { get; }
@@ -385,6 +407,7 @@ public sealed class CustomerViewModel : ObservableObject
             ((AsyncRelayCommand)LoadInactiveCustomersCommand).NotifyCanExecuteChanged();
             ((AsyncRelayCommand)LoadDistributionCommand).NotifyCanExecuteChanged();
             ((RelayCommand<object?>)ExportTopCustomersCommand).NotifyCanExecuteChanged();
+            ((RelayCommand<object?>)ExportSalesSummaryCommand).NotifyCanExecuteChanged();
             ((RelayCommand<object?>)ExportInactiveCustomersCommand).NotifyCanExecuteChanged();
             ((RelayCommand<object?>)ExportDistributionCommand).NotifyCanExecuteChanged();
         }
@@ -444,11 +467,12 @@ public sealed class CustomerViewModel : ObservableObject
                     "Đang hoạt động" => true,
                     "Ngừng giao dịch" => false,
                     _ => null
-                });
+                }, SelectedKind switch { "Có hồ sơ" => false, "Vãng lai" => true, _ => (bool?)null });
 
             var rows = await _repository.SearchAsync(filter, token);
             token.ThrowIfCancellationRequested();
 
+            _loadedKind = filter.IsWalkIn switch { false => "Có hồ sơ", true => "Vãng lai", null => "Tất cả" };
             var previousId = SelectedCustomer?.Id;
             Customers.Clear();
             var index = 1;
@@ -668,9 +692,23 @@ public sealed class CustomerViewModel : ObservableObject
             IsReportLoading = true;
             SetReportError(string.Empty);
             TopCustomers.Clear();
+            SalesSummary.Clear();
+            OnPropertyChanged(nameof(SalesSummaryText));
             if (ReportFromDate.Date > ReportToDate.Date)
                 throw new InvalidOperationException("Từ ngày phải nhỏ hơn hoặc bằng Đến ngày.");
-            var items = await _repository.GetTopCustomersAsync(ReportFromDate, ReportToDate, ReportTopN);
+            var fromDate = ReportFromDate;
+            var toDate = ReportToDate;
+            var topN = ReportTopN;
+            var summary = await _repository.GetSalesSummaryAsync(fromDate, toDate);
+            _summaryFromDate = fromDate;
+            _summaryToDate = toDate;
+            foreach (var kind in new[] { false, true })
+            {
+                var item = summary.SingleOrDefault(x => x.IsWalkIn == kind);
+                SalesSummary.Add(new CustomerSalesSummaryRow(kind ? "Bán vãng lai" : "Khách có hồ sơ", item?.OrderCount ?? 0, item?.TotalSales ?? 0));
+            }
+            OnPropertyChanged(nameof(SalesSummaryText));
+            var items = await _repository.GetTopCustomersAsync(fromDate, toDate, topN);
             var rank = 1;
             foreach (var item in items)
                 TopCustomers.Add(new TopCustomerRowViewModel(item, rank++));
@@ -763,6 +801,17 @@ public sealed class CustomerViewModel : ObservableObject
         }
     }
 
+    private void ExportSalesSummary(object? parameter) => ExcelExportService.Export(
+        "Xuất tổng hợp doanh thu theo loại khách",
+        $"DoanhThuLoaiKhach_{_summaryFromDate:yyyyMMdd}_{_summaryToDate:yyyyMMdd}",
+        parameter as System.Windows.Controls.DataGrid, SalesSummary,
+        new ExcelExportColumn<CustomerSalesSummaryRow>[]
+        {
+            new("Kind", "Loại khách", x => x.Kind),
+            new("OrderCount", "Số đơn", x => x.OrderCount, ExcelCellKind.Integer),
+            new("TotalSales", "Doanh thu", x => x.TotalSales, ExcelCellKind.Money)
+        });
+
     private void ExportTopCustomers(object? parameter)
     {
         var grid = parameter as System.Windows.Controls.DataGrid;
@@ -778,7 +827,7 @@ public sealed class CustomerViewModel : ObservableObject
         };
         ExcelExportService.Export(
             "Xuất top khách hàng",
-            $"TopKhachHang_{ReportFromDate:yyyyMMdd}_{ReportToDate:yyyyMMdd}",
+            $"TopKhachHang_{_summaryFromDate:yyyyMMdd}_{_summaryToDate:yyyyMMdd}",
             grid, TopCustomers, columns);
     }
 
@@ -848,7 +897,7 @@ public sealed class CustomerViewModel : ObservableObject
     private void EditCustomer(object? parameter)
     {
         var row = parameter as CustomerRowViewModel ?? SelectedCustomer;
-        if (row is null)
+        if (row is null || row.IsWalkIn)
             return;
 
         SelectedCustomer = row;
@@ -861,13 +910,13 @@ public sealed class CustomerViewModel : ObservableObject
     private CustomerRowViewModel? ResolveActiveRow(object? parameter)
     {
         var row = parameter as CustomerRowViewModel ?? SelectedCustomer;
-        return row is { IsActive: true } ? row : null;
+        return row is { IsActive: true, IsWalkIn: false } ? row : null;
     }
 
     private async void DeleteCustomer(object? parameter)
     {
         var row = ResolveActiveRow(parameter);
-        if (row is null)
+        if (row is null || row.IsWalkIn)
             return;
 
         var session = _sessionAccessor.Current;
@@ -904,7 +953,7 @@ public sealed class CustomerViewModel : ObservableObject
     private async void ToggleActive(object? parameter)
     {
         var row = parameter as CustomerRowViewModel ?? SelectedCustomer;
-        if (row is null)
+        if (row is null || row.IsWalkIn)
             return;
 
         var session = _sessionAccessor.Current;

@@ -34,7 +34,7 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
             FROM CUSTOMERS C
             WHERE C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
               AND C.IS_ACTIVE = TRUE
-              AND UPPER(TRIM(C.CODE)) NOT IN ('KH-VL', 'WALK_IN', 'KHACH_LE')
+              AND C.IS_WALK_IN = FALSE
               AND (@HAS_SEARCH = 0
                    OR C.CODE CONTAINING @SEARCH
                    OR C.NAME CONTAINING @SEARCH
@@ -801,7 +801,7 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
         CancellationToken cancellationToken)
     {
         await using var command = new FbCommand("""
-            SELECT CODE, IS_ACTIVE
+            SELECT IS_WALK_IN, IS_ACTIVE
             FROM CUSTOMERS
             WHERE ID = @ID AND COMPANY_ID = @CID
             """, connection, transaction);
@@ -810,11 +810,11 @@ public sealed class FirebirdCraftOrderApplicationService : ICraftOrderApplicatio
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
             throw new InvalidOperationException("Không tìm thấy khách hàng.");
-        var code = reader.GetString(0).Trim().ToUpperInvariant();
+        var isWalkIn = reader.GetBoolean(0);
         var active = !reader.IsDBNull(1) && reader.GetBoolean(1);
         if (!active)
             throw new InvalidOperationException("Khách hàng không còn hoạt động.");
-        if (code is "KH-VL" or "WALK_IN" or "KHACH_LE")
+        if (isWalkIn)
             throw new InvalidOperationException("Đơn đặt không dùng khách lẻ. Chọn khách có hồ sơ.");
     }
 

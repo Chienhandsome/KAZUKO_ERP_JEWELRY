@@ -5,7 +5,7 @@
         xmlns:localConv="clr-namespace:Kazuko.Modules.HumanResources.Converters"
         xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="{Binding Title, Mode=OneWay}"
-        Width="920" Height="720"
+        Width="1040" Height="800"
         MinWidth="760" MinHeight="560"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
@@ -13,8 +13,11 @@
         Background="{DynamicResource AppBackgroundBrush}"
         PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Themes/HumanResourcesDialogResources.xaml" /></ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <localConv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+            </ResourceDictionary>
     </Window.Resources>
     <Grid Margin="18">
         <Grid.RowDefinitions>
@@ -40,23 +43,29 @@
                        Margin="0,8,0,0" />
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0">
             <Grid IsEnabled="{Binding IsFormEnabled, Mode=OneWay}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Padding="16" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Mã NV" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding CodeDisplay, Mode=OneWay}" IsReadOnly="True" MinHeight="36" Margin="0,0,0,8"
+                    <TextBox Text="{Binding CodeDisplay, Mode=OneWay}" IsReadOnly="True" MinHeight="40" Margin="0,0,0,8"
                              Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceAltBrush}"
                              Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
 
                     <TextBlock Text="Họ và tên *" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding FullName, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,2"
+                    <TextBox Text="{Binding FullName, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,2"
                              Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
@@ -64,14 +73,14 @@
                                FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                     <TextBlock Text="Giới tính" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <ComboBox ItemsSource="{Binding Genders}" SelectedItem="{Binding Gender}" MinHeight="36" Margin="0,0,0,8"
+                    <ComboBox ItemsSource="{Binding Genders}" SelectedItem="{Binding Gender}" MinHeight="40" Margin="0,0,0,8"
                               FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Ngày sinh" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
                     <DatePicker SelectedDate="{Binding DateOfBirth}" Margin="0,0,0,8" FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Mã chấm công (tự sinh, có thể sửa)" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding AttendanceCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8"
+                    <TextBox Text="{Binding AttendanceCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
                              Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
@@ -79,13 +88,13 @@
 
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Số điện thoại" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8"
+                    <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
                              Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
 
                     <TextBlock Text="Email" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,2"
+                    <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,2"
                              Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
@@ -93,7 +102,7 @@
                                FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                     <TextBlock Text="Địa chỉ" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8"
+                    <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
                              Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
@@ -103,36 +112,11 @@
                     <DatePicker SelectedDate="{Binding HireDate}" Margin="0,0,0,8" FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Loại hợp đồng" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <ComboBox ItemsSource="{Binding ContractTypes}" SelectedItem="{Binding ContractType}" MinHeight="36" Margin="0,0,0,8"
+                    <ComboBox ItemsSource="{Binding ContractTypes}" SelectedItem="{Binding ContractType}" MinHeight="40" Margin="0,0,0,8"
                               FontSize="{DynamicResource FontSize.Body}" />
 
-                    <TextBlock Text="Lương cơ bản / Phụ cấp" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <Grid Margin="0,0,0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Text="{Binding BaseSalaryText, UpdateSourceTrigger=LostFocus}"
-                                 behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                                 MinHeight="36"
-                                 Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
-                                 Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                 LostFocus="SalaryTextBox_OnLostFocus" />
-                        <TextBox Grid.Column="2" Text="{Binding AllowanceText, UpdateSourceTrigger=LostFocus}"
-                                 behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                                 MinHeight="36"
-                                 Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
-                                 Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                 LostFocus="SalaryTextBox_OnLostFocus" />
-                    </Grid>
-                    <TextBlock Text="{Binding SalaryError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
-                               FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />
-
                     <TextBlock Text="Trạng thái" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <ComboBox ItemsSource="{Binding StatusLabels}" SelectedItem="{Binding SelectedStatusLabel}" MinHeight="36" Margin="0,0,0,8"
+                    <ComboBox ItemsSource="{Binding StatusLabels}" SelectedItem="{Binding SelectedStatusLabel}" MinHeight="40" Margin="0,0,0,8"
                               FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Ảnh nhân viên" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
@@ -157,13 +141,13 @@
                                        Visibility="{Binding HasPhoto, Converter={StaticResource BoolToVis}}" />
                             </Grid>
                         </Border>
-                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Left">
                             <Button Content="Thêm ảnh..." Command="{Binding PickPhotoCommand}"
                                     MinHeight="40" MinWidth="120" Margin="0,0,0,8" Padding="12,6"
                                     FontSize="{DynamicResource FontSize.Body}"
                                     Background="{DynamicResource PrimaryBrush}"
                                     Foreground="{DynamicResource OnPrimaryBrush}"
-                                    BorderThickness="0" Cursor="Hand" />
+                                    BorderThickness="0" Cursor="Hand" Style="{StaticResource HrDialogBasePrimaryButtonStyle}" />
                             <Button Content="Xóa ảnh" Command="{Binding ClearPhotoCommand}"
                                     MinHeight="40" MinWidth="120" Padding="12,6"
                                     FontSize="{DynamicResource FontSize.Body}"
@@ -181,6 +165,94 @@
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                              TextWrapping="Wrap" AcceptsReturn="True" />
                 </StackPanel>
+                </Grid>
+
+                </Border>
+
+                <Border Grid.Row="1" Margin="0,14,0,0" Padding="14"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10">
+                    <StackPanel>
+                        <TextBlock Text="Cách tính lương" FontWeight="SemiBold"
+                                   FontSize="{DynamicResource FontSize.Body}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,10" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="170" />
+                            </Grid.ColumnDefinitions>
+                            <RadioButton Grid.Column="0" GroupName="SalaryMethod" Content="Lương theo ca"
+                                         IsChecked="{Binding IsSalaryPerShift}" VerticalAlignment="Center"
+                                         FontSize="{DynamicResource FontSize.Body}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Lương ca:" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="{DynamicResource FontSize.Body}" />
+                            <TextBox Grid.Column="4" Text="{Binding ShiftSalaryText, UpdateSourceTrigger=LostFocus}"
+                                     IsEnabled="{Binding IsSalaryPerShift}"
+                                     behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
+                                     MinHeight="40" Padding="10,6"
+                                     FontSize="{DynamicResource FontSize.Body}"
+                                     Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                     LostFocus="SalaryTextBox_OnLostFocus" />
+                        </Grid>
+                        <TextBlock Text="(Cách tính: Lương = Tổng ca làm việc × Lương ca)" FontStyle="Italic"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="{DynamicResource FontSize.Caption}" Margin="24,4,0,12" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="170" />
+                            </Grid.ColumnDefinitions>
+                            <RadioButton Grid.Column="0" GroupName="SalaryMethod" Content="Lương tháng theo ca"
+                                         IsChecked="{Binding IsSalaryMonthlyByShift}" VerticalAlignment="Center"
+                                         FontSize="{DynamicResource FontSize.Body}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Lương tháng:" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="{DynamicResource FontSize.Body}" />
+                            <TextBox Grid.Column="4" Text="{Binding MonthlySalaryText, UpdateSourceTrigger=LostFocus}"
+                                     IsEnabled="{Binding IsMonthlySalaryEnabled}"
+                                     behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
+                                     MinHeight="40" Padding="10,6"
+                                     FontSize="{DynamicResource FontSize.Body}"
+                                     Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                     LostFocus="SalaryTextBox_OnLostFocus" />
+                        </Grid>
+                        <TextBlock Text="(Cách tính: Lương = Tổng ca làm việc × Lương tháng / công chuẩn tháng)" FontStyle="Italic"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="{DynamicResource FontSize.Caption}" Margin="24,4,0,12" />
+
+                        <RadioButton GroupName="SalaryMethod" Content="Lương tháng theo ngày"
+                                     IsChecked="{Binding IsSalaryMonthlyByDay}"
+                                     FontSize="{DynamicResource FontSize.Body}"
+                                     Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Margin="24,6,0,0"
+                                    IsEnabled="{Binding IsSalaryMonthlyByDay}">
+                            <CheckBox Content="Nghỉ chủ nhật" IsChecked="{Binding RestOnSunday}" Margin="0,0,24,0"
+                                      FontSize="{DynamicResource FontSize.Body}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <CheckBox Content="Nghỉ thứ 7" IsChecked="{Binding RestOnSaturday}"
+                                      FontSize="{DynamicResource FontSize.Body}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </StackPanel>
+                        <TextBlock Text="(Cách tính: Lương = Tổng ngày làm việc × Lương tháng / công chuẩn tháng)" FontStyle="Italic"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="{DynamicResource FontSize.Caption}" Margin="24,4,0,0" />
+                        <TextBlock Text="{Binding SalaryError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
+                                   FontSize="{DynamicResource FontSize.Caption}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
             </Grid>
         </ScrollViewer>
 
@@ -192,7 +264,7 @@
             <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add|CAT_EMPLOYEES:Edit" Content="Lưu (Enter)" Command="{Binding SaveCommand}" MinWidth="140" MinHeight="40"
                     Padding="16,8" FontSize="{DynamicResource FontSize.Body}"
                     Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"
-                    BorderThickness="0" Cursor="Hand" IsDefault="True" />
+                    BorderThickness="0" Cursor="Hand" IsDefault="True" Style="{StaticResource HrDialogBasePrimaryButtonStyle}" />
         </StackPanel>
     </Grid>
 </Window>

@@ -2,6 +2,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Modules;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.HumanResources;
 
@@ -17,6 +18,7 @@ public sealed class HumanResourcesModule : IKazukoModule
         var repository = GetRequiredService<IHumanResourcesRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
         services.AddSingleton<IEmployeeEditorService>(new EmployeeEditorService(repository, session));
+        services.AddSingleton<IShiftEditorService>(new ShiftEditorService(repository, session));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
@@ -24,6 +26,7 @@ public sealed class HumanResourcesModule : IKazukoModule
         var repository = GetRequiredService<IHumanResourcesRepository>(services);
         var editor = GetRequiredService<IEmployeeEditorService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
+        var shiftEditor = GetRequiredService<IShiftEditorService>(services);
 
         navigation.Register(new NavigationItem(
             "HR",
@@ -33,7 +36,7 @@ public sealed class HumanResourcesModule : IKazukoModule
             HumanResourcesPermissions.EmployeeRead,
             () => new HumanResourcesView
             {
-                DataContext = new HumanResourcesViewModel(repository, editor, session)
+                DataContext = new HumanResourcesViewModel(repository, editor, session, shiftEditor, GetRequiredService<IPayrollService>(services), GetRequiredService<IAuthorizationService>(services))
             },
             AssetRoot + "NHAN_SU.png",
             "Quản lý nhân viên,\nchấm công, lương",

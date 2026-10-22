@@ -10,7 +10,7 @@ public sealed record SystemFunctionDefinition(string Code, string Name, string M
 }
 
 /// <summary>
-/// Danh mục 41 chức năng của hệ thống, nhóm theo module thực tế.
+/// Danh mục chức năng của hệ thống, nhóm theo module thực tế.
 /// Thứ tự = thứ tự hiển thị trên ma trận quyền.
 /// </summary>
 public static class SystemFunctionCatalog
@@ -52,6 +52,8 @@ public static class SystemFunctionCatalog
         new("CAT_SUPPLIERS", "Nhà cung cấp", ModuleCatalog),
         new("CAT_EXTERNAL_WORKERS", "Thợ ngoài", ModuleCatalog),
         new("CAT_EMPLOYEES", "Nhân sự", ModuleCatalog),
+        new("HR_PAYROLL", "Tính và chốt lương", ModuleCatalog),
+        new("HR_PAYROLL_REOPEN", "Mở chốt bảng lương", ModuleCatalog),
         new("CAT_GOLD_PRICE", "Bảng giá vàng", ModuleCatalog),
 
         new("REP_VIEW", "Xem báo cáo", ModuleReports),

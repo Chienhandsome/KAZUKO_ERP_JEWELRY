@@ -21,7 +21,7 @@ public static class BackendAccess
                 "SaveAsync" => Has("CAT_CUSTOMERS", SaveAction()), "SetActiveAsync" => Has("CAT_CUSTOMERS", args.ElementAtOrDefault(1) is true ? PermissionAction.Edit : PermissionAction.Delete),
                 "CreateGroupAsync" => Has("CAT_CUSTOMERS", PermissionAction.Add),
                 "GetDebtSnapshotAsync" => Has("DEBT_CUSTOMER"), "GetPurchaseHistoryAsync" => Has("SALES_HISTORY"),
-                "GetTopCustomersAsync" => Has("REP_VIEW"),
+                "GetTopCustomersAsync" or "GetSalesSummaryAsync" => Has("REP_VIEW"),
                 "GetGroupsAsync" or "FindDuplicateWarningAsync" or "GetByIdAsync" or "SearchAsync" => Any("CAT_CUSTOMERS", "SALES_RETAIL", "SALES_WHOLESALE", "OLD_GOLD_PURCHASE", "CRAFT_ORDER", "DEBT_CUSTOMER", "DEBT_SETTLEMENT", "INV_MATERIAL_RECEIPT", "PROD_ORDER", "REP_VIEW"), _ => false },
             "ISupplierRepository" => method switch {
                 "GetGroupDetailsAsync" or "GetGroupByIdAsync" => Has("CAT_SUPPLIERS"),
@@ -31,10 +31,19 @@ public static class BackendAccess
                 "GetTopSuppliersAsync" => Has("REP_VIEW"),
                 "SaveAsync" => Has("CAT_SUPPLIERS", SaveAction()), "SetActiveAsync" => Has("CAT_SUPPLIERS", args.ElementAtOrDefault(1) is true ? PermissionAction.Edit : PermissionAction.Delete),
                 "GetGroupsAsync" or "SearchAsync" or "GetByIdAsync" or "FindDuplicateWarningAsync" => Any("CAT_SUPPLIERS", "INV_MATERIAL_RECEIPT", "INV_FINISHED_RECEIPT", "DEBT_CUSTOMER", "DEBT_SETTLEMENT", "REP_VIEW"), _ => false },
+            "IPayrollService" => method switch {
+                "GetAsync" => Has("HR_PAYROLL"),
+                "CalculateAsync" => Has("HR_PAYROLL", PermissionAction.Add),
+                "AdjustAsync" or "CloseAsync" => Has("HR_PAYROLL", PermissionAction.Edit),
+                "ReopenAsync" => Has("HR_PAYROLL") && Has("HR_PAYROLL_REOPEN", PermissionAction.Edit), _ => false },
             "IHumanResourcesRepository" => method switch {
                 "SaveAsync" => Has("CAT_EMPLOYEES", SaveAction()), "SetActiveAsync" => Has("CAT_EMPLOYEES", args.ElementAtOrDefault(1) is true ? PermissionAction.Edit : PermissionAction.Delete),
+                "SaveWorkShiftAsync" => Has("CAT_EMPLOYEES", SaveAction()),
+                "SetAttendanceStatusAsync" => Has("CAT_EMPLOYEES", PermissionAction.Edit),
+                "CreateAttendanceMonthAsync" => Has("CAT_EMPLOYEES", PermissionAction.Add),
+                "DeleteAttendanceMonthAsync" => Has("CAT_EMPLOYEES", PermissionAction.Delete),
                 "SearchAsync" or "GetByIdAsync" => Has("CAT_EMPLOYEES"),
-                "GetDepartmentsAsync" or "GetPositionsAsync" or "IsAttendanceCodeTakenAsync" or "SuggestNextAttendanceCodeAsync" => Has("CAT_EMPLOYEES"), _ => false },
+                "GetDepartmentsAsync" or "GetPositionsAsync" or "IsAttendanceCodeTakenAsync" or "SuggestNextAttendanceCodeAsync" or "GetWorkShiftsAsync" or "GetAttendanceMonthsAsync" or "GetAttendanceRecordsAsync" => Has("CAT_EMPLOYEES"), _ => false },
             "IExternalWorkerRepository" => method == "SaveAsync" ? Has("CAT_EXTERNAL_WORKERS", SaveAction()) : Any("CAT_EXTERNAL_WORKERS", "PROD_ORDER", "PROD_MATERIAL_ISSUE", "PROD_GOLD_RECONCILE", "INV_FINISHED_RECEIPT", "DEBT_WORKER_GOLD"),
             "IWarehouseGoldPriceRepository" => Has("CAT_GOLD_PRICE", method == "SaveAsync" ? PermissionAction.Edit : PermissionAction.View),
             "IGoldTypeCatalogService" => method switch {

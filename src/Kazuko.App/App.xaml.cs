@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
@@ -109,6 +109,7 @@ public partial class App : Application
         IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
         IWarehouseGoldPriceRepository warehouseGoldPrices = new FirebirdWarehouseGoldPriceRepository();
         IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();
+        IPayrollService payroll = new FirebirdPayrollService();
         IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
         IGoldTypeCatalogService goldTypeCatalog = new FirebirdGoldTypeCatalogService();
         IMaterialReceiptService materialReceipts = new FirebirdMaterialReceiptService();
@@ -190,6 +191,7 @@ public partial class App : Application
         _services.AddSingleton(warehouse);
         _services.AddSingleton(warehouseGoldPrices);
         _services.AddSingleton(humanResources);
+        _services.AddSingleton(payroll);
         _services.AddSingleton(priceBoard);
         _services.AddSingleton(goldTypeCatalog);
         _services.AddSingleton(materialReceipts);
@@ -246,7 +248,7 @@ public partial class App : Application
         _services.AddSingleton(authorization);
         void Protect<T>() where T : class => _services.AddSingleton(
             AuthorizedServiceProxy<T>.Create(_services.GetRequiredService<T>(), authorization, _sessionAccessor));
-        Protect<ICustomerRepository>(); Protect<ISupplierRepository>(); Protect<IHumanResourcesRepository>();
+        Protect<ICustomerRepository>(); Protect<ISupplierRepository>(); Protect<IHumanResourcesRepository>(); Protect<IPayrollService>();
         Protect<IWarehouseRepository>(); Protect<IWarehouseGoldPriceRepository>(); Protect<IGoldTypeCatalogService>();
         Protect<IPriceBoardRepository>(); Protect<IExternalWorkerRepository>();
         Protect<IMaterialReceiptService>(); Protect<IMaterialIssueService>(); Protect<IOutsourcedCraftService>();

@@ -10,7 +10,7 @@
   <Window.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="Themes/WarehouseResources.xaml" />
+        <ResourceDictionary Source="Themes/LabelDialogResources.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Window.Resources>

@@ -11,6 +11,7 @@
     <Color x:Key="Color.Border">#FFE7DED4</Color>
     <Color x:Key="Color.Success">#FF268A56</Color>
     <Color x:Key="Color.Danger">#FFC94141</Color>
+    <Color x:Key="Color.Info">#FF00A3B4</Color>
     <Color x:Key="Color.Money">#FFE24A0F</Color>
     <Color x:Key="Color.OnPrimary">#FFFFFFFF</Color>
     <Color x:Key="Color.Chart.Finished">#FF3B82F6</Color>
@@ -29,6 +30,7 @@
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Color.Border}" />
     <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Color.Success}" />
     <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Color.Danger}" />
+    <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource Color.Info}" />
     <SolidColorBrush x:Key="MoneyBrush" Color="{StaticResource Color.Money}" />
     <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource Color.OnPrimary}" />
     <SolidColorBrush x:Key="ChartBrush.Raw" Color="{StaticResource Color.Primary}" />

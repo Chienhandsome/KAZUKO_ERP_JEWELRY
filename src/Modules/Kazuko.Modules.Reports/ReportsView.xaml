@@ -667,7 +667,7 @@
                                                    FontWeight="SemiBold"
                                                    Foreground="{DynamicResource PrimaryBrush}"
                                                    TextWrapping="Wrap" />
-                                        <TextBlock Text="Toàn bộ khách hàng trong hệ thống"
+                                        <TextBlock Text="Danh mục theo loại khách đã chọn"
                                                    FontSize="{DynamicResource FontSize.Caption}"
                                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                                    TextWrapping="Wrap"
@@ -679,6 +679,8 @@
                                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                                    Margin="0,0,0,8" />
 
+                                        <ComboBox ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"
+                                                  MinHeight="40" Margin="0,0,0,10" ToolTip="Loại khách hàng" />
                                         <TextBox Style="{StaticResource ReportFilterFieldStyle}"
                                                  Margin="0,0,0,14"
                                                  HorizontalAlignment="Stretch"

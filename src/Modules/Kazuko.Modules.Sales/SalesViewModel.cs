@@ -244,7 +244,7 @@ public sealed class SalesViewModel : ObservableObject
             Replace(BuySell.StaffOptions, staff);
             Replace(BuySell.OldGoldTypeOptions, materials);
             Replace(BuySell.OldGoldLocationOptions, locations);
-            Replace(BuyOldGold.CustomerOptions, customers);
+            Replace(BuyOldGold.CustomerOptions, customers.Where(x => !x.IsWalkIn));
             Replace(BuyOldGold.StaffOptions, staff);
             Replace(BuyOldGold.OldGoldTypeOptions, materials);
             Replace(BuyOldGold.OldGoldLocationOptions, locations);
@@ -253,11 +253,11 @@ public sealed class SalesViewModel : ObservableObject
             Replace(Wholesale.LocationOptions, wholesaleLocations);
 
             var self = staff.FirstOrDefault(x => x.Id == session.UserId) ?? staff.FirstOrDefault();
-            var walkIn = customers.FirstOrDefault(x => x.IsWalkIn);
+            var walkIn = customers.Where(x => x.IsWalkIn).OrderBy(x => x.Id).FirstOrDefault();
             var named = customers.FirstOrDefault(x => !x.IsWalkIn);
             BuySell.SelectedCustomer = walkIn ?? customers.FirstOrDefault();
             BuySell.SelectedStaff = self;
-            BuyOldGold.SelectedCustomer = named ?? customers.FirstOrDefault();
+            BuyOldGold.SelectedCustomer = named;
             BuyOldGold.SelectedStaff = self;
             Wholesale.SelectedCustomer = named ?? customers.FirstOrDefault();
             Wholesale.SelectedStaff = self;
@@ -300,8 +300,8 @@ public sealed class SalesViewModel : ObservableObject
         var session = RequireSession();
         var self = BuySell.StaffOptions.FirstOrDefault(x => x.Id == session.UserId)
             ?? BuySell.StaffOptions.FirstOrDefault();
-        BuySell.ResetForNew(BuySell.CustomerOptions.FirstOrDefault(x => x.IsWalkIn) ?? BuySell.SelectedCustomer, self);
-        BuyOldGold.ResetForNew(BuyOldGold.CustomerOptions.FirstOrDefault(x => !x.IsWalkIn) ?? BuyOldGold.SelectedCustomer, self);
+        BuySell.ResetForNew(BuySell.CustomerOptions.Where(x => x.IsWalkIn).OrderBy(x => x.Id).FirstOrDefault() ?? BuySell.SelectedCustomer, self);
+        BuyOldGold.ResetForNew(BuyOldGold.CustomerOptions.FirstOrDefault(x => !x.IsWalkIn), self);
         Wholesale.ResetForNew(
             Wholesale.CustomerOptions.FirstOrDefault(x => !x.IsWalkIn) ?? Wholesale.SelectedCustomer,
             self);
@@ -321,10 +321,10 @@ public sealed class SalesViewModel : ObservableObject
         var selectedOld = BuyOldGold.SelectedCustomer?.Id;
         var selectedWholesale = Wholesale.SelectedCustomer?.Id;
         Replace(BuySell.CustomerOptions, customers);
-        Replace(BuyOldGold.CustomerOptions, customers);
+        Replace(BuyOldGold.CustomerOptions, customers.Where(x => !x.IsWalkIn));
         Replace(Wholesale.CustomerOptions, customers);
         BuySell.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedBuySell) ?? customers.FirstOrDefault();
-        BuyOldGold.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedOld) ?? customers.FirstOrDefault();
+        BuyOldGold.SelectedCustomer = BuyOldGold.CustomerOptions.FirstOrDefault(x => x.Id == selectedOld) ?? BuyOldGold.CustomerOptions.FirstOrDefault();
         Wholesale.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedWholesale) ?? customers.FirstOrDefault();
     }
 
@@ -365,9 +365,7 @@ public sealed class SalesViewModel : ObservableObject
                 return null;
 
             var code = result.Code.Trim();
-            var isWalkIn = string.Equals(code, "KH-VL", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(code, "WALK_IN", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(code, "KHACH_LE", StringComparison.OrdinalIgnoreCase);
+            var isWalkIn = result.IsWalkIn;
             return new SalesCustomerOption(
                 result.Id,
                 code,

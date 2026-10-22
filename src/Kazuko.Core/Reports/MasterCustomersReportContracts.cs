@@ -2,7 +2,7 @@ using Kazuko.Core.Authentication;
 
 namespace Kazuko.Core.Reports;
 
-public sealed record MasterCustomersReportFilter(string SearchText);
+public sealed record MasterCustomersReportFilter(string SearchText, bool? IsWalkIn = false);
 
 public sealed record MasterCustomersReportRow(
     long Id,
@@ -13,7 +13,8 @@ public sealed record MasterCustomersReportRow(
     string Address,
     string GroupName,
     string IdentityNumber,
-    decimal CreditLimit);
+    decimal CreditLimit,
+    bool IsWalkIn = false);
 
 public sealed record MasterCustomersReportResult(
     IReadOnlyList<MasterCustomersReportRow> Rows,

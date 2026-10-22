@@ -4,7 +4,7 @@
 
 Mọi View dùng các semantic resource từ `Kazuko.Shared.UI`:
 
-- Brush: `PrimaryBrush`, `AppBackgroundBrush`, `SurfaceBrush`, `SurfaceAltBrush`, `TextPrimaryBrush`, `TextSecondaryBrush`, `BorderBrush`, `SuccessBrush`, `DangerBrush`.
+- Brush: `PrimaryBrush`, `AppBackgroundBrush`, `SurfaceBrush`, `SurfaceAltBrush`, `TextPrimaryBrush`, `TextSecondaryBrush`, `BorderBrush`, `SuccessBrush`, `DangerBrush`, `InfoBrush`.
 - Typography: `FontSize.Caption`, `FontSize.Body`, `FontSize.Subtitle`, `FontSize.Heading`, `FontSize.Display`.
 - Style: `PrimaryButtonStyle`, `NavButtonStyle`, `CardBorderStyle` và các style dùng chung được bổ sung sau này.
 

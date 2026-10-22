@@ -26,11 +26,13 @@ public sealed class CustomerReportAuthorizationTests
         if (expectedAllowed)
         {
             Assert.Single(await repo.GetTopCustomersAsync(DateTime.Today, DateTime.Today, 10));
+            Assert.NotEmpty(await repo.GetSalesSummaryAsync(DateTime.Today, DateTime.Today));
             Assert.Equal(1, target.TopCalls);
         }
         else
         {
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => repo.GetTopCustomersAsync(DateTime.Today, DateTime.Today, 10));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => repo.GetSalesSummaryAsync(DateTime.Today, DateTime.Today));
             Assert.Equal(0, target.TopCalls);
         }
         Assert.False(BackendAccess.Allows("ICustomerRepository", "UnmappedMethodAsync", [], rights));

@@ -82,3 +82,8 @@ do kế thừa trước đây với grant quản trị viên chủ ý cấp; c�
 - `--ui`: WPF nút/tab, giữ CanExecute và mở form.
 - Database tạm restore từ backup đã có 77: tạo/sửa/đăng nhập tài khoản, thay đổi
   grant trong DB, khóa nhóm, Admin không bị khóa theo nhóm.
+
+Migration 82 thêm HR_PAYROLL và HR_PAYROLL_REOPEN (mặc định từ chối nhóm thường).
+HR_PAYROLL: Xem tải bảng; Thêm tính/tính lại; Sửa điều chỉnh và chốt. Mở chốt cần
+cả HR_PAYROLL/Xem và HR_PAYROLL_REOPEN/Sửa, phải có lý do. Bảng lương chốt chỉ đọc.
+Export Excel bảng lương cần DATA_EXPORT/Xem và HR_PAYROLL/Xem.

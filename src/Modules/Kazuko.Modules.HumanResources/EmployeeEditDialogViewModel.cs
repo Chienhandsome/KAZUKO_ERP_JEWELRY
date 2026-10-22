@@ -47,8 +47,11 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
     private string _address = string.Empty;
     private DateTime? _hireDate = DateTime.Today;
     private string? _contractType;
-    private string _baseSalaryText = "0";
-    private string _allowanceText = "0";
+    private string _salaryMethod = SalaryMethodCodes.MonthlyByDay;
+    private string _shiftSalaryText = "0";
+    private string _monthlySalaryText = "0";
+    private bool _restOnSunday = true;
+    private bool _restOnSaturday;
     private string _notes = string.Empty;
     private string _selectedStatusCode = EmployeeStatusCodes.Working;
     private bool _isActive = true;
@@ -171,39 +174,96 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
         set => SetProperty(ref _contractType, value);
     }
 
-    public string BaseSalaryText
+    /// <summary>Mã cách tính lương đang chọn (PER_SHIFT / MONTHLY_BY_SHIFT / MONTHLY_BY_DAY).</summary>
+    public string SalaryMethod
     {
-        get => _baseSalaryText;
-        set => SetProperty(ref _baseSalaryText, value);
-    }
-
-    public string AllowanceText
-    {
-        get => _allowanceText;
-        set => SetProperty(ref _allowanceText, value);
-    }
-
-    /// <summary>Định dạng lại lương/phụ cấp với dấu ngăn nghìn sau LostFocus.</summary>
-    public void FormatSalaryTexts()
-    {
-        if (TryParseMoney(BaseSalaryText, out var baseSalary))
+        get => _salaryMethod;
+        private set
         {
-            var formatted = FormatMoney(baseSalary);
-            if (!string.Equals(_baseSalaryText, formatted, StringComparison.Ordinal))
+            if (SetProperty(ref _salaryMethod, value))
             {
-                _baseSalaryText = formatted;
-                OnPropertyChanged(nameof(BaseSalaryText));
+                OnPropertyChanged(nameof(IsSalaryPerShift));
+                OnPropertyChanged(nameof(IsSalaryMonthlyByShift));
+                OnPropertyChanged(nameof(IsSalaryMonthlyByDay));
+                OnPropertyChanged(nameof(IsMonthlySalaryEnabled));
             }
         }
+    }
 
-        if (TryParseMoney(AllowanceText, out var allowance))
+    public bool IsSalaryPerShift
+    {
+        get => _salaryMethod == SalaryMethodCodes.PerShift;
+        set
         {
-            var formatted = FormatMoney(allowance);
-            if (!string.Equals(_allowanceText, formatted, StringComparison.Ordinal))
-            {
-                _allowanceText = formatted;
-                OnPropertyChanged(nameof(AllowanceText));
-            }
+            if (value)
+                SalaryMethod = SalaryMethodCodes.PerShift;
+        }
+    }
+
+    public bool IsSalaryMonthlyByShift
+    {
+        get => _salaryMethod == SalaryMethodCodes.MonthlyByShift;
+        set
+        {
+            if (value)
+                SalaryMethod = SalaryMethodCodes.MonthlyByShift;
+        }
+    }
+
+    public bool IsSalaryMonthlyByDay
+    {
+        get => _salaryMethod == SalaryMethodCodes.MonthlyByDay;
+        set
+        {
+            if (value)
+                SalaryMethod = SalaryMethodCodes.MonthlyByDay;
+        }
+    }
+
+    /// <summary>Ô Lương tháng dùng cho cả hai cách tính theo tháng.</summary>
+    public bool IsMonthlySalaryEnabled => _salaryMethod != SalaryMethodCodes.PerShift;
+
+    public string ShiftSalaryText
+    {
+        get => _shiftSalaryText;
+        set => SetProperty(ref _shiftSalaryText, value);
+    }
+
+    public string MonthlySalaryText
+    {
+        get => _monthlySalaryText;
+        set => SetProperty(ref _monthlySalaryText, value);
+    }
+
+    public bool RestOnSunday
+    {
+        get => _restOnSunday;
+        set => SetProperty(ref _restOnSunday, value);
+    }
+
+    public bool RestOnSaturday
+    {
+        get => _restOnSaturday;
+        set => SetProperty(ref _restOnSaturday, value);
+    }
+
+    /// <summary>Định dạng lại lương ca/lương tháng với dấu ngăn nghìn sau LostFocus.</summary>
+    public void FormatSalaryTexts()
+    {
+        FormatMoneyField(ref _shiftSalaryText, nameof(ShiftSalaryText));
+        FormatMoneyField(ref _monthlySalaryText, nameof(MonthlySalaryText));
+    }
+
+    private void FormatMoneyField(ref string field, string propertyName)
+    {
+        if (!TryParseMoney(field, out var value))
+            return;
+
+        var formatted = FormatMoney(value);
+        if (!string.Equals(field, formatted, StringComparison.Ordinal))
+        {
+            field = formatted;
+            OnPropertyChanged(propertyName);
         }
     }
 
@@ -354,8 +414,13 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
                 Address = detail.Address;
                 HireDate = detail.HireDate;
                 ContractType = detail.ContractType;
-                BaseSalaryText = FormatMoney(detail.BaseSalary);
-                AllowanceText = FormatMoney(detail.Allowance);
+                SalaryMethod = SalaryMethodCodes.IsValid(detail.SalaryMethod)
+                    ? detail.SalaryMethod
+                    : SalaryMethodCodes.MonthlyByDay;
+                ShiftSalaryText = FormatMoney(detail.ShiftSalary);
+                MonthlySalaryText = FormatMoney(detail.MonthlySalary);
+                RestOnSunday = detail.RestOnSunday;
+                RestOnSaturday = detail.RestOnSaturday;
                 Notes = detail.Notes;
                 _selectedStatusCode = detail.StatusCode;
                 IsActive = detail.IsActive;
@@ -425,8 +490,8 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
         SalaryError = string.Empty;
         FormError = string.Empty;
 
-        decimal baseSalary = 0;
-        decimal allowance = 0;
+        decimal shiftSalary = 0;
+        decimal monthlySalary = 0;
         var ok = true;
 
         if (string.IsNullOrWhiteSpace(FullName))
@@ -435,17 +500,19 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
             ok = false;
         }
 
-        if (!TryParseMoney(BaseSalaryText, out baseSalary) || baseSalary < 0)
+        if (!TryParseMoney(ShiftSalaryText, out shiftSalary) || shiftSalary < 0)
         {
-            SalaryError = "Lương cơ bản không hợp lệ hoặc âm.";
+            SalaryError = string.IsNullOrEmpty(SalaryError)
+                ? "Lương ca không hợp lệ hoặc âm."
+                : SalaryError + " Lương ca không hợp lệ hoặc âm.";
             ok = false;
         }
 
-        if (!TryParseMoney(AllowanceText, out allowance) || allowance < 0)
+        if (!TryParseMoney(MonthlySalaryText, out monthlySalary) || monthlySalary < 0)
         {
             SalaryError = string.IsNullOrEmpty(SalaryError)
-                ? "Phụ cấp không hợp lệ hoặc âm."
-                : SalaryError + " Phụ cấp không hợp lệ hoặc âm.";
+                ? "Lương tháng không hợp lệ hoặc âm."
+                : SalaryError + " Lương tháng không hợp lệ hoặc âm.";
             ok = false;
         }
 
@@ -461,11 +528,14 @@ public sealed class EmployeeEditDialogViewModel : ObservableObject
             Address?.Trim() ?? string.Empty,
             HireDate,
             ContractType?.Trim() ?? string.Empty,
-            baseSalary,
-            allowance,
             Notes?.Trim() ?? string.Empty,
             _selectedStatusCode,
-            IsActive);
+            IsActive,
+            SalaryMethod,
+            shiftSalary,
+            monthlySalary,
+            RestOnSunday,
+            RestOnSaturday);
 
         var shared = EmployeeValidator.Validate(request);
         if (shared is not null)

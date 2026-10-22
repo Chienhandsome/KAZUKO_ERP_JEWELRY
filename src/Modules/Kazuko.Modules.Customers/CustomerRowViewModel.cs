@@ -17,6 +17,9 @@ public sealed class CustomerRowViewModel : ObservableObject
     public long Id => Item.Id;
     public string Code => Item.Code;
     public string Name => Item.Name;
+    public bool IsWalkIn => Item.IsWalkIn;
+    public string ProtectionHint => IsWalkIn ? "Khách vãng lai là bản ghi hệ thống, không được sửa hoặc ngừng hoạt động." : string.Empty;
+    public string KindText => IsWalkIn ? "Vãng lai · Hệ thống" : "Có hồ sơ";
     public string Phone => Item.Phone;
     public string CustomerGroupName => Item.CustomerGroupName;
     public string Region => Item.Region;

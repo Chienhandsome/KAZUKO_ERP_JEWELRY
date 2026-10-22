@@ -383,18 +383,17 @@ static Task InsertCustomerAsync(
     long companyId, long branchId, long groupId, long userId,
     string code, string name, string? phone, bool walkInCode = false)
 {
-    // CODE used by sales walk-in detection: KH-VL / WALK_IN / KHACH_LE
-    _ = walkInCode;
+    // Persist walk-in classification explicitly; codes are display identifiers.
     return ExecuteAsync(connection, transaction, """
         INSERT INTO CUSTOMERS
-            (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE,
+            (COMPANY_ID, CREATED_BRANCH_ID, CUSTOMER_GROUP_ID, CODE, CUSTOMER_TYPE, IS_WALK_IN,
              NAME, PHONE, IS_ACTIVE, CREATED_BY, UPDATED_BY, UPDATED_AT, JOIN_DATE)
         VALUES
-            (@CID, @BID, @GID, @CODE, 'INDIVIDUAL',
+            (@CID, @BID, @GID, @CODE, 'INDIVIDUAL', @WALK_IN,
              @NAME, @PHONE, TRUE, @UID, @UID, CURRENT_TIMESTAMP, CURRENT_DATE)
         """,
         ("@CID", companyId), ("@BID", branchId), ("@GID", groupId),
-        ("@CODE", code), ("@NAME", name),
+        ("@CODE", code), ("@NAME", name), ("@WALK_IN", walkInCode),
         ("@PHONE", (object?)phone ?? DBNull.Value), ("@UID", userId));
 }
 
@@ -417,20 +416,20 @@ static Task InsertSupplierAsync(
 static Task InsertEmployeeAsync(
     FbConnection connection, FbTransaction transaction,
     long companyId, long branchId, long userId,
-    string code, string fullName, string phone, string attendanceCode, decimal baseSalary) =>
+    string code, string fullName, string phone, string attendanceCode, decimal monthlySalary) =>
     ExecuteAsync(connection, transaction, """
         INSERT INTO HR_EMPLOYEES
             (COMPANY_ID, CREATED_BRANCH_ID, CODE, FULL_NAME, ATTENDANCE_CODE,
-             PHONE, HIRE_DATE, CONTRACT_TYPE, BASE_SALARY, ALLOWANCE,
+             PHONE, HIRE_DATE, CONTRACT_TYPE, MONTHLY_SALARY,
              STATUS_CODE, IS_ACTIVE, CREATED_BY, UPDATED_BY, UPDATED_AT)
         VALUES
             (@CID, @BID, @CODE, @NAME, @ATTENDANCE,
-             @PHONE, CURRENT_DATE, 'FULL_TIME', @SALARY, 0,
+             @PHONE, CURRENT_DATE, 'FULL_TIME', @SALARY,
              'WORKING', TRUE, @UID, @UID, CURRENT_TIMESTAMP)
         """,
         ("@CID", companyId), ("@BID", branchId), ("@CODE", code),
         ("@NAME", fullName), ("@ATTENDANCE", attendanceCode),
-        ("@PHONE", phone), ("@SALARY", baseSalary), ("@UID", userId));
+        ("@PHONE", phone), ("@SALARY", monthlySalary), ("@UID", userId));
 
 static Task<long> InsertGoldTypeAsync(
     FbConnection connection, FbTransaction transaction, long companyId, long userId,

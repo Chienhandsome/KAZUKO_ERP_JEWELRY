@@ -460,7 +460,7 @@ public sealed class FirebirdWholesaleSalesApplicationService : IWholesaleSalesAp
         CancellationToken cancellationToken)
     {
         await using var command = new FbCommand("""
-            SELECT ID, CODE, IS_ACTIVE
+            SELECT ID, IS_WALK_IN, IS_ACTIVE
             FROM CUSTOMERS
             WHERE ID = @ID AND COMPANY_ID = @CID
             """, connection, transaction);
@@ -471,8 +471,7 @@ public sealed class FirebirdWholesaleSalesApplicationService : IWholesaleSalesAp
             throw new InvalidOperationException("Không tìm thấy khách hàng.");
         if (reader.IsDBNull(2) || !reader.GetBoolean(2))
             throw new InvalidOperationException("Khách hàng không còn hoạt động.");
-        var code = reader.GetString(1).Trim().ToUpperInvariant();
-        var walkIn = code is "KH-VL" or "WALK_IN" or "KHACH_LE";
+        var walkIn = reader.GetBoolean(1);
         return (reader.GetInt64(0), walkIn);
     }
 

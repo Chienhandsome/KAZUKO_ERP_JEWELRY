@@ -20,7 +20,7 @@ internal sealed class CustomerRepositoryFake : ICustomerRepository
     public Task<IReadOnlyList<CustomerGroupOption>> GetGroupsAsync(bool activeOnly = true, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CustomerGroupOption>>([new(1, "TT", "Thân thiết", true, true)]);
     public Task<IReadOnlyList<CustomerListItem>> SearchAsync(CustomerSearchFilter filter, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<CustomerListItem>>(Customers.Where(x => filter.IsActive is null || x.IsActive == filter.IsActive).ToList());
+        Task.FromResult<IReadOnlyList<CustomerListItem>>(Customers.Where(x => (filter.IsActive is null || x.IsActive == filter.IsActive) && (filter.IsWalkIn is null || x.IsWalkIn == filter.IsWalkIn)).ToList());
     public Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(long customerId, int limit, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CustomerPurchaseHistoryItem>>([new(1, DateTime.Today, "MB26/00001", 25470000m, 24470000m)]);
     public Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(long customerId, CancellationToken cancellationToken = default) => Task.FromResult(Snapshot);
@@ -29,6 +29,8 @@ internal sealed class CustomerRepositoryFake : ICustomerRepository
         TopCalls++;
         return PendingTop?.Task ?? Task.FromResult(Top);
     }
+    public Task<IReadOnlyList<CustomerSalesSummary>> GetSalesSummaryAsync(DateTime fromDate, DateTime toDate, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CustomerSalesSummary>>([new(false, 2, 25470000m), new(true, 1, 100000m)]);
     public Task<CustomerGroupOption> CreateGroupAsync(string name, AuthenticatedSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<string> FindDuplicateWarningAsync(CustomerSaveRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
