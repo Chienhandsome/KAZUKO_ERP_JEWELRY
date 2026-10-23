@@ -3,6 +3,7 @@ using System.Drawing.Printing;
 using System.Globalization;
 using System.Windows.Input;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Printing;
 
 namespace Kazuko.Modules.Warehouse;
 
@@ -17,10 +18,13 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
     private string _verticalOffsetText = "0";
     private string _errorMessage = string.Empty;
     private bool? _dialogResult;
+    private bool _compactWeightUnits = LabelPrinterPreferences.LoadCompactWeightUnits();
     private readonly Dictionary<string, string> _offsetDrafts = new(StringComparer.OrdinalIgnoreCase);
+    private JewelryLabelTemplateOption _selectedTemplate;
 
-    public LabelPrintDialogViewModel(int itemCount, string? summaryText = null)
+    public LabelPrintDialogViewModel(int itemCount, string? summaryText = null, string? templateCode = null)
     {
+        _selectedTemplate = JewelryLabelTemplates.Resolve(templateCode ?? LabelPrinterPreferences.LoadTemplateCode());
         Printers = new ObservableCollection<string>();
         foreach (string printer in PrinterSettings.InstalledPrinters)
             Printers.Add(printer);
@@ -40,6 +44,17 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
     public ObservableCollection<string> Printers { get; }
 
     public string SummaryText { get; }
+    public IReadOnlyList<JewelryLabelTemplateOption> Templates => JewelryLabelTemplates.All;
+    public JewelryLabelTemplateOption SelectedTemplate
+    {
+        get => _selectedTemplate;
+        set { if (value is not null && Templates.Contains(value)) SetProperty(ref _selectedTemplate, value); }
+    }
+    public bool CompactWeightUnits
+    {
+        get => _compactWeightUnits;
+        set => SetProperty(ref _compactWeightUnits, value);
+    }
 
     public string? SelectedPrinter
     {
@@ -119,7 +134,7 @@ public sealed class LabelPrintDialogViewModel : ObservableObject
             return;
         }
 
-        LabelPrinterPreferences.Save(SelectedPrinter, offset);
+        LabelPrinterPreferences.Save(SelectedPrinter, offset, CompactWeightUnits, SelectedTemplate.Code);
         DialogResult = true;
     }
 

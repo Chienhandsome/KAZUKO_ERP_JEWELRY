@@ -35,10 +35,19 @@
                    FontSize="{DynamicResource FontSize.Caption}"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    Margin="0,2,0,0" />
+        <TextBlock Text="{Binding EditingTemplateName}" Foreground="{DynamicResource TextPrimaryBrush}"
+                   FontSize="{DynamicResource FontSize.Caption}" Margin="0,2,0,0" />
         <TextBlock Text="Lưới 1 mm trên khổ tem, nét đậm mỗi 5 mm."
                    FontSize="{DynamicResource FontSize.Caption}"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    Margin="0,2,0,0" />
+        <WrapPanel Margin="0,6,0,0">
+        <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
+                  Width="180" MinHeight="40" Margin="0,0,8,0" VerticalAlignment="Center" />
+        <Button Content="Nạp mẫu" Command="{Binding LoadReferenceTemplateCommand}"
+                ToolTip="Nạp bản đã lưu của mẫu được chọn; các chỉnh sửa chưa lưu sẽ được bỏ"
+                Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="0,0,8,0" />
+        </WrapPanel>
         <CheckBox x:Name="SnapToGridCheck"
                   Content="Bám lưới 1 mm"
                   IsChecked="False"

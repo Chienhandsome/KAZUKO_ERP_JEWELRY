@@ -439,9 +439,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             IsBusy = true;
 
             var profile = await _companyProfile.GetAsync(_session);
-            var shopName = profile.Name;
-            var shopAddress = profile.Address ?? string.Empty;
-            var facilityStandard = profile.FacilityStandard;
 
             // Mỗi SP in riêng 1 report 1 trang → vẽ vector trực tiếp lên máy in
             // (không qua PNG trung gian) để chữ mịn, không răng cưa.
@@ -451,7 +448,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 foreach (var item in items)
                 {
                     reports.Add(await _labelPrintService.CreatePreparedReportAsync(
-                        [item], ReceiptDate, _session, shopName, shopAddress, facilityStandard));
+                        [item], ReceiptDate, _session, profile, dialogVm.CompactWeightUnits, dialogVm.SelectedTemplate.Code));
                 }
 
                 using var document = new PrintDocument();

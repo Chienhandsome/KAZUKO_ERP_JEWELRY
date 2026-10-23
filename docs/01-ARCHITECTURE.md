@@ -163,3 +163,58 @@ thái ô và xóa kỳ cùng khóa header để tránh xóa kỳ đang được 
 cuối cùng vẫn giữ header kỳ; chỉ xóa kỳ trống bằng thao tác riêng. Các thay đổi kỳ
 ghi audit cùng transaction. Kỳ chấm công và snapshot bảng lương là hai nghiệp vụ
 riêng: xóa kỳ chấm công trống không xóa bảng lương.
+
+## Quét QR CCCD trong form khách hàng (2026-10-22)
+
+`CitizenIdentityQrParser` trong Core phân tích dữ liệu HID từ iMarcone thành DTO,
+không phụ thuộc WPF. `CitizenScanDialogViewModel` quản lý đọc, xem lại, đối chiếu,
+xác nhận thay giấy tờ và chọn hồ sơ. `CustomerEditorService` mở hộp quét từ form
+chung nên danh mục, bán hàng và công nợ dùng cùng luồng và trả `CustomerEditResult`
+chứa ID hồ sơ được chọn. Enter tại ô quét chỉ đọc; áp dụng chỉ sửa bản nháp.
+
+`ICustomerRepository.FindIdentityMatchesAsync` trả danh sách có kiểu, gồm hồ sơ
+ngừng hoạt động, theo công ty của chi nhánh trong phiên đăng nhập. So khớp chính
+xác CCCD 12 số hoặc CMND cũ 9 số trong TAX_CODE, giữ số 0 đầu, không dò theo tên.
+`GetByIdAsync` nhận session tùy chọn để editor đọc lại đúng phạm vi. Không tự
+kích hoạt hồ sơ ngừng hoạt động, không gán CCCD cho khách vãng lai hệ thống.
+
+Không thêm schema: tái sử dụng TAX_CODE, NAME, BIRTH_OR_ESTABLISHED_DATE, GENDER,
+ADDRESS, ID_ISSUE_DATE. CMND cũ là hint đối chiếu trong request lưu, không lưu QR
+thô/lịch sử quét. SĐT và nơi cấp cần người dùng nhập; các trường không có trong QR
+được giữ nguyên. Parser hỗ trợ đúng cấu trúc 7/6/5 trường của TestScan, ngày hợp lệ,
+Unicode NFC và giới hạn độ dài; chuỗi lỗi không được áp dụng.
+
+Trong SaveAsync, TAX_CODE đúng 12 chữ số ASCII được xem là CCCD: trùng bị chặn
+bắt buộc, kể cả nhập tay. Quy tắc cảnh báo MST độ dài khác giữ nguyên. Save khóa
+hàng công ty trước khi đọc trùng/ghi trong transaction ReadCommitted + RecVersion
++ Wait (timeout 10 giây); mọi save khách hàng cùng công ty đi qua khóa này để
+hai quầy không tạo cùng CCCD. Không áp unique constraint lên trường MST dùng chung.
+Nhóm và hồ sơ được kiểm tra theo cùng companyId trước khi ghi. Kiểm thử transaction
+dùng database tạm, không ghi khách hàng thử vào DATA.FDB chính.
+
+Hướng dẫn kiểm tra thiết bị và rollback: `docs/manual-tests/customer-cccd-scan.md`.
+
+Cột Từ CCCD trong preview cho phép chỉnh cả sáu trường trước áp dụng bằng draft
+`CitizenFieldChange` có thông báo thay đổi; không sửa snapshot Trên form. Mỗi lần
+sửa vô hiệu kết quả đối chiếu cũ, tăng revision để bỏ phản hồi muộn; sửa số CCCD
+reset xác nhận đổi danh tính. ApplyAsync validate draft theo cùng parser Core,
+ngày nhập dd/MM/yyyy, rồi đối chiếu lại trước khi áp dụng/chọn hồ sơ trùng.
+
+## Bộ lọc tab lịch sử mua hàng và công nợ khách hàng
+
+`CustomerActivityTabViewModel` sở hữu riêng bộ chọn khách hàng, từ/đến ngày,
+dữ liệu, trạng thái loading/error và cancellation token cho mỗi tab. CustomerViewModel
+có hai instance HistoryTab/DebtTab; thay SelectedCustomer hoặc bộ lọc ở danh sách
+không thay chúng. Mới mở chưa chọn khách ở tab nào. Bộ chọn tải khách bằng query
+riêng, có tìm mã/tên/SĐT, không lấy từ tập Customers đang lọc ở danh mục.
+Shortcut Xem tất cả/Xem chi tiết ở card danh mục chủ động chọn khách vào đúng tab.
+Preview ở danh mục chỉ tải 5 giao dịch và snapshot cho dòng được chọn, không tải
+lịch sử đầy đủ/ledger của tab độc lập.
+
+GetPurchaseHistoryAsync nhận thêm fromDate/toDate tùy chọn sau cancellationToken,
+lọc trong SQL trước FIRST 100; ngày cuối gồm cả ngày. Không migration. Tab công nợ
+lọc khoảng ngày trên các khoản thanh toán/hoàn tiền của ledger, snapshot công nợ
+và phân bổ thu tiền vẫn trên toàn bộ khoản mở của khách. Thu tiền lấy ID từ
+DebtTab.SelectedCustomer, không lấy dòng chọn trong danh mục. Sau thu tiền reload
+bộ lọc hiện có; hủy/đổi khách trong lúc tải bỏ phản hồi cũ. Xem
+`docs/manual-tests/customer-activity-filters.md`.

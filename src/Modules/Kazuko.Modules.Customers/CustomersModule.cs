@@ -17,7 +17,8 @@ public sealed class CustomersModule : IKazukoModule
     {
         var repository = GetRequiredService<ICustomerRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
-        services.AddSingleton<ICustomerEditorService>(new CustomerEditorService(repository, session));
+        services.AddSingleton<ICustomerEditorService>(new CustomerEditorService(repository, session,
+            services.GetService(typeof(Kazuko.Core.UserManagement.IAuthorizationService)) as Kazuko.Core.UserManagement.IAuthorizationService));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

@@ -87,3 +87,13 @@ Migration 82 thêm HR_PAYROLL và HR_PAYROLL_REOPEN (mặc định từ chối n
 HR_PAYROLL: Xem tải bảng; Thêm tính/tính lại; Sửa điều chỉnh và chốt. Mở chốt cần
 cả HR_PAYROLL/Xem và HR_PAYROLL_REOPEN/Sửa, phải có lý do. Bảng lương chốt chỉ đọc.
 Export Excel bảng lương cần DATA_EXPORT/Xem và HR_PAYROLL/Xem.
+
+## Tra cứu CCCD khách hàng
+
+`FindIdentityMatchesAsync` thuộc nhóm đọc khách hàng trong BackendAccess, cho phép
+cùng các chức năng đang dùng lookup khách (CAT_CUSTOMERS, SALES_RETAIL,
+SALES_WHOLESALE, OLD_GOLD_PURCHASE, CRAFT_ORDER, DEBT_CUSTOMER, DEBT_SETTLEMENT,
+INV_MATERIAL_RECEIPT, PROD_ORDER, REP_VIEW). Proxy kiểm tra session được truyền
+khớp tài khoản/chi nhánh hiện tại; query lọc theo công ty/chi nhánh hoạt động.
+Chọn khách đã có không ghi hồ sơ. Nút mở hồ sơ từ kết quả quét cần CAT_CUSTOMERS/Sửa;
+lưu tạo/sửa vẫn qua policy SaveAsync hiện có và guard backend. Không bổ sung quyền mới.

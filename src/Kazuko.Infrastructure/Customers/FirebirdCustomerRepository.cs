@@ -2,6 +2,7 @@ using Dapper;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Infrastructure.Data;
+using FirebirdSql.Data.FirebirdClient;
 using System.Data;
 
 namespace Kazuko.Infrastructure.Customers;
@@ -12,6 +13,30 @@ namespace Kazuko.Infrastructure.Customers;
 // đều có alias khớp tên property của record (vd. C.ID AS Id).
 public sealed class FirebirdCustomerRepository : ICustomerRepository
 {
+    public async Task<IReadOnlyList<CustomerIdentityMatch>> FindIdentityMatchesAsync(string number, string? previousNumber,
+        long? excludeId, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (!CitizenIdentityQrParser.IsNumber(number) ||
+            (!string.IsNullOrEmpty(previousNumber) && !CitizenIdentityQrParser.IsNumber(previousNumber, 9)))
+            throw new InvalidOperationException("Số CCCD/CMND để đối chiếu không hợp lệ.");
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<CustomerIdentityMatch>(new CommandDefinition("""
+            SELECT C.ID AS Id, C.CODE AS Code, C.NAME AS Name, COALESCE(C.PHONE,'') AS Phone,
+                   COALESCE(C.ADDRESS,'') AS Address, COALESCE(C.TAX_CODE,'') AS DocumentNumber,
+                   C.IS_ACTIVE AS IsActive, C.IS_WALK_IN AS IsWalkIn
+            FROM CUSTOMERS C
+            WHERE C.COMPANY_ID=(SELECT B.COMPANY_ID FROM BRANCHES B JOIN COMPANIES P ON P.ID=B.COMPANY_ID
+                  WHERE B.ID=@BRANCH AND B.IS_ACTIVE=TRUE AND P.IS_ACTIVE=TRUE)
+              AND C.ID<>@EXCLUDE_ID
+              AND (TRIM(C.TAX_CODE)=@NUMBER OR (CAST(@OLD_NUMBER AS VARCHAR(30))<>'' AND TRIM(C.TAX_CODE)=@OLD_NUMBER))
+            ORDER BY C.IS_ACTIVE DESC, C.ID
+            """, new { BRANCH = session.BranchId, EXCLUDE_ID = excludeId ?? 0, NUMBER = number, OLD_NUMBER = previousNumber ?? "" },
+            cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
     public async Task<IReadOnlyList<CustomerGroupOption>> GetGroupsAsync(
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
@@ -177,7 +202,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         return rows.AsList();
     }
 
-    public async Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default, AuthenticatedSession? session = null)
     {
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -203,9 +228,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 FROM CUSTOMERS C
                 JOIN CUSTOMER_GROUPS G ON G.ID = C.CUSTOMER_GROUP_ID
                 WHERE C.ID = @ID
-                  AND C.COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND C.COMPANY_ID = COALESCE(
+                      (SELECT COMPANY_ID FROM BRANCHES WHERE ID=@SESSION_BRANCH_ID AND IS_ACTIVE=TRUE),
+                      (SELECT ID FROM COMPANIES WHERE CODE='KAZUKO' AND @SESSION_BRANCH_ID IS NULL))
                 """,
-                new { ID = id },
+                new { ID = id, SESSION_BRANCH_ID = session?.BranchId },
                 cancellationToken: cancellationToken));
     }
 
@@ -263,19 +290,43 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(new FbTransactionOptions
+        {
+            TransactionBehavior = FbTransactionBehavior.ReadCommitted | FbTransactionBehavior.RecVersion |
+                                  FbTransactionBehavior.Wait | FbTransactionBehavior.Write,
+            WaitTimeout = TimeSpan.FromSeconds(10)
+        }, cancellationToken);
         var committed = false;
 
         try
         {
+            // All customer saves serialize on their company row. A fresh read-committed
+            // statement after this lock sees a competing committed CCCD insert.
+            var companyId = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition("""
+                SELECT C.ID FROM COMPANIES C
+                WHERE C.IS_ACTIVE=TRUE AND C.ID=(SELECT B.COMPANY_ID FROM BRANCHES B WHERE B.ID=@BRANCH AND B.IS_ACTIVE=TRUE)
+                WITH LOCK
+                """, new { BRANCH = session.BranchId }, transaction, cancellationToken: cancellationToken));
+            if (companyId is null) throw new InvalidOperationException("Phiên làm việc không có doanh nghiệp/chi nhánh hoạt động.");
             if (normalized.Id is > 0)
-                await EnsureEditableAsync(connection, transaction, normalized.Id.Value, cancellationToken);
+                await EnsureEditableAsync(connection, transaction, normalized.Id.Value, cancellationToken, companyId);
+
+            if (CitizenIdentityQrParser.IsNumber(normalized.TaxCode))
+            {
+                var duplicates = await connection.ExecuteScalarAsync<int>(new CommandDefinition("""
+                    SELECT COUNT(*) FROM CUSTOMERS WHERE COMPANY_ID=@COMPANY AND ID<>@ID
+                    AND (TRIM(TAX_CODE)=@NUMBER OR (CAST(@OLD_NUMBER AS VARCHAR(30))<>'' AND TRIM(TAX_CODE)=@OLD_NUMBER))
+                    """, new { COMPANY = companyId.Value, ID = normalized.Id ?? 0,
+                        NUMBER = normalized.TaxCode, OLD_NUMBER = normalized.PreviousIdentityNumber ?? "" },
+                    transaction, cancellationToken: cancellationToken));
+                if (duplicates > 0) throw new InvalidOperationException("CCCD/CMND này đã có hồ sơ khách hàng. Vui lòng quét lại và chọn khách hàng hiện có.");
+            }
 
             var oldGroupId = normalized.Id is > 0
-                ? await GetCustomerGroupIdAsync(connection, transaction, normalized.Id.Value, cancellationToken)
+                ? await GetCustomerGroupIdAsync(connection, transaction, normalized.Id.Value, companyId.Value, cancellationToken)
                 : 0L;
 
-            await EnsureGroupIsActiveAsync(connection, transaction, normalized.CustomerGroupId, cancellationToken);
+            await EnsureGroupIsActiveAsync(connection, transaction, normalized.CustomerGroupId, companyId.Value, cancellationToken);
 
             long id;
             string code;
@@ -284,6 +335,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             if (isCreate)
             {
                 var insertParameters = SaveParameters(normalized, session);
+                insertParameters.Add("@COMPANY_ID", companyId.Value);
                 insertParameters.Add("@TEMP_CODE", $"TMP_{Guid.NewGuid():N}"[..30]);
                 id = await connection.ExecuteScalarAsync<long>(
                     new CommandDefinition("""
@@ -295,7 +347,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                              ID_ISSUE_DATE, ID_ISSUE_PLACE, BANK_NAME, BUYER_NAME, BANK_ACCOUNT_NUMBER,
                              CREATED_BY, UPDATED_BY, UPDATED_AT)
                         VALUES
-                            ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @BRANCH_ID, @GROUP_ID,
+                            (@COMPANY_ID, @BRANCH_ID, @GROUP_ID,
                              @TEMP_CODE, 'INDIVIDUAL', FALSE, @NAME, @ADDRESS, @PHONE, @EMAIL, @DATE_VALUE,
                              @POINTS, @TAX_CODE, @NOTES, @GENDER, @REGION, @OCCUPATION, @MEMBERSHIP_RANK,
                              @JOIN_DATE, @CREDIT_LIMIT, @IS_ACTIVE, @PHOTO_PATH,
@@ -312,9 +364,9 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                     new CommandDefinition("""
                         UPDATE CUSTOMERS SET CODE=@CODE
                         WHERE ID=@ID AND IS_WALK_IN = FALSE
-                          AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                          AND COMPANY_ID = @COMPANY_ID
                         """,
-                        new { CODE = code, ID = id },
+                        new { CODE = code, ID = id, COMPANY_ID = companyId.Value },
                         transaction,
                         cancellationToken: cancellationToken));
             }
@@ -322,6 +374,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             {
                 id = normalized.Id!.Value;
                 var updateParameters = SaveParameters(normalized, session);
+                updateParameters.Add("@COMPANY_ID", companyId.Value);
                 updateParameters.Add("@ID", id);
                 var affected = await connection.ExecuteAsync(
                     new CommandDefinition("""
@@ -337,7 +390,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                             BANK_ACCOUNT_NUMBER=@BANK_ACCOUNT_NUMBER,
                             UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
                         WHERE ID=@ID AND IS_WALK_IN = FALSE
-                          AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                          AND COMPANY_ID = @COMPANY_ID
                         """,
                         updateParameters,
                         transaction,
@@ -345,7 +398,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 if (affected == 0)
                     throw new InvalidOperationException("Khách hàng không còn tồn tại.");
 
-                code = await GetCodeAsync(connection, transaction, id, cancellationToken);
+                code = await GetCodeAsync(connection, transaction, id, companyId.Value, cancellationToken);
             }
 
             await transaction.CommitAsync(cancellationToken);
@@ -434,7 +487,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
     public async Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(
         long customerId,
         int limit,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, DateTime? fromDate = null, DateTime? toDate = null)
     {
         if (customerId <= 0)
             return Array.Empty<CustomerPurchaseHistoryItem>();
@@ -458,9 +511,11 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 FROM SALES_ORDERS O
                 WHERE O.CUSTOMER_ID = @CID
                   AND O.STATUS_CODE NOT IN ('DRAFT', 'CANCELLED')
+                  AND (CAST(@FROM_DATE AS DATE) IS NULL OR CAST(O.ORDER_DATE AS DATE)>=@FROM_DATE)
+                  AND (CAST(@TO_DATE AS DATE) IS NULL OR CAST(O.ORDER_DATE AS DATE)<=@TO_DATE)
                 ORDER BY O.ORDER_DATE DESC, O.ID DESC
                 """,
-                new { LIMIT = take, CID = customerId },
+                new { LIMIT = take, CID = customerId, FROM_DATE = fromDate?.Date, TO_DATE = toDate?.Date },
                 cancellationToken: cancellationToken));
         return rows.AsList();
     }
@@ -575,12 +630,12 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
     }
 
     private static async Task EnsureEditableAsync(IDbConnection connection, IDbTransaction? transaction,
-        long id, CancellationToken cancellationToken)
+        long id, CancellationToken cancellationToken, long? companyId = null)
     {
         var walkIn = await connection.QuerySingleOrDefaultAsync<bool?>(new CommandDefinition("""
             SELECT IS_WALK_IN FROM CUSTOMERS WHERE ID = @ID
-              AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
-            """, new { ID = id }, transaction, cancellationToken: cancellationToken));
+              AND COMPANY_ID = COALESCE(@COMPANY_ID, (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'))
+            """, new { ID = id, COMPANY_ID = companyId }, transaction, cancellationToken: cancellationToken));
         if (walkIn is null) throw new InvalidOperationException("Khách hàng không còn tồn tại.");
         if (walkIn.Value) throw new InvalidOperationException("Khách vãng lai là bản ghi hệ thống, không được sửa hoặc đổi trạng thái.");
     }
@@ -593,6 +648,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             Phone = request.Phone.Trim(),
             Email = request.Email.Trim(),
             TaxCode = request.TaxCode.Trim(),
+            PreviousIdentityNumber = request.PreviousIdentityNumber?.Trim(),
             Notes = request.Notes.Trim(),
             Gender = request.Gender.Trim(),
             Region = request.Region.Trim(),
@@ -603,6 +659,9 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
 
     private static void Validate(CustomerSaveRequest request)
     {
+        if (!string.IsNullOrEmpty(request.PreviousIdentityNumber) &&
+            (!CitizenIdentityQrParser.IsNumber(request.PreviousIdentityNumber, 9) || !CitizenIdentityQrParser.IsNumber(request.TaxCode)))
+            throw new InvalidOperationException("Thông tin đối chiếu CMND cũ không hợp lệ.");
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new InvalidOperationException("Tên khách hàng là bắt buộc.");
         if (string.IsNullOrWhiteSpace(request.Phone))
@@ -660,15 +719,16 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         IDbConnection connection,
         IDbTransaction transaction,
         long customerId,
+        long companyId,
         CancellationToken cancellationToken)
     {
         return await connection.ExecuteScalarAsync<long>(
             new CommandDefinition("""
                 SELECT CUSTOMER_GROUP_ID FROM CUSTOMERS
                 WHERE ID=@ID
-                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND COMPANY_ID = @COMPANY_ID
                 """,
-                new { ID = customerId },
+                new { ID = customerId, COMPANY_ID = companyId },
                 transaction,
                 cancellationToken: cancellationToken));
     }
@@ -677,15 +737,16 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         IDbConnection connection,
         IDbTransaction transaction,
         long customerId,
+        long companyId,
         CancellationToken cancellationToken)
     {
         return await connection.ExecuteScalarAsync<string>(
             new CommandDefinition("""
                 SELECT CODE FROM CUSTOMERS
                 WHERE ID=@ID
-                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND COMPANY_ID = @COMPANY_ID
                 """,
-                new { ID = customerId },
+                new { ID = customerId, COMPANY_ID = companyId },
                 transaction,
                 cancellationToken: cancellationToken)) ?? string.Empty;
     }
@@ -694,6 +755,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         IDbConnection connection,
         IDbTransaction transaction,
         long groupId,
+        long companyId,
         CancellationToken cancellationToken)
     {
         var count = await connection.ExecuteScalarAsync<int>(
@@ -701,9 +763,9 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 SELECT COUNT(*) FROM CUSTOMER_GROUPS
                 WHERE ID=@ID
                   AND IS_ACTIVE=TRUE
-                  AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+                  AND COMPANY_ID = @COMPANY_ID
                 """,
-                new { ID = groupId },
+                new { ID = groupId, COMPANY_ID = companyId },
                 transaction,
                 cancellationToken: cancellationToken));
         if (count == 0)

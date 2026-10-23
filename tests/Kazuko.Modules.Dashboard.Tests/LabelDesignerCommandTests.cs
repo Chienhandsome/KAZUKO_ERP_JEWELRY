@@ -47,11 +47,48 @@ public sealed class LabelDesignerCommandTests
         Assert.True(vm.OpenLabelDesignerCommand.CanExecute(null));
     });
 
-    private static (ServiceRegistry, ModuleNavigationRegistry) RegisterDashboardBeforeWarehouse()
+    [Fact]
+    public void General_settings_load_and_save_separate_label_parties() => Sta(() =>
+    {
+        var company = new CompanyService();
+        var (services, navigation) = RegisterDashboardBeforeWarehouse(company);
+        services.AddSingleton<ILabelDesignerService>(new Designer());
+        var vm = (SettingsViewModel)((SettingsView)navigation.Items.Single(x => x.Key == "SETTINGS").CreateView()).DataContext;
+        Assert.Equal("NPP cũ", vm.DistributorName);
+        Assert.Equal("NSX cũ", vm.ManufacturerName);
+        vm.DistributorName = "NPP mới";
+        vm.DistributorAddress = "Điện Biên";
+        vm.ManufacturerName = "NSX mới";
+        vm.ManufacturerAddress = "Âu Cơ";
+        vm.CountryOfOrigin = "Vietnam";
+        Assert.True(vm.IsDirty);
+        vm.SaveCommand.Execute(null);
+        Assert.NotNull(company.Saved);
+        Assert.Equal("NPP mới", company.Saved.DistributorName);
+        Assert.Equal("Điện Biên", company.Saved.DistributorAddress);
+        Assert.Equal("NSX mới", company.Saved.ManufacturerName);
+        Assert.Equal("Âu Cơ", company.Saved.ManufacturerAddress);
+        Assert.Equal("Vietnam", company.Saved.CountryOfOrigin);
+        Assert.False(vm.IsDirty);
+    });
+
+    private sealed class CompanyService : ICompanyProfileService
+    {
+        public CompanyProfileUpdateRequest? Saved { get; private set; }
+        public Task<CompanyProfileDto> GetAsync(AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CompanyProfileDto(1, "KAZUKO", null, null, null, null, "NPP cũ", null, "NSX cũ"));
+        public Task SaveAsync(CompanyProfileUpdateRequest request, AuthenticatedSession session, CancellationToken cancellationToken = default)
+        {
+            Saved = request;
+            return Task.CompletedTask;
+        }
+    }
+
+    private static (ServiceRegistry, ModuleNavigationRegistry) RegisterDashboardBeforeWarehouse(ICompanyProfileService? company = null)
     {
         var services = new ServiceRegistry();
         services.AddSingleton<INavigationService>(new NavigationService());
-        services.AddSingleton<ICompanyProfileService>(Proxy<ICompanyProfileService>());
+        services.AddSingleton<ICompanyProfileService>(company ?? Proxy<ICompanyProfileService>());
         services.AddSingleton<IAppearanceService>(Proxy<IAppearanceService>());
         services.AddSingleton<IPrintTemplateStore>(Proxy<IPrintTemplateStore>());
         services.AddSingleton<IDatabaseManagementService>(Proxy<IDatabaseManagementService>());

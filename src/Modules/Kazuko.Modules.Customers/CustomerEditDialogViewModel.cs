@@ -19,6 +19,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
     private readonly ICustomerRepository _repository;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly long? _customerId;
+    private string? _scannedNumber, _scannedPreviousNumber;
     private bool _isBusy;
     private bool _isLoading;
     private string _title = "THÊM KHÁCH HÀNG";
@@ -82,11 +83,42 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
         AddGroupCommand = new RelayCommand(BeginAddGroup, () => !IsBusy && !IsLoading);
         CreateGroupCommand = new AsyncRelayCommand(CreateGroupAsync, () => !IsBusy && !IsLoading);
         CancelAddGroupCommand = new RelayCommand(CancelAddGroup, () => !IsBusy && !IsLoading);
+        ScanCitizenCommand = new RelayCommand(() =>
+        {
+            if (_sessionAccessor.Current is null) { FormError = "Phiên đăng nhập đã hết hạn."; return; }
+            ScanRequested?.Invoke();
+        }, () => IsFormEnabled);
 
-        _ = InitializeAsync();
+        Initialization = InitializeAsync();
     }
 
     public event Action<CustomerEditResult?>? RequestClose;
+    public event Action? ScanRequested;
+    public Task Initialization { get; }
+    public ICommand ScanCitizenCommand { get; }
+
+    public CitizenScanFormSnapshot ScanSnapshot => new(Name, TaxCode, BirthDate, Gender, Address, IdIssueDate);
+
+    public bool ApplyCitizenData(CitizenIdentityScanData data, bool confirmReplacement = false)
+    {
+        if (!IsFormEnabled) return false;
+        if (!string.IsNullOrWhiteSpace(TaxCode) && TaxCode.Trim() != data.Number &&
+            TaxCode.Trim() != data.PreviousNumber && !confirmReplacement)
+        { FormError = "Cần xác nhận trước khi thay số giấy tờ đang có."; return false; }
+        Name = data.FullName; TaxCode = data.Number; BirthDate = data.BirthDate; Gender = data.Gender;
+        if (!string.IsNullOrEmpty(data.Address)) Address = data.Address;
+        if (data.IssueDate.HasValue) IdIssueDate = data.IssueDate;
+        _scannedNumber = data.Number; _scannedPreviousNumber = data.PreviousNumber;
+        FormError = "";
+        return true;
+    }
+
+    public void CompleteWithExisting(CustomerIdentityMatch match)
+    {
+        if (!IsFormEnabled || !match.IsActive || match.IsWalkIn)
+        { FormError = "Chỉ chọn được hồ sơ cá nhân đang hoạt động."; return; }
+        RequestClose?.Invoke(new(match.Id, match.Code, match.Name, match.Phone, match.Address, match.IsActive));
+    }
 
     public ObservableCollection<CustomerGroupOption> Groups { get; } = new();
     public ObservableCollection<string> Regions { get; } = new();
@@ -356,6 +388,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                 ((RelayCommand)AddGroupCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)CancelAddGroupCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsFormEnabled));
+                (ScanCitizenCommand as RelayCommand)?.NotifyCanExecuteChanged();
             }
         }
     }
@@ -373,6 +406,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                 ((RelayCommand)AddGroupCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)CancelAddGroupCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsFormEnabled));
+                (ScanCitizenCommand as RelayCommand)?.NotifyCanExecuteChanged();
             }
         }
     }
@@ -489,7 +523,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
 
             if (!IsCreate)
             {
-                var detail = await _repository.GetByIdAsync(_customerId!.Value);
+                var detail = await _repository.GetByIdAsync(_customerId!.Value, session: _sessionAccessor.Current);
                 if (detail is null)
                 {
                     FormError = "Khách hàng không còn tồn tại.";
@@ -500,6 +534,7 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
                 if (_isSystemCustomer)
                     FormError = "Khách vãng lai là bản ghi hệ thống, chỉ được xem lịch sử tại danh mục khách hàng.";
                 OnPropertyChanged(nameof(IsFormEnabled));
+                (ScanCitizenCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 CodeDisplay = detail.Code;
                 Name = detail.Name;
                 Phone = detail.Phone;
@@ -554,57 +589,34 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
 
     private async Task SaveAsync()
     {
-        if (_isSystemCustomer) return;
-        if (!ValidateLocal())
-            return;
-
+        if (!IsFormEnabled || !ValidateLocal()) return;
         var session = _sessionAccessor.Current;
-        if (session is null)
-        {
-            FormError = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-            return;
-        }
-
-        var request = BuildRequest();
-        try
-        {
-            var warning = await _repository.FindDuplicateWarningAsync(request);
-            if (!string.IsNullOrWhiteSpace(warning))
-            {
-                var continueSave = MessageBox.Show(
-                    warning + Environment.NewLine + Environment.NewLine + "Bạn có muốn tiếp tục lưu?",
-                    "Cảnh báo trùng dữ liệu",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
-                if (continueSave != MessageBoxResult.Yes)
-                    return;
-            }
-        }
-        catch (Exception)
-        {
-            FormError = "Không thể kiểm tra dữ liệu trùng.";
-            return;
-        }
-
+        if (session is null) { FormError = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."; return; }
         IsBusy = true;
         FormError = string.Empty;
         try
         {
+            var request = BuildRequest();
+            if (CitizenIdentityQrParser.IsNumber(request.TaxCode.Trim()))
+            {
+                var matches = await _repository.FindIdentityMatchesAsync(request.TaxCode.Trim(), request.PreviousIdentityNumber,
+                    _customerId, session);
+                if (matches.Count > 0)
+                {
+                    FormError = "CCCD/CMND này đã có hồ sơ. Bấm Quét CCCD để chọn khách hàng hiện có.";
+                    return;
+                }
+            }
+            var warning = await _repository.FindDuplicateWarningAsync(request);
+            if (!string.IsNullOrWhiteSpace(warning) && MessageBox.Show(
+                warning + Environment.NewLine + Environment.NewLine + "Bạn có muốn tiếp tục lưu?",
+                "Cảnh báo trùng dữ liệu", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             var result = await _repository.SaveAsync(request, session);
             RequestClose?.Invoke(result);
         }
-        catch (InvalidOperationException ex)
-        {
-            FormError = Sanitize(ex.Message);
-        }
-        catch (Exception)
-        {
-            FormError = "Không thể lưu khách hàng. Vui lòng thử lại.";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        catch (InvalidOperationException ex) { FormError = Sanitize(ex.Message); }
+        catch { FormError = "Không thể kiểm tra hoặc lưu khách hàng. Vui lòng thử lại."; }
+        finally { IsBusy = false; }
     }
 
     private bool ValidateLocal()
@@ -690,7 +702,8 @@ public sealed class CustomerEditDialogViewModel : ObservableObject
             IdIssuePlace,
             BankName,
             BuyerName,
-            BankAccountNumber);
+            BankAccountNumber,
+            TaxCode.Trim() == _scannedNumber ? _scannedPreviousNumber : null);
     }
 
     private static string Sanitize(string message)

@@ -5,6 +5,8 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Kazuko.Modules.Warehouse.Tests" />
+    <EmbeddedResource Include="../../Assets/examples/tem_nu_trang_l_28x12.frx" LogicalName="Kazuko.Warehouse.LabelL.frx" />
+    <EmbeddedResource Include="../../Assets/examples/tem_nu_trang_28x12.frx" LogicalName="Kazuko.Warehouse.LabelLegacy.frx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Kazuko.Core\Kazuko.Core.csproj" />

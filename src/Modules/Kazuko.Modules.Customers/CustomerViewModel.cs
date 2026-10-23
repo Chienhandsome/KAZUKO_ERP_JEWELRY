@@ -25,7 +25,6 @@ public sealed class CustomerViewModel : ObservableObject
     ];
 
     private const int PurchaseHistoryPreviewLimit = 5;
-    private const int PurchaseHistoryFullLimit = 100;
     private const int PurchaseHistoryTabIndex = 1;
     private const int DebtTabIndex = 2;
     private const int ReportsTabIndex = 3;
@@ -103,16 +102,19 @@ public sealed class CustomerViewModel : ObservableObject
             ToggleActive,
             parameter => !IsLoading && (parameter as CustomerRowViewModel ?? SelectedCustomer) is { IsWalkIn: false });
         ViewAllPurchasesCommand = new RelayCommand(
-            () => SelectedTabIndex = PurchaseHistoryTabIndex,
+            () => OpenActivityTab(false),
             () => HasSelection);
         ViewDebtDetailsCommand = new RelayCommand(
-            () => SelectedTabIndex = DebtTabIndex,
+            () => OpenActivityTab(true),
             () => HasSelection);
         CollectPaymentCommand = new AsyncRelayCommand(
             CollectPaymentAsync,
-            () => !IsLoading && !IsDetailLoading && HasSelection && HasCurrentDebt
+            () => !IsLoading && DebtTab is { IsDetailLoading: false, HasCurrentDebt: true, SelectedCustomer.IsWalkIn: false }
                 && _debtWorkbench is not null && _settlementDialog is not null
                 && _sessionAccessor.Current is not null);
+        HistoryTab = new(repository, sessionAccessor, debtWorkbench, false);
+        DebtTab = new(repository, sessionAccessor, debtWorkbench, true, CollectPaymentCommand);
+        DebtTab.PropertyChanged += (_, _) => ((AsyncRelayCommand)CollectPaymentCommand).NotifyCanExecuteChanged();
         LoadTopCustomersCommand = new AsyncRelayCommand(LoadTopCustomersAsync, () => !IsReportLoading);
         LoadInactiveCustomersCommand = new AsyncRelayCommand(LoadInactiveCustomersAsync, () => !IsReportLoading);
         LoadDistributionCommand = new AsyncRelayCommand(LoadDistributionAsync, () => !IsReportLoading);
@@ -126,13 +128,23 @@ public sealed class CustomerViewModel : ObservableObject
         _ = InitializeAsync();
     }
 
+    public CustomerActivityTabViewModel HistoryTab { get; }
+    public CustomerActivityTabViewModel DebtTab { get; }
+    private void OpenActivityTab(bool debt)
+    {
+        if (SelectedCustomer is null) return;
+        var tab = debt ? DebtTab : HistoryTab;
+        tab.SelectedCustomer = ActivityOption(tab, SelectedCustomer);
+        SelectedTabIndex = debt ? DebtTabIndex : PurchaseHistoryTabIndex;
+    }
+    private static CustomerActivityOption ActivityOption(CustomerActivityTabViewModel tab, CustomerRowViewModel row) =>
+        tab.CustomerOptions.FirstOrDefault(x => x.Id == row.Id) ?? new(row.Id, row.Code, row.Name, row.Phone, row.IsWalkIn);
+
     public ObservableCollection<CustomerRowViewModel> Customers { get; } = new();
     public ObservableCollection<CustomerGroupOption> Groups { get; } = new();
     public ObservableCollection<string> Regions { get; } = new();
     public ObservableCollection<string> StatusOptions { get; } = new();
     public ObservableCollection<PurchaseHistoryRowViewModel> RecentPurchases { get; } = new();
-    public ObservableCollection<PurchaseHistoryRowViewModel> FullPurchaseHistory { get; } = new();
-    public ObservableCollection<PaymentHistoryRowViewModel> PaymentHistory { get; } = new();
     public ObservableCollection<CustomerSalesSummaryRow> SalesSummary { get; } = new();
     public string SalesSummaryText => SalesSummary.Count == 0 ? string.Empty : $"Kỳ {_summaryFromDate:dd/MM/yyyy}–{_summaryToDate:dd/MM/yyyy} · Tổng cộng: {SalesSummary.Sum(x => x.OrderCount).ToString("N0", Vi)} đơn · {SalesSummary.Sum(x => x.TotalSales).ToString("N0", Vi)} VND";
     public ObservableCollection<TopCustomerRowViewModel> TopCustomers { get; } = new();
@@ -205,7 +217,6 @@ public sealed class CustomerViewModel : ObservableObject
                 OnPropertyChanged(nameof(HasPhoto));
                 OnPropertyChanged(nameof(RecentPurchasesTitle));
                 OnPropertyChanged(nameof(HasRecentPurchases));
-                OnPropertyChanged(nameof(HasFullPurchaseHistory));
                 OnPropertyChanged(nameof(CanDeleteSelected));
                 ((RelayCommand)EditSelectedCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)DeleteSelectedCommand).NotifyCanExecuteChanged();
@@ -249,7 +260,6 @@ public sealed class CustomerViewModel : ObservableObject
             : "Lịch sử mua hàng";
 
     public bool HasRecentPurchases => RecentPurchases.Count > 0;
-    public bool HasFullPurchaseHistory => FullPurchaseHistory.Count > 0;
 
     public string DebtIncurredText => _debtSnapshot.TotalIncurred.ToString("N0", Vi);
     public string DebtPaidText => _debtSnapshot.Paid.ToString("N0", Vi);
@@ -306,8 +316,7 @@ public sealed class CustomerViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedTabIndex, value) && value == ReportsTabIndex)
                 _ = LoadReportsAsync();
-            else if (value == DebtTabIndex && !IsDetailLoading)
-                _ = LoadSelectionDetailsAsync();
+
         }
     }
 
@@ -321,7 +330,6 @@ public sealed class CustomerViewModel : ObservableObject
         }
     }
 
-    public string PaymentHistoryError { get; private set; } = string.Empty;
     public string ReportErrorMessage { get; private set; } = string.Empty;
 
     private void SetReportError(string message)
@@ -419,6 +427,8 @@ public sealed class CustomerViewModel : ObservableObject
     {
         await LoadGroupsAsync();
         await SearchAsync();
+        await HistoryTab.LoadCustomersAsync();
+        await DebtTab.LoadCustomersAsync();
     }
 
     private async Task LoadGroupsAsync()
@@ -516,16 +526,11 @@ public sealed class CustomerViewModel : ObservableObject
 
         IsDetailLoading = true;
         ErrorMessage = string.Empty;
-        PaymentHistoryError = string.Empty;
-        OnPropertyChanged(nameof(PaymentHistoryError));
 
         RecentPurchases.Clear();
-        FullPurchaseHistory.Clear();
-        PaymentHistory.Clear();
         SetDebtSnapshot(new CustomerDebtSnapshot(0, 0, 0, 0));
         OnPropertyChanged(nameof(RecentPurchasesTitle));
         OnPropertyChanged(nameof(HasRecentPurchases));
-        OnPropertyChanged(nameof(HasFullPurchaseHistory));
 
         var customerId = SelectedCustomer?.Id;
         if (customerId is null)
@@ -537,48 +542,20 @@ public sealed class CustomerViewModel : ObservableObject
         try
         {
             var historyTask = _repository.GetPurchaseHistoryAsync(
-                customerId.Value, PurchaseHistoryFullLimit, token);
+                customerId.Value, PurchaseHistoryPreviewLimit, token);
             var debtTask = _repository.GetDebtSnapshotAsync(customerId.Value, token);
             await Task.WhenAll(historyTask, debtTask);
             token.ThrowIfCancellationRequested();
 
             var history = await historyTask;
-            foreach (var item in history)
-                FullPurchaseHistory.Add(new PurchaseHistoryRowViewModel(item));
             foreach (var item in history.Take(PurchaseHistoryPreviewLimit))
                 RecentPurchases.Add(new PurchaseHistoryRowViewModel(item));
 
             SetDebtSnapshot(await debtTask);
             ((AsyncRelayCommand)CollectPaymentCommand).NotifyCanExecuteChanged();
 
-            // Include receipts and refunds, excluding order charges and non-cash offsets.
-            if (_debtWorkbench is not null)
-            {
-                try
-                {
-                    var session = _sessionAccessor.Current;
-                    if (session is not null)
-                    {
-                        var ledger = await _debtWorkbench.GetCustomerLedgerAsync(customerId.Value, session, token);
-                        token.ThrowIfCancellationRequested();
-                        foreach (var entry in ledger.Where(e => e.SourceType == DebtLedgerSourceTypes.OrderPayment))
-                            PaymentHistory.Add(new PaymentHistoryRowViewModel(entry));
-                    }
-                }
-                catch (OperationCanceledException) { throw; }
-                catch
-                {
-                    if (!token.IsCancellationRequested)
-                    {
-                        PaymentHistoryError = "Không thể tải lịch sử thanh toán. Vui lòng mở lại tab để thử lại.";
-                        OnPropertyChanged(nameof(PaymentHistoryError));
-                    }
-                }
-            }
-
             OnPropertyChanged(nameof(RecentPurchasesTitle));
             OnPropertyChanged(nameof(HasRecentPurchases));
-            OnPropertyChanged(nameof(HasFullPurchaseHistory));
         }
         catch (OperationCanceledException)
         {
@@ -603,12 +580,12 @@ public sealed class CustomerViewModel : ObservableObject
     /// </summary>
     private async Task CollectPaymentAsync()
     {
-        if (IsLoading || SelectedCustomer is null || _debtWorkbench is null || _settlementDialog is null)
+        if (IsLoading || DebtTab.SelectedCustomer is null || _debtWorkbench is null || _settlementDialog is null)
             return;
 
-        var customerId = SelectedCustomer.Id;
-        var customerCode = SelectedCustomer.Code;
-        var customerName = SelectedCustomer.Name;
+        var customerId = DebtTab.SelectedCustomer.Id;
+        var customerCode = DebtTab.SelectedCustomer.Code;
+        var customerName = DebtTab.SelectedCustomer.Name;
 
         try
         {
@@ -655,6 +632,8 @@ public sealed class CustomerViewModel : ObservableObject
 
             StatusMessage = "Đã thu tiền khách hàng.";
             await RefreshAsync();
+            await DebtTab.LoadAsync();
+            await HistoryTab.LoadAsync();
         }
         catch (Exception ex)
         {

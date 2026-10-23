@@ -959,37 +959,47 @@
                 </TabItem>
 
                 <TabItem Header="Lịch sử mua hàng">
+                    <ScrollViewer DataContext="{Binding HistoryTab}" VerticalScrollBarVisibility="Auto">
                     <Grid Margin="16">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Margin="0,0,0,12"
-                                   FontSize="{DynamicResource FontSize.Subtitle}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource PrimaryBrush}">
-                            <Run Text="Lịch sử mua hàng — " />
-                            <Run Text="{Binding SelectedCode, Mode=OneWay}" />
-                            <Run Text=" " />
-                            <Run Text="{Binding SelectedName, Mode=OneWay}" />
-                        </TextBlock>
+                        <StackPanel>
+                            <WrapPanel Margin="0,0,0,12">
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Tìm mã, tên, SĐT" /><TextBox Text="{Binding CustomerSearchText, UpdateSourceTrigger=PropertyChanged}" Width="200"
+                                         Style="{StaticResource FilterFieldStyle}" ToolTip="Tìm khách theo mã, tên hoặc SĐT" /></StackPanel>
+                                <Button Height="40" VerticalAlignment="Bottom" Content="Tìm khách" Command="{Binding SearchCustomersCommand}" Style="{DynamicResource WorkspaceActionStyle}" Margin="0,0,8,8" />
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Khách hàng" /><ComboBox ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding SelectedCustomer}" DisplayMemberPath="DisplayText"
+                                          Width="300" Style="{StaticResource FilterComboStyle}" ToolTip="Chọn khách hàng cho riêng tab này" /></StackPanel>
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Từ ngày" /><DatePicker SelectedDate="{Binding FromDate}" Width="150" Style="{StaticResource ReportDateStyle}" /></StackPanel>
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Đến ngày" /><DatePicker SelectedDate="{Binding ToDate}" Width="150" Style="{StaticResource ReportDateStyle}" /></StackPanel>
+                                <Button Height="40" VerticalAlignment="Bottom" Content="Lọc / Làm mới" Command="{Binding FilterCommand}" Style="{DynamicResource WorkspaceActionStyle}" Margin="0,0,8,8" />
+                            </WrapPanel>
+                            <TextBlock FontSize="{DynamicResource FontSize.Subtitle}" Foreground="{DynamicResource PrimaryBrush}" TextWrapping="Wrap">
+                                <Run Text="Lịch sử mua hàng — " /><Run Text="{Binding SelectedCode, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding SelectedName, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock Text="{Binding ResultHint}" TextWrapping="Wrap" Margin="0,6,0,8" />
+                            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+                            <TextBlock Text="Đang tải lịch sử mua hàng..." Visibility="{Binding IsDetailLoading, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
 
-                        <DataGrid Grid.Row="1"
-                                  ItemsSource="{Binding FullPurchaseHistory}"
-                                  Style="{StaticResource CustomerDataGridStyle}"
-                                  ColumnHeaderStyle="{StaticResource CustomerDataGridColumnHeaderStyle}"
+                        <DataGrid Grid.Row="1" x:Name="FullPurchaseHistoryGrid" grid:DataGridColumnLayout.SettingsKey="customers.FullPurchaseHistory" grid:DataGridColumnLayout.EnableHeaderMenu="True"
+                                  MinHeight="180" MaxHeight="500" ItemsSource="{Binding FullPurchaseHistory}"
+                                  Style="{DynamicResource WorkspaceGridStyle}"
+                                  ColumnHeaderStyle="{DynamicResource WorkspaceHeaderStyle}"
                                   Visibility="{Binding HasFullPurchaseHistory, Converter={StaticResource BoolToVis}}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Ngày"
+                                <DataGridTextColumn grid:DataGridColumnLayout.Key="Date" Header="Ngày"
                                                     Binding="{Binding OrderDateText, Mode=OneWay}"
                                                     Width="110" />
-                                <DataGridTextColumn Header="Số hóa đơn"
+                                <DataGridTextColumn grid:DataGridColumnLayout.Key="Invoice" Header="Số hóa đơn"
                                                     Binding="{Binding InvoiceCode, Mode=OneWay}"
                                                     Width="160" />
-                                <DataGridTextColumn Header="Tổng tiền (VND)"
+                                <DataGridTextColumn grid:DataGridColumnLayout.Key="Total" Header="Tổng tiền (VND)"
                                                     Binding="{Binding TotalAmountText, Mode=OneWay}"
                                                     Width="140" />
-                                <DataGridTemplateColumn Header="Thanh toán" Width="160">
+                                <DataGridTemplateColumn grid:DataGridColumnLayout.Key="Payment" Header="Thanh toán" Width="160">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border CornerRadius="10" Padding="8,2"
@@ -1019,15 +1029,26 @@
                         </DataGrid>
 
                         <TextBlock Grid.Row="1"
-                                   Text="Chưa có giao dịch mua hàng cho khách hàng này."
+                                   Text="Chưa có giao dịch phù hợp. Chọn khách hàng và khoảng ngày ở thanh lọc."
                                    VerticalAlignment="Center" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Visibility="{Binding HasFullPurchaseHistory, Converter={StaticResource InverseBoolToVis}}" />
                     </Grid>
+                    </ScrollViewer>
                 </TabItem>
                 <TabItem Header="Công nợ">
-                    <ScrollViewer Margin="16" VerticalScrollBarVisibility="Auto" FontWeight="Normal">
+                    <ScrollViewer DataContext="{Binding DebtTab}" Margin="16" VerticalScrollBarVisibility="Auto" FontWeight="Normal">
                         <StackPanel>
+                            <WrapPanel Margin="0,0,0,12">
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Tìm mã, tên, SĐT" /><TextBox Text="{Binding CustomerSearchText, UpdateSourceTrigger=PropertyChanged}" Width="200"
+                                         Style="{StaticResource FilterFieldStyle}" ToolTip="Tìm khách theo mã, tên hoặc SĐT" /></StackPanel>
+                                <Button Height="40" VerticalAlignment="Bottom" Content="Tìm khách" Command="{Binding SearchCustomersCommand}" Style="{DynamicResource WorkspaceActionStyle}" Margin="0,0,8,8" />
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Khách hàng" /><ComboBox ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding SelectedCustomer}" DisplayMemberPath="DisplayText"
+                                          Width="300" Style="{StaticResource FilterComboStyle}" ToolTip="Chọn khách hàng cho riêng tab này" /></StackPanel>
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Từ ngày" /><DatePicker SelectedDate="{Binding FromDate}" Width="150" Style="{StaticResource ReportDateStyle}" /></StackPanel>
+                                <StackPanel Margin="0,0,8,8"><TextBlock Text="Đến ngày" /><DatePicker SelectedDate="{Binding ToDate}" Width="150" Style="{StaticResource ReportDateStyle}" /></StackPanel>
+                                <Button Height="40" VerticalAlignment="Bottom" Content="Lọc / Làm mới" Command="{Binding FilterCommand}" Style="{DynamicResource WorkspaceActionStyle}" Margin="0,0,8,8" />
+                            </WrapPanel>
                             <Grid Margin="0,0,0,16">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -1106,7 +1127,7 @@
                             </UniformGrid>
 
                             <TextBlock Margin="0,16,0,0"
-                                       Text="Số liệu công nợ được tính từ đơn hàng bán (không gồm nháp/hủy) và các khoản thanh toán liên quan. Quá hạn là phần còn nợ của đơn cũ hơn 30 ngày."
+                                       Text="Công nợ hiện tại tính trên toàn bộ đơn hàng hợp lệ của khách đã chọn. Khoảng ngày chỉ lọc lịch sử thanh toán; không thay đổi số nợ hay số tiền có thể thu."
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="{DynamicResource FontSize.Caption}" />
@@ -1121,9 +1142,6 @@
                             <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        Foreground="{DynamicResource DangerBrush}"
                                        Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
-                            <TextBlock Text="{Binding PaymentHistoryError}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                       Foreground="{DynamicResource DangerBrush}"
-                                       Visibility="{Binding PaymentHistoryError, Converter={StaticResource NotNullToVis}}" />
                             <DataGrid x:Name="PaymentHistoryGrid" grid:DataGridColumnLayout.SettingsKey="customers.PaymentHistory" grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding PaymentHistory}"
                                       Style="{DynamicResource WorkspaceGridStyle}" AutoGenerateColumns="False"
                                       IsReadOnly="True"
@@ -1161,7 +1179,7 @@
                                                 <MultiDataTrigger.Conditions>
                                                     <Condition Binding="{Binding PaymentHistory.Count}" Value="0" />
                                                     <Condition Binding="{Binding IsDetailLoading}" Value="False" />
-                                                    <Condition Binding="{Binding PaymentHistoryError}" Value="" />
+                                                    <Condition Binding="{Binding ErrorMessage}" Value="" />
                                                 </MultiDataTrigger.Conditions>
                                                 <Setter Property="Visibility" Value="Visible" />
                                             </MultiDataTrigger>

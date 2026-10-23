@@ -412,6 +412,17 @@
                                      MaxLength="100"
                                      Margin="0,0,0,18" />
 
+                            <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Tên nhà phân phối (NPP) trên tem" />
+                            <TextBox Text="{Binding DistributorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingsTextBoxStyle}" MaxLength="200" Margin="0,0,0,12" />
+                            <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Địa chỉ NPP" />
+                            <TextBox Text="{Binding DistributorAddress, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingsTextBoxStyle}" MaxLength="500" Margin="0,0,0,12" />
+                            <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Tên nhà sản xuất (NSX) trên tem" />
+                            <TextBox Text="{Binding ManufacturerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingsTextBoxStyle}" MaxLength="200" Margin="0,0,0,12" />
+                            <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Địa chỉ NSX" />
+                            <TextBox Text="{Binding ManufacturerAddress, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingsTextBoxStyle}" MaxLength="500" Margin="0,0,0,12" />
+                            <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Xuất xứ trên tem" />
+                            <TextBox Text="{Binding CountryOfOrigin, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingsTextBoxStyle}" MaxLength="100" Margin="0,0,0,18" />
+
                             <TextBlock Style="{StaticResource SettingsFieldLabelStyle}" Text="Logo" />
                             <Grid Margin="0,0,0,20">
                                 <Grid.ColumnDefinitions>

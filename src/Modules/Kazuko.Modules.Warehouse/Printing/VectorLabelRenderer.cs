@@ -1,5 +1,7 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Linq;
 using FastReport;
 using FastReport.Barcode;
@@ -53,7 +55,7 @@ public static class VectorLabelRenderer
         if (page is null)
             return;
 
-        DrawPage(g, page);
+        DrawPage(g, page, UsesLLayout(report));
     }
 
     public static void DrawPreparedLabel(Graphics g, Report report)
@@ -63,10 +65,24 @@ public static class VectorLabelRenderer
         if (report.PreparedPages.Count == 0)
             throw new InvalidOperationException("Mẫu tem chưa có trang in.");
         using var page = report.PreparedPages.GetPage(0);
-        DrawPage(g, page);
+        DrawPage(g, page, UsesLLayout(report));
     }
 
-    private static void DrawPage(Graphics g, ReportPage page)
+    private static bool UsesLLayout(Report report) =>
+        report.ReportInfo.Description == "KAZUKO_LABEL_L_BTW_V2";
+
+    private static void DrawPage(Graphics g, ReportPage page, bool usePreparedText)
+    {
+        var state = g.Save();
+        try
+        {
+            if (usePreparedText) g.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
+            DrawObjects(g, page, usePreparedText);
+        }
+        finally { g.Restore(state); }
+    }
+
+    private static void DrawObjects(Graphics g, ReportPage page, bool usePreparedText)
     {
         // Duyệt mọi object trong các band (template tem chỉ có 1 DataBand).
         foreach (var band in page.Bands.OfType<BandBase>())
@@ -76,10 +92,10 @@ public static class VectorLabelRenderer
                 switch (obj)
                 {
                     case TextObject textObj:
-                        DrawText(g, textObj);
+                        DrawText(g, textObj, usePreparedText);
                         break;
                     case BarcodeObject barcodeObj:
-                        DrawBarcode(g, barcodeObj);
+                        DrawBarcode(g, barcodeObj, usePreparedText);
                         break;
                     default:
                         break; // object loại khác bỏ qua
@@ -88,7 +104,7 @@ public static class VectorLabelRenderer
         }
     }
 
-    private static void DrawText(Graphics g, TextObject obj)
+    private static void DrawText(Graphics g, TextObject obj, bool usePreparedText)
     {
         // Sau Prepare(), Text đã được FastReport resolve xong ([DataSet.X], [ThamSố], định dạng).
         string text = obj.Text ?? string.Empty;
@@ -103,7 +119,7 @@ public static class VectorLabelRenderer
             return;
 
         float fontSize = obj.Font.Size;
-        if (obj.AutoShrink != AutoShrinkMode.None)
+        if (!usePreparedText && obj.AutoShrink != AutoShrinkMode.None)
             fontSize = ShrinkFontToFit(g, text, obj, w, h);
 
         using var font = new Font(obj.Font.FontFamily, fontSize, obj.Font.Style, GraphicsUnit.Point);
@@ -115,7 +131,26 @@ public static class VectorLabelRenderer
             Trimming = StringTrimming.None,
         };
 
-        if (obj.Angle != 0)
+        if (usePreparedText)
+        {
+            // FastReport đã tính FontWidthRatio; giữ nguyên chiều cao chữ của mẫu L.
+            var state = g.Save();
+            try
+            {
+                g.TranslateTransform(x + w / 2f, y + h / 2f);
+                g.RotateTransform(obj.Angle);
+                float rw = Math.Abs(obj.Angle) % 180 == 90 ? h : w;
+                float rh = Math.Abs(obj.Angle) % 180 == 90 ? w : h;
+                g.SetClip(new RectangleF(-rw / 2f, -rh / 2f, rw, rh), CombineMode.Intersect);
+                float ratio = obj.FontWidthRatio;
+                g.ScaleTransform(ratio, 1f);
+                format.FormatFlags |= StringFormatFlags.NoClip;
+                g.DrawString(text, font, brush,
+                    new RectangleF(-rw / (2f * ratio), -rh / 2f, rw / ratio, rh), format);
+            }
+            finally { g.Restore(state); }
+        }
+        else if (obj.Angle != 0)
         {
             // FastReport xoay chữ quanh TÂM rect bằng RotateTransform(+Angle) (chuẩn GDI+:
             // dương = cùng chiều kim đồng hồ) — đã đối chiếu trực tiếp từ source FastReport.
@@ -158,10 +193,15 @@ public static class VectorLabelRenderer
         return minSize;
     }
 
-    private static void DrawBarcode(Graphics g, BarcodeObject obj)
+    private static void DrawBarcode(Graphics g, BarcodeObject obj, bool useDotQr)
     {
         if (obj.Barcode is BarcodeQR)
         {
+            if (useDotQr)
+            {
+                QrDotRenderer.Draw(g, obj);
+                return;
+            }
             var state = g.Save();
             try
             {

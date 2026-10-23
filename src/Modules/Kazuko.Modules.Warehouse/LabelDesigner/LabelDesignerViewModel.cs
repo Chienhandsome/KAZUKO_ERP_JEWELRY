@@ -47,6 +47,8 @@ public sealed class LabelDesignerViewModel : ObservableObject
     private bool? _dialogResult;
     private string _statusMessage = string.Empty;
     private bool _isBusy;
+    private JewelryLabelTemplateOption _selectedTemplate = JewelryLabelTemplates.Resolve(LabelPrinterPreferences.LoadTemplateCode());
+    private string _loadedTemplateCode = PrintTemplateCodes.JewelryLabel28x12;
 
     public LabelDesignerViewModel(
         IPrintTemplateStore templates,
@@ -59,6 +61,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
 
         PreviewCommand = new AsyncRelayCommand(PreviewAsync, () => !IsBusy && _report is not null);
         PrintTestCommand = new AsyncRelayCommand(PrintTestAsync, () => !IsBusy && _report is not null);
+        LoadReferenceTemplateCommand = new AsyncRelayCommand(() => InitializeAsync(), () => !IsBusy);
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy && _report is not null);
         CancelCommand = new RelayCommand(() => DialogResult = false);
     }
@@ -93,6 +96,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
                 (PreviewCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (PrintTestCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                (LoadReferenceTemplateCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
             }
         }
     }
@@ -105,8 +109,16 @@ public sealed class LabelDesignerViewModel : ObservableObject
 
     public ICommand PreviewCommand { get; }
     public ICommand PrintTestCommand { get; }
+    public ICommand LoadReferenceTemplateCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
+    public IReadOnlyList<JewelryLabelTemplateOption> Templates => JewelryLabelTemplates.All;
+    public JewelryLabelTemplateOption SelectedTemplate
+    {
+        get => _selectedTemplate;
+        set { if (value is not null && Templates.Contains(value)) SetProperty(ref _selectedTemplate, value); }
+    }
+    public string EditingTemplateName => JewelryLabelTemplates.Resolve(_loadedTemplateCode).Name;
 
     /// <summary>Report FastReport gốc (code-behind dùng để vẽ lại khi cần).</summary>
     public Report? Report => _report;
@@ -120,35 +132,20 @@ public sealed class LabelDesignerViewModel : ObservableObject
         try
         {
             var dto = await _templates.GetByCodeAsync(
-                PrintTemplateCodes.JewelryLabel28x12, _session, cancellationToken);
+                SelectedTemplate.Code, _session, cancellationToken);
 
-            _report = new Report();
+            var replacement = new Report();
             using (var stream = new MemoryStream(dto.Content))
-                _report.Load(stream);
-
-            Objects.Clear();
-            var page = _report.Pages.OfType<ReportPage>().FirstOrDefault();
-            if (page is not null)
             {
-                foreach (var band in page.Bands.OfType<BandBase>())
-                {
-                    foreach (var obj in band.Objects.OfType<ReportComponentBase>())
-                    {
-                        if (obj is TextObject || obj is BarcodeObject)
-                        {
-                            if (obj is BarcodeObject barcode)
-                            {
-                                barcode.DataColumn = "DataSet.MAVACH";
-                                barcode.Expression = string.Empty;
-                            }
-                            Objects.Add(new LabelDesignerObject(obj));
-                        }
-                    }
-                }
+                try { replacement.Load(stream); }
+                catch { replacement.Dispose(); throw; }
             }
+            _report?.Dispose();
+            _report = replacement;
+            _loadedTemplateCode = dto.Code;
+            OnPropertyChanged(nameof(EditingTemplateName));
 
-            SelectedObject = null;
-            StatusMessage = $"Đã nạp {Objects.Count} đối tượng từ mẫu tem.";
+            RefreshObjects();
         }
         catch (Exception ex)
         {
@@ -159,6 +156,35 @@ public sealed class LabelDesignerViewModel : ObservableObject
             IsBusy = false;
         }
     }
+
+    private void RefreshObjects()
+    {
+        Objects.Clear();
+        var page = _report?.Pages.OfType<ReportPage>().FirstOrDefault();
+        if (page is not null)
+        {
+            foreach (var band in page.Bands.OfType<BandBase>())
+            {
+                foreach (var obj in band.Objects.OfType<ReportComponentBase>())
+                {
+                    if (obj is TextObject || obj is BarcodeObject)
+                    {
+                        if (obj is BarcodeObject barcode)
+                        {
+                            barcode.DataColumn = "DataSet.MAVACH";
+                            barcode.Expression = string.Empty;
+                        }
+                        Objects.Add(new LabelDesignerObject(obj));
+                    }
+                }
+            }
+        }
+
+        SelectedObject = null;
+        StatusMessage = $"Đã nạp {Objects.Count} đối tượng từ mẫu tem.";
+        OnPropertyChanged(nameof(Report));
+    }
+
 
     /// <summary>Lấy bytes .frx hiện tại (kể cả các chỉnh sửa chưa lưu).</summary>
     public byte[] GetFrxBytes()
@@ -179,7 +205,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
         try
         {
             var profile = await _companyProfile.GetAsync(_session);
-            using var previewReport = CreateSampleReport(profile);
+            using var previewReport = CreateSampleReport(profile, LabelPrinterPreferences.LoadCompactWeightUnits());
 
             using var imgStream = new MemoryStream();
             using var export = new ImageExport
@@ -209,12 +235,12 @@ public sealed class LabelDesignerViewModel : ObservableObject
         .FirstOrDefault(window => ReferenceEquals(window.DataContext, this))
         ?? System.Windows.Application.Current?.MainWindow;
 
-    private Report CreateSampleReport(CompanyProfileDto profile)
+    private Report CreateSampleReport(CompanyProfileDto profile, bool compactWeightUnits = false, byte[]? templateContent = null)
     {
         var report = new Report();
         try
         {
-            using (var stream = new MemoryStream(GetFrxBytes()))
+            using (var stream = new MemoryStream(templateContent ?? GetFrxBytes()))
                 report.Load(stream);
             foreach (var page in report.Pages.OfType<ReportPage>())
             {
@@ -224,7 +250,7 @@ public sealed class LabelDesignerViewModel : ObservableObject
                 page.LeftMargin = page.TopMargin = page.RightMargin = page.BottomMargin = 0;
             }
             var address = profile.Address ?? string.Empty;
-            using var table = LabelDesignerSampleData.BuildSampleTable(profile.Name, address, profile.FacilityStandard);
+            using var table = LabelDesignerSampleData.BuildSampleTable(profile, compactWeightUnits);
             FinishedGoodsLabelPrintService.RegisterTable(report, table, "DataSet");
             report.SetParameterValue("Tên tiệm", profile.Name);
             report.SetParameterValue("DiaChiDoanhNghiep", address);
@@ -246,12 +272,12 @@ public sealed class LabelDesignerViewModel : ObservableObject
         {
             var profile = await _companyProfile.GetAsync(_session);
             var selection = new LabelPrintDialogViewModel(1,
-                "In thử bằng dữ liệu hàng mẫu, khổ 86 × 12 mm. Tên doanh nghiệp, địa chỉ và TCCS lấy từ Thông tin chung. Dùng các chỉnh sửa hiện tại, kể cả khi chưa lưu mẫu.");
+                "In thử bằng dữ liệu hàng mẫu, khổ 86 × 12 mm. Chọn mẫu đang sửa để in các chỉnh sửa chưa lưu; mẫu khác dùng bản đã lưu trong cơ sở dữ liệu.", _loadedTemplateCode);
             var dialog = new LabelPrintDialog(selection) { Owner = DesignerWindow };
             if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(selection.SelectedPrinter))
                 return;
 
-            using var report = CreateSampleReport(profile);
+            using var report = await CreatePrintTestReportAsync(profile, selection.SelectedTemplate.Code, selection.CompactWeightUnits);
             using var document = new PrintDocument { DocumentName = "In thử tem nữ trang KAZUKO" };
             document.PrinterSettings.PrinterName = selection.SelectedPrinter;
             document.PrinterSettings.Copies = (short)selection.Copies;
@@ -280,6 +306,16 @@ public sealed class LabelDesignerViewModel : ObservableObject
         }
     }
 
+    internal async Task<Report> CreatePrintTestReportAsync(CompanyProfileDto profile, string templateCode, bool compactWeightUnits)
+    {
+        if (!JewelryLabelTemplates.All.Any(option => string.Equals(option.Code, templateCode, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Mẫu tem không hợp lệ.");
+        byte[]? otherTemplate = null;
+        if (!string.Equals(templateCode, _loadedTemplateCode, StringComparison.OrdinalIgnoreCase))
+            otherTemplate = (await _templates.GetByCodeAsync(templateCode, _session)).Content;
+        return CreateSampleReport(profile, compactWeightUnits, otherTemplate);
+    }
+
     private async Task SaveAsync()
     {
         if (_report is null)
@@ -290,8 +326,8 @@ public sealed class LabelDesignerViewModel : ObservableObject
         {
             var frxBytes = GetFrxBytes();
             await _templates.SaveAsync(
-                PrintTemplateCodes.JewelryLabel28x12,
-                "Tem nữ trang 28x12",
+                _loadedTemplateCode,
+                EditingTemplateName,
                 frxBytes,
                 "Sửa bằng Label Designer",
                 _session);

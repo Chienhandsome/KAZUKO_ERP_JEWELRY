@@ -91,7 +91,8 @@ public sealed record CustomerSaveRequest(
     string IdIssuePlace,
     string BankName,
     string BuyerName,
-    string BankAccountNumber);
+    string BankAccountNumber,
+    string? PreviousIdentityNumber = null);
 
 public sealed record CustomerEditRequest(long? CustomerId);
 
@@ -156,12 +157,15 @@ public interface ICustomerRepository
         CustomerSearchFilter filter,
         CancellationToken cancellationToken = default);
 
-    Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default);
+    Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default, AuthenticatedSession? session = null);
+
+    Task<IReadOnlyList<CustomerIdentityMatch>> FindIdentityMatchesAsync(string number, string? previousNumber,
+        long? excludeId, AuthenticatedSession session, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(
         long customerId,
         int limit,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, DateTime? fromDate = null, DateTime? toDate = null);
 
     Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(
         long customerId,

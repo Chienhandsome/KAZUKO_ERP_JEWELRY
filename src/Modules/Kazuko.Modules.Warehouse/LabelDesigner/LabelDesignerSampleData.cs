@@ -1,5 +1,7 @@
 using System.Data;
 using Kazuko.Modules.Warehouse;
+using Kazuko.Core.Company;
+using Kazuko.Modules.Warehouse.Printing;
 
 namespace Kazuko.Modules.Warehouse.LabelDesigner;
 
@@ -9,6 +11,13 @@ namespace Kazuko.Modules.Warehouse.LabelDesigner;
 /// </summary>
 public static class LabelDesignerSampleData
 {
+    public static DataTable BuildSampleTable(CompanyProfileDto profile, bool compactWeightUnits = false)
+    {
+        var table = BuildSampleTable(profile.Name, profile.Address ?? string.Empty, profile.FacilityStandard);
+        JewelryLabelData.ApplyOptions(table, profile, compactWeightUnits);
+        return table;
+    }
+
     public static DataTable BuildSampleTable(string companyName, string companyAddress, string? facilityStandard)
     {
         var table = new DataTable();

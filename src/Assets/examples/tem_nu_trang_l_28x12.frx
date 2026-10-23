@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ReportInfo.Created="05/16/2014 00:11:31" ReportInfo.Modified="10/06/2026 15:27:42" ReportInfo.CreatorVersion="1.2.47.0" ReportInfo.Description="KAZUKO_LABEL_L_BTW_V2">
+  <Dictionary>
+    <TableDataSource Name="DataSet" ReferenceName="Data.DataSet" DataType="System.Int32" Enabled="true">
+      <Column Name="NGAYNHAP" DataType="System.DateTime" />
+      <Column Name="MAVACH" DataType="System.String" />
+      <Column Name="THANHTIEN" DataType="System.Decimal" />
+      <Column Name="TUOI" DataType="System.Decimal" />
+      <Column Name="DONGIA" DataType="System.Decimal" />
+      <Column Name="LOAIVANG" DataType="System.String" />
+      <Column Name="QUAY" DataType="System.String" />
+      <Column Name="CONGNHAP" DataType="System.Decimal" />
+      <Column Name="CONGBAN" DataType="System.Decimal" />
+      <Column Name="TONGTRONGLUONG" DataType="System.Decimal" />
+      <Column Name="TRONGLUONGVANG" DataType="System.Decimal" />
+      <Column Name="TRONGLUONGHOT" DataType="System.Decimal" />
+      <Column Name="TONGTRONGLUONG_LI" DataType="System.Decimal" />
+      <Column Name="TRONGLUONGVANG_LI" DataType="System.Decimal" />
+      <Column Name="TRONGLUONGHOT_LI" DataType="System.Decimal" />
+      <Column Name="TRONGLUONGVANG_CHUOI" DataType="System.String" />
+      <Column Name="DMATHANGID" DataType="System.String" />
+      <Column Name="TENHANG" DataType="System.String" />
+      <Column Name="NOTE" DataType="System.String" />
+      <Column Name="CONGNHAP_NGHIN" DataType="System.Int32" />
+      <Column Name="CONGBAN_NGHIN" DataType="System.Int32" />
+      <Column Name="NHACUNGCAP" DataType="System.String" />
+      <Column Name="TRONGLUONGVANG_CHUOI2" DataType="System.String" />
+      <Column Name="THUONGHIEU" DataType="System.String" />
+      <Column Name="MANHACUNGCAP" DataType="System.String" />
+      <Column Name="KYHIEU" DataType="System.String" />
+      <Column Name="CONGSI" DataType="System.Decimal" />
+      <Column Name="CONGSI_NGHIN" DataType="System.Int32" />
+      <Column Name="TONGTRONGLUONG_DEM" DataType="System.Decimal" />
+      <Column Name="TRONGLUONGVANG_DEM" DataType="System.Decimal" />
+      <Column Name="TRONGLUONGHOT_DEM" DataType="System.Decimal" />
+      <Column Name="TONGTRONGLUONG_CHUOI" DataType="System.String" />
+      <Column Name="TRONGLUONGHOT_CHUOI" DataType="System.String" />
+      <Column Name="DIACHINCC" DataType="System.String" />
+      <Column Name="TIENDABAN_NGHIN" DataType="System.Int32" />
+      <Column Name="TIENDANHAP_NGHIN" DataType="System.Int32" />
+      <Column Name="GIABAN_NGHIN" DataType="System.Int32" />
+      <Column Name="GIABAN" DataType="System.Decimal" />
+      <Column Name="TIENDABAN" DataType="System.Decimal" />
+      <Column Name="TIENDANHAP" DataType="System.Decimal" />
+      <Column Name="THANHTIENBAN" DataType="System.Decimal" />
+      <Column Name="MAHIEU" DataType="System.String" />
+      <Column Name="TCCS" DataType="System.String" />
+      <Column Name="TEN_NPP" DataType="System.String" />
+      <Column Name="DIACHI_NPP" DataType="System.String" />
+      <Column Name="TEN_NSX" DataType="System.String" />
+      <Column Name="DIACHI_NSX" DataType="System.String" />
+      <Column Name="XUATXU" DataType="System.String" />
+      <Column Name="TONGTRONGLUONG_GRAM" DataType="System.String" />
+      <Column Name="TRONGLUONGHOT_GRAM" DataType="System.String" />
+      <Column Name="TRONGLUONGVANG_GRAM" DataType="System.String" />
+    </TableDataSource>
+  </Dictionary>
+  <ReportPage Name="Page1" PaperWidth="86" PaperHeight="12" LeftMargin="0" TopMargin="0" RightMargin="0" BottomMargin="0">
+    <DataBand Name="Data1" Width="325.08" Height="45.36" DataSource="DataSet">
+      <TextObject Name="ProductName" Left="1.5" Top="0.3" Width="101" Height="9.4" Text="Tên Sp:[DataSet.TENHANG]" Font="Arial, 6pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="TotalWeight" Left="1.5" Top="9.7" Width="44" Height="8.8" Text="TTL: [DataSet.TONGTRONGLUONG_CHUOI]" Font="Arial, 6pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="StoneWeight" Left="1.5" Top="18.5" Width="44" Height="8.8" Text="TLĐ: [DataSet.TRONGLUONGHOT_CHUOI]" Font="Arial, 6pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="GoldWeight" Left="1.5" Top="27.3" Width="44" Height="9.3" Text="TLV: [DataSet.TRONGLUONGVANG_CHUOI]" Font="Arial, 6.5pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="TotalGrams" Left="46" Top="10.5" Width="23.5" Height="7" Text="[DataSet.TONGTRONGLUONG_GRAM]" Font="Arial, 3.5pt" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="StoneGrams" Left="46" Top="19.3" Width="23.5" Height="7" Text="[DataSet.TRONGLUONGHOT_GRAM]" Font="Arial, 3.5pt" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="GoldGrams" Left="46" Top="28.1" Width="23.5" Height="7" Text="[DataSet.TRONGLUONGVANG_GRAM]" Font="Arial, 3.5pt" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="Labor" Left="1.5" Top="36.5" Width="66" Height="8.8" Text="C: [DataSet.CONGBAN]" Font="Arial, 6pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" Format="Currency" Format.UseLocale="false" Format.DecimalDigits="0" Format.DecimalSeparator="," Format.GroupSeparator="." Format.CurrencySymbol="đ" Format.PositivePattern="3" Format.NegativePattern="8" />
+      <BarcodeObject Name="ProductQr" Left="69" Top="10" Width="28" Height="28" AutoSize="false" DataColumn="DataSet.MAVACH" Text="B600022" ShowText="false" Barcode="QR Code" Barcode.ErrorCorrection="L" Barcode.QuietZone="true" />
+      <TextObject Name="ProductCode" Left="68" Top="38" Width="31" Height="7.2" Text="[DataSet.MAVACH]" Font="Arial, 4.5pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Center" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="Purity" Left="97.5" Top="9.5" Width="8.4" Height="35.5" Text="HLV [DataSet.LOAIVANG]" Font="Arial, 5.5pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Center" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" Angle="90" />
+      <TextObject Name="Distributor" Left="112" Top="0.3" Width="100" Height="8.8" Text="NPP: [DataSet.TEN_NPP]" Font="Arial, 5.5pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="DistributorAddress" Left="112" Top="9.1" Width="105" Height="6.5" Text="[DataSet.DIACHI_NPP]" Font="Arial, 4pt" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="Manufacturer" Left="112" Top="15.6" Width="100" Height="8.8" Text="NSX: [DataSet.TEN_NSX]" Font="Arial, 5.5pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="ManufacturerAddress" Left="112" Top="24.4" Width="105" Height="6.5" Text="[DataSet.DIACHI_NSX]" Font="Arial, 4pt" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="Origin" Left="112" Top="30.9" Width="100" Height="7.3" Text="Xuất xứ: [DataSet.XUATXU]" Font="Arial, 5pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="Symbol" Left="112" Top="38.2" Width="41" Height="7" Text="Ký hiệu: [DataSet.KYHIEU]" Font="Arial, 4.3pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="Standard" Left="153" Top="38.2" Width="59" Height="7" Text="TCCS: [DataSet.TCCS]" Font="Arial, 4.3pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+      <TextObject Name="Model" Left="218" Top="18" Width="65" Height="6" Text="MTH: [DataSet.MAHIEU]" Font="Arial, 3.5pt, style=Bold" WordWrap="false" VertAlign="Center" HorzAlign="Left" AutoShrink="FontWidth" AutoShrinkMinSize="0.5" />
+    </DataBand>
+  </ReportPage>
+</Report>

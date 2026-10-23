@@ -35,6 +35,9 @@
                  TextWrapping="Wrap"
                  Margin="0,0,0,12" />
 
+      <TextBlock Text="Mẫu tem" Style="{StaticResource WhFieldLabelStyle}" />
+      <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
+                MinHeight="40" Margin="0,4,0,12" />
       <Grid Margin="0,0,0,12">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
@@ -64,6 +67,10 @@
                    Margin="0,6,0,0" />
       </Grid>
 
+      <CheckBox Content="Tự đổi đơn vị cho gọn (chỉ / phân / ly)"
+                IsChecked="{Binding CompactWeightUnits}" Margin="0,0,0,12"
+                Foreground="{DynamicResource TextPrimaryBrush}"
+                ToolTip="Bỏ chọn: luôn ghi chỉ. Chọn: 0,1 chỉ → 1 phân; 0,01 chỉ → 1 ly. Gram vẫn hiện trên tem." />
       <TextBlock Text="Số bản in" Style="{StaticResource WhFieldLabelStyle}" />
       <TextBox Text="{Binding CopiesText, UpdateSourceTrigger=PropertyChanged}"
                MinHeight="40" Margin="0,4,0,0" />

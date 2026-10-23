@@ -97,6 +97,13 @@ public sealed class WalkInCustomerDatabaseTests
             Assert.All((await reports.GetAsync(new(""), session)).Rows, x => Assert.False(x.IsWalkIn));
             Assert.Equal(10, Assert.Single((await reports.GetAsync(new("", true), session)).Rows).Id);
             Assert.Equal(3, (await reports.GetAsync(new("", null), session)).ItemCount);
+            // Range filtering must happen before FIRST N, including the entire last day.
+            await db.ExecuteAsync("INSERT INTO SALES_ORDERS VALUES (70, 20, TIMESTAMP '2030-01-01 00:00:00', 'OUTSIDE', 'POSTED', 300)");
+            await db.ExecuteAsync("INSERT INTO SALES_ORDERS VALUES (71, 20, TIMESTAMP '2025-01-01 23:59:59', 'IN_RANGE', 'POSTED', 200)");
+            await db.ExecuteAsync("INSERT INTO SALES_ORDERS VALUES (72, 20, TIMESTAMP '2024-12-31 23:59:59', 'BEFORE', 'POSTED', 100)");
+            var range = await repo.GetPurchaseHistoryAsync(20, 1, fromDate: new DateTime(2025, 1, 1), toDate: new DateTime(2025, 1, 1));
+            Assert.Equal("IN_RANGE", Assert.Single(range).InvoiceCode);
+
         }
         finally
         {

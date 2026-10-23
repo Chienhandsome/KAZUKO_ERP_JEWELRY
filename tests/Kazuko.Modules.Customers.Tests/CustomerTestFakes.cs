@@ -21,8 +21,12 @@ internal sealed class CustomerRepositoryFake : ICustomerRepository
         Task.FromResult<IReadOnlyList<CustomerGroupOption>>([new(1, "TT", "Thân thiết", true, true)]);
     public Task<IReadOnlyList<CustomerListItem>> SearchAsync(CustomerSearchFilter filter, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CustomerListItem>>(Customers.Where(x => (filter.IsActive is null || x.IsActive == filter.IsActive) && (filter.IsWalkIn is null || x.IsWalkIn == filter.IsWalkIn)).ToList());
-    public Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(long customerId, int limit, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<CustomerPurchaseHistoryItem>>([new(1, DateTime.Today, "MB26/00001", 25470000m, 24470000m)]);
+    public List<(long CustomerId, DateTime? From, DateTime? To)> HistoryQueries { get; } = new();
+    public Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(long customerId, int limit, CancellationToken cancellationToken = default, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        HistoryQueries.Add((customerId, fromDate, toDate));
+        return Task.FromResult<IReadOnlyList<CustomerPurchaseHistoryItem>>([new(1, DateTime.Today, "MB26/00001", 25470000m, 24470000m)]);
+    }
     public Task<CustomerDebtSnapshot> GetDebtSnapshotAsync(long customerId, CancellationToken cancellationToken = default) => Task.FromResult(Snapshot);
     public Task<IReadOnlyList<CustomerTopSalesItem>> GetTopCustomersAsync(DateTime fromDate, DateTime toDate, int topN, CancellationToken cancellationToken = default)
     {
@@ -32,9 +36,20 @@ internal sealed class CustomerRepositoryFake : ICustomerRepository
     public Task<IReadOnlyList<CustomerSalesSummary>> GetSalesSummaryAsync(DateTime fromDate, DateTime toDate, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CustomerSalesSummary>>([new(false, 2, 25470000m), new(true, 1, 100000m)]);
     public Task<CustomerGroupOption> CreateGroupAsync(string name, AuthenticatedSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-    public Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-    public Task<string> FindDuplicateWarningAsync(CustomerSaveRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-    public Task<CustomerEditResult> SaveAsync(CustomerSaveRequest request, AuthenticatedSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public CustomerDetail? Detail { get; set; }
+    public List<CustomerSaveRequest> Saved { get; } = new();
+    public Task<CustomerDetail?> GetByIdAsync(long id, CancellationToken cancellationToken = default, AuthenticatedSession? session = null) => Task.FromResult(Detail);
+    public IReadOnlyList<CustomerIdentityMatch> IdentityMatches { get; set; } = [];
+    public Func<Task<IReadOnlyList<CustomerIdentityMatch>>>? IdentityLookup { get; set; }
+    public Task<IReadOnlyList<CustomerIdentityMatch>> FindIdentityMatchesAsync(string number, string? previousNumber,
+        long? excludeId, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+        IdentityLookup?.Invoke() ?? Task.FromResult<IReadOnlyList<CustomerIdentityMatch>>(IdentityMatches.Where(item => item.Id != excludeId).ToArray());
+    public Task<string> FindDuplicateWarningAsync(CustomerSaveRequest request, CancellationToken cancellationToken = default) => Task.FromResult("");
+    public Task<CustomerEditResult> SaveAsync(CustomerSaveRequest request, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        Saved.Add(request);
+        return Task.FromResult(new CustomerEditResult(request.Id ?? 10, "KH000010", request.Name, request.Phone, request.Address, request.IsActive));
+    }
     public Task SetActiveAsync(long id, bool isActive, AuthenticatedSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 

@@ -72,6 +72,8 @@ public partial class LabelDesignerDialog : Window
         {
             if (args.PropertyName == nameof(LabelDesignerViewModel.SelectedObject))
                 RefreshSelection();
+            if (args.PropertyName == nameof(LabelDesignerViewModel.Report))
+                BuildCanvas();
         };
     }
 

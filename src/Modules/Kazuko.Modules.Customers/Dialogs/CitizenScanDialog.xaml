@@ -1,0 +1,112 @@
+<Window x:Class="Kazuko.Modules.Customers.CitizenScanDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Quét CCCD — nhập nhanh khách hàng" Width="780" Height="680" MinWidth="620" MinHeight="480"
+        FontSize="{DynamicResource FontSize.Body}" FontFamily="{DynamicResource AppFontFamily}"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" /></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ScanCellText" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="Padding" Value="4" />
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Padding" Value="6" />
+        </Style>
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+    </Window.Resources>
+    <DockPanel Margin="20">
+        <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Hủy" Command="{Binding CancelCommand}" IsCancel="True" MinHeight="40" Padding="16,6" Margin="4" />
+            <Button Content="Dùng khách hàng này" Command="{Binding UseExistingCommand}" MinHeight="40" Padding="16,6" Margin="4"
+                    Visibility="{Binding HasMatches, Converter={StaticResource BoolToVis}}" />
+            <Button Content="Mở hồ sơ để cập nhật" Command="{Binding EditExistingCommand}" MinHeight="40" Padding="16,6" Margin="4"
+                    Visibility="{Binding HasMatches, Converter={StaticResource BoolToVis}}" />
+            <Button Content="Áp dụng vào form" Command="{Binding ApplyCommand}" Style="{DynamicResource PrimaryButtonStyle}"
+                    MinHeight="40" Padding="16,6" Margin="4" />
+        </WrapPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Quét QR trên CCCD" FontSize="{DynamicResource FontSize.Heading}" FontWeight="SemiBold" />
+                <TextBlock Text="Đưa con trỏ vào ô dưới và quét bằng iMarcone. Có thể dán chuỗi QR rồi bấm Đọc thông tin."
+                           TextWrapping="Wrap" Margin="0,8,0,8" />
+                <TextBox x:Name="ScanInput" Text="{Binding RawInput, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding CanReadInput}" MaxLength="4096" MinHeight="44" Padding="10,6"
+                         PreviewKeyDown="ScanInput_PreviewKeyDown" FontSize="{DynamicResource FontSize.Body}" />
+                <Button Content="Đọc thông tin" Command="{Binding ReadCommand}" MinHeight="40" Padding="16,6"
+                        HorizontalAlignment="Left" Margin="0,8,0,8" />
+                <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Text="{Binding Error}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" Margin="0,8" />
+                <StackPanel Visibility="{Binding HasData, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="So sánh thông tin" FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Subtitle}" Margin="0,8" />
+                    <TextBlock Text="Sửa trực tiếp cột Từ CCCD nếu thông tin chưa đúng. Ngày: dd/MM/yyyy; giới tính: Nam, Nữ hoặc Khác."
+                               TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    <DataGrid IsEnabled="{Binding CanReadInput}" ItemsSource="{Binding Changes}" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" HeadersVisibility="Column" MinHeight="170" ScrollViewer.VerticalScrollBarVisibility="Disabled" EnableRowVirtualization="False"
+                              RowBackground="{DynamicResource SurfaceBrush}" AlternatingRowBackground="{DynamicResource SurfaceAltBrush}"
+                              BorderBrush="{DynamicResource BorderBrush}" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Trường" Binding="{Binding Field}" Width="110" ElementStyle="{StaticResource ScanCellText}" />
+                            <DataGridTextColumn Header="Trên form" Binding="{Binding Current}" Width="*" ElementStyle="{StaticResource ScanCellText}" />
+                            <DataGridTemplateColumn Header="Từ CCCD (có thể sửa)" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding Scanned, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextWrapping="Wrap" MinHeight="36" Padding="6,4" Margin="2"
+                                                 FontSize="{DynamicResource FontSize.Body}"
+                                                 Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                 BorderBrush="{DynamicResource BorderBrush}" ToolTip="{Binding Field}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Text="{Binding Data.PreviousNumber, StringFormat=CMND cũ: {0}}" Margin="0,8" />
+                    <CheckBox IsChecked="{Binding ConfirmIdentityReplacement}" Margin="0,8"
+                              Visibility="{Binding RequiresIdentityConfirmation, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Tôi đã kiểm tra: muốn thay số giấy tờ khác đang có trên form" TextWrapping="Wrap" />
+                    </CheckBox>
+                </StackPanel>
+                <StackPanel Visibility="{Binding HasMatches, Converter={StaticResource BoolToVis}}" Margin="0,12,0,0">
+                    <TextBlock Text="Hồ sơ khách hàng đã có" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <ComboBox ItemsSource="{Binding Matches}" SelectedItem="{Binding SelectedMatch}"
+                              MinHeight="40" ToolTip="{Binding SelectedMatch.Address}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate><TextBlock Text="{Binding DisplayText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Address}" /></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{Binding SelectedStatus}" TextWrapping="Wrap" Margin="0,6" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -14,6 +14,8 @@
     <InternalsVisibleTo Include="Kazuko.Infrastructure.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="..\Assets\examples\tem_nu_trang_l_28x12.frx"
+                      LogicalName="Kazuko.Infrastructure.PrintTemplates.tem_nu_trang_l_28x12.frx" />
     <EmbeddedResource Include="..\Assets\examples\phoi_a5_ngang.frx"
                       Link="PrintTemplates\phoi_a5_ngang.frx"
                       LogicalName="Kazuko.Infrastructure.PrintTemplates.phoi_a5_ngang.frx" />

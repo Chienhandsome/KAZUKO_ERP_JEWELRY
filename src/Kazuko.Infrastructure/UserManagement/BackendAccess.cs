@@ -22,7 +22,7 @@ public static class BackendAccess
                 "CreateGroupAsync" => Has("CAT_CUSTOMERS", PermissionAction.Add),
                 "GetDebtSnapshotAsync" => Has("DEBT_CUSTOMER"), "GetPurchaseHistoryAsync" => Has("SALES_HISTORY"),
                 "GetTopCustomersAsync" or "GetSalesSummaryAsync" => Has("REP_VIEW"),
-                "GetGroupsAsync" or "FindDuplicateWarningAsync" or "GetByIdAsync" or "SearchAsync" => Any("CAT_CUSTOMERS", "SALES_RETAIL", "SALES_WHOLESALE", "OLD_GOLD_PURCHASE", "CRAFT_ORDER", "DEBT_CUSTOMER", "DEBT_SETTLEMENT", "INV_MATERIAL_RECEIPT", "PROD_ORDER", "REP_VIEW"), _ => false },
+                "FindIdentityMatchesAsync" or "GetGroupsAsync" or "FindDuplicateWarningAsync" or "GetByIdAsync" or "SearchAsync" => Any("CAT_CUSTOMERS", "SALES_RETAIL", "SALES_WHOLESALE", "OLD_GOLD_PURCHASE", "CRAFT_ORDER", "DEBT_CUSTOMER", "DEBT_SETTLEMENT", "INV_MATERIAL_RECEIPT", "PROD_ORDER", "REP_VIEW"), _ => false },
             "ISupplierRepository" => method switch {
                 "GetGroupDetailsAsync" or "GetGroupByIdAsync" => Has("CAT_SUPPLIERS"),
                 "SaveGroupAsync" => Has("CAT_SUPPLIERS", SaveAction()),

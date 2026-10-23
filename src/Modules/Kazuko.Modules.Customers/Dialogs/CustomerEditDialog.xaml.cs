@@ -10,6 +10,11 @@ public partial class CustomerEditDialog : Window
         InitializeComponent();
     }
 
+    public void FocusPhoneIfEmpty()
+    {
+        if (DataContext is CustomerEditDialogViewModel vm && string.IsNullOrWhiteSpace(vm.Phone)) PhoneInput.Focus();
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)

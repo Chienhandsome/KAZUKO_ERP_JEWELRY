@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using Kazuko.Core.Printing;
 
 namespace Kazuko.Modules.Warehouse;
 
@@ -28,7 +29,11 @@ public static class LabelPrinterPreferences
         return dto.VerticalOffsetsMm.TryGetValue(printerName, out var offset) ? offset : 0;
     }
 
-    public static void Save(string printerName, double verticalOffsetMm)
+    public static bool LoadCompactWeightUnits() => Read()?.CompactWeightUnits ?? false;
+    public static string LoadTemplateCode() => JewelryLabelTemplates.Resolve(Read()?.TemplateCode).Code;
+
+    public static void Save(string printerName, double verticalOffsetMm, bool compactWeightUnits = false,
+        string templateCode = PrintTemplateCodes.JewelryLabel28x12)
     {
         lock (Gate)
         {
@@ -36,6 +41,8 @@ public static class LabelPrinterPreferences
             {
                 var dto = Read() ?? new PrefsDto();
                 dto.PrinterName = printerName;
+                dto.CompactWeightUnits = compactWeightUnits;
+                dto.TemplateCode = JewelryLabelTemplates.Resolve(templateCode).Code;
                 dto.VerticalOffsetsMm ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
                 dto.VerticalOffsetsMm[printerName] = verticalOffsetMm;
                 var dir = Path.GetDirectoryName(GetPath())!;
@@ -73,6 +80,8 @@ public static class LabelPrinterPreferences
     private sealed class PrefsDto
     {
         public string PrinterName { get; set; } = string.Empty;
+        public bool CompactWeightUnits { get; set; }
+        public string? TemplateCode { get; set; }
         public Dictionary<string, double>? VerticalOffsetsMm { get; set; }
     }
 }

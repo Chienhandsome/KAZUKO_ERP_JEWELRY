@@ -22,7 +22,12 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
                    COALESCE(C.PHONE, ''),
                    COALESCE(C.ADDRESS, ''),
                    COALESCE(C.LOGO_PATH, ''),
-                   COALESCE(C.TCCS, '')
+                   COALESCE(C.TCCS, ''),
+                   COALESCE(C.DISTRIBUTOR_NAME, ''),
+                   COALESCE(C.DISTRIBUTOR_ADDRESS, ''),
+                   COALESCE(C.MANUFACTURER_NAME, ''),
+                   COALESCE(C.MANUFACTURER_ADDRESS, ''),
+                   COALESCE(C.COUNTRY_OF_ORIGIN, '')
             FROM BRANCHES B
             JOIN COMPANIES C ON C.ID = B.COMPANY_ID
             WHERE B.ID = @BRANCH_ID
@@ -41,7 +46,12 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
             NullIfEmpty(reader.GetString(2)),
             NullIfEmpty(reader.GetString(3)),
             NullIfEmpty(reader.GetString(4)),
-            NullIfEmpty(reader.GetString(5)));
+            NullIfEmpty(reader.GetString(5)),
+            NullIfEmpty(reader.GetString(6)),
+            NullIfEmpty(reader.GetString(7)),
+            NullIfEmpty(reader.GetString(8)),
+            NullIfEmpty(reader.GetString(9)),
+            NullIfEmpty(reader.GetString(10)));
     }
 
     public async Task SaveAsync(
@@ -63,6 +73,11 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
         var address = NormalizeOptional(request.Address, 500);
         var logoPath = NormalizeOptional(request.LogoPath, 500);
         var facilityStandard = NormalizeOptional(request.FacilityStandard, 100, "TCCS");
+        var distributorName = NormalizeOptional(request.DistributorName, 200, "Tên NPP");
+        var distributorAddress = NormalizeOptional(request.DistributorAddress, 500, "Địa chỉ NPP");
+        var manufacturerName = NormalizeOptional(request.ManufacturerName, 200, "Tên NSX");
+        var manufacturerAddress = NormalizeOptional(request.ManufacturerAddress, 500, "Địa chỉ NSX");
+        var countryOfOrigin = NormalizeOptional(request.CountryOfOrigin, 100, "Xuất xứ");
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -94,6 +109,11 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
                        ADDRESS = @ADDRESS,
                        LOGO_PATH = @LOGO_PATH,
                        TCCS = @TCCS,
+                       DISTRIBUTOR_NAME = @DISTRIBUTOR_NAME,
+                       DISTRIBUTOR_ADDRESS = @DISTRIBUTOR_ADDRESS,
+                       MANUFACTURER_NAME = @MANUFACTURER_NAME,
+                       MANUFACTURER_ADDRESS = @MANUFACTURER_ADDRESS,
+                       COUNTRY_OF_ORIGIN = @COUNTRY_OF_ORIGIN,
                        UPDATED_AT = CURRENT_TIMESTAMP
                  WHERE ID = @ID
                    AND IS_ACTIVE = TRUE
@@ -104,6 +124,11 @@ public sealed class FirebirdCompanyProfileService : ICompanyProfileService
                 update.Parameters.Add("@ADDRESS", FbDbType.VarChar, 500).Value = (object?)address ?? DBNull.Value;
                 update.Parameters.Add("@LOGO_PATH", FbDbType.VarChar, 500).Value = (object?)logoPath ?? DBNull.Value;
                 update.Parameters.Add("@TCCS", FbDbType.VarChar, 100).Value = (object?)facilityStandard ?? DBNull.Value;
+                update.Parameters.Add("@DISTRIBUTOR_NAME", FbDbType.VarChar, 200).Value = (object?)distributorName ?? DBNull.Value;
+                update.Parameters.Add("@DISTRIBUTOR_ADDRESS", FbDbType.VarChar, 500).Value = (object?)distributorAddress ?? DBNull.Value;
+                update.Parameters.Add("@MANUFACTURER_NAME", FbDbType.VarChar, 200).Value = (object?)manufacturerName ?? DBNull.Value;
+                update.Parameters.Add("@MANUFACTURER_ADDRESS", FbDbType.VarChar, 500).Value = (object?)manufacturerAddress ?? DBNull.Value;
+                update.Parameters.Add("@COUNTRY_OF_ORIGIN", FbDbType.VarChar, 100).Value = (object?)countryOfOrigin ?? DBNull.Value;
                 update.Parameters.Add("@ID", FbDbType.BigInt).Value = companyId;
 
                 var affected = await update.ExecuteNonQueryAsync(cancellationToken);

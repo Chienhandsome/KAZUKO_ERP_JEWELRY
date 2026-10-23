@@ -40,12 +40,13 @@ public sealed class CustomerTabsViewTests
             view.FontSize = (double)view.FindResource("FontSize.Body");
             view.Foreground = (Brush)view.FindResource("TextPrimaryBrush");
             foreach (var size in new[] { new Size(900, 520), new Size(1500, 900) })
-            foreach (var tab in new[] { 0, 2, 3 })
+            foreach (var tab in new[] { 0, 1, 2, 3 })
             {
                 if (tab == 0) { vm.SelectedKind = "Tất cả"; vm.SearchCommand.Execute(null); }
                 vm.SelectedTabIndex = tab;
-                if (tab == 2 && vm.PaymentHistory.Count == 0)
-                    vm.PaymentHistory.Add(new(new(DateTime.Today, "MB26/00001", "PAYMENT / CASH", 25470000, 0, 0)));
+                if (tab == 1) vm.HistoryTab.SelectedCustomer = vm.HistoryTab.CustomerOptions[0];
+                if (tab == 2 && vm.DebtTab.PaymentHistory.Count == 0)
+                    vm.DebtTab.PaymentHistory.Add(new(new(DateTime.Today, "MB26/00001", "PAYMENT / CASH", 25470000, 0, 0)));
                 view.Measure(size);
                 view.Arrange(new Rect(size));
                 view.UpdateLayout();

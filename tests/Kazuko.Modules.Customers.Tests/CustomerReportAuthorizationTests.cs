@@ -38,6 +38,20 @@ public sealed class CustomerReportAuthorizationTests
         Assert.False(BackendAccess.Allows("ICustomerRepository", "UnmappedMethodAsync", [], rights));
     }
 
+    [Theory]
+    [InlineData("CAT_CUSTOMERS", true)]
+    [InlineData("SALES_RETAIL", true)]
+    [InlineData("UNRELATED", false)]
+    public async Task Identity_lookup_requires_customer_read_access_and_the_current_session(string screen, bool allowed)
+    {
+        var session = CustomerTestContext.Session();
+        var rights = new PermissionSnapshot(false, [new(1, screen, true, false, false, false, false)]);
+        var repo = AuthorizedServiceProxy<ICustomerRepository>.Create(new CustomerRepositoryFake(), new AuthorizationFake(rights), session);
+        if (allowed) Assert.Empty(await repo.FindIdentityMatchesAsync("012345678901", null, null, session.Current!));
+        else await Assert.ThrowsAsync<UnauthorizedAccessException>(() => repo.FindIdentityMatchesAsync("012345678901", null, null, session.Current!));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => repo.FindIdentityMatchesAsync("012345678901", null, null, session.Current! with { BranchId = 999 }));
+    }
+
     private sealed class AuthorizationFake(PermissionSnapshot rights) : IAuthorizationService
     {
         public PermissionSnapshot Current => rights;

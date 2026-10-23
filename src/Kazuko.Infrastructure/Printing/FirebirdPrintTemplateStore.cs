@@ -25,6 +25,10 @@ public sealed class FirebirdPrintTemplateStore : IPrintTemplateStore
                 "Kazuko.Infrastructure.PrintTemplates.tem_nu_trang_28x12.frx",
                 "Tem nữ trang 28x12",
                 "Seed từ tem_nu_trang_28x12.frx"),
+            [PrintTemplateCodes.JewelryLabelL28x12] = new(
+                "Kazuko.Infrastructure.PrintTemplates.tem_nu_trang_l_28x12.frx",
+                "Tem L.btw (QR) 28x12",
+                "Seed từ tem_nu_trang_l_28x12.frx"),
         };
 
     public async Task<PrintTemplateDto> GetByCodeAsync(

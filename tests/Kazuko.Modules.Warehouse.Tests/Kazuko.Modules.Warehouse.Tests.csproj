@@ -13,5 +13,6 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <ProjectReference Include="../../src/Modules/Kazuko.Modules.Warehouse/Kazuko.Modules.Warehouse.csproj" />
+    <ProjectReference Include="../../src/Kazuko.Infrastructure/Kazuko.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

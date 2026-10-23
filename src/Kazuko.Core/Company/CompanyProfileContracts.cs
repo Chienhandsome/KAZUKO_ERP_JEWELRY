@@ -8,14 +8,24 @@ public sealed record CompanyProfileDto(
     string? Phone,
     string? Address,
     string? LogoPath,
-    string? FacilityStandard);
+    string? FacilityStandard,
+    string? DistributorName = null,
+    string? DistributorAddress = null,
+    string? ManufacturerName = null,
+    string? ManufacturerAddress = null,
+    string? CountryOfOrigin = null);
 
 public sealed record CompanyProfileUpdateRequest(
     string Name,
     string? Phone,
     string? Address,
     string? LogoPath,
-    string? FacilityStandard);
+    string? FacilityStandard,
+    string? DistributorName = null,
+    string? DistributorAddress = null,
+    string? ManufacturerName = null,
+    string? ManufacturerAddress = null,
+    string? CountryOfOrigin = null);
 
 public interface ICompanyProfileService
 {

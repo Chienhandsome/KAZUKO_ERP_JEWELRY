@@ -88,6 +88,58 @@ Nếu thiếu `.frx` báo cáo A4 lúc chạy, app tự tạo mẫu mặc địn
 
 ## Tem nữ trang 28x12
 
+### Bố cục L.btw (86 × 12 mm)
+
+Mẫu seed riêng `tem_nu_trang_l_28x12.frx` theo ảnh và preview trích từ `L.btw`: ô trái có
+tên SP, TTL/TLĐ/TLV, gram, công bán, QR chứa mã hàng, mã hàng dưới QR và HLV dọc;
+ô phải có NPP, địa chỉ NPP, NSX, địa chỉ NSX, xuất xứ, ký hiệu và TCCS; MTH trên đuôi.
+File `.btw` gốc không bị sửa. Mẫu 1 giữ bộ vẽ cũ. Mẫu L.btw V2 có xử lý riêng cho đầu in nhiệt (bên dưới);
+không đổi driver, tốc độ hoặc độ đậm của máy in.
+
+Mẫu L.btw **V2** (`ReportInfo.Description=KAZUKO_LABEL_L_BTW_V2`) dùng
+`FontWidth` để giữ chiều cao font, bộ vẽ áp dụng `FontWidthRatio` đã Prepare,
+không co cỡ font thêm. Chữ vẽ đơn sắc `SingleBitPerPixelGridFit`, tránh viền xám/
+ClearType. QR dùng bộ mã hóa FastReport và API công khai UpdateAutoSize; lấy
+kích thước module từ hiệu quiet zone 4 ô mỗi phía. Căn module theo số chấm nguyên
+trong tọa độ thiết bị (kể cả lệch dọc/hard margin), không nội suy, giữ vùng trắng
+4 ô, tối thiểu 2 chấm/module. QR quá nhỏ cho mã dài báo kích thước tối thiểu cần
+thiết thay vì in mã mất nét. Khung seed tăng từ ~7.01 lên ~7.41 mm, đủ QR version 1
+ở 203 DPI. Trạng thái Graphics được khôi phục sau mỗi lần vẽ. Mẫu 1/V1 không dùng
+nhánh xử lý mới. Migration 87 chỉ cập nhật seed L.btw V1 có hash gốc và ghi chú
+seed đúng; bản người dùng tự sửa/import giữ nguyên.
+
+Trọng lượng lưu bằng **chỉ**. Checkbox **Tự đổi đơn vị cho gọn (chỉ / phân / ly)**
+ở cả In tem và In thử: mặc định tắt, nhớ trên máy khi chấp nhận hộp in. Tắt luôn
+hiện chỉ; bật thì |w| ≥ 1 giữ chỉ, 0.1 ≤ |w| < 1 đổi phân, 0 < |w| < 0.1 đổi ly;
+0 vẫn ghi `0 chỉ`. Gram = chỉ × 3.75, hiển thị tối đa 6 chữ số thập phân, dấu phẩy
+vi-VN. Không làm tròn hoặc đổi dữ liệu nghiệp vụ gốc. In thử và in hàng thật dùng
+chung `JewelryLabelData`; Xem trước dùng lựa chọn đơn vị đã nhớ gần nhất.
+
+NPP/địa chỉ NPP/NSX/địa chỉ NSX/xuất xứ lấy từ các trường riêng trong
+**Cài đặt → Thông tin chung**, TCCS lấy ô TCCS hiện có, ký hiệu lấy từ hàng.
+Không lấy tên nhà cung cấp của hàng làm NPP/NSX và không hard-code tên/địa chỉ trong mẫu.
+Migration 85 thêm 5 cột COMPANIES; lần đầu điền NPP/NSX theo tên/địa chỉ doanh nghiệp
+hiện có và xuất xứ `Vietnam`, sau đó người dùng chỉnh độc lập. Bill giữ NAME/ADDRESS.
+Chạy migration 85 trước khi dùng build này; sao lưu/khôi phục theo hướng dẫn migration.
+
+Hai bản ghi độc lập trong PRINT_TEMPLATES: `TEM_NU_TRANG_28X12` (mẫu 1) và
+`TEM_NU_TRANG_L_28X12` (mẫu 2, L.btw). Mẫu 1 giữ seed cũ
+`tem_nu_trang_28x12.frx`, mẫu 2 dùng seed `tem_nu_trang_l_28x12.frx`.
+Migration 86 thêm mẫu 2 cho mỗi doanh nghiệp hoạt động nếu chưa có; không cập nhật
+nội dung, tên hoặc thời gian của mẫu 1. Backup/restore thử trước migration; ledger
+lưu SHA256 toàn bộ artifact. Không chạy lại để ghi đè mẫu 2 đã sửa.
+
+Hộp In tem/In thử có ComboBox **Mẫu tem** với hai lựa chọn, nhớ lựa chọn sau khi
+chấp nhận hộp in trong `jewelry.label.printer.json`. File cấu hình cũ/giá trị lạ
+quay về mẫu 1. In hàng thật dùng đúng code được chọn, không phụ thuộc mẫu đang sửa.
+Trong designer, chọn mẫu rồi **Nạp mẫu** để mở bản trong DB. Nạp sẽ bỏ chỉnh sửa
+chưa lưu của bản đang mở (tooltip ghi rõ). **Lưu mẫu** ghi theo code đã nạp, không
+phải lựa chọn chưa nạp trong ComboBox, nên không ghi đè nhầm mẫu còn lại.
+In thử mẫu đang sửa dùng bản nháp hiện tại; chọn mẫu khác trong hộp in dùng bản
+đã lưu của mẫu đó. Hủy hộp in không gửi lệnh in. Mẫu người dùng đã sửa không tự
+bị seed thay thế.
+Kiểm tra thủ công: `docs/manual-tests/label-template-l.md`.
+
 Trong trình thiết kế, chọn đối tượng mã để đổi giữa **Barcode (Code 128)** và **QR**.
 QR mặc định vuông 8 mm, giữ tỉ lệ vuông khi đổi kích thước; nếu vị trí cũ chồng nội dung,
 ưu tiên tìm khoảng trống trong tem. Đổi lại barcode khôi phục vị trí/kích thước thanh

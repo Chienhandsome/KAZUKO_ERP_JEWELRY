@@ -4,6 +4,8 @@ using System.Globalization;
 using FastReport;
 using FastReport.Barcode;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
+using Kazuko.Modules.Warehouse.Printing;
 using Kazuko.Core.Printing;
 using Kazuko.Core.Production;
 
@@ -30,16 +32,17 @@ public sealed class FinishedGoodsLabelPrintService
         IReadOnlyList<ManualFinishedProductItem> items,
         DateTime receiptDate,
         AuthenticatedSession session,
-        string shopName,
-        string shopAddress,
-        string? facilityStandard,
+        CompanyProfileDto profile,
+        bool compactWeightUnits = false,
+        string templateCode = PrintTemplateCodes.JewelryLabel28x12,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(session);
 
-        var template = await _templates.GetByCodeAsync(
-            PrintTemplateCodes.JewelryLabel28x12, session, cancellationToken);
+        if (!JewelryLabelTemplates.All.Any(option => string.Equals(option.Code, templateCode, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Mẫu tem không hợp lệ.");
+        var template = await _templates.GetByCodeAsync(templateCode, session, cancellationToken);
 
         var report = new Report();
         using (var stream = new MemoryStream(template.Content))
@@ -53,11 +56,12 @@ public sealed class FinishedGoodsLabelPrintService
             page.LeftMargin = page.TopMargin = page.RightMargin = page.BottomMargin = 0;
         }
 
-        var table = BuildLabelTable(items, receiptDate, shopName, shopAddress, facilityStandard);
+        using var table = BuildLabelTable(items, receiptDate, profile.Name, profile.Address ?? string.Empty, profile.FacilityStandard);
+        JewelryLabelData.ApplyOptions(table, profile, compactWeightUnits);
         RegisterTable(report, table, "DataSet");
 
-        SetParameter(report, "Tên tiệm", shopName);
-        SetParameter(report, "DiaChiDoanhNghiep", shopAddress);
+        SetParameter(report, "Tên tiệm", profile.Name);
+        SetParameter(report, "DiaChiDoanhNghiep", profile.Address ?? string.Empty);
 
         report.Prepare();
         return report;

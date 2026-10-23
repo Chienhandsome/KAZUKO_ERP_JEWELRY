@@ -208,12 +208,17 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0"
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Content="Quét CCCD" Command="{Binding ScanCitizenCommand}"
+                    IsEnabled="{Binding IsFormEnabled, Mode=OneWay}" Style="{StaticResource RoundedOutlineButtonStyle}"
+                    MinHeight="40" Margin="12,0,0,0" />
+        <TextBlock
                    Text="{Binding Title, Mode=OneWay}"
                    Foreground="{DynamicResource PrimaryBrush}"
                    FontSize="{DynamicResource FontSize.Heading}"
                    FontWeight="Bold"
-                   Margin="0,0,0,12" />
+                   VerticalAlignment="Center" />
+        </DockPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <Border Style="{DynamicResource CardBorderStyle}" Padding="18">
@@ -253,7 +258,7 @@
                         </StackPanel>
 
                         <TextBlock Text="Số điện thoại *" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox x:Name="PhoneInput" Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
                         <TextBlock Text="{Binding PhoneError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
 

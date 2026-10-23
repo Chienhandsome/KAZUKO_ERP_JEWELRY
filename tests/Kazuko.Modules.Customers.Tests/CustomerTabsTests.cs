@@ -95,10 +95,11 @@ public sealed class CustomerTabsTests
                 new(DateTime.Today, "TT01", "Bù trừ vàng cũ", 500000, 0, 0, DebtLedgerSourceTypes.SalesCheckoutOffset)])
             : throw new NotSupportedException());
         var vm = new CustomerViewModel(new CustomerRepositoryFake(), new CustomerEditorFake(), CustomerTestContext.Session(), debt);
-        Assert.Equal(2, vm.PaymentHistory.Count);
-        Assert.Equal("Tiền mặt", vm.PaymentHistory[0].MethodText);
-        Assert.Equal("Chuyển khoản", vm.PaymentHistory[1].MethodText);
-        Assert.Equal(500000, vm.PaymentHistory[1].PaymentAmountVnd);
+        vm.DebtTab.SelectedCustomer = vm.DebtTab.CustomerOptions[0];
+        Assert.Equal(2, vm.DebtTab.PaymentHistory.Count);
+        Assert.Equal("Tiền mặt", vm.DebtTab.PaymentHistory[0].MethodText);
+        Assert.Equal("Chuyển khoản", vm.DebtTab.PaymentHistory[1].MethodText);
+        Assert.Equal(500000, vm.DebtTab.PaymentHistory[1].PaymentAmountVnd);
         Assert.False(vm.CollectPaymentCommand.CanExecute(null)); // dialog unavailable
     }
 
@@ -109,12 +110,13 @@ public sealed class CustomerTabsTests
         var debt = DebtRepositoryProxy.Create((_, args) => (long)args![0]! == 1 ? first.Task : Task.FromResult<IReadOnlyList<DebtLedgerEntry>>([]));
         var vm = new CustomerViewModel(new CustomerRepositoryFake { Customers = [CustomerRepositoryFake.Sample(1), CustomerRepositoryFake.Sample(2)] },
             new CustomerEditorFake(), CustomerTestContext.Session(), debt);
-        vm.SelectedCustomer = vm.Customers[1];
+        vm.DebtTab.SelectedCustomer = vm.DebtTab.CustomerOptions[0];
+        vm.DebtTab.SelectedCustomer = vm.DebtTab.CustomerOptions[1];
         first.SetResult([new(DateTime.Today, "OLD", "PAYMENT / CASH", 1, 0, 0, DebtLedgerSourceTypes.OrderPayment)]);
         await Task.Delay(100);
-        Assert.Equal(2, vm.SelectedCustomer.Id);
-        Assert.Empty(vm.PaymentHistory);
-        Assert.False(vm.IsDetailLoading);
+        Assert.Equal(2, vm.DebtTab.SelectedCustomer.Id);
+        Assert.Empty(vm.DebtTab.PaymentHistory);
+        Assert.False(vm.DebtTab.IsDetailLoading);
     }
 
     [Theory]
@@ -124,7 +126,7 @@ public sealed class CustomerTabsTests
     {
         CustomerTestContext.Sta(() =>
         {
-            var repo = new CustomerRepositoryFake();
+            var repo = new CustomerRepositoryFake { Customers = [CustomerRepositoryFake.Sample(1), CustomerRepositoryFake.Sample(2)] };
             DebtAllocationSettleRequest? saved = null;
             var debt = DebtRepositoryProxy.Create((method, args) => method.Name switch
             {
@@ -151,22 +153,83 @@ public sealed class CustomerTabsTests
             services.AddSingleton<IDebtSettlementDialogService>(dialog);
             var view = (UserControl)Assert.Single(nav.Items).CreateView();
             var vm = Assert.IsType<CustomerViewModel>(view.DataContext);
+            Assert.False(vm.CollectPaymentCommand.CanExecute(null));
+            vm.DebtTab.SelectedCustomer = vm.DebtTab.CustomerOptions[1];
             Assert.True(vm.CollectPaymentCommand.CanExecute(null));
             vm.CollectPaymentCommand.Execute(null);
             Assert.NotNull(dialog.Request);
+            Assert.Equal(1, vm.SelectedCustomer!.Id);
+            Assert.Equal(2, vm.DebtTab.SelectedCustomer!.Id);
             if (confirm)
             {
                 Assert.NotNull(saved);
                 Assert.Equal(1000000, saved.CashAmountVnd);
-                Assert.False(vm.HasCurrentDebt);
+                Assert.False(vm.DebtTab.HasCurrentDebt);
                 Assert.False(vm.CollectPaymentCommand.CanExecute(null));
             }
             else
             {
                 Assert.Null(saved);
-                Assert.True(vm.HasCurrentDebt);
+                Assert.True(vm.DebtTab.HasCurrentDebt);
                 Assert.True(vm.CollectPaymentCommand.CanExecute(null));
             }
         });
     }
+    [Fact]
+    public async Task Activity_tabs_keep_their_own_customer_when_list_selection_or_filters_change()
+    {
+        var repo = new CustomerRepositoryFake { Customers = [CustomerRepositoryFake.Sample(1), CustomerRepositoryFake.Sample(2)] };
+        var vm = new CustomerViewModel(repo, new CustomerEditorFake(), CustomerTestContext.Session());
+        Assert.Null(vm.HistoryTab.SelectedCustomer);
+        Assert.Null(vm.DebtTab.SelectedCustomer);
+        vm.HistoryTab.SelectedCustomer = vm.HistoryTab.CustomerOptions[1];
+        vm.DebtTab.SelectedCustomer = vm.DebtTab.CustomerOptions[0];
+        vm.SelectedCustomer = vm.Customers[1];
+        vm.SearchCommand.Execute(null);
+        Assert.Equal(2, vm.HistoryTab.SelectedCustomer.Id);
+        Assert.Equal(1, vm.DebtTab.SelectedCustomer.Id);
+        Assert.Equal(2, vm.SelectedCustomer!.Id);
+        vm.HistoryTab.FromDate = new DateTime(2025, 1, 1);
+        vm.HistoryTab.ToDate = new DateTime(2025, 1, 31);
+        await vm.HistoryTab.LoadAsync();
+        Assert.Equal((2L, vm.HistoryTab.FromDate, vm.HistoryTab.ToDate), repo.HistoryQueries[^1]);
+        var calls = repo.HistoryQueries.Count;
+        vm.HistoryTab.FromDate = new DateTime(2025, 2, 1);
+        await vm.HistoryTab.LoadAsync();
+        Assert.Equal(calls, repo.HistoryQueries.Count);
+        Assert.NotEmpty(vm.HistoryTab.ErrorMessage);
+        Assert.Empty(vm.HistoryTab.FullPurchaseHistory);
+        Assert.Null(vm.DebtTab.FromDate);
+    }
+
+    [Fact]
+    public async Task Debt_dates_filter_payments_but_keep_current_debt_totals()
+    {
+        var day = new DateTime(2025, 1, 1);
+        var debt = DebtRepositoryProxy.Create((_, _) => Task.FromResult<IReadOnlyList<DebtLedgerEntry>>([
+            new(day.AddDays(-1), "OLD", "PAYMENT / CASH", 10, 0, 0, DebtLedgerSourceTypes.OrderPayment),
+            new(day.AddHours(23), "MATCH", "PAYMENT / CASH", 20, 0, 0, DebtLedgerSourceTypes.OrderPayment),
+            new(day.AddDays(1), "NEW", "PAYMENT / CASH", 30, 0, 0, DebtLedgerSourceTypes.OrderPayment)]));
+        var vm = new CustomerViewModel(new CustomerRepositoryFake(), new CustomerEditorFake(), CustomerTestContext.Session(), debt);
+        vm.DebtTab.FromDate = day; vm.DebtTab.ToDate = day;
+        vm.DebtTab.SelectedCustomer = vm.DebtTab.CustomerOptions[0];
+        await vm.DebtTab.LoadAsync();
+        Assert.Equal("MATCH", Assert.Single(vm.DebtTab.PaymentHistory).DocumentCode);
+        Assert.True(vm.DebtTab.HasCurrentDebt);
+        Assert.Equal("1.000.000", vm.DebtTab.DebtCurrentText);
+        Assert.Empty(vm.HistoryTab.FullPurchaseHistory);
+    }
+
+    [Fact]
+    public void Preview_shortcuts_explicitly_seed_only_the_target_tab_filter()
+    {
+        var vm = new CustomerViewModel(new CustomerRepositoryFake(), new CustomerEditorFake(), CustomerTestContext.Session());
+        vm.ViewAllPurchasesCommand.Execute(null);
+        Assert.Equal(vm.SelectedCustomer!.Id, vm.HistoryTab.SelectedCustomer!.Id);
+        Assert.Null(vm.DebtTab.SelectedCustomer);
+        vm.ViewDebtDetailsCommand.Execute(null);
+        Assert.Equal(vm.SelectedCustomer.Id, vm.DebtTab.SelectedCustomer!.Id);
+        Assert.Equal(2, vm.SelectedTabIndex);
+    }
+
 }

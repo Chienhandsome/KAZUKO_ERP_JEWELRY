@@ -13,6 +13,24 @@ public static class PrintTemplateCodes
 
     /// <summary>Tem nữ trang 28x12 (máy in tem nhiệt).</summary>
     public const string JewelryLabel28x12 = "TEM_NU_TRANG_28x12";
+    public const string JewelryLabelL28x12 = "TEM_NU_TRANG_L_28X12";
+}
+
+public sealed record JewelryLabelTemplateOption(string Code, string Name)
+{
+    public override string ToString() => Name;
+}
+
+public static class JewelryLabelTemplates
+{
+    public static IReadOnlyList<JewelryLabelTemplateOption> All { get; } =
+    [
+        new(PrintTemplateCodes.JewelryLabel28x12, "Mẫu 1 — Tem nữ trang hiện tại"),
+        new(PrintTemplateCodes.JewelryLabelL28x12, "Mẫu 2 — Tem L.btw (QR)")
+    ];
+
+    public static JewelryLabelTemplateOption Resolve(string? code) =>
+        All.FirstOrDefault(option => string.Equals(option.Code, code, StringComparison.OrdinalIgnoreCase)) ?? All[0];
 }
 
 /// <summary>Orientation for sales receipt print (local preference).</summary>

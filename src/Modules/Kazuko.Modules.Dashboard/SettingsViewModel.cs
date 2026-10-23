@@ -25,6 +25,11 @@ public sealed class SettingsViewModel : ObservableObject
     private string _phone = string.Empty;
     private string _address = string.Empty;
     private string _facilityStandard = string.Empty;
+    private string _distributorName = string.Empty;
+    private string _distributorAddress = string.Empty;
+    private string _manufacturerName = string.Empty;
+    private string _manufacturerAddress = string.Empty;
+    private string _countryOfOrigin = string.Empty;
     private string? _logoPath;
     private string _statusMessage = string.Empty;
     private string _errorMessage = string.Empty;
@@ -203,6 +208,32 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
 
+    public string DistributorName
+    {
+        get => _distributorName;
+        set { if (SetProperty(ref _distributorName, value ?? string.Empty)) MarkDirty(); }
+    }
+    public string DistributorAddress
+    {
+        get => _distributorAddress;
+        set { if (SetProperty(ref _distributorAddress, value ?? string.Empty)) MarkDirty(); }
+    }
+    public string ManufacturerName
+    {
+        get => _manufacturerName;
+        set { if (SetProperty(ref _manufacturerName, value ?? string.Empty)) MarkDirty(); }
+    }
+    public string ManufacturerAddress
+    {
+        get => _manufacturerAddress;
+        set { if (SetProperty(ref _manufacturerAddress, value ?? string.Empty)) MarkDirty(); }
+    }
+    public string CountryOfOrigin
+    {
+        get => _countryOfOrigin;
+        set { if (SetProperty(ref _countryOfOrigin, value ?? string.Empty)) MarkDirty(); }
+    }
+
     public string? LogoPath
     {
         get => _logoPath;
@@ -311,6 +342,16 @@ public sealed class SettingsViewModel : ObservableObject
             _phone = profile.Phone ?? string.Empty;
             _address = profile.Address ?? string.Empty;
             _facilityStandard = profile.FacilityStandard ?? string.Empty;
+            _distributorName = profile.DistributorName ?? string.Empty;
+            _distributorAddress = profile.DistributorAddress ?? string.Empty;
+            _manufacturerName = profile.ManufacturerName ?? string.Empty;
+            _manufacturerAddress = profile.ManufacturerAddress ?? string.Empty;
+            _countryOfOrigin = profile.CountryOfOrigin ?? string.Empty;
+            OnPropertyChanged(nameof(DistributorName));
+            OnPropertyChanged(nameof(DistributorAddress));
+            OnPropertyChanged(nameof(ManufacturerName));
+            OnPropertyChanged(nameof(ManufacturerAddress));
+            OnPropertyChanged(nameof(CountryOfOrigin));
             _logoPath = profile.LogoPath;
             OnPropertyChanged(nameof(CompanyName));
             OnPropertyChanged(nameof(Phone));
@@ -351,7 +392,9 @@ public sealed class SettingsViewModel : ObservableObject
                     Phone,
                     Address,
                     LogoPath,
-                    FacilityStandard),
+                    FacilityStandard,
+                    DistributorName, DistributorAddress,
+                    ManufacturerName, ManufacturerAddress, CountryOfOrigin),
                 session);
             IsDirty = false;
             StatusMessage = "Đã lưu thông tin doanh nghiệp.";
