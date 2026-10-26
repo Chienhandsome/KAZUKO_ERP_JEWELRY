@@ -12,6 +12,10 @@ Module Báo cáo dùng **FastReport Open Source** để dựng báo cáo A4 bằ
 - Open Source không có `Report.Print()` hay WPF PreviewControl thương mại.
 - Không dùng bản Demo FastReport.WPF có watermark trong production.
 
+## Phiếu nghiệp vụ sản xuất
+
+`ProductionPrintService` hiện dùng FlowDocument cho phiếu SX/giao NVL/QC/nhập TP/quyết toán (luồng riêng với báo cáo FastReport). Phiếu in A4 dọc, chữ đen nền trắng và một cột; layout theo khổ giấy và vùng in driver đã xác thực, phân trang xong trước khi gửi job. PrintDialog vẫn cho chọn máy in. Máy chỉ hỗ trợ khổ tem bị chặn với thông báo chọn máy A4/Microsoft Print to PDF; không lấy khổ tem mặc định làm kích thước phiếu sản xuất. Không thay máy in mặc định Windows. `ProductionPrintingTests` render phiếu SX và giao NVL ít/nhiều dòng, kiểm tra mọi trang có nét in và từ chối vùng in quá nhỏ.
+
 ## Bill thanh toán (A5 ngang / dọc) — mẫu trong database
 
 Bill sau thanh toán bán hàng dùng mẫu FastReport A5 lưu trong Firebird:

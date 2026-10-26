@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Printing;
 using Kazuko.Core.Production;
 
 namespace Kazuko.Modules.Production;
@@ -9,6 +10,9 @@ namespace Kazuko.Modules.Production;
 public sealed class ProductionPrintService
 {
     public void PrintMaterialIssue(ProductionMaterialIssuePrintDto dto)
+        => ShowPrint(CreateMaterialIssueDocument(dto));
+
+    internal static FlowDocument CreateMaterialIssueDocument(ProductionMaterialIssuePrintDto dto)
     {
         var doc = CreateBase($"Phiếu giao nguyên liệu — {dto.OrderCode}");
         AddMeta(doc, dto.DocumentCode, dto.DocumentDate, dto.BranchName, dto.DeliveredByName, dto.ReceivedByName);
@@ -18,7 +22,7 @@ public sealed class ProductionPrintService
                 FormatQty(line.Quantity), line.UnitCode, FormatMoney(line.UnitCost), line.Notes ?? string.Empty);
         doc.Blocks.Add(table);
         AddSignatures(doc);
-        ShowPrint(doc);
+        return doc;
     }
 
     public void PrintReturn(ProductionReturnPrintDto dto)
@@ -67,6 +71,9 @@ public sealed class ProductionPrintService
     }
 
     public void PrintOrder(ProductionOrderPrintDto dto)
+        => ShowPrint(CreateOrderDocument(dto));
+
+    internal static FlowDocument CreateOrderDocument(ProductionOrderPrintDto dto)
     {
         var doc = CreateBase($"Phiếu sản xuất — {dto.OrderCode}");
         doc.Blocks.Add(new Paragraph(new Run(
@@ -91,7 +98,7 @@ public sealed class ProductionPrintService
                 FormatMoney(line.LaborCost));
         doc.Blocks.Add(table);
         AddSignatures(doc);
-        ShowPrint(doc);
+        return doc;
     }
 
     public void PrintGoldSettlement(ProductionGoldSettlementPrintDto dto)
@@ -116,6 +123,13 @@ public sealed class ProductionPrintService
         var doc = new FlowDocument
         {
             PagePadding = new Thickness(40),
+            PageWidth = A4Width,
+            PageHeight = A4Height,
+            ColumnWidth = A4Width - 80,
+            ColumnGap = 0,
+            // Paper documents use ink colours, independent of app/Windows dark themes.
+            Foreground = Brushes.Black,
+            Background = Brushes.White,
             FontFamily = new FontFamily("Segoe UI"),
             FontSize = 12
         };
@@ -189,11 +203,64 @@ public sealed class ProductionPrintService
     private static void ShowPrint(FlowDocument document)
     {
         var dialog = new PrintDialog();
+        var ticket = dialog.PrintTicket?.Clone() ?? new PrintTicket();
+        // Do not pass unsupported A4 settings to a label driver's native dialog.
+        // The user can choose their A4 printer in the dialog; validate before submitting.
+        if (dialog.PrintQueue?.GetPrintCapabilities().PageMediaSizeCapability.Any(IsA4) == true)
+        {
+            ticket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
+            ticket.PageOrientation = PageOrientation.Portrait;
+            dialog.PrintTicket = ticket;
+        }
         if (dialog.ShowDialog() != true)
             return;
-        document.PageWidth = dialog.PrintableAreaWidth;
-        document.PageHeight = dialog.PrintableAreaHeight;
-        dialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "In sản xuất");
+        var queue = dialog.PrintQueue ?? throw new InvalidOperationException("Chưa chọn máy in phiếu sản xuất.");
+        var capabilities = queue.GetPrintCapabilities();
+        if (!capabilities.PageMediaSizeCapability.Any(IsA4))
+            throw new InvalidOperationException($"Máy in '{queue.Name}' không hỗ trợ giấy A4. Hãy chọn máy in A4 hoặc Microsoft Print to PDF, không chọn máy in tem.");
+        ticket = (dialog.PrintTicket ?? queue.DefaultPrintTicket ?? new PrintTicket()).Clone();
+        ticket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
+        ticket.PageOrientation = PageOrientation.Portrait;
+        dialog.PrintTicket = queue.MergeAndValidatePrintTicket(dialog.PrintTicket, ticket).ValidatedPrintTicket;
+        if (!IsA4(dialog.PrintTicket.PageMediaSize) || dialog.PrintTicket.PageOrientation == PageOrientation.Landscape)
+            throw new InvalidOperationException("Driver không chấp nhận khổ A4 dọc. Kiểm tra khổ giấy của máy in rồi thử lại.");
+        var area = queue.GetPrintCapabilities(dialog.PrintTicket).PageImageableArea;
+        var printable = area is null ? new Rect(40,40,A4Width-80,A4Height-80)
+            : new Rect(area.OriginWidth,area.OriginHeight,area.ExtentWidth,area.ExtentHeight);
+        var paginator = PreparePaginator(document, new Size(A4Width,A4Height), printable);
+        dialog.PrintDocument(paginator, "In sản xuất");
+    }
+
+    internal const double A4Width = 210d / 25.4 * 96;
+    internal const double A4Height = 297d / 25.4 * 96;
+
+    internal static bool IsA4(PageMediaSize? media) => media is not null &&
+        (media.PageMediaSizeName == PageMediaSizeName.ISOA4 ||
+         (media.Width is { } w && media.Height is { } h &&
+          ((Math.Abs(w-A4Width)<3 && Math.Abs(h-A4Height)<3) || (Math.Abs(h-A4Width)<3 && Math.Abs(w-A4Height)<3))));
+
+    internal static DocumentPaginator PreparePaginator(FlowDocument document, Size paper, Rect printable)
+    {
+        if (Math.Abs(paper.Width-A4Width)>3 || Math.Abs(paper.Height-A4Height)>3)
+            throw new InvalidOperationException("Phiếu sản xuất yêu cầu khổ A4 dọc, không dùng khổ tem.");
+        if (printable.IsEmpty || !double.IsFinite(printable.Width) || !double.IsFinite(printable.Height)
+            || printable.Width<300 || printable.Height<400)
+            throw new InvalidOperationException("Vùng in quá nhỏ cho phiếu A4. Kiểm tra máy in và khổ giấy.");
+        document.PageWidth = paper.Width;
+        document.PageHeight = paper.Height;
+        document.PagePadding = new Thickness(Math.Max(40,printable.Left),Math.Max(40,printable.Top),
+            Math.Max(40,paper.Width-printable.Right),Math.Max(40,paper.Height-printable.Bottom));
+        if (paper.Width-document.PagePadding.Left-document.PagePadding.Right<200
+            || paper.Height-document.PagePadding.Top-document.PagePadding.Bottom<300)
+            throw new InvalidOperationException("Lề/vùng in không phù hợp với A4. Kiểm tra thiết lập máy in.");
+        document.ColumnWidth = paper.Width-document.PagePadding.Left-document.PagePadding.Right;
+        document.ColumnGap = 0;
+        var paginator = ((IDocumentPaginatorSource)document).DocumentPaginator;
+        paginator.PageSize = paper;
+        if (paginator is DynamicDocumentPaginator dynamicPaginator) dynamicPaginator.IsBackgroundPaginationEnabled = false;
+        paginator.ComputePageCount();
+        if (paginator.PageCount<1) throw new InvalidOperationException("Không tạo được trang in sản xuất.");
+        return paginator;
     }
 
     private static string FormatMoney(decimal value) => value.ToString("N0");
