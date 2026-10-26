@@ -769,7 +769,7 @@
                                 </Button>
                             </StackPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES:Add" Content="Thêm ca"
+                                <Button access:PermissionAccess.Rule="CAT_EMPLOYEES" Content="Danh mục ca"
                                         Style="{StaticResource HrPrimaryButtonStyle}"
                                         Command="{Binding AddShiftCommand}" Margin="0,0,8,0" MinWidth="110" />
                                 <Button Content="Làm mới" Style="{StaticResource HrOutlineButtonStyle}"
@@ -938,18 +938,24 @@
             <TabItem Header="Tính lương" access:PermissionAccess.Rule="HR_PAYROLL">
                 <local:PayrollTabView DataContext="{Binding Payroll}"/>
             </TabItem>
-            <TabItem Header="Khen thưởng - Kỷ luật">
-                <Border Style="{StaticResource HrStubPanelStyle}" Margin="0,12,0,0">
-                    <TextBlock Text="Tab Khen thưởng - Kỷ luật chưa triển khai."
-                               FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
-                </Border>
+            <TabItem Header="Khen thưởng - Kỷ luật" access:PermissionAccess.Rule="CAT_EMPLOYEES">
+                <local:EmployeeAwardsTabView DataContext="{Binding Awards}"/>
             </TabItem>
-            <TabItem Header="Báo cáo">
-                <Border Style="{StaticResource HrStubPanelStyle}" Margin="0,12,0,0">
-                    <TextBlock Text="Tab Báo cáo nhân sự chưa triển khai."
-                               FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
+            <TabItem Header="Báo cáo" access:PermissionAccess.Rule="HR_PAYROLL">
+                <Border Style="{StaticResource HrPanelStyle}" Margin="0,12,0,0">
+                    <StackPanel Margin="20" HorizontalAlignment="Left">
+                        <TextBlock Text="Báo cáo lương nhân viên" FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryBrush}"/>
+                        <TextBlock Text="Chọn kỳ lương để xem trước, in A4 hoặc xuất PDF/Excel. Mặc định chỉ hiển thị kỳ đã chốt."
+                                   FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,20"/>
+                        <Button Content="Bảng lương tháng" Command="{Binding PayrollReportCommand}" access:PermissionAccess.Rule="REP_VIEW"
+                                Style="{StaticResource HrPrimaryButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                        <TextBlock Text="Tổng hợp lương, thưởng, khấu trừ, thực nhận, đã chi và còn phải chi."
+                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,20" TextWrapping="Wrap"/>
+                        <Button Content="Phiếu lương cá nhân" Command="{Binding PayslipReportCommand}" access:PermissionAccess.Rule="REP_VIEW"
+                                Style="{StaticResource HrOutlineButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                        <TextBlock Text="Chi tiết một nhân viên trong kỳ, diễn giải các khoản và phần ký nhận."
+                                   Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
                 </Border>
             </TabItem>
         </TabControl>

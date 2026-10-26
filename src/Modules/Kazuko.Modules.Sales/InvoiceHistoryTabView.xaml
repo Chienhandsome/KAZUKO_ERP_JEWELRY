@@ -122,7 +122,7 @@
             <DockPanel LastChildFill="True">
                 <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                     <Button DockPanel.Dock="Right"
-                            Content="In A4"
+                            Content="In hóa đơn"
                             Style="{StaticResource SalesOutlineButtonStyle}"
                             Command="{Binding PrintCommand}"
                             MinHeight="36"

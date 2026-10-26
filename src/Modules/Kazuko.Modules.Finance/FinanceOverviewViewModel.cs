@@ -50,6 +50,7 @@ public sealed class RecentVoucherRow
     public required decimal IncomeAmount { get; init; }
     public required decimal ExpenseAmount { get; init; }
     public required string CreatedByName { get; init; }
+    public string CategoryName { get; init; } = "Chưa phân loại";
     public string DateText => VoucherDate.ToString("dd/MM/yyyy");
     public string TypeText => FinanceDisplayTexts.VoucherType(VoucherType);
     public string PaymentMethodText => FinanceDisplayTexts.PaymentMethod(PaymentMethod);
@@ -97,6 +98,7 @@ public sealed class FinanceOverviewViewModel : ObservableObject
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
+    private readonly IVoucherCategoryService? _categories;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
@@ -126,7 +128,7 @@ public sealed class FinanceOverviewViewModel : ObservableObject
         ICurrentSessionAccessor sessionAccessor,
         ICashFundRepository funds,
         IBankAccountRepository banks,
-        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null, IVoucherCategoryService? categories = null)
     {
         _dashboard = dashboard;
         _voucherService = voucherService;
@@ -136,6 +138,7 @@ public sealed class FinanceOverviewViewModel : ObservableObject
         _funds = funds;
         _banks = banks;
         _permissions = authorization;
+        _categories = categories;
 
         VoucherKindOptions.Add(new VoucherKindOption(string.Empty, "Tất cả loại"));
         VoucherKindOptions.Add(new VoucherKindOption(FinancialVoucherTypes.In, "Thu"));
@@ -144,7 +147,10 @@ public sealed class FinanceOverviewViewModel : ObservableObject
 
         SearchCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
         RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
-        AddVoucherCommand = new AsyncRelayCommand(AddVoucherAsync, () => !IsBusy);
+        CreateIncomeCommand = new AsyncRelayCommand(() => AddVoucherAsync(FinancialVoucherTypes.In),
+            () => !IsBusy && (_permissions?.Current.Allows("FIN_CASH_IN", Kazuko.Core.UserManagement.PermissionAction.Add) ?? true));
+        CreateExpenseCommand = new AsyncRelayCommand(() => AddVoucherAsync(FinancialVoucherTypes.Out),
+            () => !IsBusy && (_permissions?.Current.Allows("FIN_CASH_OUT", Kazuko.Core.UserManagement.PermissionAction.Add) ?? true));
 
         _ = LoadAsync();
     }
@@ -159,12 +165,18 @@ public sealed class FinanceOverviewViewModel : ObservableObject
 
     public ICommand SearchCommand { get; }
     public ICommand RefreshCommand { get; }
-    public ICommand AddVoucherCommand { get; }
+    public ICommand CreateIncomeCommand { get; }
+    public ICommand CreateExpenseCommand { get; }
 
     public bool IsBusy
     {
         get => _isBusy;
-        private set => SetProperty(ref _isBusy, value);
+        private set
+        {
+            if (!SetProperty(ref _isBusy, value)) return;
+            ((AsyncRelayCommand)CreateIncomeCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)CreateExpenseCommand).NotifyCanExecuteChanged();
+        }
     }
 
     public string ErrorMessage
@@ -354,6 +366,7 @@ public sealed class FinanceOverviewViewModel : ObservableObject
                 PaymentMethod = item.PaymentMethod,
                 IncomeAmount = isIncome ? item.AmountVnd : 0,
                 ExpenseAmount = isIncome ? 0 : item.AmountVnd,
+                CategoryName = item.CategoryName ?? "Chưa phân loại",
                 CreatedByName = item.CreatedByName
             });
         }
@@ -407,32 +420,19 @@ public sealed class FinanceOverviewViewModel : ObservableObject
         }
     }
 
-    private async Task AddVoucherAsync()
+    private async Task AddVoucherAsync(string voucherType)
     {
-        // Dialog hỏi loại phiếu trước khi mở form tạo.
-        var choice = MessageBox.Show(
-            "Nhấn Yes để tạo PHIẾU THU, No để tạo PHIẾU CHI.",
-            "Thêm phiếu thu/chi",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
-
-        string voucherType = choice switch
+        try
         {
-            MessageBoxResult.Yes => FinancialVoucherTypes.In,
-            MessageBoxResult.No => FinancialVoucherTypes.Out,
-            _ => string.Empty
-        };
-
-        if (string.IsNullOrEmpty(voucherType))
-        {
-            return;
+            if (_permissions is not null)
+                await _permissions.DemandAsync([new(voucherType == FinancialVoucherTypes.In ? "FIN_CASH_IN" : "FIN_CASH_OUT", Kazuko.Core.UserManagement.PermissionAction.Add)]);
+            var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+            var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, _funds, _banks, voucherType, _categories, _permissions);
+            if (saved is not null) await LoadAsync();
         }
-
-        var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
-        var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, _funds, _banks, voucherType);
-        if (saved is not null)
+        catch (Exception ex)
         {
-            await LoadAsync();
+            ErrorMessage = ex is InvalidOperationException or UnauthorizedAccessException ? ex.Message : "Không mở được form tạo phiếu. Vui lòng thử lại.";
         }
     }
 }

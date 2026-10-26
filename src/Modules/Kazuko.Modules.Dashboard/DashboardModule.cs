@@ -91,7 +91,9 @@ public sealed class DashboardModule : IKazukoModule
                 DataContext = new SettingsViewModel(
                     companyProfile, sessionAccessor, appearanceService, printTemplates,
                     databaseManagement, preferences, GetRequiredService<IAuthorizationService>(services),
-                    GetRequiredService<ILabelDesignerService>(services))
+                    GetRequiredService<ILabelDesignerService>(services),
+                    services.GetService(typeof(IReceiptTemplatePreviewService)) as IReceiptTemplatePreviewService,
+                    services.GetService(typeof(IReceiptDesignerService)) as IReceiptDesignerService)
             },
             AssetRoot + "CAIDAT.png"));
     }

@@ -53,6 +53,16 @@ public sealed class CustomerTabsViewTests
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
                 view.UpdateLayout();
                 var grids = Descendants(view).OfType<DataGrid>().ToList();
+                if (tab == 0)
+                {
+                    var workspace = (Grid)view.FindName("CustomerListWorkspace");
+                    Assert.IsNotType<ScrollViewer>(workspace.Parent);
+                    var debt = (Border)view.FindName("CustomerDebtPreview");
+                    var debtBounds = debt.TransformToAncestor(view).TransformBounds(new Rect(debt.RenderSize));
+                    Assert.True(debtBounds.Bottom <= view.ActualHeight, $"Debt preview clipped: {debtBounds.Bottom} > {view.ActualHeight}");
+                    var details = (ScrollViewer)view.FindName("CustomerDetailsScroller");
+                    Assert.Equal(ScrollBarVisibility.Auto,details.VerticalScrollBarVisibility);
+                }
                 Assert.Equal(tab == 3 ? 5 : tab == 0 ? 2 : 1, grids.Count);
                 foreach (var grid in grids)
                 {

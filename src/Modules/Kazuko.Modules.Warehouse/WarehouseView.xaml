@@ -4,9 +4,29 @@
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:conv="clr-namespace:Kazuko.Modules.Warehouse.Converters"
              xmlns:charts="clr-namespace:Kazuko.Modules.Warehouse.Controls"
+             xmlns:local="clr-namespace:Kazuko.Modules.Warehouse"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              MinWidth="900" MinHeight="520">
     <UserControl.Resources>
+        <!-- Original 24px vector icons: theme-aware strokes, no font glyph dependency. -->
+        <Geometry x:Key="WhIcon.Overview">M3,10 L12,4 21,10 V21 H3 Z M3,10 H21 M8,21 V13 H16 V21 M8,17 H16 M12,13 V21</Geometry>
+        <Geometry x:Key="WhIcon.Materials">M6,3 H12 L14,9 H4 Z M3,14 H9 L11,20 H1 Z M15,14 H21 L23,20 H13 Z M7,6 H10 M4,17 H7 M16,17 H19</Geometry>
+        <Geometry x:Key="WhIcon.Finished">M7,4 H17 L22,10 12,21 2,10 Z M2,10 H22 M7,4 L9,10 12,21 15,10 17,4 M9,10 L12,4 15,10</Geometry>
+        <Geometry x:Key="WhIcon.Sales">M4,10 V21 H20 V10 M2,10 L4,3 H20 L22,10 M2,10 Q4.5,14 7,10 Q9.5,14 12,10 Q14.5,14 17,10 Q19.5,14 22,10 M8,21 V15 H16 V21 M8,3 L7,10 M16,3 L17,10</Geometry>
+        <Geometry x:Key="WhIcon.Receipt">M3,13 V21 H21 V13 M3,13 H7 L9,17 H15 L17,13 H21 M12,2 V12 M8,8 L12,12 16,8</Geometry>
+        <Geometry x:Key="WhIcon.Issue">M3,13 V21 H21 V13 M3,13 H7 L9,17 H15 L17,13 H21 M12,12 V2 M8,6 L12,2 16,6</Geometry>
+        <Geometry x:Key="WhIcon.Transfer">M3,7 H21 M17,3 L21,7 17,11 M21,17 H3 M7,13 L3,17 7,21</Geometry>
+        <Geometry x:Key="WhIcon.Stocktake">M9,4 H5 V22 H21 V4 H17 M9,2 H17 V6 H9 Z M8,14 L11,17 17,11</Geometry>
+        <Geometry x:Key="WhIcon.Chevron">M9,5 L16,12 9,19</Geometry>
+        <Style x:Key="WarehouseIconPathStyle" TargetType="Path">
+            <Setter Property="Width" Value="22"/><Setter Property="Height" Value="22"/>
+            <Setter Property="Stretch" Value="Uniform"/><Setter Property="StrokeThickness" Value="1.7"/>
+            <Setter Property="Stroke" Value="{DynamicResource PrimaryBrush}"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/>
+            <Setter Property="StrokeLineJoin" Value="Round"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
         <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
         <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
@@ -430,6 +450,9 @@
                                 Padding="{TemplateBinding Padding}"
                                 Margin="{TemplateBinding Margin}"
                                 SnapsToDevicePixels="True">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Style="{StaticResource WarehouseIconPathStyle}"
+                                  Width="18" Height="18" Stroke="{TemplateBinding Foreground}" Margin="0,0,7,0"/>
                             <TextBlock x:Name="HeaderText"
                                        Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}"
                                        Foreground="{TemplateBinding Foreground}"
@@ -437,6 +460,7 @@
                                        FontWeight="{TemplateBinding FontWeight}"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center" />
+                            </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
@@ -537,7 +561,7 @@
                     </TabControl.Template>
 
                     <!-- 0 Tổng quan -->
-                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="▣  Tổng quan">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="Tổng quan" Tag="{StaticResource WhIcon.Overview}">
                         <Grid Margin="0,8,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -567,9 +591,7 @@
                                             </Grid.ColumnDefinitions>
                                             <Border Width="36" Height="36" CornerRadius="8"
                                                     Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
-                                                <TextBlock Text="▣" Foreground="{DynamicResource PrimaryBrush}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                                <Path Data="{StaticResource WhIcon.Overview}" Style="{StaticResource WarehouseIconPathStyle}"/>
                                             </Border>
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="Tổng giá trị tồn kho" Style="{StaticResource DetailLabelStyle}" />
@@ -579,8 +601,7 @@
                                                            Foreground="{DynamicResource MoneyBrush}"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
-                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                            <Path Grid.Column="2" Data="{StaticResource WhIcon.Chevron}" Style="{StaticResource WarehouseIconPathStyle}" Width="12" Height="12" Margin="8,0,0,0"/>
                                         </Grid>
                                     </Button>
 
@@ -594,9 +615,7 @@
                                             </Grid.ColumnDefinitions>
                                             <Border Width="36" Height="36" CornerRadius="8"
                                                     Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
-                                                <TextBlock Text="◆" Foreground="{DynamicResource PrimaryBrush}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                                <Path Data="{StaticResource WhIcon.Materials}" Style="{StaticResource WarehouseIconPathStyle}"/>
                                             </Border>
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="Kho nguyên liệu" Style="{StaticResource DetailLabelStyle}" />
@@ -606,8 +625,7 @@
                                                            Foreground="{DynamicResource MoneyBrush}"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
-                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                            <Path Grid.Column="2" Data="{StaticResource WhIcon.Chevron}" Style="{StaticResource WarehouseIconPathStyle}" Width="12" Height="12" Margin="8,0,0,0"/>
                                         </Grid>
                                     </Button>
 
@@ -621,9 +639,7 @@
                                             </Grid.ColumnDefinitions>
                                             <Border Width="36" Height="36" CornerRadius="8"
                                                     Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
-                                                <TextBlock Text="◎" Foreground="{DynamicResource PrimaryBrush}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                                <Path Data="{StaticResource WhIcon.Finished}" Style="{StaticResource WarehouseIconPathStyle}"/>
                                             </Border>
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="Kho thành phẩm" Style="{StaticResource DetailLabelStyle}" />
@@ -633,8 +649,7 @@
                                                            Foreground="{DynamicResource MoneyBrush}"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
-                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                            <Path Grid.Column="2" Data="{StaticResource WhIcon.Chevron}" Style="{StaticResource WarehouseIconPathStyle}" Width="12" Height="12" Margin="8,0,0,0"/>
                                         </Grid>
                                     </Button>
 
@@ -648,9 +663,7 @@
                                             </Grid.ColumnDefinitions>
                                             <Border Width="36" Height="36" CornerRadius="8"
                                                     Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,10,0">
-                                                <TextBlock Text="▢" Foreground="{DynamicResource PrimaryBrush}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           FontSize="{DynamicResource FontSize.Subtitle}" />
+                                                <Path Data="{StaticResource WhIcon.Sales}" Style="{StaticResource WarehouseIconPathStyle}"/>
                                             </Border>
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="Kho bán hàng" Style="{StaticResource DetailLabelStyle}" />
@@ -660,8 +673,7 @@
                                                            Foreground="{DynamicResource MoneyBrush}"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="›" FontSize="{DynamicResource FontSize.Heading}"
-                                                       Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center" />
+                                            <Path Grid.Column="2" Data="{StaticResource WhIcon.Chevron}" Style="{StaticResource WarehouseIconPathStyle}" Width="12" Height="12" Margin="8,0,0,0"/>
                                         </Grid>
                                     </Button>
                                 </Grid>
@@ -992,7 +1004,7 @@
                     </TabItem>
 
                     <!-- 1 Kho nguyên liệu -->
-                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="◆  Kho nguyên liệu">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="Kho nguyên liệu" Tag="{StaticResource WhIcon.Materials}">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1134,7 +1146,7 @@
                     </TabItem>
 
                     <!-- 2 Kho thành phẩm -->
-                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="◎  Kho thành phẩm">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="Kho thành phẩm" Tag="{StaticResource WhIcon.Finished}">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1251,7 +1263,7 @@
                     </TabItem>
 
                     <!-- 3 Kho bán hàng -->
-                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="▢  Kho bán hàng">
+                    <TabItem access:PermissionAccess.Rule="INV_STOCK_VIEW" Header="Kho bán hàng" Tag="{StaticResource WhIcon.Sales}">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1363,7 +1375,7 @@
                     </TabItem>
 
                     <!-- 4 Nhập kho / 5 Xuất kho / 6 Chuyển kho share document list binding -->
-                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="↓  Nhập kho">
+                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="Nhập kho" Tag="{StaticResource WhIcon.Receipt}">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1458,7 +1470,7 @@
                         </Grid>
                     </TabItem>
 
-                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="↑  Xuất kho">
+                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="Xuất kho" Tag="{StaticResource WhIcon.Issue}">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1564,7 +1576,7 @@
                         </Grid>
                     </TabItem>
 
-                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="⇄  Chuyển kho">
+                    <TabItem access:PermissionAccess.Rule="INV_HISTORY" Header="Chuyển kho" Tag="{StaticResource WhIcon.Transfer}">
                         <Grid Margin="0,12,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1678,22 +1690,8 @@
                     </TabItem>
 
                     <!-- 7 Kiểm kê -->
-                    <TabItem access:PermissionAccess.Rule="INV_STOCKTAKE" Header="☑  Kiểm kê">
-                        <Border Margin="0,12,0,0" Style="{StaticResource DashboardPanelStyle}" MinHeight="220">
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                <TextBlock Text="Chức năng kiểm kê đang được chuẩn bị."
-                                           FontSize="{DynamicResource FontSize.Subtitle}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           HorizontalAlignment="Center" />
-                                <TextBlock Text="Tab đã mở để điều hướng; dữ liệu kiểm kê sẽ bổ sung khi backend sẵn sàng."
-                                           FontSize="{DynamicResource FontSize.Body}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           Margin="0,8,0,0"
-                                           HorizontalAlignment="Center"
-                                           TextAlignment="Center" />
-                            </StackPanel>
-                        </Border>
+                    <TabItem access:PermissionAccess.Rule="INV_STOCKTAKE" Header="Kiểm kê" Tag="{StaticResource WhIcon.Stocktake}">
+                        <local:StocktakeTabView DataContext="{Binding Stocktakes}" />
                     </TabItem>
                 </TabControl>
 

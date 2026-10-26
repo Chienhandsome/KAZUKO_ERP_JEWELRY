@@ -1,5 +1,6 @@
 using System.IO;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Company;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Printing;
 using Kazuko.Core.Sales;
@@ -81,6 +82,30 @@ public sealed class SalesReceiptPrintServiceTests
             AppContext.BaseDirectory,
             "..", "..", "..", "..", "..",
             "src", "Assets", "examples", fileName));
+    }
+
+    [Theory]
+    [InlineData("phoi_a5_ngang.frx", PrintTemplateCodes.SalesReceiptA5)]
+    [InlineData("phoi_a5_doc.frx", PrintTemplateCodes.SalesReceiptA5Portrait)]
+    public async Task Settings_preview_renders_saved_bill_as_png(string fileName, string code)
+    {
+        var store = new StubPrintTemplateStore(await File.ReadAllBytesAsync(FindExampleFrx(fileName)));
+        var service = new ReceiptTemplatePreviewService(new SalesReceiptPrintService(store), new PreviewCompany());
+        var bytes = await service.CreatePreviewAsync(code,
+            new AuthenticatedSession(1, "admin", "Admin", "ADMIN", 1, "BR", "Branch"));
+        using var stream = new MemoryStream(bytes);
+        using var image = System.Drawing.Image.FromStream(stream);
+        Assert.Equal(System.Drawing.Imaging.ImageFormat.Png.Guid, image.RawFormat.Guid);
+        Assert.True(image.Width > 100);
+        Assert.True(image.Height > 100);
+    }
+
+    private sealed class PreviewCompany : ICompanyProfileService
+    {
+        public Task<CompanyProfileDto> GetAsync(AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CompanyProfileDto(1, "KAZUKO", "0901234567", "Địa chỉ mẫu", null, null));
+        public Task SaveAsync(CompanyProfileUpdateRequest request, AuthenticatedSession session, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class StubPrintTemplateStore : IPrintTemplateStore

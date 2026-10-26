@@ -6,6 +6,9 @@ internal static class ReportCatalog
 {
     public static ObservableCollection<ReportTreeNode> CreateMenu() =>
     [
+        ReportTreeNode.Group("BÁO CÁO NHÂN SỰ",
+            ReportTreeNode.Report("Bảng lương tháng", "reports.hr.payroll"),
+            ReportTreeNode.Report("Phiếu lương cá nhân", "reports.hr.payroll_slip")),
         ReportTreeNode.Group(
             "BÁO CÁO QUỸ",
             ReportTreeNode.Report("Báo cáo tồn quỹ", "reports.fund.balance"),

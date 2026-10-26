@@ -20,6 +20,7 @@ public sealed class VoucherListViewModel : ObservableObject
     private readonly ICashFundRepository _funds;
     private readonly IBankAccountRepository _banks;
     private readonly string _voucherType;
+    private readonly IVoucherCategoryService? _categories;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
@@ -37,7 +38,7 @@ public sealed class VoucherListViewModel : ObservableObject
         ICashFundRepository funds,
         IBankAccountRepository banks,
         string voucherType,
-        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null, IVoucherCategoryService? categories = null)
     {
         _dashboard = dashboard;
         _voucherService = voucherService;
@@ -46,6 +47,7 @@ public sealed class VoucherListViewModel : ObservableObject
         _banks = banks;
         _voucherType = voucherType;
         _permissions = authorization;
+        _categories = categories;
 
         var isIncome = voucherType == FinancialVoucherTypes.In;
         Title = isIncome ? "Phiếu thu" : "Phiếu chi";
@@ -167,6 +169,7 @@ public sealed class VoucherListViewModel : ObservableObject
                     PaymentMethod = item.PaymentMethod,
                     IncomeAmount = isIncome ? item.AmountVnd : 0,
                     ExpenseAmount = isIncome ? 0 : item.AmountVnd,
+                    CategoryName = item.CategoryName ?? "Chưa phân loại",
                     CreatedByName = item.CreatedByName
                 });
             }
@@ -218,7 +221,7 @@ public sealed class VoucherListViewModel : ObservableObject
     private async Task AddAsync()
     {
         var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
-        var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, _funds, _banks, _voucherType);
+        var saved = CashVoucherDialog.Show(owner, _voucherService, _sessionAccessor, _funds, _banks, _voucherType, _categories, _permissions);
         if (saved is not null)
         {
             await SearchAsync();

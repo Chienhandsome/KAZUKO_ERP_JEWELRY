@@ -10,7 +10,7 @@ Nhằm bảo đảm tính minh bạch trong quá trình phát triển và tránh
 
 | Nhóm thành phần | Trạng thái hiện tại | Mô tả chi tiết |
 | :--- | :--- | :--- |
-| **WPF Repository** | Đang phát triển (Tham chiếu `TASK-001`) | Khung ứng dụng WPF, MVVM cơ sở và theme đã hoàn thành. `TASK-001` đang trong tiến trình thực hiện (in progress) để tích hợp xác thực và kết nối Firebird. **Người đọc cần kiểm tra trạng thái hiện tại của `TASK-001` trong `.ai/tasks/`** để xác định chính xác liệu cơ chế cấu hình copy runtime hoặc kết nối cơ sở dữ liệu đã được merge vào nhánh chính hay chưa trước khi đưa ra các giả định kỹ thuật. |
+| **WPF Repository** | Đã tích hợp xác thực/kết nối Firebird | App đăng ký FirebirdAuthenticationService, cấu hình kết nối/runtime và repository nghiệp vụ. Không dùng mô tả TASK-001 ban đầu để kết luận các phần này chưa triển khai. Các chức năng cài đặt/cập nhật module vẫn phải đánh giá riêng theo tài liệu03. |
 | **Tệp người dùng / Dev chuẩn bị** | Cung cấp thủ công ngoài Git | Động cơ `Firebird-5.0.4.1812-0-windows-x64` tại thư mục `firebird/` và tệp cơ sở dữ liệu ban đầu `data/data.fdb` do lập trình viên/quản trị viên chuẩn bị cục bộ trên máy, không commit vào kho mã nguồn Git. |
 | **Bộ cài & Deployment** | Bố cục mục tiêu (Chưa hiện thực) | Dự án hiện tại **chưa lựa chọn hoặc hiện thực công cụ đóng gói release (installer)**. Bố cục sản phẩm được mô tả trong tài liệu này là bố cục mục tiêu (target layout) phục vụ định hướng kiến trúc, không phải là một quy trình cài đặt cố định đã triển khai. |
 
@@ -190,5 +190,6 @@ Khi ứng dụng gặp sự cố kết nối cơ sở dữ liệu Firebird Embed
 2. **Quy trình Sao lưu Dự phòng (Backup)**:
    - Trong chế độ Embedded, việc sao chép file trực tiếp (`Copy File`) khi ứng dụng đang mở có nguy cơ tạo ra bản sao lưu không toàn vẹn (dirty read).
    - Quy trình sao lưu khuyến nghị: Sử dụng tiện ích `gbak.exe` của Firebird chạy dòng lệnh sao lưu trực tiếp sang tệp nén `.fbk`, hoặc chỉ copy tệp `data.fdb` sau khi đã đóng hoàn toàn ứng dụng KAZUKO ERP.
+   - App hiện tạo `.fbk` logical backup: Embedded dùng dịch vụ backup trong engine đang nạp, Server dùng gbak kết nối từ xa và lưu trên client. Có kiểm tra restore vào database tạm, lịch sử lỗi và giữ 7 bản tự động. Chi tiết: [Sao lưu giai đoạn 1](database-backup.md). Không copy file database đang mở để làm backup.
 3. **Độc lập Cấu hình**:
    - Mã nguồn ứng dụng tuyệt đối không hard-code đường dẫn tuyệt đối của máy lập trình viên (ví dụ `D:\Working\...`) vào logic kết nối. Đường dẫn cơ sở dữ liệu phải được giải quyết linh hoạt dựa theo thư mục dữ liệu chuẩn của hệ điều hành (`Environment.SpecialFolder.CommonApplicationData`) hoặc cấu hình người dùng.

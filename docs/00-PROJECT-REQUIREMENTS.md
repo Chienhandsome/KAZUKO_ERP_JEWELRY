@@ -40,6 +40,7 @@ KAZUKO ERP là ứng dụng Windows dành cho xưởng kim hoàn. Hệ thống p
 - View/ViewModel không chạy SQL trực tiếp.
 - Nghiệp vụ ghi nhiều bảng phải có transaction.
 - Thao tác quan trọng phải ghi audit log: người dùng, thời gian, máy, hành động, bản ghi và dữ liệu trước/sau khi phù hợp.
+- Audit nghiệp vụ là bắt buộc: ghi trong cùng transaction với thay đổi dữ liệu và trước commit. Không ghi được audit thì báo lỗi và rollback; không lưu dữ liệu rồi ghi nhật ký sau. Sự kiện không có thay đổi nghiệp vụ (ví dụ đăng nhập sai/từ chối quyền) dùng transaction audit riêng và cũng không được nuốt lỗi.
 - Không lưu mật khẩu dạng rõ. Connection secret phải được bảo vệ bằng Windows DPAPI hoặc cơ chế tương đương.
 - Không cho phép cập nhật module không có nguồn tin cậy trong production.
 

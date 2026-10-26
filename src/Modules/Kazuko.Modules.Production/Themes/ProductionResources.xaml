@@ -1,6 +1,22 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI">
+                    xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
+                    xmlns:production="clr-namespace:Kazuko.Core.Production;assembly=Kazuko.Core">
+
+    <Style x:Key="ProductionStatusBadgeStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource TextSecondaryBrush}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding StatusCode}" Value="{x:Static production:ProductionOrderStatuses.InProgress}">
+                <Setter Property="Background" Value="{DynamicResource InfoBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding StatusCode}" Value="{x:Static production:ProductionOrderStatuses.Completed}">
+                <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding StatusCode}" Value="{x:Static production:ProductionOrderStatuses.Cancelled}">
+                <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
 
     <Style x:Key="ProductionFieldLabelStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />

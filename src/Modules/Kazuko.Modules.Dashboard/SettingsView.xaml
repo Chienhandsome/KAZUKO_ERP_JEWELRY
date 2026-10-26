@@ -523,7 +523,7 @@
                                                FontSize="{DynamicResource FontSize.Subtitle}"
                                                FontWeight="Bold"
                                                Foreground="{DynamicResource PrimaryBrush}" />
-                                    <TextBlock Text="Mẫu A5 ngang/dọc (FastReport Open Source) lưu trong database. Xuất .frx → chỉnh bằng FastReport Designer Community (miễn phí) → Import lại. Khi in phiếu có thể chọn khổ trên hộp xem trước."
+                                    <TextBlock Text="Xem trước mẫu bill A5 ngang/dọc đã lưu. Bấm &quot;Sửa mẫu bill&quot; để kéo-thả bố cục và chỉnh nội dung trên trình thiết kế."
                                                Margin="0,6,0,16"
                                                FontSize="{DynamicResource FontSize.Body}"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
@@ -564,56 +564,23 @@
                                     </TextBlock>
 
                                     <Border Background="{DynamicResource SurfaceAltBrush}"
-                                            BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="10"
-                                            Padding="16"
-                                            Margin="0,0,0,16">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Tên mẫu" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ReceiptTemplateName, Mode=OneWay}"
-                                                       Style="{StaticResource SettingsMetaValueStyle}" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource PrimaryBrush}" />
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Mã" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ReceiptTemplateCode, Mode=OneWay}"
-                                                       Style="{StaticResource SettingsMetaValueStyle}" />
-                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Cập nhật" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReceiptTemplateUpdatedAt, Mode=OneWay}"
-                                                       Style="{StaticResource SettingsMetaValueStyle}" />
-                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Hash" Style="{StaticResource SettingsMetaLabelStyle}" />
-                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReceiptTemplateHash, Mode=OneWay}"
-                                                       Style="{StaticResource SettingsMetaValueStyle}" />
-                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Dung lượng" Style="{StaticResource SettingsMetaLabelStyle}" Margin="0,0,12,0" />
-                                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ReceiptTemplateSize, Mode=OneWay}"
-                                                       Style="{StaticResource SettingsMetaValueStyle}" Margin="0" />
-                                        </Grid>
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="10" Padding="16" Margin="0,0,0,16">
+                                        <StackPanel>
+                                            <TextBlock Text="Xem trước mẫu bill đã lưu · Dữ liệu minh họa"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="{DynamicResource FontSize.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                            <Image Source="{Binding ReceiptPreview}" Stretch="Uniform" MaxHeight="420"
+                                                   HorizontalAlignment="Left" AutomationProperties.Name="Xem trước mẫu bill đã lưu" />
+                                            <TextBlock Text="{Binding ReceiptPreviewMessage}" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </StackPanel>
                                     </Border>
-
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button access:PermissionAccess.Rule="SYS_SETTINGS" Content="Xuất .frx"
-                                                Command="{Binding ExportReceiptTemplateCommand}"
-                                                Style="{StaticResource SettingsPrimaryButtonStyle}"
-                                                MinWidth="130" Margin="0,0,10,0" />
-                                        <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Import .frx"
-                                                Command="{Binding ImportReceiptTemplateCommand}"
-                                                Style="{StaticResource SettingsSecondaryButtonStyle}"
-                                                MinWidth="130" Margin="0,0,10,0" />
-                                        <Button Content="Tải lại"
-                                                Command="{Binding ReloadReceiptTemplateCommand}"
-                                                Style="{StaticResource SettingsSecondaryButtonStyle}"
-                                                MinWidth="110" />
-                                    </StackPanel>
+                                    <Button Content="Sửa mẫu bill" Command="{Binding OpenReceiptDesignerCommand}"
+                                            access:PermissionAccess.Rule="SYS_SETTINGS:Edit"
+                                            HorizontalAlignment="Left"
+                                            ToolTip="Sửa mẫu đã chọn bằng trình thiết kế kéo-thả"
+                                            Style="{StaticResource SettingsPrimaryButtonStyle}" MinWidth="150" />
                                 </StackPanel>
                             </TabItem>
                             <TabItem Header="Mẫu tem">
@@ -628,6 +595,19 @@
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                TextWrapping="Wrap" />
 
+                                    <Border Background="{DynamicResource SurfaceAltBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="10" Padding="16" Margin="0,0,0,16">
+                                        <StackPanel>
+                                            <TextBlock Text="Xem trước mẫu tem đã lưu · Dữ liệu minh họa"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="{DynamicResource FontSize.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                            <Image Source="{Binding LabelPreview}" Stretch="Uniform" MaxHeight="180"
+                                                   HorizontalAlignment="Left" AutomationProperties.Name="Xem trước mẫu tem đã lưu" />
+                                            <TextBlock Text="{Binding LabelPreviewMessage}" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
                                     <StackPanel Orientation="Horizontal">
                                         <Button access:PermissionAccess.Rule="SYS_SETTINGS:Edit" Content="Sửa mẫu tem"
                                                 Command="{Binding OpenLabelDesignerCommand}"
@@ -691,16 +671,6 @@
                             Style="{DynamicResource CardBorderStyle}"
                             Visibility="{Binding IsDatabaseSelected, Converter={StaticResource BoolToVis}}">
                         <StackPanel DataContext="{Binding Database}">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="IsEnabled" Value="True" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsBusy}" Value="True">
-                                            <Setter Property="IsEnabled" Value="False" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
 
                             <TextBlock Text="Cơ sở dữ liệu"
                                        FontSize="{DynamicResource FontSize.Subtitle}"
@@ -782,15 +752,19 @@
                                 </Grid>
                             </Border>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <WrapPanel Margin="0,0,0,20">
                                 <Button access:PermissionAccess.Rule="SYS_DATABASE:Edit" Content="Thay đổi..."
                                         Command="{Binding ChangeDatabaseCommand}"
                                         Style="{StaticResource SettingsPrimaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
-                                <Button access:PermissionAccess.Rule="SYS_DATABASE:Edit" Content="Backup..."
+                                <Button access:PermissionAccess.Rule="SYS_DATABASE:Edit" Content="Sao lưu..."
                                         Command="{Binding BackupCommand}"
                                         Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         MinWidth="130" Margin="0,0,10,0" />
+                                <Button access:PermissionAccess.Rule="SYS_DATABASE:Edit" Content="Kiểm tra bản sao lưu..."
+                                        Command="{Binding VerifyBackupCommand}"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}"
+                                        MinWidth="180" Margin="0,0,10,0" />
                                 <Button access:PermissionAccess.Rule="SYS_DATABASE:Add" Content="Tạo mới..."
                                         Command="{Binding CreateNewCommand}"
                                         Style="{StaticResource SettingsSecondaryButtonStyle}"
@@ -799,13 +773,47 @@
                                         Command="{Binding ReloadCommand}"
                                         Style="{StaticResource SettingsSecondaryButtonStyle}"
                                         MinWidth="110" />
+                            </WrapPanel>
+
+                            <StackPanel Margin="0,0,0,12">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OperationMessage}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <ProgressBar IsIndeterminate="True" Height="6" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding OperationMessage}" TextWrapping="Wrap"
+                                           FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <Button Content="Hủy tác vụ" Command="{Binding CancelBackupCommand}"
+                                        Style="{StaticResource SettingsSecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" />
                             </StackPanel>
 
-                            <CheckBox Content="Tự động backup khi khởi động ứng dụng (giữ 7 bản gần nhất)"
-                                      IsChecked="{Binding AutoBackupEnabled}"
+                            <TextBlock Text="{Binding BackupHistory}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="Bản .fbk được lưu trên máy này. Kiểm tra sẽ khôi phục vào database tạm, không thay database đang dùng. Bấm Tải lại để xem kết quả sao lưu tự động."
+                                       TextWrapping="Wrap" Margin="0,0,0,12" FontSize="{DynamicResource FontSize.Caption}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+
+                            <CheckBox IsChecked="{Binding AutoBackupEnabled}"
                                       FontSize="{DynamicResource FontSize.Body}"
                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                      VerticalContentAlignment="Center" />
+                                      VerticalContentAlignment="Center">
+                                <TextBlock Text="Tự động sao lưu khi khởi động (giữ 7 bản .fbk gần nhất cho mỗi database)" TextWrapping="Wrap" />
+                                <CheckBox.Style>
+                                    <Style TargetType="CheckBox">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </CheckBox.Style>
+                            </CheckBox>
                         </StackPanel>
                     </Border>
                 </Grid>

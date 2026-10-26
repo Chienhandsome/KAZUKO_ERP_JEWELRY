@@ -27,6 +27,8 @@ public sealed class ReportsViewModel : ObservableObject
     public const string WarehouseApprovedReceiptsKey = "reports.warehouse.approved_receipts";
     public const string WarehousePendingReceiptsKey = "reports.warehouse.pending_receipts";
     public const string WarehouseReceiptsByTypeKey = "reports.warehouse.receipts_by_type";
+    public const string PayrollKey = "reports.hr.payroll";
+    public const string PayrollSlipKey = "reports.hr.payroll_slip";
 
     private ReportTreeNode? _selectedNode;
     private string _placeholderTitle = "Báo cáo";
@@ -55,7 +57,8 @@ public sealed class ReportsViewModel : ObservableObject
         SalesTopItemsReportViewModel salesTopItems,
         WarehouseApprovedReceiptsReportViewModel warehouseApprovedReceipts,
         WarehousePendingReceiptsReportViewModel warehousePendingReceipts,
-        WarehouseReceiptsByTypeReportViewModel warehouseReceiptsByType)
+        WarehouseReceiptsByTypeReportViewModel warehouseReceiptsByType,
+        PayrollReportViewModel? payroll = null, PayrollReportViewModel? payrollSlip = null)
     {
         JewelryOnHand = jewelryOnHand;
         JewelryOnHandSummary = jewelryOnHandSummary;
@@ -77,6 +80,7 @@ public sealed class ReportsViewModel : ObservableObject
         WarehouseApprovedReceipts = warehouseApprovedReceipts;
         WarehousePendingReceipts = warehousePendingReceipts;
         WarehouseReceiptsByType = warehouseReceiptsByType;
+        Payroll = payroll; PayrollSlip = payrollSlip;
         Menu = ReportCatalog.CreateMenu();
         ToggleCatalogCommand = new RelayCommand(ToggleCatalog);
     }
@@ -102,6 +106,8 @@ public sealed class ReportsViewModel : ObservableObject
     public WarehouseApprovedReceiptsReportViewModel WarehouseApprovedReceipts { get; }
     public WarehousePendingReceiptsReportViewModel WarehousePendingReceipts { get; }
     public WarehouseReceiptsByTypeReportViewModel WarehouseReceiptsByType { get; }
+    public PayrollReportViewModel? Payroll { get; }
+    public PayrollReportViewModel? PayrollSlip { get; }
     public ICommand ToggleCatalogCommand { get; }
 
     public ReportTreeNode? SelectedNode
@@ -199,6 +205,8 @@ public sealed class ReportsViewModel : ObservableObject
                 var k when k == WarehouseApprovedReceiptsKey => WarehouseApprovedReceipts,
                 var k when k == WarehousePendingReceiptsKey => WarehousePendingReceipts,
                 var k when k == WarehouseReceiptsByTypeKey => WarehouseReceiptsByType,
+                var k when k == PayrollKey => Payroll,
+                var k when k == PayrollSlipKey => PayrollSlip,
                 _ => null
             };
 

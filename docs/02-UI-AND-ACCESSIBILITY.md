@@ -22,7 +22,7 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Ưu tiên `Grid`, `DockPanel`, `WrapPanel`, `ItemsControl` và `ScrollViewer`.
 - Không đặt vị trí tuyệt đối bằng Canvas cho form nghiệp vụ.
 - Khai báo `MinWidth` hợp lý; khi nội dung không đủ chỗ, cho cuộn thay vì thu nhỏ chữ.
-- Nút cần chiều cao tối thiểu 40 px tại scale 100%.
+- Chiều cao nút tùy ngữ cảnh: ưu tiên tối thiểu 40 px cho thao tác chính; nút trong bảng, toolbar hoặc pane gọn có thể dùng 28–36 px. Phải đọc được, có focus và không bị cắt ở các mức font/DPI được hỗ trợ; không ép mọi nút cùng một chiều cao.
 - Text quan trọng phải wrap hoặc trim kèm tooltip; không để chồng lấn.
 - Ô ngày dùng `RoundedDatePickerStyle` trong `Shared.UI/Themes/DatePicker.xaml`;
   style `DatePicker` mặc định kế thừa mẫu này. Style riêng phải `BasedOn` cùng mẫu,
@@ -31,10 +31,11 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Kiểm tra bằng keyboard: tab order, default button, focus visible và access key khi phù hợp.
 - Ô nhập một dòng (`TextBox`, `PasswordBox`) bôi đen toàn bộ nội dung khi nhận focus bằng click hoặc Tab. Ô chỉ đọc và ô nhiều dòng (`AcceptsReturn`) không bôi đen. Hành vi gắn ở `TextBoxSelectAllBehavior.Register` lúc khởi động, vì style có key riêng không kế thừa setter của style `TextBox` mặc định.
 - Ô tiền và số lượng ngắt hàng nghìn theo vi-VN (`1.000.000`, số lượng lẻ `1.250,5`) bằng `NumericThousandSeparatorBehavior`. Sau khi sửa chữ, behavior phải đẩy binding lên source (kể cả lúc rời ô): gán `Text` trong `TextChanged` nằm trong lượt cập nhật của WPF nên nếu không đẩy lại thì ô hiện số nhưng thuộc tính vẫn bằng 0. Ô binding vào `decimal` dùng `ViMoneyConverter` hoặc `ViQuantityConverter`, không dùng `StringFormat=N0` trên ô đang gõ — binding WPF mặc định đọc dấu chấm theo en-US.
+- Riêng các ô trọng lượng tổng/đá/vàng và hao hụt của nhập kho thành phẩm dùng `WeightDecimalInput`: cho phép một dấu `.` hoặc `,` làm dấu thập phân, không có dấu phân nhóm hàng nghìn. Đọc độc lập CurrentCulture/thiết lập Windows, hiển thị kết quả theo vi-VN và giữ tối đa 4 số lẻ. Chuỗi có nhiều dấu hoặc cả hai loại dấu bị từ chối, không suy đoán thành số khác. Quy tắc này không thay định dạng tiền/số lượng ở các ô khác.
 
 ## Application shell và trang chủ
 
-- Shell chuẩn có title bar màu chủ đạo, sidebar 330 px khi mở và 82 px khi thu gọn, content host và status bar.
+- Shell chuẩn có title bar màu chủ đạo, sidebar 330 px khi mở và 88 px khi thu gọn, content host và status bar.
 - Nút mở/thu sidebar nằm giữa theo chiều dọc, bám vào ranh giới bên phải sidebar để luôn truy cập được ở cả hai trạng thái.
 - Sidebar lấy dữ liệu từ `IModuleNavigationRegistry`; không hard-code danh sách chức năng trong `MainWindow.xaml`.
 - Trang chủ lấy các tile có `ShowOnHome` từ cùng registry. Icon dùng pack URI tới resource do module sở hữu.

@@ -25,11 +25,13 @@ dotnet build KAZUKO_ERP_JEWELRY.sln
 dotnet test KAZUKO_ERP_JEWELRY.sln --no-build
 ```
 
+Kiểm thử lỗi audit: `tests/Kazuko.Audit.IntegrationChecks` tạo trigger gây lỗi ghi nhật ký và xác nhận dữ liệu nghiệp vụ rollback, sau đó gỡ trigger. Chỉ chạy trên bản database khôi phục riêng có tên `test89_*.fdb` (truyền đường dẫn làm đối số); chương trình từ chối `DATA.FDB`. Không dùng database đang vận hành. Bộ kiểm thử Infrastructure cũ còn phụ thuộc fixture schema v51 riêng; thiếu fixture phải được ghi nhận là kiểm thử chưa qua, không coi là bằng chứng xác nhận nghiệp vụ.
+
 ## Roadmap gần nhất
 
-1. Thay `DevelopmentAuthenticationService` bằng authentication Firebird từ codebase đã duyệt.
-2. Bổ sung logging, exception boundary và audit context.
+1. Xác thực Firebird đã tích hợp tại composition root; không còn xem việc thay DevelopmentAuthenticationService là hạng mục chưa làm.
+2. Audit nghiệp vụ bắt buộc cùng transaction, lỗi phải rollback. Mở rộng kiểm thử lỗi và logging vận hành khi bổ sung use case.
 3. Hoàn thiện package signature/rollback và màn hình import update.
 4. Thiết kế schema form metadata và renderer allow-list.
-5. Port module Kho theo vertical slice: danh sách → chi tiết → ghi sổ → audit.
-6. Thêm test projects và CI.
+5. Module Kho đã có danh sách, ghi sổ, chuyển kho và các luồng liên quan; các thay đổi tiếp theo là mở rộng/hoàn thiện nghiệp vụ, không phải bắt đầu port.
+6. Các test project đã có; duy trì và mở rộng coverage/gate CI theo thay đổi thực tế.

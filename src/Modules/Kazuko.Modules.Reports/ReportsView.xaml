@@ -254,6 +254,7 @@
                 <ContentControl Content="{Binding ActiveWorkspace, Mode=OneWay}"
                                 Visibility="{Binding ShowWorkspace, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                     <ContentControl.Resources>
+                        <DataTemplate DataType="{x:Type local:PayrollReportViewModel}"><local:PayrollReportView/></DataTemplate>
                         <DataTemplate DataType="{x:Type local:JewelryOnHandReportViewModel}">
                             <shared:ReportWorkspaceView EmptyMessage="Không có dữ liệu nữ trang tồn kho.">
                                 <shared:ReportWorkspaceView.FilterContent>

@@ -78,11 +78,31 @@ public sealed class AttendancePeriodTests
     private sealed class ShiftEditorFake : IShiftEditorService
     {
         public WorkShiftItem? ShowCreate() => null;
+        public void ShowManage() { }
+    }
+
+    [Fact]
+    public async Task Inactive_shift_remains_visible_when_month_has_historical_records()
+    {
+        var repo = DispatchProxy.Create<IHumanResourcesRepository, AttendanceRepositoryFake>();
+        var fake = (AttendanceRepositoryFake)repo;
+        fake.Months.Add(new(2026,10,true));
+        fake.Employees.Add(new(1,"NV1","Nhân viên",null,"",null,"","",null,EmployeeStatusCodes.Working,true));
+        fake.Shifts.Add(new(10,"Ca đã ngừng",null,null,1,false));
+        fake.Shifts.Add(new(11,"Ca ngừng không có công",null,null,2,false));
+        fake.Records.Add(new(1,10,new DateTime(2026,10,5),AttendanceStatusCodes.Work));
+        var vm = View(repo); await vm.EnsureLoadedAsync();
+        var row = Assert.Single(Assert.Single(vm.Groups).ShiftRows);
+        Assert.Equal(10,row.ShiftId);
+        Assert.Equal(AttendanceStatusCodes.Work,row.Cells[4].StatusCode);
     }
 }
 
 public class AttendanceRepositoryFake : DispatchProxy
 {
+    public List<EmployeeListItem> Employees { get; } = [];
+    public List<WorkShiftItem> Shifts { get; } = [];
+    public List<AttendanceRecordItem> Records { get; } = [];
     public List<AttendanceMonthItem> Months { get; } = new();
     public bool FailCreate { get; set; }
     public bool FailLoad { get; set; }
@@ -102,9 +122,9 @@ public class AttendanceRepositoryFake : DispatchProxy
                 if (target.HasData) return Task.FromException(new InvalidOperationException("Kỳ có dữ liệu, không thể xóa"));
                 Months.Remove(target);
                 return Task.CompletedTask;
-            case "SearchAsync": return Task.FromResult<IReadOnlyList<EmployeeListItem>>(Array.Empty<EmployeeListItem>());
-            case "GetWorkShiftsAsync": return Task.FromResult<IReadOnlyList<WorkShiftItem>>(Array.Empty<WorkShiftItem>());
-            case "GetAttendanceRecordsAsync": return Task.FromResult<IReadOnlyList<AttendanceRecordItem>>(Array.Empty<AttendanceRecordItem>());
+            case "SearchAsync": return Task.FromResult<IReadOnlyList<EmployeeListItem>>(Employees.ToArray());
+            case "GetWorkShiftsAsync": return Task.FromResult<IReadOnlyList<WorkShiftItem>>(Shifts.ToArray());
+            case "GetAttendanceRecordsAsync": return Task.FromResult<IReadOnlyList<AttendanceRecordItem>>(Records.ToArray());
             default: throw new NotSupportedException(method.Name);
         }
     }

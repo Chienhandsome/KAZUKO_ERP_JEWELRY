@@ -4,6 +4,8 @@
 
 **Trạng thái:** Đã duyệt thiết kế trong hội thoại
 
+**Đối chiếu lại 26/10/2026:** giữ logic app hiện tại cho khổ in A5, in thẳng máy mặc định và công thức có trừ tạp chất. Tài liệu này đã cập nhật các quyết định đó; không quay về A4/PrintDialog theo bản MVP cũ.
+
 **Phạm vi:** Module `Kazuko.Sales` trên WPF/.NET 8 và Firebird
 
 ## 1. Mục tiêu
@@ -27,7 +29,7 @@ Một lần hoàn tất phải ghi đồng bộ chứng từ bán, biến độn
 - Bán thiếu có kiểm soát và tự tạo khoản phải thu.
 - Thu phần chênh hoặc chi phần chênh cho khách.
 - Lịch sử chứng từ chỉ đọc, điều hướng Trước/Sau và in lại.
-- Xem trước và in phiếu A4.
+- Xem trước bill A5 ngang/dọc; in thẳng máy mặc định bằng PrintDocument, fit/center/auto-rotate. Nút trong Hóa đơn mang nhãn **In hóa đơn**. Sau thanh toán mở xem/in; không có nút in trùng ở header Bán hàng.
 - Phân quyền, audit, idempotency và kiểm soát cạnh tranh khi bán cùng sản phẩm.
 
 ### Chưa trong phạm vi
@@ -36,7 +38,7 @@ Một lần hoàn tất phải ghi đồng bộ chứng từ bán, biến độn
 - Giữ đơn/gọi lại đơn và lưu nháp.
 - Hóa đơn điện tử.
 - Đơn đặt chế tác hoặc sản phẩm chưa có sẵn trên màn checkout bán lẻ; luồng đơn đặt + cọc + lệnh SX được chốt tại `docs/10-CRAFT-CUSTOM-ORDER.md` (tách khỏi checkout hàng sẵn).
-- Khổ in A5, K80 và K58.
+- Khổ in K80 và K58.
 
 Tab hóa đơn điện tử hiện có trong mock UI được ẩn cho tới khi có contract tích hợp riêng. Không để control trông như hoạt động nhưng không ghi dữ liệu.
 
@@ -69,7 +71,7 @@ Tab hóa đơn điện tử hiện có trong mock UI được ẩn cho tới khi
 Đơn vị trọng lượng là **chỉ**. Công thức chuẩn cho mỗi dòng:
 
 ```text
-Trọng lượng vàng = Tổng trọng lượng - Trọng lượng đá
+Trọng lượng vàng = Tổng trọng lượng - Trọng lượng đá - Trọng lượng tạp chất
 Trọng lượng quy đổi = Trọng lượng vàng x Phần trăm giá trị / 100
 Thành tiền = Trọng lượng quy đổi x Giá mua mỗi chỉ
 ```
@@ -77,7 +79,7 @@ Thành tiền = Trọng lượng quy đổi x Giá mua mỗi chỉ
 - Trọng lượng làm tròn tối đa 4 chữ số thập phân; UI cho phép nhập thập phân (dấu `.` hoặc `,`).
 - Tiền làm tròn tới đồng theo `MidpointRounding.AwayFromZero`.
 - Tổng trọng lượng và trọng lượng đá phải không âm.
-- Trọng lượng đá không được vượt tổng trọng lượng.
+- Tổng trọng lượng đá và tạp chất không được vượt tổng trọng lượng. Lõi contract/calculator hỗ trợ tạp chất; form hiện gán tạp chất bằng 0, chưa có ô nhập riêng.
 - Phần trăm giá trị nằm trong khoảng 0–100.
 - Trọng lượng vàng, trọng lượng quy đổi và thành tiền là trường chỉ đọc trên UI và luôn được tính lại ở service.
 - Giá mua lấy snapshot từ Bảng giá. Chỉ người có quyền mới được sửa và phải nhập lý do.
@@ -116,7 +118,7 @@ Số tiền ròng = Tổng bán - Tổng mua vàng cũ
 - `ISalesCheckoutApplicationService`;
 - `ISalesQueryRepository`;
 - `ISalesAuthorizationService`;
-- contract lấy dữ liệu in A4.
+- contract lấy dữ liệu in hóa đơn A5.
 
 `Kazuko.Infrastructure.Sales` hiện thực truy vấn Firebird, ghi sổ checkout, kiểm tra quyền và lấy dữ liệu in.
 
@@ -211,19 +213,19 @@ Database có check constraint cho giá trị không âm, phần trăm 0–100, q
 - Form vàng cũ tự tính ba trường dẫn xuất ngay khi dữ liệu đầu vào thay đổi.
 - Nút **Thanh toán** mở dialog tóm tắt tổng gộp, số ròng, các dòng thanh toán và công nợ.
 - Trong lúc ghi sổ, disable lệnh gây lặp và hiển thị trạng thái xử lý. `CLIENT_REQUEST_ID` vẫn là hàng rào cuối ở database/service.
-- Thành công: reset workspace nhập liệu và mở preview A4.
+- Thành công: reset workspace nhập liệu và mở preview hóa đơn A5 ngang/dọc theo mẫu đã chọn.
 - Thất bại: không reset; focus tới lỗi có thể sửa khi xác định được.
-- Tab **Hóa đơn**: danh sách checkout đã `POSTED` (lọc ngày + tìm mã/tên KH), click một dòng mở panel chi tiết chỉ đọc bên cạnh; in lại bằng **In A4**.
+- Tab **Hóa đơn**: danh sách checkout đã `POSTED` (lọc ngày + tìm mã/tên KH), click một dòng mở panel chi tiết chỉ đọc bên cạnh; in lại bằng **In hóa đơn**.
 - Không dùng điều hướng Trước/Sau.
 - Không hỗ trợ sửa hoặc xóa chứng từ đã ghi sổ trong phạm vi này.
 
-## 7. In A4
+## 7. In hóa đơn A5
 
 - Tạo document in từ DTO bất biến tải lại theo checkout id; không chụp bitmap của cửa sổ.
 - Preview thể hiện thông tin cửa hàng/chi nhánh, mã/ngày, khách hàng, nhân viên bán hàng, dòng thành phẩm, dòng vàng cũ, tổng gộp, phần bù trừ, dòng thanh toán, công nợ và chữ ký khi mẫu yêu cầu.
 - Sau khi ghi sổ, preview có **In** và **Đóng**.
 - Tab Hóa đơn cho phép in lại đúng dữ liệu snapshot đã ghi, không dùng giá hiện hành.
-- Chỉ hỗ trợ A4 trong giai đoạn này. Renderer phải tách khỏi ViewModel để có thể thêm A5/K80/K58 sau mà không đổi contract checkout.
+- Hóa đơn hỗ trợ A5 ngang/dọc bằng mẫu FRX. Lệnh In gửi trực tiếp đến máy in mặc định, không mở PrintDialog. Renderer tách khỏi ViewModel; K80/K58 nằm ngoài phạm vi hiện tại. Báo cáo A4 là luồng riêng.
 
 ## 8. Quyền và audit
 
@@ -287,7 +289,7 @@ Audit tối thiểu:
 
 - Light/Dark; font 90%, 100%, 125%, 150%; DPI 100%, 150%, 200%; cửa sổ tối thiểu và maximized.
 - Keyboard navigation, focus lỗi, dữ liệu rỗng, nội dung tiếng Việt dài và trạng thái loading.
-- Preview/in A4 với ít/nhiều dòng và ngắt trang.
+- Preview/in hóa đơn A5 ngang/dọc với ít/nhiều dòng và ngắt trang.
 - `dotnet build KAZUKO_ERP_JEWELRY.sln` không warning/error.
 - `dotnet test KAZUKO_ERP_JEWELRY.sln --no-build` thành công.
 
@@ -301,4 +303,4 @@ Audit tối thiểu:
 
 ## 12. Tiêu chí nghiệm thu nghiệp vụ
 
-Tính năng được coi là hoàn tất khi người dùng có quyền có thể thực hiện cả ba luồng từ UI mock hiện tại, nhận preview A4, và quan sát dữ liệu nhất quán trong Bán hàng, Kho, Tài chính, Công nợ và audit. Mọi lỗi trước commit không được để lại chứng từ hoặc tồn kho/tài chính từng phần; lỗi in sau commit không được làm mất giao dịch.
+Tính năng được coi là hoàn tất khi người dùng có quyền có thể thực hiện cả ba luồng từ UI mock hiện tại, nhận preview hóa đơn A5, và quan sát dữ liệu nhất quán trong Bán hàng, Kho, Tài chính, Công nợ và audit. Mọi lỗi trước commit không được để lại chứng từ hoặc tồn kho/tài chính từng phần; lỗi in sau commit không được làm mất giao dịch.

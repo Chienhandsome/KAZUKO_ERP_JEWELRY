@@ -1,0 +1,50 @@
+using Dapper;
+using Kazuko.Core.Authentication;
+using Kazuko.Core.HumanResources;
+using Kazuko.Core.UserManagement;
+using Kazuko.Infrastructure.Data;
+using Kazuko.Infrastructure.HumanResources;
+using Kazuko.Infrastructure.UserManagement;
+
+if(args.Length!=1 || !Path.GetFileName(args[0]).StartsWith("test89_",StringComparison.OrdinalIgnoreCase))
+    throw new ArgumentException("Use only a restored test89_*.fdb, never DATA.FDB.");
+var path=Path.GetFullPath(args[0]);
+FirebirdDatabase.ApplyProfileForCurrentProcess(ConnectionProfileStore.Load(path) with {DatabasePath=path,UseEmbedded=false});
+await using var c=FirebirdDatabase.CreateConnection();await c.OpenAsync();
+var user=await c.QueryFirstAsync<long>("SELECT ID FROM USERS WHERE IS_ACTIVE=TRUE ORDER BY ID");
+var branch=await c.QueryFirstAsync<long>("SELECT B.ID FROM BRANCHES B JOIN COMPANIES C ON C.ID=B.COMPANY_ID WHERE C.CODE='KAZUKO' ORDER BY B.ID");
+var session=new AuthenticatedSession(user,"test","Test","ADMIN",branch,"TEST","Test");
+var repository=new FirebirdHumanResourcesRepository();
+var name="Test ca "+Guid.NewGuid().ToString("N")[..8];
+var created=await repository.SaveWorkShiftAsync(new(null,name,TimeSpan.FromHours(8),TimeSpan.FromHours(12)),session);
+Check(created.IsActive && created.StartTimeText=="08:00","create and format times");
+var updated=await repository.SaveWorkShiftAsync(new(created.Id,name+" sửa",TimeSpan.FromHours(22),TimeSpan.FromHours(6),false),session);
+Check(updated.Id==created.Id && !updated.IsActive && updated.EndTimeText=="06:00","edit same record, overnight hours and deactivate");
+Check((await repository.GetWorkShiftsAsync(false)).Any(x=>x.Id==created.Id && !x.IsActive),"inactive shift remains in catalog");
+Check(!(await repository.GetWorkShiftsAsync(true)).Any(x=>x.Id==created.Id),"inactive shift excluded from active lookup");
+await Reject(()=>repository.SaveWorkShiftAsync(new(null,updated.Name,null,null),session),"duplicate names rejected");
+await Reject(()=>repository.SaveWorkShiftAsync(new(null," ",null,null),session),"blank name rejected");
+await Reject(()=>repository.SaveWorkShiftAsync(new(null,name,TimeSpan.FromDays(2),null),session),"invalid time rejected");
+await Reject(()=>repository.SaveWorkShiftAsync(new(null,name,TimeSpan.FromHours(8),TimeSpan.FromHours(8)),session),"identical start/end rejected");
+await repository.SaveWorkShiftAsync(new(created.Id,updated.Name,null,null,true),session);
+Check((await repository.GetWorkShiftsAsync(true)).Any(x=>x.Id==created.Id && x.StartTime is null && x.EndTime is null),"reactivation and optional times persist");
+var addOnly=new PermissionSnapshot(false,[new(1,"CAT_EMPLOYEES",true,true,false,false,false)]);
+Check(BackendAccess.Allows("IHumanResourcesRepository","SaveWorkShiftAsync",[new WorkShiftSaveRequest(null,name,null,null),session],addOnly),"create uses Add grant");
+Check(!BackendAccess.Allows("IHumanResourcesRepository","SaveWorkShiftAsync",[new WorkShiftSaveRequest(created.Id,name,null,null),session],addOnly),"editing needs Edit grant");
+Check(!BackendAccess.Allows("IHumanResourcesRepository","DeleteWorkShiftAsync",[created.Id,session],addOnly),"add grant cannot delete shift");
+var deleteOnly=new PermissionSnapshot(false,[new(1,"CAT_EMPLOYEES",true,false,false,true,false)]);
+Check(BackendAccess.Allows("IHumanResourcesRepository","DeleteWorkShiftAsync",[created.Id,session],deleteOnly),"delete grant allows shift deletion");
+var otherBranch=await c.QueryFirstAsync<long>("SELECT ID FROM BRANCHES WHERE COMPANY_ID<>(SELECT COMPANY_ID FROM BRANCHES WHERE ID=@branch) ORDER BY ID",new{branch});
+await Reject(()=>repository.DeleteWorkShiftAsync(created.Id,session with{BranchId=otherBranch}),"cannot delete another company's shift");
+await repository.DeleteWorkShiftAsync(created.Id,session);
+Check(!(await repository.GetWorkShiftsAsync(false)).Any(x=>x.Id==created.Id),"unused shift is physically deleted");
+var used=await repository.SaveWorkShiftAsync(new(null,name+" used",null,null),session);
+var employee=await c.QueryFirstAsync<long>("SELECT ID FROM HR_EMPLOYEES WHERE COMPANY_ID=(SELECT COMPANY_ID FROM BRANCHES WHERE ID=@branch) ORDER BY ID",new{branch});
+var day=new DateTime(2090,1,10);
+await repository.SetAttendanceStatusAsync([new(employee,used.Id,day)],AttendanceStatusCodes.Work,session);
+await Reject(()=>repository.DeleteWorkShiftAsync(used.Id,session),"used shift deletion is blocked");
+Check((await repository.GetAttendanceRecordsAsync(day.Year,day.Month)).Any(x=>x.ShiftId==used.Id),"historical attendance is preserved");
+Check(await c.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM AUDIT_LOG WHERE EVENT_TYPE='WORK_SHIFT_DELETED' AND ENTITY_ID=@id",new{id=created.Id.ToString()})>0,"shift delete audit");
+Console.WriteLine("ALL WORK SHIFT DATABASE CHECKS PASSED; only restored test database written.");
+static void Check(bool value,string label){if(!value)throw new Exception("FAILED: "+label);Console.WriteLine("PASS: "+label);}
+static async Task Reject(Func<Task> action,string label){try{await action();}catch(InvalidOperationException){Console.WriteLine("PASS: "+label);return;}throw new Exception("Expected rejection: "+label);}

@@ -15,6 +15,27 @@ namespace Kazuko.Modules.Dashboard.Tests;
 public sealed class LabelDesignerCommandTests
 {
     [Fact]
+    public void Receipt_designer_uses_selected_orientation_and_recovers_after_failure() => Sta(() =>
+    {
+        var (services, navigation) = RegisterDashboardBeforeWarehouse();
+        services.AddSingleton<ILabelDesignerService>(new Designer());
+        var designer = new ReceiptDesigner();
+        services.AddSingleton<IReceiptDesignerService>(designer);
+        var vm = (SettingsViewModel)((SettingsView)navigation.Items.Single(x => x.Key == "SETTINGS").CreateView()).DataContext;
+        Assert.False(vm.OpenReceiptDesignerCommand.CanExecute(null));
+        vm.SelectedCategory = vm.Categories.Single(x => x.Key == "receipt_template");
+        vm.SelectedReceiptTemplateKind = vm.ReceiptTemplateKinds[1];
+        Assert.True(vm.OpenReceiptDesignerCommand.CanExecute(null));
+        vm.OpenReceiptDesignerCommand.Execute(null);
+        Assert.Equal(PrintTemplateCodes.SalesReceiptA5Portrait, designer.Code);
+        Assert.Empty(vm.ErrorMessage);
+        designer.Fail = true;
+        vm.OpenReceiptDesignerCommand.Execute(null);
+        Assert.Equal("Không mở được mẫu bill.", vm.ErrorMessage);
+        Assert.True(vm.OpenReceiptDesignerCommand.CanExecute(null));
+    });
+
+    [Fact]
     public void Settings_resolves_designer_after_warehouse_registration_and_notifies_command_when_category_changes() => Sta(() =>
     {
         var (services, navigation) = RegisterDashboardBeforeWarehouse();
@@ -115,18 +136,31 @@ public sealed class LabelDesignerCommandTests
             "GetAsync" => Task.FromResult(new CompanyProfileDto(1, "KAZUKO", null, null, null, null)),
             "GetInfoAsync" => Task.FromResult(new DatabaseInfo("test.fdb", 0, "0", 1, "1", 1, 1)),
             "GetByCodeAsync" => Task.FromResult(new PrintTemplateDto(1, "BILL", "Bill", [], "hash", DateTime.Today, null)),
+            "DemandAsync" => Task.CompletedTask,
             _ => null
         };
     }
 
     private sealed class Designer : ILabelDesignerService
     {
+        public Task<byte[]> CreatePreviewAsync(AuthenticatedSession session) => Task.FromResult(Array.Empty<byte>());
         public int Calls { get; private set; }
         public bool Fail { get; init; }
         public Task<bool> OpenDesignerAsync(AuthenticatedSession session)
         {
             Calls++;
             return Fail ? Task.FromException<bool>(new InvalidOperationException("Không tải được mẫu tem.")) : Task.FromResult(true);
+        }
+    }
+
+    private sealed class ReceiptDesigner : IReceiptDesignerService
+    {
+        public string? Code { get; private set; }
+        public bool Fail { get; set; }
+        public Task<bool> OpenDesignerAsync(string templateCode, AuthenticatedSession session)
+        {
+            Code = templateCode;
+            return Fail ? Task.FromException<bool>(new InvalidOperationException("Không mở được mẫu bill.")) : Task.FromResult(true);
         }
     }
 

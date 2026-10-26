@@ -1,0 +1,40 @@
+<Window x:Class="Kazuko.Modules.HumanResources.EmployeeMoneyDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="{Binding Title}" Width="620" Height="740" MinWidth="500" MinHeight="550"
+ WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource AppBackgroundBrush}"
+ Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource FontSize.Body}">
+ <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Themes/HumanResourcesDialogResources.xaml"/></ResourceDictionary.MergedDictionaries><BooleanToVisibilityConverter x:Key="BoolVis"/></ResourceDictionary></Window.Resources>
+ <DockPanel Margin="20">
+  <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,14,0,0">
+   <Button Content="Lưu / Xác nhận" Command="{Binding SaveCommand}" Style="{StaticResource HrDialogBasePrimaryButtonStyle}" IsDefault="True" Margin="0,0,8,0"/>
+   <Button Content="Hủy" Command="{Binding CancelCommand}" IsCancel="True"/>
+  </WrapPanel>
+  <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel IsEnabled="{Binding CanEdit}">
+   <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+   <TextBlock Text="{Binding Information}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,12"/>
+   <TextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite"/>
+   <StackPanel Visibility="{Binding IsAward,Converter={StaticResource BoolVis}}">
+    <TextBlock Text="Nhân viên"/><ComboBox ItemsSource="{Binding Employees}" SelectedItem="{Binding SelectedEmployee}" IsTextSearchEnabled="True" TextSearch.TextPath="FullName" Margin="0,4,0,12"/>
+    <TextBlock Text="Loại ghi nhận"/><ComboBox ItemsSource="{Binding Kinds}" SelectedItem="{Binding SelectedKind}" Margin="0,4,0,12"/>
+    <TextBlock Text="Cách xử lý"/><ComboBox ItemsSource="{Binding Handlings}" SelectedItem="{Binding SelectedHandling}" Margin="0,4,0,12"/>
+    <TextBlock Text="Nội dung / lý do"/><TextBox Text="{Binding Description,UpdateSourceTrigger=PropertyChanged}" MaxLength="500" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" Margin="0,4,0,12"/>
+   </StackPanel>
+   <TextBlock Text="Ngày phát sinh / thanh toán"/><DatePicker SelectedDate="{Binding EventDate}" MinHeight="40" Margin="0,4,0,12"/>
+   <StackPanel Visibility="{Binding ShowsAmount,Converter={StaticResource BoolVis}}">
+    <TextBlock Text="Số tiền (VND)"/><TextBox Text="{Binding AmountText,UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsSalary}" Margin="0,4,0,12"
+     xmlns:beh="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI" beh:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>
+   </StackPanel>
+   <WrapPanel Visibility="{Binding ShowsPeriod,Converter={StaticResource BoolVis}}" Margin="0,0,0,12">
+    <StackPanel Margin="0,0,10,0"><TextBlock Text="Tháng lương"/><ComboBox ItemsSource="{Binding Months}" SelectedItem="{Binding Month}" MinWidth="100"/></StackPanel>
+    <StackPanel><TextBlock Text="Năm lương"/><TextBox Text="{Binding YearText,UpdateSourceTrigger=PropertyChanged}" MaxLength="4" MinWidth="110"/></StackPanel>
+   </WrapPanel>
+   <StackPanel Visibility="{Binding ShowsPayment,Converter={StaticResource BoolVis}}">
+    <TextBlock Text="Phương thức"/><ComboBox ItemsSource="{Binding Methods}" SelectedItem="{Binding SelectedMethod}" Margin="0,4,0,12"/>
+    <StackPanel Visibility="{Binding UsesFund,Converter={StaticResource BoolVis}}"><TextBlock Text="Quỹ tiền mặt"/><ComboBox ItemsSource="{Binding Funds}" SelectedItem="{Binding SelectedFund}" Margin="0,4,0,12"/></StackPanel>
+    <StackPanel Visibility="{Binding UsesBank,Converter={StaticResource BoolVis}}"><TextBlock Text="Tài khoản ngân hàng"/><ComboBox ItemsSource="{Binding Banks}" SelectedItem="{Binding SelectedBank}" Margin="0,4,0,12"/></StackPanel>
+    <StackPanel Visibility="{Binding ShowsCategory,Converter={StaticResource BoolVis}}"><TextBlock Text="Loại thu/chi"/><ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Margin="0,4,0,12"/></StackPanel>
+    <TextBlock Text="Tham chiếu (nếu có)"/><TextBox Text="{Binding Reference,UpdateSourceTrigger=PropertyChanged}" MaxLength="100" Margin="0,4,0,12"/>
+    <Button Content="Tải lại quỹ / tài khoản / loại" Command="{Binding ReloadPaymentCommand}" HorizontalAlignment="Left"/>
+   </StackPanel>
+  </StackPanel></ScrollViewer>
+ </DockPanel>
+</Window>

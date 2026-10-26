@@ -92,6 +92,8 @@
                                 grid:DataGridColumnLayout.Key="Date" />
             <DataGridTextColumn Header="Số phiếu" Binding="{Binding Code, Mode=OneWay}" Width="110"
                                 grid:DataGridColumnLayout.Key="Code" />
+            <DataGridTextColumn Header="Loại thu/chi" Binding="{Binding CategoryName, Mode=OneWay}" Width="145"
+                                grid:DataGridColumnLayout.Key="Category" />
             <DataGridTextColumn Header="Nội dung" Binding="{Binding Content, Mode=OneWay}" Width="*"
                                 grid:DataGridColumnLayout.Key="Content" />
             <DataGridTextColumn Header="Số tiền (VND)" Binding="{Binding AmountText, Mode=OneWay}" Width="140"
@@ -133,8 +135,12 @@
             <TextBox Text="{Binding SelectedDetail.VoucherDate, Mode=OneWay, StringFormat=dd/MM/yyyy}"
                      Style="{StaticResource FinanceDetailValueStyle}" />
 
-            <TextBlock Text="Loại" Style="{StaticResource FinanceFieldLabelStyle}" />
+            <TextBlock Text="Hướng phiếu" Style="{StaticResource FinanceFieldLabelStyle}" />
             <TextBox Text="{Binding SelectedDetail.VoucherType, Mode=OneWay, Converter={StaticResource VoucherTypeToText}}"
+                     Style="{StaticResource FinanceDetailValueStyle}" />
+
+            <TextBlock Text="Loại thu/chi" Style="{StaticResource FinanceFieldLabelStyle}" />
+            <TextBox Text="{Binding SelectedDetail.CategoryName, Mode=OneWay, TargetNullValue=Chưa phân loại}"
                      Style="{StaticResource FinanceDetailValueStyle}" />
 
             <TextBlock Text="Hình thức" Style="{StaticResource FinanceFieldLabelStyle}" />

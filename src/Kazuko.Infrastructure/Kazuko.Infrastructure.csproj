@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Kazuko.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="Kazuko.Backup.IntegrationChecks" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\Assets\examples\tem_nu_trang_l_28x12.frx"

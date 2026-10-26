@@ -1,5 +1,7 @@
 using System.IO;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
@@ -19,6 +21,8 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly IPrintTemplateStore _printTemplates;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly ILabelDesignerService? _labelDesigner;
+    private readonly IReceiptTemplatePreviewService? _receiptPreviewService;
+    private readonly IReceiptDesignerService? _receiptDesigner;
 
     private SettingsCategory _selectedCategory;
     private string _companyName = string.Empty;
@@ -41,6 +45,14 @@ public sealed class SettingsViewModel : ObservableObject
     private string _receiptTemplateHash = "—";
     private string _receiptTemplateSize = "—";
     private ReceiptTemplateKindOption _selectedReceiptTemplateKind;
+    private ImageSource? _labelPreview;
+    private ImageSource? _receiptPreview;
+    private string _receiptPreviewMessage = string.Empty;
+    public ImageSource? ReceiptPreview { get => _receiptPreview; private set => SetProperty(ref _receiptPreview, value); }
+    public string ReceiptPreviewMessage { get => _receiptPreviewMessage; private set => SetProperty(ref _receiptPreviewMessage, value); }
+    private string _labelPreviewMessage = string.Empty;
+    public ImageSource? LabelPreview { get => _labelPreview; private set => SetProperty(ref _labelPreview, value); }
+    public string LabelPreviewMessage { get => _labelPreviewMessage; private set => SetProperty(ref _labelPreviewMessage, value); }
 
     public SettingsViewModel(
         ICompanyProfileService companyProfile,
@@ -50,13 +62,16 @@ public sealed class SettingsViewModel : ObservableObject
         IDatabaseManagementService databaseManagement,
         IPreferencesService preferences,
         Kazuko.Core.UserManagement.IAuthorizationService? authorization = null,
-        ILabelDesignerService? labelDesigner = null)
+        ILabelDesignerService? labelDesigner = null, IReceiptTemplatePreviewService? receiptPreview = null,
+        IReceiptDesignerService? receiptDesigner = null)
     {
         _companyProfile = companyProfile ?? throw new ArgumentNullException(nameof(companyProfile));
         _permissions = authorization;
         _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
         _printTemplates = printTemplates ?? throw new ArgumentNullException(nameof(printTemplates));
         _labelDesigner = labelDesigner;
+        _receiptPreviewService = receiptPreview;
+        _receiptDesigner = receiptDesigner;
         Appearance = new AppearanceSettingsViewModel(
             appearance ?? throw new ArgumentNullException(nameof(appearance)));
         Database = new DatabaseSettingsViewModel(
@@ -81,14 +96,10 @@ public sealed class SettingsViewModel : ObservableObject
         PickLogoCommand = new RelayCommand(PickLogo, () => !IsBusy && IsGeneralSelected);
         ClearLogoCommand = new RelayCommand(ClearLogo, () => !IsBusy && IsGeneralSelected && HasLogo);
         SelectCategoryCommand = new RelayCommand<SettingsCategory>(SelectCategory);
-        ExportReceiptTemplateCommand = new AsyncRelayCommand(
-            ExportReceiptTemplateAsync, () => !IsBusy && IsReceiptTemplateSelected);
-        ImportReceiptTemplateCommand = new AsyncRelayCommand(
-            ImportReceiptTemplateAsync, () => !IsBusy && IsReceiptTemplateSelected);
-        ReloadReceiptTemplateCommand = new AsyncRelayCommand(
-            LoadReceiptTemplateSummaryAsync, () => !IsBusy && IsReceiptTemplateSelected);
         OpenLabelDesignerCommand = new AsyncRelayCommand(
             OpenLabelDesignerAsync, () => !IsBusy && IsReceiptTemplateSelected && _labelDesigner is not null);
+        OpenReceiptDesignerCommand = new AsyncRelayCommand(
+            OpenReceiptDesignerAsync, () => !IsBusy && IsReceiptTemplateSelected && _receiptDesigner is not null);
 
         ReceiptTemplateKinds =
         [
@@ -312,10 +323,8 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand PickLogoCommand { get; }
     public ICommand ClearLogoCommand { get; }
     public ICommand SelectCategoryCommand { get; }
-    public ICommand ExportReceiptTemplateCommand { get; }
-    public ICommand ImportReceiptTemplateCommand { get; }
-    public ICommand ReloadReceiptTemplateCommand { get; }
     public ICommand OpenLabelDesignerCommand { get; }
+    public ICommand OpenReceiptDesignerCommand { get; }
 
     private void SelectCategory(SettingsCategory? category)
     {
@@ -459,6 +468,8 @@ public sealed class SettingsViewModel : ObservableObject
         }
 
         IsBusy = true;
+        ReceiptPreview = null;
+        ReceiptPreviewMessage = "Đang tải xem trước…";
         ErrorMessage = string.Empty;
         StatusMessage = string.Empty;
         try
@@ -466,14 +477,17 @@ public sealed class SettingsViewModel : ObservableObject
             var kind = SelectedReceiptTemplateKind;
             var template = await _printTemplates.GetByCodeAsync(kind.Code, session);
             ApplyReceiptTemplateInfo(template);
+            await LoadReceiptPreviewAsync(kind.Code, session);
         }
         catch (Exception ex)
         {
             ClearReceiptTemplateInfo("Không tải được mẫu in.");
+            ReceiptPreviewMessage = "Không tải được xem trước mẫu bill.";
             ErrorMessage = Sanitize(ex.Message);
         }
         finally
         {
+            await LoadLabelPreviewAsync(session);
             IsBusy = false;
         }
     }
@@ -492,7 +506,8 @@ public sealed class SettingsViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            await _labelDesigner.OpenDesignerAsync(session);
+            if (await _labelDesigner.OpenDesignerAsync(session))
+                await LoadLabelPreviewAsync(session);
         }
         catch (Exception ex)
         {
@@ -501,6 +516,72 @@ public sealed class SettingsViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private async Task OpenReceiptDesignerAsync()
+    {
+        if (_receiptDesigner is null) return;
+        if (_sessionAccessor.Current is not { } session) { ErrorMessage = "Chưa đăng nhập."; return; }
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            if (_permissions is not null)
+                await _permissions.DemandAsync([new("SYS_SETTINGS", Kazuko.Core.UserManagement.PermissionAction.Edit)]);
+            if (await _receiptDesigner.OpenDesignerAsync(SelectedReceiptTemplateKind.Code, session))
+                await LoadReceiptTemplateSummaryAsync();
+        }
+        catch (Exception ex) { ErrorMessage = Sanitize(ex.Message); }
+        finally { IsBusy = false; }
+    }
+
+    private async Task LoadReceiptPreviewAsync(string code, AuthenticatedSession session)
+    {
+        try
+        {
+            if (_receiptPreviewService is null)
+                throw new InvalidOperationException("Chưa có dịch vụ xem trước mẫu bill.");
+            var bytes = await _receiptPreviewService.CreatePreviewAsync(code, session);
+            if (SelectedReceiptTemplateKind.Code != code) return;
+            ReceiptPreview = DecodePreview(bytes);
+            ReceiptPreviewMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            if (SelectedReceiptTemplateKind.Code != code) return;
+            ReceiptPreview = null;
+            ReceiptPreviewMessage = $"Không tải được xem trước mẫu bill: {Sanitize(ex.Message)}";
+        }
+    }
+
+    private static ImageSource DecodePreview(byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private async Task LoadLabelPreviewAsync(AuthenticatedSession session)
+    {
+        LabelPreview = null;
+        LabelPreviewMessage = "Đang tải xem trước…";
+        try
+        {
+            if (_labelDesigner is null)
+                throw new InvalidOperationException("Chưa có dịch vụ xem trước mẫu tem.");
+            var bytes = await _labelDesigner.CreatePreviewAsync(session);
+            LabelPreview = DecodePreview(bytes);
+            LabelPreviewMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            LabelPreviewMessage = $"Không tải được xem trước mẫu tem: {Sanitize(ex.Message)}";
         }
     }
 
@@ -524,89 +605,6 @@ public sealed class SettingsViewModel : ObservableObject
         ReceiptTemplateSize = "—";
     }
 
-    private async Task ExportReceiptTemplateAsync()
-    {
-        var session = _sessionAccessor.Current;
-        if (session is null)
-        {
-            ErrorMessage = "Chưa đăng nhập.";
-            return;
-        }
-
-        IsBusy = true;
-        ErrorMessage = string.Empty;
-        try
-        {
-            var kind = SelectedReceiptTemplateKind;
-            var template = await _printTemplates.GetByCodeAsync(kind.Code, session);
-            var dialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Title = $"Xuất mẫu bill {kind.Label}",
-                Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",
-                FileName = kind.DefaultFileName,
-                AddExtension = true,
-                DefaultExt = ".frx"
-            };
-            if (dialog.ShowDialog() != true)
-                return;
-
-            await File.WriteAllBytesAsync(dialog.FileName, template.Content);
-            StatusMessage = $"Đã xuất mẫu tới {dialog.FileName}. Mở bằng FastReport Designer Community để chỉnh.";
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = Sanitize(ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    private async Task ImportReceiptTemplateAsync()
-    {
-        var session = _sessionAccessor.Current;
-        if (session is null)
-        {
-            ErrorMessage = "Chưa đăng nhập.";
-            return;
-        }
-
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = $"Import mẫu bill {SelectedReceiptTemplateKind.Label}",
-            Filter = "FastReport (*.frx)|*.frx|Tất cả|*.*",
-            CheckFileExists = true,
-            Multiselect = false
-        };
-        if (dialog.ShowDialog() != true)
-            return;
-
-        IsBusy = true;
-        ErrorMessage = string.Empty;
-        try
-        {
-            var kind = SelectedReceiptTemplateKind;
-            var bytes = await File.ReadAllBytesAsync(dialog.FileName);
-            var saved = await _printTemplates.SaveAsync(
-                kind.Code,
-                kind.DisplayName,
-                bytes,
-                $"Import từ {Path.GetFileName(dialog.FileName)}",
-                session);
-            ApplyReceiptTemplateInfo(saved);
-            StatusMessage = string.Empty;
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = Sanitize(ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
     private void MarkDirty()
     {
         IsDirty = true;
@@ -619,10 +617,8 @@ public sealed class SettingsViewModel : ObservableObject
         ((AsyncRelayCommand)ReloadCommand).NotifyCanExecuteChanged();
         ((RelayCommand)PickLogoCommand).NotifyCanExecuteChanged();
         ((RelayCommand)ClearLogoCommand).NotifyCanExecuteChanged();
-        ((AsyncRelayCommand)ExportReceiptTemplateCommand).NotifyCanExecuteChanged();
-        ((AsyncRelayCommand)ImportReceiptTemplateCommand).NotifyCanExecuteChanged();
-        ((AsyncRelayCommand)ReloadReceiptTemplateCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)OpenLabelDesignerCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)OpenReceiptDesignerCommand).NotifyCanExecuteChanged();
     }
 
     private static string Sanitize(string message) =>

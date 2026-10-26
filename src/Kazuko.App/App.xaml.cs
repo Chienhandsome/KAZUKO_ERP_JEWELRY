@@ -72,7 +72,7 @@ public partial class App : Application
 
     /// <summary>
     /// Backup tự động DB khi khởi động (nếu được bật trong Cài đặt &gt; Cơ sở dữ liệu).
-    /// Chạy nền, không chặn luồng đăng nhập; lỗi được bỏ qua lặng lẽ.
+    /// Chạy nền, không chặn đăng nhập; kết quả/lỗi được lưu để xem trong Cài đặt.
     /// </summary>
     private async Task RunAutoBackupAsync()
     {
@@ -109,7 +109,8 @@ public partial class App : Application
         IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
         IWarehouseGoldPriceRepository warehouseGoldPrices = new FirebirdWarehouseGoldPriceRepository();
         IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();
-        IPayrollService payroll = new FirebirdPayrollService();
+        IPayrollService payroll = new FirebirdPayrollService(_sessionAccessor);
+        IEmployeeMoneyService employeeMoney = new FirebirdEmployeeMoneyService();
         IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
         IGoldTypeCatalogService goldTypeCatalog = new FirebirdGoldTypeCatalogService();
         IMaterialReceiptService materialReceipts = new FirebirdMaterialReceiptService();
@@ -120,6 +121,7 @@ public partial class App : Application
         IStockTransferService stockTransfers = new FirebirdStockTransferService();
         IFinishedProductTransferService finishedProductTransfers = new FirebirdFinishedProductTransferService();
         IStockAdjustmentService stockAdjustments = new FirebirdStockAdjustmentService();
+        IStocktakeService stocktakes = new FirebirdStocktakeService();
         ICashFundRepository cashFunds = new FirebirdCashFundRepository();
         IBankAccountRepository bankAccounts = new FirebirdBankAccountRepository();
         IPayableDebtRepository payableDebts = new FirebirdPayableDebtRepository();
@@ -131,6 +133,7 @@ public partial class App : Application
         IPartyCreditService partyCredits = new FirebirdPartyCreditService();
         IFinanceDashboardRepository financeDashboard = new FirebirdFinanceDashboardRepository();
         IFinanceVoucherService financeVouchers = new FirebirdFinanceVoucherService();
+        IVoucherCategoryService voucherCategories = new FirebirdVoucherCategoryService();
         IProductionQueryRepository productionQueries = new FirebirdProductionQueryRepository();
         IProductionAttachmentStore productionAttachments = new LocalProductionAttachmentStore();
         IProductionApplicationService productionApplication =
@@ -140,6 +143,7 @@ public partial class App : Application
         IJewelryOnHandSummaryReportService jewelryOnHandSummaryReport =
             new FirebirdJewelryOnHandSummaryReportService();
         IFundBalanceReportService fundBalanceReport = new FirebirdFundBalanceReportService();
+        IPayrollReportService payrollReport = new FirebirdPayrollReportService();
         IFundCashReportService fundCashReport = new FirebirdFundCashReportService();
         IFundCashReceiptsReportService fundCashReceiptsReport = new FirebirdFundCashReceiptsReportService();
         IFundCashPaymentsReportService fundCashPaymentsReport = new FirebirdFundCashPaymentsReportService();
@@ -192,6 +196,7 @@ public partial class App : Application
         _services.AddSingleton(warehouseGoldPrices);
         _services.AddSingleton(humanResources);
         _services.AddSingleton(payroll);
+        _services.AddSingleton(employeeMoney);
         _services.AddSingleton(priceBoard);
         _services.AddSingleton(goldTypeCatalog);
         _services.AddSingleton(materialReceipts);
@@ -202,6 +207,7 @@ public partial class App : Application
         _services.AddSingleton(stockTransfers);
         _services.AddSingleton(finishedProductTransfers);
         _services.AddSingleton(stockAdjustments);
+        _services.AddSingleton(stocktakes);
         _services.AddSingleton(cashFunds);
         _services.AddSingleton(bankAccounts);
         _services.AddSingleton(payableDebts);
@@ -213,6 +219,7 @@ public partial class App : Application
         _services.AddSingleton(partyCredits);
         _services.AddSingleton(financeDashboard);
         _services.AddSingleton(financeVouchers);
+        _services.AddSingleton(voucherCategories);
         _services.AddSingleton(productionQueries);
         _services.AddSingleton(productionApplication);
         _services.AddSingleton(productionAttachments);
@@ -220,6 +227,7 @@ public partial class App : Application
         _services.AddSingleton(jewelryOnHandReport);
         _services.AddSingleton(jewelryOnHandSummaryReport);
         _services.AddSingleton(fundBalanceReport);
+        _services.AddSingleton(payrollReport);
         _services.AddSingleton(fundCashReport);
         _services.AddSingleton(fundCashReceiptsReport);
         _services.AddSingleton(fundCashPaymentsReport);
@@ -249,7 +257,9 @@ public partial class App : Application
         void Protect<T>() where T : class => _services.AddSingleton(
             AuthorizedServiceProxy<T>.Create(_services.GetRequiredService<T>(), authorization, _sessionAccessor));
         Protect<ICustomerRepository>(); Protect<ISupplierRepository>(); Protect<IHumanResourcesRepository>(); Protect<IPayrollService>();
+        Protect<IEmployeeMoneyService>();
         Protect<IWarehouseRepository>(); Protect<IWarehouseGoldPriceRepository>(); Protect<IGoldTypeCatalogService>();
+        Protect<IStocktakeService>();
         Protect<IPriceBoardRepository>(); Protect<IExternalWorkerRepository>();
         Protect<IMaterialReceiptService>(); Protect<IMaterialIssueService>(); Protect<IOutsourcedCraftService>();
         Protect<IFinishedGoodsIssueService>(); Protect<IStockTransferService>(); Protect<IFinishedProductTransferService>();
@@ -257,6 +267,7 @@ public partial class App : Application
         Protect<IFinancialVoucherPostingService>(); Protect<IFinancialSettlementService>(); Protect<IReceivableDebtRepository>();
         Protect<IDocumentReversalService>(); Protect<IPartyCreditService>(); Protect<IFinanceDashboardRepository>();
         Protect<IFinanceVoucherService>(); Protect<ICashFundRepository>(); Protect<IBankAccountRepository>();
+        Protect<IVoucherCategoryService>();
         Protect<IProductionQueryRepository>(); Protect<IProductionApplicationService>(); Protect<IProductionPrintDataService>();
         Protect<ISalesCheckoutApplicationService>(); Protect<ISalesQueryRepository>(); Protect<ISalesPrintDataService>(); Protect<ISalesAuthorizationService>();
         Protect<ICraftOrderApplicationService>(); Protect<IWholesaleSalesApplicationService>(); Protect<IUserManagementRepository>();
@@ -264,6 +275,7 @@ public partial class App : Application
         _backgroundDatabase = _services.GetRequiredService<IDatabaseManagementService>();
         Protect<IDatabaseManagementService>();
         Protect<IJewelryOnHandReportService>(); Protect<IJewelryOnHandSummaryReportService>(); Protect<IFundBalanceReportService>();
+        Protect<IPayrollReportService>();
         Protect<IFundCashReportService>(); Protect<IFundCashReceiptsReportService>(); Protect<IFundCashPaymentsReportService>();
         Protect<IMasterCustomersReportService>(); Protect<IMasterSuppliersReportService>(); Protect<ISalesInvoicesReportService>();
         Protect<ISalesProfitLossReportService>(); Protect<ISalesInvoicesByDayReportService>(); Protect<ISalesDetailByDayReportService>();

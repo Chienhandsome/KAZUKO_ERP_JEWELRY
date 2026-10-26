@@ -48,13 +48,10 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button access:PermissionAccess.Rule="SALES_RETAIL:Add" Content="Mới"
+                <Button access:PermissionAccess.Rule="SALES_RETAIL:Add" Content="Phiếu mới"
                         Style="{StaticResource SalesOutlineButtonStyle}"
-                        Command="{Binding NewCommand}" />
-                <Button Content="In A4"
-                        Style="{StaticResource SalesOutlineButtonStyle}"
-                        Command="{Binding PrintCommand}"
-                        Margin="0" />
+                        Command="{Binding NewCommand}"
+                        ToolTip="Xóa nội dung đang nhập và bắt đầu phiếu mới." Margin="0" />
             </StackPanel>
             <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
                        Text="{Binding ErrorMessage}"

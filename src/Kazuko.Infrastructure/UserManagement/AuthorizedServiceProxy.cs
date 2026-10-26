@@ -45,6 +45,16 @@ public class AuthorizedServiceProxy<T> : DispatchProxy where T : class
                     actual.Username, actual.BranchId, typeof(T).Name, eventData: method.Name, cancellationToken: cancellationToken).ConfigureAwait(false);
             throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này. Vui lòng liên hệ quản trị viên.");
         }
+        if (typeof(T).Name == "IEmployeeMoneyService" && method.Name == "CancelAsync" && actual is not null)
+        {
+            await using var connection = Kazuko.Infrastructure.Data.FirebirdDatabase.CreateConnection();
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = new FirebirdSql.Data.FirebirdClient.FbCommand("SELECT HANDLING FROM HR_EMPLOYEE_AWARDS WHERE ID=@id AND COMPANY_ID=(SELECT COMPANY_ID FROM BRANCHES WHERE ID=@branch)", connection);
+            command.Parameters.AddWithValue("@id", args[0]); command.Parameters.AddWithValue("@branch", actual.BranchId);
+            if (await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as string == "CASH"
+                && !_authorization.Current.Allows("FIN_REVERSE", PermissionAction.Delete))
+                throw new UnauthorizedAccessException("Hủy khoản đã thu/chi cần quyền Hủy phiếu tài chính.");
+        }
         if (typeof(T).Name == "IUserManagementRepository" && !_authorization.Current.IsSystemAdmin)
         {
             var first = args.FirstOrDefault();
@@ -62,7 +72,7 @@ public class AuthorizedServiceProxy<T> : DispatchProxy where T : class
                     throw new UnauthorizedAccessException("Chỉ Admin hệ thống được cấp hoặc thay đổi nhóm quản trị.");
             }
         }
-        if (typeof(T).Name == "IFinanceDashboardRepository" && method.Name == "GetVoucherDetailAsync")
+        if (typeof(T).Name == "IFinanceDashboardRepository" && method.Name == "GetVoucherDetailAsync" && actual is not null)
         {
             await using var connection = Kazuko.Infrastructure.Data.FirebirdDatabase.CreateConnection();
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);

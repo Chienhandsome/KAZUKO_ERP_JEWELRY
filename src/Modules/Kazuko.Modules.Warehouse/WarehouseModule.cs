@@ -79,7 +79,8 @@ public sealed class WarehouseModule : IKazukoModule
                     preferences,
                     printTemplates,
                     companyProfile,
-                    GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
+                    GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services),
+                    GetRequiredService<IStocktakeService>(services))
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",

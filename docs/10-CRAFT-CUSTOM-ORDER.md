@@ -24,7 +24,7 @@ Tài liệu quyết định cho luồng khách đặt mẫu chưa có trong kho.
 | `PARTIALLY_DELIVERED` | Dự phòng (chưa dùng trong phase hiện tại) |
 | `DRAFT` / `CANCELLED` | Không dùng cho SX |
 
-## 3. Đặt cọc từ lệnh SX
+## 3. Tạo đơn đặt và thu cọc tại Bán hàng → Đơn đặt
 
 Trong một transaction khi bấm **Đặt cọc**:
 
@@ -53,7 +53,7 @@ Dòng mẫu lệnh (`PRODUCTION_ORDER_LINES`) lưu thêm TL vàng ước tính, 
 ```text
 Chọn khách → Thêm mẫu (TL vàng + giá + công + đá) → Đặt cọc
   → Lưu lệnh SX → Giao NVL (xem gợi ý tối thiểu) → QC → Hoàn tất
-  → FINISHED_PRODUCTS → Đơn READY
+  → Đơn READY → Nhập kho thành phẩm riêng (sinh FINISHED_PRODUCTS)
   → Bán hàng → Đơn đặt → Giao hàng (+ thu phần còn)
   → COMPLETED
 ```

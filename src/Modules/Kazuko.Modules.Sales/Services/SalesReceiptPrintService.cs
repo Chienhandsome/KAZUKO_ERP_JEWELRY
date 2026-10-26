@@ -28,17 +28,18 @@ public sealed class SalesReceiptPrintService
         SalesReceiptDto receipt,
         AuthenticatedSession session,
         SalesReceiptOrientation orientation = SalesReceiptOrientation.Landscape,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        byte[]? templateContent = null)
     {
         ArgumentNullException.ThrowIfNull(receipt);
         ArgumentNullException.ThrowIfNull(session);
-        var template = await _templates.GetByCodeAsync(
+        var content = templateContent ?? (await _templates.GetByCodeAsync(
             SalesReceiptOrientationCodes.ToTemplateCode(orientation),
             session,
-            cancellationToken);
+            cancellationToken)).Content;
 
         var report = new Report();
-        using (var stream = new MemoryStream(template.Content))
+        using (var stream = new MemoryStream(content))
             report.Load(stream);
 
         // Open Source compiles DataBand.Filter as C# — "[DataSet.LADE]==…" fails.
@@ -349,7 +350,7 @@ public sealed class SalesReceiptPrintService
         return table;
     }
 
-    private static void NormalizeReceiptTemplate(Report report)
+    internal static void NormalizeReceiptTemplate(Report report)
     {
         // Clear filters that Open Source cannot compile ([DataSet.LADE]==…).
         foreach (Base obj in report.AllObjects)
@@ -401,9 +402,11 @@ public sealed class SalesReceiptPrintService
         }
 
         // A5 dọc: đưa Vàng mới/Vàng cũ từ PageFooter vào Summary (tránh cắt đáy).
-        CompactPortraitOverflow(report);
-
-        AlignLandscapeSummaryToMainTable(report);
+        if (report.ReportInfo.Description != "KAZUKO_RECEIPT_DESIGNER_V1")
+        {
+            CompactPortraitOverflow(report);
+            AlignLandscapeSummaryToMainTable(report);
+        }
 
         // Replace nested [[A]-[B]] which also fails Open Source expression compile.
         // TableCell lives in a commercial assembly — touch Text via reflection.

@@ -1,7 +1,9 @@
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Finance;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Modules;
+using Kazuko.Core.Reports;
 using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.HumanResources;
@@ -18,7 +20,7 @@ public sealed class HumanResourcesModule : IKazukoModule
         var repository = GetRequiredService<IHumanResourcesRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
         services.AddSingleton<IEmployeeEditorService>(new EmployeeEditorService(repository, session));
-        services.AddSingleton<IShiftEditorService>(new ShiftEditorService(repository, session));
+        services.AddSingleton<IShiftEditorService>(new ShiftEditorService(repository, session, GetRequiredService<IAuthorizationService>(services)));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
@@ -36,7 +38,8 @@ public sealed class HumanResourcesModule : IKazukoModule
             HumanResourcesPermissions.EmployeeRead,
             () => new HumanResourcesView
             {
-                DataContext = new HumanResourcesViewModel(repository, editor, session, shiftEditor, GetRequiredService<IPayrollService>(services), GetRequiredService<IAuthorizationService>(services))
+                DataContext = new HumanResourcesViewModel(repository, editor, session, shiftEditor, GetRequiredService<IPayrollService>(services), GetRequiredService<IAuthorizationService>(services),
+                    GetRequiredService<IEmployeeMoneyService>(services), GetRequiredService<ICashFundRepository>(services), GetRequiredService<IBankAccountRepository>(services), GetRequiredService<IVoucherCategoryService>(services), GetRequiredService<IEmployeeReportsPresenter>(services))
             },
             AssetRoot + "NHAN_SU.png",
             "Quản lý nhân viên,\nchấm công, lương",

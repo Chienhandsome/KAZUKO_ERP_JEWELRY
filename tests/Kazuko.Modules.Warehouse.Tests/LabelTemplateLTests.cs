@@ -16,6 +16,18 @@ namespace Kazuko.Modules.Warehouse.Tests;
 
 public sealed class LabelTemplateLTests
 {
+    [Fact]
+    public async Task Settings_preview_renders_saved_label_as_png()
+    {
+        var service = new LabelDesignerService(new TemplateStore(), new CompanyService());
+        var bytes = await service.CreatePreviewAsync(Session);
+        using var stream = new MemoryStream(bytes);
+        using var image = Image.FromStream(stream);
+        Assert.Equal(ImageFormat.Png.Guid, image.RawFormat.Guid);
+        Assert.True(image.Width > image.Height);
+        Assert.True(image.Height > 20);
+    }
+
     [Theory]
     [InlineData("0", false, "0 chỉ")]
     [InlineData("0", true, "0 chỉ")]

@@ -1,0 +1,32 @@
+<UserControl x:Class="Kazuko.Modules.Reports.PayrollReportView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shared="clr-namespace:Kazuko.Modules.Reports.Shared"
+ xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI">
+ <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Shared/ReportSharedResources.xaml"/></ResourceDictionary.MergedDictionaries><BooleanToVisibilityConverter x:Key="BoolVis"/></ResourceDictionary></UserControl.Resources>
+ <shared:ReportWorkspaceView EmptyMessage="Chọn kỳ và tải báo cáo lương.">
+  <shared:ReportWorkspaceView.FilterContent>
+   <StackPanel>
+    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSize.Subtitle}" Foreground="{DynamicResource PrimaryBrush}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+    <TextBlock Text="{Binding Instructions}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,12"/>
+    <StackPanel IsEnabled="{Binding CanFilter}">
+     <TextBlock Text="Tháng" Foreground="{DynamicResource TextSecondaryBrush}"/>
+     <ComboBox ItemsSource="{Binding Months}" SelectedItem="{Binding Month}" Style="{StaticResource ReportFilterComboStyle}" Margin="0,4,0,12"/>
+     <TextBlock Text="Năm" Foreground="{DynamicResource TextSecondaryBrush}"/>
+     <TextBox Text="{Binding YearText,UpdateSourceTrigger=PropertyChanged}" MaxLength="4" Style="{StaticResource ReportFilterFieldStyle}" Margin="0,4,0,12"/>
+     <CheckBox Content="Cho phép bản nháp" IsChecked="{Binding IncludeDraft}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+     <TextBlock Text="Nhân viên" Foreground="{DynamicResource TextSecondaryBrush}"/>
+     <ComboBox ItemsSource="{Binding Employees}" SelectedItem="{Binding SelectedEmployee}" Style="{StaticResource ReportFilterComboStyle}" IsTextSearchEnabled="True" TextSearch.TextPath="Name" Margin="0,4,0,12"/>
+    </StackPanel>
+    <Button Content="Tải lại báo cáo" Command="{Binding RefreshCommand}" Style="{StaticResource ReportPrimaryButtonStyle}" Margin="0,0,0,8"/>
+    <Button Content="Xóa bộ lọc" Command="{Binding ClearFiltersCommand}" Style="{StaticResource ReportOutlineButtonStyle}" Margin="0,0,0,8"/>
+    <Button Content="Cột báo cáo" Command="{Binding ConfigureColumnsCommand}" Style="{StaticResource ReportOutlineButtonStyle}" Visibility="{Binding SupportsColumnLayout,Converter={StaticResource BoolVis}}" Margin="0,0,0,8"/>
+    <Separator Margin="0,4,0,12"/>
+    <Button Content="Lưu PDF" Command="{Binding SavePdfCommand}" Style="{StaticResource ReportPrimaryButtonStyle}" access:PermissionAccess.Rule="REP_EXPORT" Margin="0,0,0,8"/>
+    <Button Content="Mở PDF" Command="{Binding PreviewCommand}" Style="{StaticResource ReportOutlineButtonStyle}" access:PermissionAccess.Rule="REP_EXPORT" Margin="0,0,0,8"/>
+    <Button Content="In" Command="{Binding PrintCommand}" Style="{StaticResource ReportOutlineButtonStyle}" access:PermissionAccess.Rule="REP_EXPORT" Margin="0,0,0,8"/>
+    <Button Content="Xuất Excel" Command="{Binding ExportExcelCommand}" Style="{StaticResource ReportOutlineButtonStyle}" access:PermissionAccess.Rule="DATA_EXPORT"/>
+    <TextBlock Text="Bản nháp được đóng dấu BẢN NHÁP; đổi bộ lọc sẽ tải lại dữ liệu và bản xem trước."
+      Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+   </StackPanel>
+  </shared:ReportWorkspaceView.FilterContent>
+ </shared:ReportWorkspaceView>
+</UserControl>

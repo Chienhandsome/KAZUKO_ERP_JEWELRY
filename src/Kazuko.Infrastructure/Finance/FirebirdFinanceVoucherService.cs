@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Dapper;
 using FirebirdSql.Data.FirebirdClient;
 using Kazuko.Core.Authentication;
@@ -54,7 +55,10 @@ public sealed class FirebirdFinanceVoucherService : IFinanceVoucherService
 
         try
         {
-            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, ct);
+            var companyId = await connection.QuerySingleAsync<long>(new CommandDefinition(
+                "SELECT COMPANY_ID FROM BRANCHES WHERE ID=@BranchId", new { session.BranchId }, fbTx, cancellationToken: ct));
+            var category = await FirebirdVoucherCategoryService.ResolveForVoucherAsync(
+                connection, fbTx, companyId, voucherType, request.CategoryId, ct);
 
             long? cashFundId = null;
             long? bankAccountId = null;
@@ -83,12 +87,12 @@ public sealed class FirebirdFinanceVoucherService : IFinanceVoucherService
                         (COMPANY_ID, BRANCH_ID, CODE, VOUCHER_DATE, VOUCHER_TYPE, PAYMENT_METHOD,
                          AMOUNT_VND, CURRENCY_CODE, EXCHANGE_RATE, CASH_FUND_ID, BANK_ACCOUNT_ID,
                          REFERENCE_NUMBER, NOTES, SOURCE_DOCUMENT_TYPE, SOURCE_DOCUMENT_ID,
-                         STATUS_CODE, CREATED_BY)
+                         STATUS_CODE, CREATED_BY, CATEGORY_ID, CATEGORY_NAME)
                     VALUES
                         (@CompanyId, @BranchId, @Code, @VoucherDate, @VoucherType, @Method,
                          @Amount, 'VND', 1, @CashFundId, @BankAccountId,
                          @Reference, @Notes, @SourceType, 0,
-                         'POSTED', @CreatedBy)
+                         'POSTED', @CreatedBy, @CategoryId, @CategoryName)
                     RETURNING ID
                     """,
                     new
@@ -106,10 +110,14 @@ public sealed class FirebirdFinanceVoucherService : IFinanceVoucherService
                         Notes = notes.Length == 0 ? null : notes,
                         SourceType = ManualSourceType,
                         CreatedBy = session.UserId > 0 ? session.UserId : (long?)null,
+                        CategoryId = category.Id,
+                        CategoryName = category.Name,
                     },
                     transaction,
                     cancellationToken: ct));
 
+            await AuditLogWriter.WriteAsync(connection, fbTx, "MANUAL_VOUCHER_CREATED", session.UserId, session.Username,
+                session.BranchId, "CASH_VOUCHERS", id.ToString(), JsonSerializer.Serialize(new { Code = code, CategoryId = category.Id, CategoryName = category.Name, request.AmountVnd }), ct);
             await transaction.CommitAsync(ct);
             return await _dashboard.GetVoucherDetailAsync(id, session, ct)
                 ?? throw new InvalidOperationException($"Không đọc được phiếu vừa tạo #{id}.");
@@ -134,11 +142,16 @@ public sealed class FirebirdFinanceVoucherService : IFinanceVoucherService
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(ct);
-        var companyId = await ResolveCompanyIdAsync(connection, ct);
+        var companyId = await ResolveCompanyIdAsync(connection, session.BranchId, ct);
 
         await using var transaction = await connection.BeginTransactionAsync(ct);
         try
         {
+            var linkedSource = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+                "SELECT SOURCE_DOCUMENT_TYPE FROM CASH_VOUCHERS WHERE ID=@Id AND COMPANY_ID=@CompanyId AND BRANCH_ID=@BranchId",
+                new { Id = id, CompanyId = companyId, BranchId = session.BranchId }, transaction, cancellationToken: ct));
+            if (linkedSource is "HR_AWARD" or "HR_PAYROLL")
+                throw new InvalidOperationException("Phiếu liên kết nhân sự. Hủy tại tab Khen thưởng - Kỷ luật hoặc Tính lương để cập nhật đồng thời.");
             var affected = await connection.ExecuteAsync(
                 new CommandDefinition("""
                     UPDATE CASH_VOUCHERS
@@ -234,14 +247,14 @@ public sealed class FirebirdFinanceVoucherService : IFinanceVoucherService
     }
 
     private static async Task<long> ResolveCompanyIdAsync(
-        IDbConnection connection, CancellationToken ct)
+        IDbConnection connection, long branchId, CancellationToken ct)
     {
         var id = await connection.QuerySingleOrDefaultAsync<long?>(
             new CommandDefinition(
-                "SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'",
+                "SELECT COMPANY_ID FROM BRANCHES WHERE ID=@BranchId", new { BranchId = branchId },
                 cancellationToken: ct));
         if (id is null)
-            throw new InvalidOperationException("Không tìm thấy công ty KAZUKO.");
+            throw new InvalidOperationException("Không tìm thấy doanh nghiệp của chi nhánh.");
         return id.Value;
     }
 }

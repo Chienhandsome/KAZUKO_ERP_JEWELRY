@@ -93,9 +93,19 @@
           </StackPanel>
         </StackPanel>
 
-        <TextBlock Text="Loại" Style="{StaticResource FinanceFieldLabelStyle}" />
+        <TextBlock Text="Hướng phiếu" Style="{StaticResource FinanceFieldLabelStyle}" />
         <TextBox Text="{Binding VoucherTypeName, Mode=OneWay}" Style="{StaticResource DialogFieldStyle}"
                  IsReadOnly="True" Background="{DynamicResource SurfaceAltBrush}" />
+
+        <StackPanel Visibility="{Binding SupportsCategories, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
+          <TextBlock Text="{Binding CategoryLabel}" Style="{StaticResource FinanceFieldLabelStyle}" />
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Quản lý loại" Command="{Binding ManageCategoriesCommand}"
+                    Style="{StaticResource FinanceOutlineButtonStyle}" Margin="8,0,0,0" />
+            <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" DisplayMemberPath="Name"
+                      Style="{StaticResource FinanceFilterComboStyle}" MinHeight="40" AutomationProperties.Name="Loại thu/chi" />
+          </DockPanel>
+        </StackPanel>
 
         <TextBlock Text="Ngày" Style="{StaticResource FinanceFieldLabelStyle}" />
         <DatePicker SelectedDate="{Binding VoucherDate}" MinHeight="40" Margin="0,0,0,12"

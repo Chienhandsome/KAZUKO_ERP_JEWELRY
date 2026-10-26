@@ -275,10 +275,8 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                         cancellationToken: cancellationToken)) ?? string.Empty;
             }
 
-            await transaction.CommitAsync(cancellationToken);
-            committed = true;
-
             await AuditLogWriter.WriteAsync(
+                connection, (FbTransaction)transaction,
                 isCreate ? "EMPLOYEE_CREATED" : "EMPLOYEE_UPDATED",
                 session.UserId,
                 session.Username,
@@ -293,6 +291,7 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                 !string.Equals(previousStatus, normalized.StatusCode, StringComparison.OrdinalIgnoreCase))
             {
                 await AuditLogWriter.WriteAsync(
+                    connection, (FbTransaction)transaction,
                     "EMPLOYEE_STATUS_CHANGED",
                     session.UserId,
                     session.Username,
@@ -303,6 +302,8 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                     cancellationToken);
             }
 
+            await transaction.CommitAsync(cancellationToken);
+            committed = true;
             return new EmployeeEditResult(id, code, normalized.FullName, normalized.StatusCode, normalized.IsActive);
         }
         catch
@@ -334,6 +335,7 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
         await connection.OpenAsync(cancellationToken);
 
         var status = isActive ? EmployeeStatusCodes.Working : EmployeeStatusCodes.Terminated;
+        await using var transaction = connection.BeginTransaction();
         var affected = await connection.ExecuteAsync(
             new CommandDefinition("""
                 UPDATE HR_EMPLOYEES
@@ -351,11 +353,13 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                     USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value,
                     ID = id
                 },
+                transaction,
                 cancellationToken: cancellationToken));
         if (affected == 0)
             throw new InvalidOperationException("Nhân viên không còn tồn tại.");
 
         await AuditLogWriter.WriteAsync(
+            connection, transaction,
             isActive ? "EMPLOYEE_REACTIVATED" : "EMPLOYEE_TERMINATED",
             session.UserId,
             session.Username,
@@ -363,6 +367,7 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
             "HR_EMPLOYEES",
             id.ToString(),
             cancellationToken: cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<WorkShiftItem>> GetWorkShiftsAsync(
@@ -392,14 +397,18 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
     {
         ArgumentNullException.ThrowIfNull(session);
         var name = (request.Name ?? string.Empty).Trim();
-        if (name.Length == 0)
-            throw new InvalidOperationException("Tên ca là bắt buộc.");
+        if (name.Length is < 1 or > 50)
+            throw new InvalidOperationException("Tên ca phải từ 1 đến 50 ký tự.");
+        if (request.StartTime is { } invalidStart && (invalidStart < TimeSpan.Zero || invalidStart >= TimeSpan.FromDays(1)) ||
+            request.EndTime is { } invalidEnd && (invalidEnd < TimeSpan.Zero || invalidEnd >= TimeSpan.FromDays(1)))
+            throw new InvalidOperationException("Giờ của ca phải nằm trong ngày, từ 00:00 đến 23:59.");
         if (request.StartTime is { } start && request.EndTime is { } end && start == end)
             throw new InvalidOperationException("Giờ bắt đầu và giờ kết thúc không được trùng nhau.");
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
+        await using var transaction = connection.BeginTransaction();
         var duplicate = await connection.ExecuteScalarAsync<int>(
             new CommandDefinition("""
                 SELECT COUNT(*) FROM HR_WORK_SHIFTS
@@ -408,6 +417,7 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                   AND (@EXCLUDE_ID = 0 OR ID <> @EXCLUDE_ID)
                 """,
                 new { NAME = name, EXCLUDE_ID = request.Id ?? 0L },
+                transaction,
                 cancellationToken: cancellationToken));
         if (duplicate > 0)
             throw new InvalidOperationException("Tên ca đã tồn tại.");
@@ -426,7 +436,7 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                         ((SELECT ID FROM COMPANIES WHERE CODE='KAZUKO'), @NAME, @START_TIME, @END_TIME,
                          (SELECT COALESCE(MAX(DISPLAY_ORDER), 0) + 1 FROM HR_WORK_SHIFTS
                           WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE='KAZUKO')),
-                         TRUE, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
+                         @IS_ACTIVE, @USER_ID, @USER_ID, CURRENT_TIMESTAMP)
                     RETURNING ID
                     """,
                     new
@@ -434,8 +444,10 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                         NAME = name,
                         START_TIME = (object?)request.StartTime ?? DBNull.Value,
                         END_TIME = (object?)request.EndTime ?? DBNull.Value,
+                        IS_ACTIVE = request.IsActive,
                         USER_ID = userId
                     },
+                    transaction,
                     cancellationToken: cancellationToken));
         }
         else
@@ -444,7 +456,7 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
             var affected = await connection.ExecuteAsync(
                 new CommandDefinition("""
                     UPDATE HR_WORK_SHIFTS SET
-                        NAME=@NAME, START_TIME=@START_TIME, END_TIME=@END_TIME,
+                        NAME=@NAME, START_TIME=@START_TIME, END_TIME=@END_TIME, IS_ACTIVE=@IS_ACTIVE,
                         UPDATED_BY=@USER_ID, UPDATED_AT=CURRENT_TIMESTAMP
                     WHERE ID=@ID
                       AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
@@ -454,22 +466,25 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                         NAME = name,
                         START_TIME = (object?)request.StartTime ?? DBNull.Value,
                         END_TIME = (object?)request.EndTime ?? DBNull.Value,
+                        IS_ACTIVE = request.IsActive,
                         USER_ID = userId,
                         ID = id
                     },
+                    transaction,
                     cancellationToken: cancellationToken));
             if (affected == 0)
                 throw new InvalidOperationException("Ca làm việc không còn tồn tại.");
         }
 
         await AuditLogWriter.WriteAsync(
+            connection, transaction,
             isCreate ? "WORK_SHIFT_CREATED" : "WORK_SHIFT_UPDATED",
             session.UserId,
             session.Username,
             session.BranchId,
             "HR_WORK_SHIFTS",
             id.ToString(),
-            $"Name={name}",
+            $"Name={name};IsActive={request.IsActive}",
             cancellationToken);
 
         var saved = await connection.QueryFirstOrDefaultAsync<WorkShiftItem>(
@@ -481,8 +496,38 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                   AND COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
                 """,
                 new { ID = id },
+                transaction,
                 cancellationToken: cancellationToken));
-        return saved ?? new WorkShiftItem(id, name, request.StartTime, request.EndTime, 0, true);
+        await transaction.CommitAsync(cancellationToken);
+        return saved ?? new WorkShiftItem(id, name, request.StartTime, request.EndTime, 0, request.IsActive);
+    }
+
+    public async Task DeleteWorkShiftAsync(long id, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (id <= 0) throw new InvalidOperationException("Chọn ca làm việc cần xóa.");
+        await using var connection = FirebirdDatabase.CreateConnection(); await connection.OpenAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction();
+        try
+        {
+            var before = await connection.QuerySingleOrDefaultAsync<WorkShiftItem>(new CommandDefinition("""
+                SELECT ID AS Id,NAME AS Name,START_TIME AS StartTime,END_TIME AS EndTime,DISPLAY_ORDER AS DisplayOrder,IS_ACTIVE AS IsActive
+                FROM HR_WORK_SHIFTS WHERE ID=@id AND COMPANY_ID=(SELECT COMPANY_ID FROM BRANCHES WHERE ID=@BranchId) WITH LOCK
+                """, new { id, session.BranchId }, transaction, cancellationToken: cancellationToken))
+                ?? throw new InvalidOperationException("Không tìm thấy ca làm việc trong doanh nghiệp.");
+            if (await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(*) FROM HR_ATTENDANCE_RECORDS WHERE SHIFT_ID=@id", new { id }, transaction, cancellationToken: cancellationToken)) > 0)
+                throw new InvalidOperationException("Ca đã có dữ liệu chấm công. Hãy bỏ chọn Đang sử dụng thay vì xóa.");
+            await connection.ExecuteAsync(new CommandDefinition("DELETE FROM HR_WORK_SHIFTS WHERE ID=@id", new { id }, transaction, cancellationToken: cancellationToken));
+            await AuditLogWriter.WriteAsync(connection, transaction, "WORK_SHIFT_DELETED", session.UserId, session.Username, session.BranchId,
+                "HR_WORK_SHIFTS", id.ToString(), System.Text.Json.JsonSerializer.Serialize(before), cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (FbException ex) when (ex.ErrorCode == 335544466)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException("Ca làm việc đang được sử dụng. Hãy ngừng sử dụng thay vì xóa.", ex);
+        }
+        catch { await transaction.RollbackAsync(cancellationToken); throw; }
     }
 
     private static DateTime AttendanceMonthStart(int year, int month)
@@ -674,12 +719,10 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                 }
             }
 
-            await transaction.CommitAsync(cancellationToken);
-            committed = true;
-
             var first = entries.Min(e => e.WorkDate.Date);
             var last = entries.Max(e => e.WorkDate.Date);
             await AuditLogWriter.WriteAsync(
+                connection, (FbTransaction)transaction,
                 "ATTENDANCE_STATUS_SET",
                 session.UserId,
                 session.Username,
@@ -688,6 +731,8 @@ public sealed class FirebirdHumanResourcesRepository : IHumanResourcesRepository
                 $"{first:yyyy-MM-dd}..{last:yyyy-MM-dd}",
                 $"Status={status}; Cells={entries.Count}",
                 cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            committed = true;
         }
         catch
         {

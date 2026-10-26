@@ -27,6 +27,11 @@ public sealed class SalesModule : IKazukoModule
         var templates = GetRequiredService<IPrintTemplateStore>(services);
         var printService = new SalesReceiptPrintService(templates);
         services.AddSingleton(printService);
+        var templatePreview = new ReceiptTemplatePreviewService(
+            printService, GetRequiredService<Kazuko.Core.Company.ICompanyProfileService>(services));
+        services.AddSingleton<IReceiptTemplatePreviewService>(templatePreview);
+        services.AddSingleton<IReceiptDesignerService>(new ReceiptDesignerService(
+            templates, templatePreview, GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services)));
         services.AddSingleton<ISalesReceiptPresenter>(
             new WpfSalesReceiptPresenter(printData, session, printService));
     }

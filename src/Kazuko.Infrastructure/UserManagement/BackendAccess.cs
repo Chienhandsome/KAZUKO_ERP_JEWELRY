@@ -14,6 +14,7 @@ public static class BackendAccess
             ?? Value(args.FirstOrDefault(), "VoucherType") as string ?? "").ToUpperInvariant();
         bool Lookup() => new[] { "SALES", "WAREHOUSE", "PRODUCTION", "DEBT", "FINANCE", "CUSTOMER", "SUPPLIER", "HR", "USER_MANAGEMENT", "PRICE_BOARD", "REPORT", "SETTINGS" }
             .Any(route => NavigationAccess.Allows(rights, route));
+        if (contract == "IPayrollReportService") return (method is "GetAsync" or "GetEmployeesAsync") && Has("REP_VIEW") && Has("HR_PAYROLL");
         if (contract.EndsWith("ReportService", StringComparison.Ordinal)) return Has("REP_VIEW");
         return contract switch
         {
@@ -36,9 +37,19 @@ public static class BackendAccess
                 "CalculateAsync" => Has("HR_PAYROLL", PermissionAction.Add),
                 "AdjustAsync" or "CloseAsync" => Has("HR_PAYROLL", PermissionAction.Edit),
                 "ReopenAsync" => Has("HR_PAYROLL") && Has("HR_PAYROLL_REOPEN", PermissionAction.Edit), _ => false },
+            "IEmployeeMoneyService" => method switch {
+                "GetEmployeesAsync" => Any("CAT_EMPLOYEES", "HR_PAYROLL"),
+                "ListAsync" => Has("CAT_EMPLOYEES"),
+                "CreateAsync" => Has("CAT_EMPLOYEES", PermissionAction.Add) &&
+                    (Value(args.FirstOrDefault(), "Handling") as string != "CASH" ||
+                    Has(Value(args.FirstOrDefault(), "Kind") as string == "REWARD" ? "FIN_CASH_OUT" : "FIN_CASH_IN", PermissionAction.Add)),
+                "CancelAsync" => Has("CAT_EMPLOYEES", PermissionAction.Delete),
+                "PaySalaryAsync" => Has("HR_PAYROLL", PermissionAction.Edit) && Has("FIN_CASH_OUT", PermissionAction.Add),
+                "CancelSalaryPaymentAsync" => Has("HR_PAYROLL", PermissionAction.Edit) && Has("FIN_REVERSE", PermissionAction.Delete), _ => false },
             "IHumanResourcesRepository" => method switch {
                 "SaveAsync" => Has("CAT_EMPLOYEES", SaveAction()), "SetActiveAsync" => Has("CAT_EMPLOYEES", args.ElementAtOrDefault(1) is true ? PermissionAction.Edit : PermissionAction.Delete),
                 "SaveWorkShiftAsync" => Has("CAT_EMPLOYEES", SaveAction()),
+                "DeleteWorkShiftAsync" => Has("CAT_EMPLOYEES", PermissionAction.Delete),
                 "SetAttendanceStatusAsync" => Has("CAT_EMPLOYEES", PermissionAction.Edit),
                 "CreateAttendanceMonthAsync" => Has("CAT_EMPLOYEES", PermissionAction.Add),
                 "DeleteAttendanceMonthAsync" => Has("CAT_EMPLOYEES", PermissionAction.Delete),
@@ -56,6 +67,10 @@ public static class BackendAccess
             "IMaterialReceiptService" => Has("INV_MATERIAL_RECEIPT", PermissionAction.Add),
             "IMaterialIssueService" or "IStockTransferService" => Has("INV_TRANSFER", PermissionAction.Add),
             "IStockAdjustmentService" => Has("INV_STOCKTAKE", PermissionAction.Add),
+            "IStocktakeService" => method switch {
+                "GetLocationsAsync" or "ListAsync" or "GetAsync" => Has("INV_STOCKTAKE"),
+                "CreateAsync" => Has("INV_STOCKTAKE", PermissionAction.Add),
+                "SaveAsync" or "ScanAsync" or "ReviewAsync" or "CloseAsync" => Has("INV_STOCKTAKE", PermissionAction.Edit), _ => false },
             "IFinishedGoodsIssueService" => method == "ReverseAsync" ? Has("INV_REVERSE", PermissionAction.Delete) : Has("INV_TRANSFER", PermissionAction.Add),
             "IOutsourcedCraftService" => method == "SearchHoldingsAsync" ? Has("PROD_MATERIAL_ISSUE") : Has("PROD_MATERIAL_ISSUE", PermissionAction.Add),
             "IFinishedProductTransferService" => method switch {
@@ -110,6 +125,10 @@ public static class BackendAccess
             "IFinancialVoucherPostingService" => Has(method == "PostReceiptAsync" ? "FIN_CASH_IN" : "FIN_CASH_OUT", PermissionAction.Add),
             "IFinanceVoucherService" => method == "CancelVoucherAsync" ? Has("FIN_REVERSE", PermissionAction.Delete)
                 : Has(VoucherType() == "IN" ? "FIN_CASH_IN" : "FIN_CASH_OUT", PermissionAction.Add),
+            "IVoucherCategoryService" => method switch {
+                "DeleteAsync" => Has(VoucherType() == "IN" ? "FIN_CASH_IN" : "FIN_CASH_OUT", PermissionAction.Delete),
+                "ListAsync" => Has(VoucherType() == "IN" ? "FIN_CASH_IN" : "FIN_CASH_OUT"),
+                "SaveAsync" => Has(VoucherType() == "IN" ? "FIN_CASH_IN" : "FIN_CASH_OUT", SaveAction()), _ => false },
             "IFinanceDashboardRepository" => method == "SearchVouchersAsync" ? (VoucherType() == "" ? Has("FIN_CASH_IN") && Has("FIN_CASH_OUT") : Has(VoucherType() == "IN" ? "FIN_CASH_IN" : "FIN_CASH_OUT"))
                 : method == "GetVoucherDetailAsync" ? Any("FIN_CASH_IN", "FIN_CASH_OUT") : Has("FIN_FUND"),
             "ICashFundRepository" or "IBankAccountRepository" => NavigationAccess.Allows(rights, "SALES") || NavigationAccess.Allows(rights, "FINANCE") || Any("DEBT_SETTLEMENT", "INV_MATERIAL_RECEIPT", "PROD_ORDER"),
@@ -120,7 +139,7 @@ public static class BackendAccess
             "ICompanyProfileService" => method == "GetAsync" ? Lookup() : Has("SYS_SETTINGS", PermissionAction.Edit),
             "IPrintTemplateStore" => method == "SaveAsync" ? Has("SYS_SETTINGS", PermissionAction.Edit) : Lookup(),
             "IDatabaseManagementService" => method == "CreateBlankDatabaseAsync" ? Has("SYS_DATABASE", PermissionAction.Add) && Has("SYS_DATA_DELETE", PermissionAction.Delete)
-                : Has("SYS_DATABASE", method == "GetInfoAsync" || method == "ValidateDatabaseFileAsync" ? PermissionAction.View : PermissionAction.Edit),
+                : Has("SYS_DATABASE", method is "GetInfoAsync" or "ValidateDatabaseFileAsync" or "GetBackupStatus" ? PermissionAction.View : PermissionAction.Edit),
             _ => false
         };
     }

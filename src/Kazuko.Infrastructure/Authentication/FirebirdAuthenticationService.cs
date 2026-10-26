@@ -123,13 +123,15 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
                 return new AuthenticationResult(false, ErrorMessage: "Tài khoản không có quyền truy cập chi nhánh đã chọn.");
             }
 
+            await using var transaction = connection.BeginTransaction();
             await using var updateCommand = new FbCommand(
                 "UPDATE USERS SET LAST_LOGIN_AT = CURRENT_TIMESTAMP WHERE ID = @ID",
-                connection);
+                connection, transaction);
             updateCommand.Parameters.AddWithValue("@ID", userId);
             await updateCommand.ExecuteNonQueryAsync(cancellationToken);
 
             await AuditLogWriter.WriteAsync(
+                connection, transaction,
                 "LOGIN_SUCCESS",
                 userId,
                 storedUserName,
@@ -138,6 +140,7 @@ public sealed class FirebirdAuthenticationService : IAuthenticationService
                 userId.ToString(),
                 $"Branch={selectedBranchCode}",
                 cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             var session = new AuthenticatedSession(
                 userId,

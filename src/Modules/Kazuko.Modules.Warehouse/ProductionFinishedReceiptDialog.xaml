@@ -196,7 +196,8 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="TL tổng (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding TotalWeightText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+                   Style="{StaticResource ReceiptFieldStyle}"
+                   ToolTip="Trọng lượng: 0.5 hoặc 0,5 đều là nửa chỉ. Không dùng dấu phân nhóm hàng nghìn." />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
@@ -205,7 +206,8 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="TL đá (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding StoneWeightText, UpdateSourceTrigger=PropertyChanged}"
-                   Style="{StaticResource ReceiptFieldStyle}" />
+                   Style="{StaticResource ReceiptFieldStyle}"
+                   ToolTip="Trọng lượng: 0.023 hoặc 0,023 đều hợp lệ. Không dùng dấu phân nhóm hàng nghìn." />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
@@ -215,7 +217,7 @@
           <TextBlock Text="TL vàng (chỉ):" Style="{StaticResource ReceiptFormLabelStyle}" />
           <TextBox Grid.Column="1" Text="{Binding GoldWeightText, UpdateSourceTrigger=PropertyChanged}"
                    Style="{StaticResource ReceiptFieldStyle}"
-                   ToolTip="Tự tính = TL tổng − TL đá, có thể sửa tay." />
+                   ToolTip="Tự tính = TL tổng − TL đá, có thể sửa tay. Dùng dấu chấm hoặc dấu phẩy cho phần thập phân." />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>

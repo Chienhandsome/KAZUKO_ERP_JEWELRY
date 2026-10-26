@@ -43,7 +43,8 @@ public sealed class FinanceModule : IKazukoModule
             () => new FinanceView
             {
                 DataContext = new FinanceViewModel(dashboard, vouchers, payables, receivables, session, funds, banks,
-                    GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
+                    GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services),
+                    GetRequiredService<IVoucherCategoryService>(services))
             },
             AssetRoot + "TC.png",
             "Thu chi tiền, phiếu thu/chi\nvà tổng quan tài chính",

@@ -43,7 +43,9 @@ public sealed class SupplierRepositoryTests
             "TP. Hồ Chí Minh",
             "0301234567",
             "Ghi chú",
-            true);
+            true,
+            string.Empty,
+            string.Empty);
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             _repository.SaveAsync(request, null!));
@@ -68,7 +70,9 @@ public sealed class SupplierRepositoryTests
             "TP. Hồ Chí Minh",
             "0301234567",
             "Ghi chú",
-            true);
+            true,
+            string.Empty,
+            string.Empty);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _repository.SaveAsync(request, session));
@@ -94,7 +98,9 @@ public sealed class SupplierRepositoryTests
             "TP. Hồ Chí Minh",
             "0301234567",
             "Ghi chú",
-            true);
+            true,
+            string.Empty,
+            string.Empty);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _repository.SaveAsync(request, session));
@@ -119,7 +125,9 @@ public sealed class SupplierRepositoryTests
             "TP. Hồ Chí Minh",
             "0301234567",
             "Ghi chú",
-            true);
+            true,
+            string.Empty,
+            string.Empty);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _repository.SaveAsync(request, session));
@@ -145,7 +153,9 @@ public sealed class SupplierRepositoryTests
             "TP. Hồ Chí Minh",
             "0301234567",
             "Ghi chú",
-            true);
+            true,
+            string.Empty,
+            string.Empty);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _repository.SaveAsync(request, session));
@@ -206,7 +216,9 @@ public sealed class SupplierRepositoryTests
             "TP. Hồ Chí Minh",
             "   ",
             "Ghi chú",
-            true);
+            true,
+            string.Empty,
+            string.Empty);
 
         if (!IsDatabaseConfigured())
             return;
@@ -232,7 +244,9 @@ public sealed class SupplierRepositoryTests
             "TP. Hồ Chí Minh",
             "0301234567",
             "Ghi chú đối tác",
-            true);
+            true,
+            string.Empty,
+            string.Empty);
 
         Assert.Equal(1, detail.Id);
         Assert.Equal("NCC000001", detail.Code);

@@ -14,7 +14,6 @@
             <conv:NullOrEmptyToVisibilityConverter x:Key="NullToVis" />
             <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
             <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
-            <conv:StatusCodeToBrushConverter x:Key="StatusToBrush" />
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -156,7 +155,7 @@
                                    Style="{StaticResource ProductionMetricLabelStyle}" />
                         <TextBlock Text="{Binding InProgressCount}"
                                    Style="{StaticResource ProductionMetricValueStyle}"
-                                   Foreground="#E8622C" TextAlignment="Center" FontSize="28" />
+                                   Foreground="{DynamicResource PrimaryBrush}" TextAlignment="Center" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource ProductionMetricCardStyle}">
@@ -165,7 +164,7 @@
                                    Style="{StaticResource ProductionMetricLabelStyle}" />
                         <TextBlock Text="{Binding CompletedCount}"
                                    Style="{StaticResource ProductionMetricValueStyle}"
-                                   Foreground="#2E9E5B" TextAlignment="Center" FontSize="28" />
+                                   Foreground="{DynamicResource SuccessBrush}" TextAlignment="Center" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource ProductionMetricCardStyle}" Margin="0">
@@ -174,7 +173,7 @@
                                    Style="{StaticResource ProductionMetricLabelStyle}" />
                         <TextBlock Text="{Binding CancelledCount}"
                                    Style="{StaticResource ProductionMetricValueStyle}"
-                                   Foreground="#D33F3F" TextAlignment="Center" FontSize="28" />
+                                   Foreground="{DynamicResource DangerBrush}" TextAlignment="Center" />
                     </StackPanel>
                 </Border>
             </UniformGrid>
@@ -252,9 +251,9 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border CornerRadius="10" Padding="8,3" HorizontalAlignment="Center"
-                                        Background="{Binding StatusCode, Converter={StaticResource StatusToBrush}}">
+                                        Style="{StaticResource ProductionStatusBadgeStyle}">
                                     <TextBlock Text="{Binding StatusDisplay, Mode=OneWay}"
-                                               Foreground="White" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource OnPrimaryBrush}" FontSize="{DynamicResource FontSize.Caption}" FontWeight="SemiBold"
                                                HorizontalAlignment="Center" />
                                 </Border>
                             </DataTemplate>

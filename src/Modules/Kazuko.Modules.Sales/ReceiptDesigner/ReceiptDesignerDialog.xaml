@@ -1,0 +1,118 @@
+<Window x:Class="Kazuko.Modules.Sales.ReceiptDesigner.ReceiptDesignerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sửa mẫu bill bán hàng" Width="1200" Height="760" MinWidth="900" MinHeight="550"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+        FontSize="{DynamicResource FontSize.Body}">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Kazuko.Shared.UI;component/Themes/PrintDesignerResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </ResourceDictionary>
+  </Window.Resources>
+  <DockPanel Margin="12">
+    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+      <StackPanel Width="490" Margin="0,0,12,8">
+        <TextBlock Text="Sửa mẫu bill bán hàng" FontSize="{DynamicResource FontSize.Subtitle}"
+                   FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <TextBlock Text="{Binding EditingTemplateName}" FontSize="{DynamicResource FontSize.Caption}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2,0,0" />
+        <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Caption}"
+                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" AutomationProperties.LiveSetting="Polite" />
+      </StackPanel>
+      <WrapPanel VerticalAlignment="Center">
+        <Button Content="Thêm chữ" Command="{Binding AddTextCommand}" Style="{StaticResource PrintDesignerOutlineButtonStyle}" />
+        <Button Content="Xem trước" Command="{Binding PreviewCommand}" Style="{StaticResource PrintDesignerOutlineButtonStyle}" />
+        <Button Content="Lưu mẫu" Command="{Binding SaveCommand}" Style="{StaticResource PrintDesignerPrimaryButtonStyle}"
+                IsDefault="True" Margin="0,0,8,0" />
+        <Button Content="Hủy" Command="{Binding CancelCommand}" Style="{StaticResource PrintDesignerOutlineButtonStyle}" IsCancel="True" />
+      </WrapPanel>
+    </WrapPanel>
+    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10" IsEnabled="{Binding CanEdit}">
+      <TextBlock Text="Vùng nội dung:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+      <ComboBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" DisplayMemberPath="DisplayName"
+                Width="350" MinHeight="40" Margin="0,0,12,0" AutomationProperties.Name="Vùng nội dung bill" />
+      <CheckBox Content="Bám lưới 1 mm" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" Margin="0,0,12,0" />
+      <TextBlock Text="Thu phóng:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+      <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="2" Value="1" Width="110" VerticalAlignment="Center" />
+    </WrapPanel>
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="320" /></Grid.ColumnDefinitions>
+      <Border Margin="0,0,12,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10"
+              Background="{DynamicResource SurfaceBrush}">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                      Background="{DynamicResource AppBackgroundBrush}" Padding="24" IsEnabled="{Binding CanEdit}">
+          <!-- Paper and printed content keep their own colors; editor chrome follows the application theme. -->
+          <Canvas x:Name="DesignCanvas" Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}"
+                  HorizontalAlignment="Left" VerticalAlignment="Top" SnapsToDevicePixels="True"
+                  Focusable="True" AutomationProperties.Name="Canvas thiết kế bill">
+            <Canvas.LayoutTransform><ScaleTransform ScaleX="{Binding Value, ElementName=ZoomSlider}" ScaleY="{Binding Value, ElementName=ZoomSlider}" /></Canvas.LayoutTransform>
+          </Canvas>
+        </ScrollViewer>
+      </Border>
+      <Border Grid.Column="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+              Background="{DynamicResource SurfaceBrush}" CornerRadius="10" Padding="12" IsEnabled="{Binding CanEdit}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+          <StackPanel>
+            <TextBlock Text="Chiều cao vùng (mm)" Foreground="{DynamicResource TextSecondaryBrush}" />
+            <TextBox Text="{Binding SectionHeightMm, StringFormat=F1, ValidatesOnExceptions=True}" MinHeight="40" Margin="0,4,0,12" />
+            <TextBlock Text="Danh sách đối tượng" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+            <ListBox ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}" DisplayMemberPath="DisplayName"
+                     MinHeight="80" MaxHeight="160" Margin="0,0,0,12" HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Đối tượng bill" />
+            <TextBlock Text="Chọn đối tượng trên canvas hoặc trong danh sách để sửa thuộc tính."
+                       TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,10" />
+            <StackPanel>
+              <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Visible" />
+                <Style.Triggers><DataTrigger Binding="{Binding SelectedObject}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+              </Style></StackPanel.Style>
+              <TextBlock Text="{Binding SelectedObject.Name}" Foreground="{DynamicResource PrimaryBrush}" FontWeight="SemiBold" Margin="0,0,0,6" />
+              <TextBlock Text="{Binding SelectedObject.Hint}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,10" />
+              <StackPanel IsEnabled="{Binding SelectedObject.CanMove}">
+                <TextBlock Text="Vị trí và kích thước (mm)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                <UniformGrid Columns="2" Margin="0,0,0,12">
+                  <StackPanel Margin="0,0,4,6"><TextBlock Text="X" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBox Text="{Binding SelectedObject.LeftMm, StringFormat=F1, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                  <StackPanel Margin="4,0,0,6"><TextBlock Text="Y" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBox Text="{Binding SelectedObject.TopMm, StringFormat=F1, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                  <StackPanel Margin="0,0,4,0"><TextBlock Text="Rộng" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBox Text="{Binding SelectedObject.WidthMm, StringFormat=F1, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                  <StackPanel Margin="4,0,0,0"><TextBlock Text="Cao" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBox Text="{Binding SelectedObject.HeightMm, StringFormat=F1, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                </UniformGrid>
+              </StackPanel>
+              <StackPanel Visibility="{Binding SelectedObject.IsText, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Nội dung / biểu thức dữ liệu" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                <TextBox Text="{Binding SelectedObject.Text, UpdateSourceTrigger=PropertyChanged}" MinHeight="60" TextWrapping="Wrap"
+                         AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8" />
+                <TextBlock Text="Giữ các trường trong dấu [ ] để in dữ liệu. Xem trước để kiểm tra biểu thức trước khi lưu."
+                           TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,10" />
+                <TextBlock Text="Font chữ" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <ComboBox x:Name="FontFamilyCombo" SelectedItem="{Binding SelectedObject.FontFamilyName}" MinHeight="40" Margin="0,2,0,8" />
+                <UniformGrid Columns="2" Margin="0,0,0,8">
+                  <StackPanel Margin="0,0,4,0"><TextBlock Text="Cỡ chữ (pt)" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBox Text="{Binding SelectedObject.FontSize, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                  <StackPanel Margin="4,0,0,0"><TextBlock Text="Góc xoay (độ)" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBox Text="{Binding SelectedObject.Angle, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                </UniformGrid>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                  <CheckBox Content="Đậm" IsChecked="{Binding SelectedObject.Bold}" Margin="0,0,16,0" />
+                  <CheckBox Content="Nghiêng" IsChecked="{Binding SelectedObject.Italic}" />
+                </StackPanel>
+                <TextBlock Text="Căn ngang" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <ComboBox ItemsSource="{Binding HorizontalAlignments}" SelectedItem="{Binding SelectedObject.HorzAlign}" MinHeight="40" Margin="0,2,0,8" />
+                <TextBlock Text="Căn dọc" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <ComboBox ItemsSource="{Binding VerticalAlignments}" SelectedItem="{Binding SelectedObject.VertAlign}" MinHeight="40" Margin="0,2,0,12" />
+              </StackPanel>
+              <Button Content="Xóa đối tượng" Command="{Binding DeleteCommand}" Style="{StaticResource PrintDesignerOutlineButtonStyle}" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

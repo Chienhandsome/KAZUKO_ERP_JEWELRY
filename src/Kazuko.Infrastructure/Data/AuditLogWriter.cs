@@ -18,9 +18,10 @@ internal static class AuditLogWriter
         {
             await using var connection = FirebirdDatabase.CreateConnection();
             await connection.OpenAsync(cancellationToken);
+            await using var transaction = connection.BeginTransaction();
             await WriteAsync(
                 connection,
-                null,
+                transaction,
                 eventType,
                 userId,
                 userName,
@@ -29,16 +30,19 @@ internal static class AuditLogWriter
                 entityId,
                 eventData,
                 cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
-        catch
+        catch (OperationCanceledException) { throw; }
+        catch (AuditLogWriteException) { throw; }
+        catch (Exception ex)
         {
-            // Audit must never hide the original business result.
+            throw new AuditLogWriteException(ex);
         }
     }
 
     public static async Task WriteAsync(
         FbConnection connection,
-        FbTransaction? transaction,
+        FbTransaction transaction,
         string eventType,
         long? userId = null,
         string? userName = null,
@@ -48,16 +52,10 @@ internal static class AuditLogWriter
         string? eventData = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(transaction);
         try
         {
-            await using var command = transaction is null
-                ? new FbCommand("""
-                    INSERT INTO AUDIT_LOG
-                        (USER_ID, USERNAME, BRANCH_ID, EVENT_TYPE, ENTITY_TYPE, ENTITY_ID, EVENT_DATA, MACHINE_NAME)
-                    VALUES
-                        (@USER_ID, @USERNAME, @BRANCH_ID, @EVENT_TYPE, @ENTITY_TYPE, @ENTITY_ID, @EVENT_DATA, @MACHINE_NAME)
-                    """, connection)
-                : new FbCommand("""
+            await using var command = new FbCommand("""
                     INSERT INTO AUDIT_LOG
                         (USER_ID, USERNAME, BRANCH_ID, EVENT_TYPE, ENTITY_TYPE, ENTITY_ID, EVENT_DATA, MACHINE_NAME)
                     VALUES
@@ -69,13 +67,17 @@ internal static class AuditLogWriter
             command.Parameters.AddWithValue("@EVENT_TYPE", eventType);
             command.Parameters.AddWithValue("@ENTITY_TYPE", entityType ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@ENTITY_ID", entityId ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@EVENT_DATA", eventData ?? (object)DBNull.Value);
+            command.Parameters.Add("@EVENT_DATA", FbDbType.Text).Value = eventData ?? (object)DBNull.Value;
             command.Parameters.AddWithValue("@MACHINE_NAME", Environment.MachineName);
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
-        catch
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
         {
-            // Audit must never hide the original business result.
+            throw new AuditLogWriteException(ex);
         }
     }
 }
+
+internal sealed class AuditLogWriteException(Exception innerException)
+    : InvalidOperationException("Không thể ghi nhật ký kiểm toán. Thao tác chưa được hoàn tất; vui lòng thử lại hoặc liên hệ quản trị viên.", innerException);

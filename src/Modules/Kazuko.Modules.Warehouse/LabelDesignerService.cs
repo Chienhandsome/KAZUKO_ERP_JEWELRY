@@ -1,4 +1,7 @@
 using System.Windows;
+using System.IO;
+using FastReport.Export.Image;
+using Kazuko.Modules.Warehouse.Printing;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
 using Kazuko.Core.Printing;
@@ -29,5 +32,17 @@ public sealed class LabelDesignerService : ILabelDesignerService
         };
         // ViewModel tự nạp template trong OnLoaded của dialog.
         return Task.FromResult(dialog.ShowDialog() == true);
+    }
+
+    public async Task<byte[]> CreatePreviewAsync(AuthenticatedSession session)
+    {
+        var template = await _templates.GetByCodeAsync(LabelPrinterPreferences.LoadTemplateCode(), session);
+        var profile = await _companyProfile.GetAsync(session);
+        using var report = LabelDesignerViewModel.CreateSampleReportFromTemplate(
+            profile, LabelPrinterPreferences.LoadCompactWeightUnits(), template.Content);
+        using var stream = new MemoryStream();
+        using var export = new ImageExport { ImageFormat = ImageExportFormat.Png, Resolution = 200 };
+        export.Export(report, stream);
+        return stream.ToArray();
     }
 }

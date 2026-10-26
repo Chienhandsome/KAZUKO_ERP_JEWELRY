@@ -16,10 +16,11 @@ namespace Kazuko.Infrastructure.Finance;
 //    0034 và toàn bộ migrations/ — không có ALTER nào thêm cột balance). Vì vậy
 //    "tồn quỹ" / "số dư tài khoản" được suy ra = tổng thu (IN) trừ tổng chi (OUT)
 //    của các phiếu STATUS_CODE='POSTED' gắn với quỹ/tài khoản đó.
-// 2. Mọi truy vấn lọc theo COMPANY (CODE='KAZUKO', convention của repo) và
+// 2. Mọi truy vấn lọc theo COMPANY của chi nhánh trong session và
 //    BRANCH_ID từ session — phiếu thu/chi luôn ghi theo chi nhánh (xem
 //    FirebirdFinancialVoucherPostingService).
-// 3. Cơ cấu chi phí (GetExpenseBreakdownAsync): nhóm theo SOURCE_DOCUMENT_TYPE
+// 3. Cơ cấu chi phí: ưu tiên CATEGORY_NAME đã chụp lúc lập phiếu (migration88),
+//    phiếu chưa phân loại tiếp tục nhóm theo SOURCE_DOCUMENT_TYPE
 //    vì NOTES là text tự do không nhóm được. Các giá trị thực tế trong code:
 //    STOCK_DOCUMENT (thanh toán nhập/xuất kho), PAYABLE_DEBT (trả công nợ NCC),
 //    FINANCIAL_SETTLEMENT (quyết toán), MANUAL (phiếu tạo tay). Label tiếng Việt
@@ -39,7 +40,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(ct);
-        var companyId = await GetCompanyIdAsync(connection, ct);
+        var companyId = await GetCompanyIdAsync(connection, session.BranchId, ct);
 
         var now = DateTime.Now;
         var currentFrom = new DateTime(now.Year, now.Month, 1);
@@ -104,7 +105,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(ct);
-        var companyId = await GetCompanyIdAsync(connection, ct);
+        var companyId = await GetCompanyIdAsync(connection, session.BranchId, ct);
 
         var now = DateTime.Now;
         var from = new DateTime(now.Year, now.Month, 1).AddMonths(-(months - 1));
@@ -149,7 +150,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(ct);
-        var companyId = await GetCompanyIdAsync(connection, ct);
+        var companyId = await GetCompanyIdAsync(connection, session.BranchId, ct);
 
         var now = DateTime.Now;
         var monthFrom = new DateTime(now.Year, now.Month, 1);
@@ -157,13 +158,13 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
         var rows = await connection.QueryAsync<ExpenseRow>(
             new CommandDefinition("""
-                SELECT V.SOURCE_DOCUMENT_TYPE AS SourceType,
+                SELECT V.SOURCE_DOCUMENT_TYPE AS SourceType, V.CATEGORY_NAME AS CategoryName,
                        COALESCE(SUM(V.AMOUNT_VND), 0) AS Amount
                   FROM CASH_VOUCHERS V
                  WHERE V.COMPANY_ID = @CompanyId AND V.BRANCH_ID = @BranchId
                    AND V.STATUS_CODE = 'POSTED' AND V.VOUCHER_TYPE = 'OUT'
                    AND V.VOUCHER_DATE >= @MonthFrom AND V.VOUCHER_DATE < @MonthTo
-                 GROUP BY V.SOURCE_DOCUMENT_TYPE
+                 GROUP BY V.SOURCE_DOCUMENT_TYPE, V.CATEGORY_NAME
                  ORDER BY 2 DESC
                 """,
                 new
@@ -176,7 +177,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
                 cancellationToken: ct));
 
         var grouped = rows
-            .GroupBy(r => ExpenseCategoryLabel(r.SourceType))
+            .GroupBy(r => r.CategoryName ?? ExpenseCategoryLabel(r.SourceType))
             .Select(g => new { Category = g.Key, Amount = g.Sum(x => x.Amount) })
             .OrderByDescending(g => g.Amount)
             .ToList();
@@ -199,7 +200,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(ct);
-        var companyId = await GetCompanyIdAsync(connection, ct);
+        var companyId = await GetCompanyIdAsync(connection, session.BranchId, ct);
         var parameters = new { CompanyId = companyId, BranchId = session.BranchId };
 
         // Xem ghi chú (1) ở đầu file: số dư = thu - chi từ phiếu POSTED.
@@ -248,7 +249,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(ct);
-        var companyId = await GetCompanyIdAsync(connection, ct);
+        var companyId = await GetCompanyIdAsync(connection, session.BranchId, ct);
 
         var rows = await connection.QueryAsync<VoucherRow>(
             new CommandDefinition($"""
@@ -260,7 +261,8 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
                        V.STATUS_CODE AS StatusCode,
                        V.REFERENCE_NUMBER AS ReferenceNumber,
                        V.SOURCE_DOCUMENT_TYPE AS SourceDocumentType,
-                       V.SOURCE_DOCUMENT_ID AS SourceDocumentId
+                       V.SOURCE_DOCUMENT_ID AS SourceDocumentId,
+                       V.CATEGORY_ID AS CategoryId, V.CATEGORY_NAME AS CategoryName
                   FROM CASH_VOUCHERS V
                   LEFT JOIN USERS U ON U.ID = V.CREATED_BY
                  WHERE V.COMPANY_ID = @CompanyId AND V.BRANCH_ID = @BranchId
@@ -269,7 +271,8 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
                    AND (@HasTo = 0 OR V.VOUCHER_DATE < @ToExclusive)
                    AND (@HasSearch = 0
                         OR CAST(V.CODE AS VARCHAR(40) CHARACTER SET UTF8) CONTAINING @Keyword
-                        OR CAST(COALESCE(V.NOTES, '') AS VARCHAR(500) CHARACTER SET UTF8) CONTAINING @Keyword)
+                        OR CAST(COALESCE(V.NOTES, '') AS VARCHAR(500) CHARACTER SET UTF8) CONTAINING @Keyword
+                        OR COALESCE(V.CATEGORY_NAME, '') CONTAINING @Keyword)
                  ORDER BY V.VOUCHER_DATE DESC, V.ID DESC
                 """,
                 new
@@ -293,7 +296,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
             return new CashVoucherListItem(
                 r.Id, r.Code, r.VoucherDate, r.VoucherType,
                 content, partyName ?? string.Empty, r.PaymentMethod,
-                r.AmountVnd, r.CreatedByName, r.StatusCode);
+                r.AmountVnd, r.CreatedByName, r.StatusCode, r.CategoryId, r.CategoryName);
         }).ToList();
     }
 
@@ -305,7 +308,7 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(ct);
-        var companyId = await GetCompanyIdAsync(connection, ct);
+        var companyId = await GetCompanyIdAsync(connection, session.BranchId, ct);
 
         var row = await connection.QuerySingleOrDefaultAsync<VoucherRow>(
             new CommandDefinition("""
@@ -316,7 +319,8 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
                        V.STATUS_CODE AS StatusCode,
                        V.REFERENCE_NUMBER AS ReferenceNumber,
                        V.SOURCE_DOCUMENT_TYPE AS SourceDocumentType,
-                       V.SOURCE_DOCUMENT_ID AS SourceDocumentId
+                       V.SOURCE_DOCUMENT_ID AS SourceDocumentId,
+                       V.CATEGORY_ID AS CategoryId, V.CATEGORY_NAME AS CategoryName
                   FROM CASH_VOUCHERS V
                   LEFT JOIN USERS U ON U.ID = V.CREATED_BY
                  WHERE V.ID = @Id AND V.COMPANY_ID = @CompanyId AND V.BRANCH_ID = @BranchId
@@ -333,19 +337,19 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
             row.PaymentMethod, row.AmountVnd,
             partyName, content.Length == 0 ? null : content,
             row.ReferenceNumber, row.SourceDocumentType, row.SourceDocumentId,
-            row.CreatedByName, row.StatusCode);
+            row.CreatedByName, row.StatusCode, row.CategoryId, row.CategoryName);
     }
 
     private static async Task<long> GetCompanyIdAsync(
-        IDbConnection connection, CancellationToken ct)
+        IDbConnection connection, long branchId, CancellationToken ct)
     {
         // Convention của repo (xem FirebirdPriceBoardRepository).
         var id = await connection.QuerySingleOrDefaultAsync<long?>(
             new CommandDefinition(
-                "SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO'",
+                "SELECT COMPANY_ID FROM BRANCHES WHERE ID=@BranchId", new { BranchId = branchId },
                 cancellationToken: ct));
         if (id is null)
-            throw new InvalidOperationException("Không tìm thấy công ty KAZUKO.");
+            throw new InvalidOperationException("Không tìm thấy doanh nghiệp của chi nhánh.");
         return id.Value;
     }
 
@@ -370,11 +374,11 @@ public sealed class FirebirdFinanceDashboardRepository : IFinanceDashboardReposi
 
     private sealed record MonthFlowRow(int YearNo, int MonthNo, decimal Income, decimal Expense);
 
-    private sealed record ExpenseRow(string? SourceType, decimal Amount);
+    private sealed record ExpenseRow(string? SourceType, string? CategoryName, decimal Amount);
 
     private sealed record VoucherRow(
         long Id, string Code, DateTime VoucherDate, string VoucherType,
         string? RawNotes, string PaymentMethod, decimal AmountVnd,
         string CreatedByName, string StatusCode,
-        string? ReferenceNumber, string? SourceDocumentType, long? SourceDocumentId);
+        string? ReferenceNumber, string? SourceDocumentType, long? SourceDocumentId, long? CategoryId, string? CategoryName);
 }

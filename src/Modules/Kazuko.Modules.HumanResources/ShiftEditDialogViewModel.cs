@@ -3,6 +3,7 @@ using System.Windows.Input;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.HumanResources;
 
@@ -15,21 +16,35 @@ public sealed class ShiftEditDialogViewModel : ObservableObject
     private string _endTimeText = string.Empty;
     private string _errorMessage = string.Empty;
     private bool _isSaving;
+    private bool _isActive = true;
+    private readonly long? _id;
+    private readonly IAuthorizationService? _permissions;
 
     public ShiftEditDialogViewModel(
         IHumanResourcesRepository repository,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor, WorkShiftItem? item = null, IAuthorizationService? permissions = null)
     {
         _repository = repository;
         _sessionAccessor = sessionAccessor;
+        _permissions = permissions;
+        _id = item?.Id;
+        if (item is not null)
+        {
+            _name = item.Name;
+            _startTimeText = item.StartTime?.ToString(@"hh\:mm") ?? string.Empty;
+            _endTimeText = item.EndTime?.ToString(@"hh\:mm") ?? string.Empty;
+            _isActive = item.IsActive;
+        }
 
-        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsSaving);
+        SaveCommand = new AsyncRelayCommand(SaveAsync, () => CanEdit);
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(null), () => !IsSaving);
     }
 
     public event Action<WorkShiftItem?>? RequestClose;
 
-    public string DialogTitle => "Thêm ca làm việc";
+    public string DialogTitle => _id is null ? "Thêm ca làm việc" : "Sửa ca làm việc";
+    public bool IsActive { get => _isActive; set => SetProperty(ref _isActive, value); }
+    public bool CanEdit => !IsSaving && (_permissions?.Current.Allows("CAT_EMPLOYEES", _id is null ? PermissionAction.Add : PermissionAction.Edit) ?? true);
 
     public string Name
     {
@@ -64,6 +79,7 @@ public sealed class ShiftEditDialogViewModel : ObservableObject
         {
             if (SetProperty(ref _isSaving, value))
             {
+                OnPropertyChanged(nameof(CanEdit));
                 ((AsyncRelayCommand)SaveCommand).NotifyCanExecuteChanged();
                 ((RelayCommand)CancelCommand).NotifyCanExecuteChanged();
             }
@@ -73,15 +89,16 @@ public sealed class ShiftEditDialogViewModel : ObservableObject
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
 
-    private async Task SaveAsync()
+    public async Task SaveAsync()
     {
         if (IsSaving)
             return;
 
         ErrorMessage = string.Empty;
-        if (string.IsNullOrWhiteSpace(Name))
+        if (!CanEdit) { ErrorMessage = "Bạn không có quyền lưu ca làm việc."; return; }
+        if (string.IsNullOrWhiteSpace(Name) || Name.Trim().Length > 50)
         {
-            ErrorMessage = "Tên ca là bắt buộc.";
+            ErrorMessage = "Tên ca phải từ 1 đến 50 ký tự.";
             return;
         }
 
@@ -96,6 +113,11 @@ public sealed class ShiftEditDialogViewModel : ObservableObject
             ErrorMessage = "Giờ kết thúc không đúng định dạng HH:mm.";
             return;
         }
+        if (startTime is not null && startTime == endTime)
+        {
+            ErrorMessage = "Giờ bắt đầu và giờ kết thúc không được trùng nhau.";
+            return;
+        }
 
         var session = _sessionAccessor.Current;
         if (session is null)
@@ -107,8 +129,10 @@ public sealed class ShiftEditDialogViewModel : ObservableObject
         IsSaving = true;
         try
         {
+            if (_permissions is not null)
+                await _permissions.DemandAsync([new("CAT_EMPLOYEES", _id is null ? PermissionAction.Add : PermissionAction.Edit)]);
             var saved = await _repository.SaveWorkShiftAsync(
-                new WorkShiftSaveRequest(null, Name.Trim(), startTime, endTime),
+                new WorkShiftSaveRequest(_id, Name.Trim(), startTime, endTime, IsActive),
                 session);
             RequestClose?.Invoke(saved);
         }

@@ -160,6 +160,8 @@ public sealed record WorkShiftItem(
     int DisplayOrder,
     bool IsActive)
 {
+    public string StartTimeText => StartTime?.ToString(@"hh\:mm") ?? "—";
+    public string EndTimeText => EndTime?.ToString(@"hh\:mm") ?? "—";
     public override string ToString() => Name;
 }
 
@@ -167,7 +169,8 @@ public sealed record WorkShiftSaveRequest(
     long? Id,
     string Name,
     TimeSpan? StartTime,
-    TimeSpan? EndTime);
+    TimeSpan? EndTime,
+    bool IsActive = true);
 
 /// <summary>Một record chấm công đã lưu (trạng thái khác "Không có lịch").</summary>
 public sealed record AttendanceRecordItem(
@@ -241,6 +244,8 @@ public interface IHumanResourcesRepository
         WorkShiftSaveRequest request,
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
+
+    Task DeleteWorkShiftAsync(long id, AuthenticatedSession session, CancellationToken cancellationToken = default);
 
     Task CreateAttendanceMonthAsync(int year, int month, AuthenticatedSession session, CancellationToken cancellationToken = default);
 

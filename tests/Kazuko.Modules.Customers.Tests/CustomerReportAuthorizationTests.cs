@@ -52,7 +52,7 @@ public sealed class CustomerReportAuthorizationTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => repo.FindIdentityMatchesAsync("012345678901", null, null, session.Current! with { BranchId = 999 }));
     }
 
-    private sealed class AuthorizationFake(PermissionSnapshot rights) : IAuthorizationService
+    private sealed class AuthorizationFake(PermissionSnapshot rights) : IAuthorizationService   
     {
         public PermissionSnapshot Current => rights;
         public event EventHandler? Changed { add { } remove { } }

@@ -276,8 +276,10 @@ public sealed class AttendanceTabViewModel : ObservableObject
         {
             var employees = await _repository.SearchAsync(
                 new EmployeeSearchFilter(string.Empty, string.Empty), token);
-            var shifts = await _repository.GetWorkShiftsAsync(true, token);
+            var allShifts = await _repository.GetWorkShiftsAsync(false, token);
             var records = await _repository.GetAttendanceRecordsAsync(period.Year, period.Month, token);
+            var recordedShiftIds = records.Select(x => x.ShiftId).ToHashSet();
+            var shifts = allShifts.Where(x => x.IsActive || recordedShiftIds.Contains(x.Id)).ToList();
             if (token.IsCancellationRequested)
                 return;
 
@@ -301,7 +303,7 @@ public sealed class AttendanceTabViewModel : ObservableObject
             StatusMessage = activeEmployees.Count == 0
                 ? "Chưa có nhân viên đang làm việc."
                 : shifts.Count == 0
-                    ? "Chưa có ca làm việc. Bấm \"Thêm ca\" để tạo ca."
+                    ? "Chưa có ca làm việc. Bấm \"Danh mục ca\" để tạo ca."
                     : $"Kỳ {period.DisplayName}: {activeEmployees.Count} nhân viên × {shifts.Count} ca.";
         }
         catch (OperationCanceledException)
@@ -416,8 +418,11 @@ public sealed class AttendanceTabViewModel : ObservableObject
 
     private void AddShift()
     {
-        var created = _shiftEditor.ShowCreate();
-        if (created is not null)
+        try
+        {
+            _shiftEditor.ShowManage();
             _ = LoadGridAsync();
+        }
+        catch (Exception ex) { ErrorMessage = FailureText(ex, "Không mở được danh mục ca làm việc."); }
     }
 }

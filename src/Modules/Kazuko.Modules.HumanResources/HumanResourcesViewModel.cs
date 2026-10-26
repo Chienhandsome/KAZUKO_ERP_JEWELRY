@@ -3,8 +3,10 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Authentication;
+using Kazuko.Core.Finance;
 using Kazuko.Core.HumanResources;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.Reports;
 using Kazuko.Core.UserManagement;
 using Kazuko.Shared.UI.Services;
 
@@ -31,19 +33,35 @@ public sealed class HumanResourcesViewModel : ObservableObject
         IHumanResourcesRepository repository,
         IEmployeeEditorService editor,
         ICurrentSessionAccessor sessionAccessor,
-        IShiftEditorService? shiftEditor = null, IPayrollService? payroll = null, IAuthorizationService? authorization = null)
+        IShiftEditorService? shiftEditor = null, IPayrollService? payroll = null, IAuthorizationService? authorization = null,
+        IEmployeeMoneyService? money = null, ICashFundRepository? funds = null, IBankAccountRepository? banks = null, IVoucherCategoryService? categories = null,
+        IEmployeeReportsPresenter? reports = null)
     {
         _repository = repository;
         _authorization = authorization;
         _editor = editor;
         _sessionAccessor = sessionAccessor;
+        PayrollReportCommand = new AsyncRelayCommand(() => OpenReportAsync(false));
+        PayslipReportCommand = new AsyncRelayCommand(() => OpenReportAsync(true));
+
+        async Task OpenReportAsync(bool individual)
+        {
+            try
+            {
+                if (reports is null) throw new InvalidOperationException("Chưa nạp được module báo cáo.");
+                await reports.ShowPayrollAsync(individual);
+            }
+            catch (Exception ex) { ErrorMessage = ex.Message; }
+        }
 
         Attendance = new AttendanceTabViewModel(
             repository,
             sessionAccessor,
-            shiftEditor ?? new ShiftEditorService(repository, sessionAccessor));
+            shiftEditor ?? new ShiftEditorService(repository, sessionAccessor, authorization));
 
-        Payroll = payroll is null ? null : new PayrollTabViewModel(payroll, sessionAccessor, authorization);
+        Payroll = payroll is null ? null : new PayrollTabViewModel(payroll, sessionAccessor, authorization, money, funds, banks, categories);
+        Awards = money is not null && funds is not null && banks is not null && categories is not null
+            ? new EmployeeAwardsTabViewModel(money, sessionAccessor, funds, banks, categories, authorization) : null;
 
         StatusOptions.Add("Tất cả");
         StatusOptions.Add("Đang làm việc");
@@ -77,6 +95,7 @@ public sealed class HumanResourcesViewModel : ObservableObject
     /// <summary>ViewModel tab Chấm công (index 1 sau khi bỏ tab Cơ cấu tổ chức/Hợp đồng).</summary>
     public AttendanceTabViewModel Attendance { get; }
     public PayrollTabViewModel? Payroll { get; }
+    public EmployeeAwardsTabViewModel? Awards { get; }
 
     public string SearchText
     {
@@ -203,6 +222,7 @@ public sealed class HumanResourcesViewModel : ObservableObject
             {
                 if (value == 1) _ = Attendance.EnsureLoadedAsync();
                 if (value == 2 && Payroll is not null) _ = Payroll.EnsureLoadedAsync();
+                if (value == 3 && Awards is not null) _ = Awards.EnsureLoadedAsync();
             }
         }
     }
@@ -216,6 +236,8 @@ public sealed class HumanResourcesViewModel : ObservableObject
     public ICommand DeleteSelectedCommand { get; }
     public ICommand ToggleActiveCommand { get; }
     public ICommand ExportExcelCommand { get; }
+    public ICommand PayrollReportCommand { get; }
+    public ICommand PayslipReportCommand { get; }
 
     private void ExportExcel(object? parameter)
     {

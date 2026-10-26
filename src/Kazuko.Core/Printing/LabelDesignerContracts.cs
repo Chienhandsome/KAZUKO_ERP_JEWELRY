@@ -8,6 +8,9 @@ namespace Kazuko.Core.Printing;
 /// </summary>
 public interface ILabelDesignerService
 {
+    /// <summary>Ảnh PNG của mẫu tem đã lưu, dùng dữ liệu hàng mẫu.</summary>
+    Task<byte[]> CreatePreviewAsync(AuthenticatedSession session);
+
     /// <summary>
     /// Mở designer sửa mẫu tem. Trả về true nếu người dùng đã lưu mẫu.
     /// </summary>

@@ -113,9 +113,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                     transaction,
                     cancellationToken: cancellationToken));
 
-            await transaction.CommitAsync(cancellationToken);
-
             await AuditLogWriter.WriteAsync(
+                connection, (FbTransaction)transaction,
                 "CUSTOMER_GROUP_CREATED",
                 session.UserId,
                 session.Username,
@@ -124,6 +123,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 id.ToString(),
                 $"Code={code}; Name={normalizedName}; ClassificationOnly=True",
                 cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             return new CustomerGroupOption(id, code, normalizedName, true, false);
         }
@@ -401,10 +401,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                 code = await GetCodeAsync(connection, transaction, id, companyId.Value, cancellationToken);
             }
 
-            await transaction.CommitAsync(cancellationToken);
-            committed = true;
-
             await AuditLogWriter.WriteAsync(
+                connection, (FbTransaction)transaction,
                 isCreate ? "CUSTOMER_CREATED" : "CUSTOMER_UPDATED",
                 session.UserId,
                 session.Username,
@@ -417,6 +415,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             if (!isCreate && oldGroupId > 0 && oldGroupId != normalized.CustomerGroupId)
             {
                 await AuditLogWriter.WriteAsync(
+                    connection, (FbTransaction)transaction,
                     "CUSTOMER_GROUP_CHANGED",
                     session.UserId,
                     session.Username,
@@ -427,6 +426,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                     cancellationToken);
             }
 
+            await transaction.CommitAsync(cancellationToken);
+            committed = true;
             return new CustomerEditResult(id, code, normalized.Name, normalized.Phone, normalized.Address, normalized.IsActive);
         }
         catch
@@ -456,7 +457,8 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
         ArgumentNullException.ThrowIfNull(session);
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await EnsureEditableAsync(connection, null, id, cancellationToken);
+        await using var transaction = connection.BeginTransaction();
+        await EnsureEditableAsync(connection, transaction, id, cancellationToken);
         var affected = await connection.ExecuteAsync(
             new CommandDefinition("""
                 UPDATE CUSTOMERS
@@ -470,11 +472,13 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
                     USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value,
                     ID = id
                 },
+                transaction,
                 cancellationToken: cancellationToken));
         if (affected == 0)
             throw new InvalidOperationException("Khách hàng không còn tồn tại.");
 
         await AuditLogWriter.WriteAsync(
+            connection, transaction,
             isActive ? "CUSTOMER_REACTIVATED" : "CUSTOMER_ARCHIVED",
             session.UserId,
             session.Username,
@@ -482,6 +486,7 @@ public sealed class FirebirdCustomerRepository : ICustomerRepository
             "CUSTOMERS",
             id.ToString(),
             cancellationToken: cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<CustomerPurchaseHistoryItem>> GetPurchaseHistoryAsync(

@@ -1,0 +1,97 @@
+<UserControl x:Class="Kazuko.Modules.Warehouse.StocktakeTabView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
+ xmlns:sys="clr-namespace:System;assembly=mscorlib"
+ xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI" Language="vi-VN">
+ <UserControl.Resources>
+  <ResourceDictionary>
+   <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Themes/WarehouseResources.xaml"/></ResourceDictionary.MergedDictionaries>
+   <BooleanToVisibilityConverter x:Key="CountBool"/>
+   <Style x:Key="CountLabel" TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/><Setter Property="FontSize" Value="{DynamicResource FontSize.Body}"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+   <Style x:Key="CountButton" TargetType="Button" BasedOn="{StaticResource WhOutlineButtonStyle}"><Setter Property="Margin" Value="0,0,8,8"/><Setter Property="MinHeight" Value="36"/></Style>
+   <Style x:Key="CountHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource WhDataGridColumnHeaderStyle}"><Setter Property="Height" Value="Auto"/><Setter Property="MinHeight" Value="34"/></Style>
+  </ResourceDictionary>
+ </UserControl.Resources>
+ <Grid Margin="0,12,0,0" Background="{DynamicResource AppBackgroundBrush}">
+  <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsBusy}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+  <Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+  <Grid>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <WrapPanel><Button Content="Lập phiếu" Command="{Binding NewCommand}" Style="{StaticResource CountButton}" access:PermissionAccess.Rule="INV_STOCKTAKE:Add"/>
+    <Button Content="Tải lại" Command="{Binding RefreshCommand}" Style="{StaticResource CountButton}"/></WrapPanel>
+   <TextBlock Grid.Row="1" Text="Danh sách kiểm kê của chi nhánh" Style="{StaticResource CountLabel}" Margin="0,0,0,8"/>
+   <ListBox Grid.Row="2" ItemsSource="{Binding Counts}" SelectedItem="{Binding SelectedCount}" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/></Trigger></Style.Triggers></Style></ListBox.ItemContainerStyle>
+    <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="4">
+     <TextBlock Text="{Binding Code}" FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Body}"/>
+     <TextBlock Text="{Binding LocationName}" TextWrapping="Wrap"/>
+     <TextBlock Text="{Binding CountDate,StringFormat=dd/MM/yyyy}"/>
+     <TextBlock><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="Bản nháp"/><Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+      <Style.Triggers><DataTrigger Binding="{Binding Status}" Value="COUNTED"><Setter Property="Text" Value="Đã chốt kết quả"/><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+    </StackPanel></DataTemplate></ListBox.ItemTemplate>
+   </ListBox>
+  </Grid>
+  <Grid Grid.Column="2">
+   <Grid.RowDefinitions><RowDefinition Height="1.1*" MaxHeight="320"/><RowDefinition Height="*" MinHeight="80"/><RowDefinition Height="0.65*" MaxHeight="160"/></Grid.RowDefinitions>
+   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel>
+     <TextBlock Text="{Binding Title}" Foreground="{DynamicResource PrimaryBrush}" FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+     <TextBlock Text="{Binding HeaderInfo}" Style="{StaticResource CountLabel}" Margin="0,4,0,0"/>
+     <TextBlock Text="Đang xử lý…" Visibility="{Binding IsBusy,Converter={StaticResource CountBool}}" Style="{StaticResource CountLabel}"/>
+     <TextBlock Text="Kiểm kê chỉ ghi nhận thực tế; chưa thay đổi tồn kho. Đã thấy = 1, chưa thấy = 0. Dòng Cần kiểm lại phải nhập/quét lại hoặc xác nhận không thấy."
+      Style="{StaticResource CountLabel}" Margin="0,6,0,8"/>
+     <WrapPanel Visibility="{Binding IsNew,Converter={StaticResource CountBool}}">
+      <StackPanel Margin="0,0,10,8"><TextBlock Text="Kho kiểm kê" Style="{StaticResource CountLabel}"/>
+       <ComboBox Width="260" ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}"/></StackPanel>
+      <StackPanel Margin="0,0,10,8"><TextBlock Text="Ngày kiểm kê" Style="{StaticResource CountLabel}"/><DatePicker SelectedDate="{Binding CountDate}" Width="160"/></StackPanel>
+      <Button Content="Bắt đầu kiểm kê" Command="{Binding CreateCommand}" Style="{StaticResource CountButton}" VerticalAlignment="Bottom" access:PermissionAccess.Rule="INV_STOCKTAKE:Add"/>
+     </WrapPanel>
+     <TextBox Text="{Binding Notes,UpdateSourceTrigger=PropertyChanged}" MaxLength="1000" ToolTip="Ghi chú phiếu" Margin="0,0,0,8">
+      <TextBox.Style><Style TargetType="TextBox" BasedOn="{StaticResource WhRoundedTextBoxStyle}"><Style.Triggers><DataTrigger Binding="{Binding CanEdit}" Value="False"><Setter Property="IsReadOnly" Value="True"/></DataTrigger><DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="IsReadOnly" Value="False"/></DataTrigger></Style.Triggers></Style></TextBox.Style>
+     </TextBox>
+     <WrapPanel>
+      <Button Content="Lưu nháp" Command="{Binding SaveCommand}" Style="{StaticResource CountButton}" access:PermissionAccess.Rule="INV_STOCKTAKE:Edit"/>
+      <Button Content="Đối chiếu tồn" Command="{Binding ReviewCommand}" Style="{StaticResource CountButton}" access:PermissionAccess.Rule="INV_STOCKTAKE:Edit"/>
+      <Button Content="Chốt kết quả" Command="{Binding CloseCommand}" Style="{StaticResource CountButton}" access:PermissionAccess.Rule="INV_STOCKTAKE:Edit"/>
+      <Button Content="Ô NVL chưa nhập = 0" Command="{Binding ZeroUnenteredCommand}" Style="{StaticResource CountButton}"/>
+     </WrapPanel>
+     <WrapPanel Visibility="{Binding IsSerial,Converter={StaticResource CountBool}}">
+      <TextBox Width="260" Text="{Binding ScanText,UpdateSourceTrigger=PropertyChanged}" ToolTip="Quét mã serial / barcode / QR" Margin="0,0,8,8">
+       <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding ScanCommand}"/></TextBox.InputBindings>
+      </TextBox>
+      <Button Content="Ghi nhận mã (Enter)" Command="{Binding ScanCommand}" Style="{StaticResource CountButton}" access:PermissionAccess.Rule="INV_STOCKTAKE:Edit"/>
+     </WrapPanel>
+     <TextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" FontSize="{DynamicResource FontSize.Body}" TextWrapping="Wrap"/>
+     <TextBlock Text="{Binding Message}" Foreground="{DynamicResource SuccessBrush}" FontSize="{DynamicResource FontSize.Body}" TextWrapping="Wrap"/>
+     <TextBlock Text="{Binding Summary}" Style="{StaticResource CountLabel}" Margin="0,4,0,8"/>
+     <TextBlock Text="Tìm mã, tên hoặc kết quả đối chiếu" Style="{StaticResource CountLabel}"/>
+     <TextBox Text="{Binding SearchText,UpdateSourceTrigger=PropertyChanged}" ToolTip="Tìm mã, tên, Thiếu, Thừa, Cần kiểm lại…" Margin="0,0,0,8"/>
+    </StackPanel>
+   </ScrollViewer>
+   <DataGrid Grid.Row="1" Style="{StaticResource WhDataGridStyle}" ColumnHeaderStyle="{StaticResource CountHeader}" ColumnHeaderHeight="{x:Static sys:Double.NaN}" RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36" ItemsSource="{Binding VisibleLines}" SelectedItem="{Binding SelectedLine}" IsReadOnly="True" AutoGenerateColumns="False"
+    CanUserAddRows="False" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" RowBackground="{DynamicResource SurfaceBrush}" AlternatingRowBackground="{DynamicResource SurfaceAltBrush}"
+    grid:DataGridColumnLayout.SettingsKey="warehouse.stocktake.v1" grid:DataGridColumnLayout.EnableHeaderMenu="True" FontSize="{DynamicResource FontSize.Body}">
+    <DataGrid.Columns>
+     <DataGridTextColumn Header="Mã / Serial" Binding="{Binding Model.Code,Mode=OneWay}" Width="150" grid:DataGridColumnLayout.Key="Code"/>
+     <DataGridTextColumn Header="Tên hàng" Binding="{Binding Model.Name,Mode=OneWay}" Width="180" grid:DataGridColumnLayout.Key="Name"/>
+     <DataGridTextColumn Header="ĐVT" Binding="{Binding Model.Unit,Mode=OneWay}" Width="60" grid:DataGridColumnLayout.Key="Unit"/>
+     <DataGridTextColumn Header="Hệ thống" Binding="{Binding Model.SystemQuantity,Mode=OneWay,StringFormat=N4}" Width="100" grid:DataGridColumnLayout.Key="System"/>
+     <DataGridTextColumn Header="Thực tế" Binding="{Binding Model.CountedQuantity,Mode=OneWay,StringFormat=N4}" Width="100" grid:DataGridColumnLayout.Key="Counted"/>
+     <DataGridTextColumn Header="Chênh lệch" Binding="{Binding Model.Difference,Mode=OneWay,StringFormat=N4}" Width="100" grid:DataGridColumnLayout.Key="Difference"/>
+     <DataGridTextColumn Header="Đối chiếu" Binding="{Binding Model.Finding,Mode=OneWay}" Width="150" grid:DataGridColumnLayout.Key="Finding"/>
+     <DataGridTextColumn Header="Trạng thái hàng" Binding="{Binding Model.ItemStateDisplay,Mode=OneWay}" Width="125" grid:DataGridColumnLayout.Key="State"/>
+     <DataGridTextColumn Header="Ghi chú" Binding="{Binding Model.Notes,Mode=OneWay}" Width="180" grid:DataGridColumnLayout.Key="Notes"/>
+    </DataGrid.Columns>
+   </DataGrid>
+   <ScrollViewer Grid.Row="2" MaxHeight="160" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0">
+    <WrapPanel>
+     <StackPanel Margin="0,0,8,8"><TextBlock Text="Số thực tế dòng chọn" Style="{StaticResource CountLabel}"/><TextBox Width="150" Text="{Binding QuantityText,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}"/></StackPanel>
+     <StackPanel Margin="0,0,8,8"><TextBlock Text="Ghi chú dòng chọn" Style="{StaticResource CountLabel}"/><TextBox Width="210" Text="{Binding LineNotes,UpdateSourceTrigger=PropertyChanged}" MaxLength="500" IsEnabled="{Binding CanEdit}"/></StackPanel>
+     <Button Content="Ghi nhận dòng" Command="{Binding ApplyLineCommand}" Style="{StaticResource CountButton}" VerticalAlignment="Bottom"/>
+     <Button Content="Đã thấy" Command="{Binding FoundCommand}" Style="{StaticResource CountButton}" VerticalAlignment="Bottom"/>
+     <Button Content="Không thấy" Command="{Binding MissingCommand}" Style="{StaticResource CountButton}" VerticalAlignment="Bottom"/>
+    </WrapPanel>
+   </ScrollViewer>
+  </Grid>
+ </Grid>
+</UserControl>

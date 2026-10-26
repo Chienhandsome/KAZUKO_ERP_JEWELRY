@@ -8,6 +8,10 @@ public partial class ShiftEditDialog : Window
     public ShiftEditDialog()
     {
         InitializeComponent();
+        Closing += (_, e) =>
+        {
+            if (DataContext is ShiftEditDialogViewModel { IsSaving: true } && DialogResult != true) e.Cancel = true;
+        };
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)

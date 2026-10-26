@@ -21,10 +21,10 @@
     </DataGrid>
     <Grid Margin="0,14,0,0" IsEnabled="{Binding IsEditable}">
      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <StackPanel><TextBlock Text="Thưởng (VND)"/><TextBox Text="{Binding BonusText,UpdateSourceTrigger=PropertyChanged}" behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>
+     <StackPanel><TextBlock Text="Thưởng điều chỉnh thêm (VND)"/><TextBox Text="{Binding BonusText,UpdateSourceTrigger=PropertyChanged}" behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>
       <TextBlock Text="Diễn giải thưởng" Margin="0,8,0,0"/><TextBox Text="{Binding BonusNote,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxLength="500"/>
      </StackPanel>
-     <StackPanel Grid.Column="2"><TextBlock Text="Khấu trừ (VND)"/><TextBox Text="{Binding DeductionText,UpdateSourceTrigger=PropertyChanged}" behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>
+     <StackPanel Grid.Column="2"><TextBlock Text="Khấu trừ điều chỉnh thêm (VND)"/><TextBox Text="{Binding DeductionText,UpdateSourceTrigger=PropertyChanged}" behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>
       <TextBlock Text="Diễn giải khấu trừ" Margin="0,8,0,0"/><TextBox Text="{Binding DeductionNote,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxLength="500"/>
      </StackPanel>
     </Grid>

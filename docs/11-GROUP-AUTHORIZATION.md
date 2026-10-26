@@ -1,5 +1,9 @@
 # Phân quyền theo nhóm
 
+Xóa danh mục ca dùng CAT_EMPLOYEES/Xóa (`DeleteWorkShiftAsync`); xóa loại thu/chi dùng FIN_CASH_IN/Xóa hoặc FIN_CASH_OUT/Xóa theo hướng (`IVoucherCategoryService.DeleteAsync`). Add/Edit không thay thế Delete. UI hỏi xác nhận trước gọi backend; backend chặn mục đã có dữ liệu sử dụng và audit khi xóa thành công.
+
+Báo cáo lương tháng và phiếu lương cá nhân yêu cầu đồng thời **REP_VIEW/Xem + HR_PAYROLL/Xem**. `IPayrollReportService` có guard riêng trước rule ReportService chung, kiểm tra actual session qua proxy. In/mở/lưu PDF thêm REP_EXPORT/Xem; Excel thêm DATA_EXPORT/Xem. Mất quyền xem sẽ xóa snapshot và PDF tạm ở workspace. Không thêm grant mặc định hay migration.
+
 Migration 76 tạo nhóm/quyền; migration 77 mở rộng danh mục từ 28 lên 41 chức năng.
 Không sửa checksum migration 76 đã áp dụng. Chạy migration 77 qua runner chuẩn,
 backup và restore thử trước khi áp dụng database chính. Rollback dùng backup trước 77.
@@ -57,6 +61,18 @@ Lịch sử nhập NCC phục vụ `CAT_SUPPLIERS`, `INV_HISTORY`, `DEBT_CUSTOME
 `REP_VIEW`; báo cáo Top NCC dùng `REP_VIEW`. Các đường gọi này đi qua cùng proxy.
 
 ## Ánh xạ thao tác đặc biệt
+
+`IEmployeeMoneyService`: List cần CAT_EMPLOYEES/Xem; Create cần Thêm, thêm
+FIN_CASH_OUT/Thêm hoặc FIN_CASH_IN/Thêm khi chi/thu riêng. Cancel cần
+CAT_EMPLOYEES/Xóa; proxy đọc bản ghi thật để đòi thêm FIN_REVERSE/Xóa nếu CASH.
+PaySalary cần HR_PAYROLL/Sửa + FIN_CASH_OUT/Thêm; CancelSalaryPayment cần
+HR_PAYROLL/Sửa + FIN_REVERSE/Xóa. Không thêm grant mặc định. Chi tiết:
+`docs/employee-money-payroll.md`.
+
+Danh mục loại thu/chi (`IVoucherCategoryService`) dùng `FIN_CASH_IN`/`FIN_CASH_OUT`
+theo hướng của request: List dùng Xem, Save mới dùng Thêm, Save loại đã có (kể cả
+ngừng dùng) dùng Sửa. App đăng ký qua AuthorizedServiceProxy. Không cấp chéo
+quyền Thu sang Chi và không thêm grant mặc định. Xem `docs/finance-voucher-categories.md`.
 
 | Chức năng | Cột dùng để cho phép thao tác |
 |---|---|

@@ -236,11 +236,14 @@ public sealed class LabelDesignerViewModel : ObservableObject
         ?? System.Windows.Application.Current?.MainWindow;
 
     private Report CreateSampleReport(CompanyProfileDto profile, bool compactWeightUnits = false, byte[]? templateContent = null)
+        => CreateSampleReportFromTemplate(profile, compactWeightUnits, templateContent ?? GetFrxBytes());
+
+    internal static Report CreateSampleReportFromTemplate(CompanyProfileDto profile, bool compactWeightUnits, byte[] templateContent)
     {
         var report = new Report();
         try
         {
-            using (var stream = new MemoryStream(templateContent ?? GetFrxBytes()))
+            using (var stream = new MemoryStream(templateContent))
                 report.Load(stream);
             foreach (var page in report.Pages.OfType<ReportPage>())
             {

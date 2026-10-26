@@ -29,7 +29,7 @@ Tài liệu quyết định cho module `Kazuko.Production`. Mọi implementation
 | `DRAFT` | Bản nháp / đang soạn (không phải cột trạng thái chính) |
 | `IN_PROGRESS` | Đang làm |
 | `COMPLETED` | Hoàn thành |
-| `Hủy` | Hủy |
+| `CANCELLED` | Đã hủy |
 
 Không thêm trạng thái nghiệp vụ khác trên header. Sau ghi sổ giao NVL: `DRAFT` → `IN_PROGRESS`.
 

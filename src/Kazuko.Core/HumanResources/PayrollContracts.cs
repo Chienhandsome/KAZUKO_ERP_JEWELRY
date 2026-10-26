@@ -10,9 +10,15 @@ public sealed record PayrollAmounts(int StandardDays, decimal StandardUnits, dec
     int WorkShifts, int PaidLeaveShifts, int UnpaidLeaveShifts, decimal Rate, decimal Salary, string Warning);
 public sealed record PayrollLine(long Id, long EmployeeId, string Code, string FullName, string SalaryMethod,
     decimal StandardUnits, decimal ActualUnits, decimal Rate, decimal Salary,
-    decimal Bonus, string BonusNote, decimal Deduction, string DeductionNote, string Warning, string SnapshotJson)
+    decimal Bonus, string BonusNote, decimal Deduction, string DeductionNote, string Warning, string SnapshotJson,
+    decimal RecordedBonus = 0, decimal RecordedDeduction = 0, string RecordedNotes = "",
+    long? PaymentVoucherId = null, string? PaymentVoucherCode = null, DateTime? PaymentDate = null)
 {
-    public decimal NetSalary => Salary + Bonus - Deduction;
+    public decimal TotalBonus => Bonus + RecordedBonus;
+    public decimal TotalDeduction => Deduction + RecordedDeduction;
+    public decimal NetSalary => Salary + TotalBonus - TotalDeduction;
+    public bool IsPaid => PaymentVoucherId is not null;
+    public string PaymentStatus => IsPaid ? "Đã chi" : NetSalary == 0 ? "Không phát sinh chi" : "Chưa chi";
     public string MethodLabel => SalaryMethodCodes.ToDisplay(SalaryMethod);
 }
 public sealed record PayrollPeriod(long Id, int Year, int Month, string Status, int Revision,

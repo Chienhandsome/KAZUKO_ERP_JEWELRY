@@ -136,7 +136,8 @@ public sealed class WarehouseViewModel : ObservableObject
         IPreferencesService preferences,
         IPrintTemplateStore printTemplates,
         ICompanyProfileService companyProfile,
-        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
+        Kazuko.Core.UserManagement.IAuthorizationService? authorization = null,
+        IStocktakeService? stocktakes = null)
     {
         _repository = repository;
         _warehouseGoldPrices = warehouseGoldPrices;
@@ -155,6 +156,7 @@ public sealed class WarehouseViewModel : ObservableObject
         _printTemplates = printTemplates;
         _companyProfile = companyProfile;
         _permissions = authorization;
+        Stocktakes = stocktakes is null ? null : new StocktakeTabViewModel(stocktakes,sessionAccessor,authorization);
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
         MovementLocations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -606,6 +608,8 @@ public sealed class WarehouseViewModel : ObservableObject
             OnTabChanged(value);
         }
     }
+
+    public StocktakeTabViewModel? Stocktakes { get; }
 
     public decimal RawMaterialStockValue
     {
@@ -1696,6 +1700,9 @@ public sealed class WarehouseViewModel : ObservableObject
             case WarehouseTabs.Transfer:
                 SelectedDocumentType = "TRANSFER";
                 _ = SearchDocumentsAsync();
+                break;
+            case WarehouseTabs.Stocktake:
+                if (CanView("INV_STOCKTAKE") && Stocktakes is not null) _ = Stocktakes.InitializeAsync();
                 break;
         }
     }

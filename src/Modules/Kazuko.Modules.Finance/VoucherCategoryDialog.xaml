@@ -1,0 +1,45 @@
+<Window x:Class="Kazuko.Modules.Finance.VoucherCategoryDialog"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="{Binding Title}" Width="820" Height="600" MinWidth="680" MinHeight="500"
+ WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource AppBackgroundBrush}"
+ Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource FontSize.Body}">
+ <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>
+  <ResourceDictionary Source="Themes/FinanceResources.xaml" />
+ </ResourceDictionary.MergedDictionaries></ResourceDictionary></Window.Resources>
+ <DockPanel Margin="16">
+  <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" HorizontalAlignment="Right">
+   <Button Content="Xóa loại" Command="{Binding DeleteCommand}" Style="{StaticResource FinanceOutlineButtonStyle}" Foreground="{DynamicResource DangerBrush}" Margin="0,0,8,0"/>
+   <Button Content="Thêm loại mới" Command="{Binding NewCommand}" Style="{StaticResource FinanceOutlineButtonStyle}" Margin="0,0,8,0" />
+   <Button Content="Lưu loại" Command="{Binding SaveCommand}" Style="{StaticResource FinancePrimaryButtonStyle}" IsDefault="True" Margin="0,0,8,0" />
+   <Button Content="Đóng" IsCancel="True" Click="Close_Click" Style="{StaticResource FinanceOutlineButtonStyle}" />
+  </WrapPanel>
+  <StackPanel DockPanel.Dock="Top">
+   <TextBlock Text="{Binding Title}" Style="{StaticResource FinanceSectionHeaderStyle}" />
+   <TextBlock Text="Bỏ chọn Đang sử dụng để ngừng dùng một loại. Phiếu đã lập vẫn giữ loại và tên lúc lập."
+              TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,10" />
+   <TextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+   <TextBlock Text="{Binding Status}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,8" />
+  </StackPanel>
+  <Grid>
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="260" /></Grid.ColumnDefinitions>
+   <DataGrid x:Name="CategoryGrid" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" IsEnabled="{Binding CanEdit}" Style="{StaticResource FinanceDataGridStyle}"
+             ColumnHeaderStyle="{StaticResource FinanceDataGridColumnHeaderStyle}" AutoGenerateColumns="False" IsReadOnly="True">
+    <DataGrid.Columns>
+     <DataGridTextColumn Header="Mã" Binding="{Binding Code, Mode=OneWay}" Width="100" />
+     <DataGridTextColumn Header="Tên loại" Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="150" />
+     <DataGridCheckBoxColumn Header="Sử dụng" Binding="{Binding IsActive, Mode=OneWay}" Width="75" />
+    </DataGrid.Columns>
+   </DataGrid>
+   <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="12" IsEnabled="{Binding CanEdit}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+     <TextBlock Text="Mã loại" Style="{StaticResource FinanceFieldLabelStyle}" />
+     <TextBox Text="{Binding Code, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" Style="{StaticResource FinanceRoundedTextBoxStyle}" Margin="0,0,0,12" />
+     <TextBlock Text="Tên loại" Style="{StaticResource FinanceFieldLabelStyle}" />
+     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" MaxLength="150" Style="{StaticResource FinanceRoundedTextBoxStyle}" Margin="0,0,0,12" />
+     <CheckBox Content="Đang sử dụng" IsChecked="{Binding IsActive}" Foreground="{DynamicResource TextPrimaryBrush}" />
+     <Button Content="Tải lại danh mục" Command="{Binding ReloadCommand}" Style="{StaticResource FinanceOutlineButtonStyle}" Margin="0,16,0,0" />
+    </StackPanel></ScrollViewer>
+   </Border>
+  </Grid>
+ </DockPanel>
+</Window>

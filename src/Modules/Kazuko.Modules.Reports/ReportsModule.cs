@@ -3,6 +3,7 @@ using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Modules;
 using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Reports;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.Reports;
 
@@ -15,6 +16,8 @@ public sealed class ReportsModule : IKazukoModule
 
     public void RegisterServices(IServiceRegistry services)
     {
+        services.AddSingleton<IEmployeeReportsPresenter>(new EmployeeReportsPresenter(
+            GetRequiredService<IPayrollReportService>(services),GetRequiredService<ICurrentSessionAccessor>(services),GetRequiredService<IAuthorizationService>(services)));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
@@ -70,7 +73,9 @@ public sealed class ReportsModule : IKazukoModule
                     new SalesTopItemsReportViewModel(salesTopItems, session),
                     new WarehouseApprovedReceiptsReportViewModel(whApproved, session),
                     new WarehousePendingReceiptsReportViewModel(whPending, session),
-                    new WarehouseReceiptsByTypeReportViewModel(whByType, session))
+                    new WarehouseReceiptsByTypeReportViewModel(whByType, session),
+                    new PayrollReportViewModel(GetRequiredService<IPayrollReportService>(services),session,false,GetRequiredService<IAuthorizationService>(services)),
+                    new PayrollReportViewModel(GetRequiredService<IPayrollReportService>(services),session,true,GetRequiredService<IAuthorizationService>(services)))
             },
             AssetRoot + "BC.png",
             "Thống kê, báo cáo\ntổng hợp",

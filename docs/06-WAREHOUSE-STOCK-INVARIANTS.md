@@ -1,5 +1,7 @@
 # Invariant nghiệp vụ Nhập / Xuất kho
 
+Kiểm kê giai đoạn 2 đã có tại Kho → Kiểm kê (migration 90): lập/lưu nháp, chụp tồn, nhập/quét thực tế, đối chiếu biến động và chốt kết quả. Phiếu COUNTED chưa làm thay đổi tồn, movement hay tài chính. Điều chỉnh tồn/in phiếu thuộc giai đoạn sau. Chi tiết và kiểm thử: [stocktake-counting.md](stocktake-counting.md).
+
 Tài liệu quyết định cho module Kho và các domain liên quan (công nợ phải trả, phiếu chi, thợ ngoài). Mọi implementation phải tuân thủ; nếu mâu thuẫn với code thì cập nhật tài liệu cùng commit.
 
 ## 1. Phân loại tồn kho

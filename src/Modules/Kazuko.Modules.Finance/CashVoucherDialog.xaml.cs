@@ -21,7 +21,8 @@ public partial class CashVoucherDialog : Window
         ICurrentSessionAccessor sessionAccessor,
         ICashFundRepository fundRepository,
         IBankAccountRepository bankRepository,
-        string voucherType)
+        string voucherType, IVoucherCategoryService? categories = null,
+        Kazuko.Core.UserManagement.IAuthorizationService? permissions = null)
     {
         var session = sessionAccessor.Current;
         var funds = session is null
@@ -31,8 +32,9 @@ public partial class CashVoucherDialog : Window
             ? Array.Empty<BankAccountOption>()
             : bankRepository.GetActiveAccountsAsync(session).GetAwaiter().GetResult();
 
-        var viewModel = new CashVoucherDialogViewModel(voucherService, sessionAccessor, funds, banks, voucherType);
+        var viewModel = new CashVoucherDialogViewModel(voucherService, sessionAccessor, funds, banks, voucherType, categories, permissions);
         var dialog = new CashVoucherDialog { DataContext = viewModel };
+        dialog.Loaded += async (_, _) => await viewModel.LoadCategoriesAsync();
         if (owner is not null)
         {
             dialog.Owner = owner;

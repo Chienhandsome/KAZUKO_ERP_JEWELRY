@@ -14,7 +14,7 @@ namespace Kazuko.Infrastructure.Data;
 /// </summary>
 public sealed class FirebirdDatabaseManagementService : IDatabaseManagementService
 {
-    private const int MaxAutoBackups = 7;
+    private readonly FirebirdBackupManager _backups = new();
 
     private readonly IPreferencesService _preferences;
 
@@ -63,14 +63,15 @@ public sealed class FirebirdDatabaseManagementService : IDatabaseManagementServi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
-        var path = FirebirdDatabase.DatabasePath;
-        var fileInfo = new FileInfo(path);
+        var profile = FirebirdDatabase.Profile;
+        var path = profile.UseEmbedded ? FirebirdDatabase.DatabasePath : $"{profile.Host}/{profile.Port}:{profile.DatabasePath}";
+        var fileInfo = profile.UseEmbedded ? new FileInfo(profile.DatabasePath) : null;
 
         int schemaVersion = 0;
         int branchCount = 0;
         int userCount = 0;
 
-        if (fileInfo.Exists)
+        if (!profile.UseEmbedded || fileInfo?.Exists == true)
         {
             await using var connection = FirebirdDatabase.CreateConnection();
             await connection.OpenAsync(cancellationToken);
@@ -90,8 +91,8 @@ public sealed class FirebirdDatabaseManagementService : IDatabaseManagementServi
 
         return new DatabaseInfo(
             path,
-            fileInfo.Exists ? fileInfo.Length : 0,
-            FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
+            fileInfo?.Exists == true ? fileInfo.Length : 0,
+            profile.UseEmbedded ? FormatFileSize(fileInfo?.Exists == true ? fileInfo.Length : 0) : "Trên máy chủ",
             schemaVersion,
             schemaVersion > 0 ? $"v{schemaVersion}" : "—",
             branchCount,
@@ -146,34 +147,26 @@ public sealed class FirebirdDatabaseManagementService : IDatabaseManagementServi
         }
     }
 
-    public async Task<string> BackupAsync(
+    public Task<string> BackupAsync(
         string targetFolder,
         AuthenticatedSession session,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<string>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (string.IsNullOrWhiteSpace(targetFolder))
-            throw new ArgumentException("Chưa chọn thư mục lưu backup.", nameof(targetFolder));
+        return _backups.BackupAsync(targetFolder, false, cancellationToken, progress);
+    }
 
-        Directory.CreateDirectory(targetFolder);
-        var sourcePath = FirebirdDatabase.DatabasePath;
-        if (!File.Exists(sourcePath))
-            throw new FileNotFoundException("Không tìm thấy file cơ sở dữ liệu hiện tại.", sourcePath);
+    public DatabaseBackupStatus GetBackupStatus() => _backups.GetStatus();
 
-        var fileName = $"KAZUKO_backup_{DateTime.Now:yyyyMMdd_HHmmss}.fdb";
-        var targetPath = Path.Combine(targetFolder, fileName);
-
-        // Embedded: đóng pool connection trước khi copy để file ở trạng thái ổn định.
-        FbConnection.ClearAllPools();
-        await Task.Delay(200, cancellationToken);
-
-        await CopyFileWithRetryAsync(sourcePath, targetPath, cancellationToken);
-
-        // Mở lại 1 connection để pool sẵn sàng cho các thao tác tiếp theo.
-        await using var connection = FirebirdDatabase.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-
-        return targetPath;
+    public Task<BackupVerificationResult> VerifyBackupAsync(
+        string backupPath,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default,
+        IProgress<string>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return _backups.VerifyAsync(backupPath, cancellationToken, progress);
     }
 
     public async Task CreateBlankDatabaseAsync(
@@ -250,42 +243,8 @@ public sealed class FirebirdDatabaseManagementService : IDatabaseManagementServi
 
     public async Task RunAutoBackupIfEnabledAsync(CancellationToken cancellationToken = default)
     {
-        AppPreferences preferences;
-        try
-        {
-            preferences = _preferences.Load();
-        }
-        catch
-        {
-            return;
-        }
-
-        if (!preferences.AutoBackupEnabled)
-            return;
-
-        var backupDir = Path.Combine(
-            Path.GetDirectoryName(FirebirdDatabase.DatabasePath) ?? AppContext.BaseDirectory,
-            "backups");
-        try
-        {
-            Directory.CreateDirectory(backupDir);
-            var sourcePath = FirebirdDatabase.DatabasePath;
-            if (!File.Exists(sourcePath))
-                return;
-
-            var fileName = $"KAZUKO_auto_{DateTime.Now:yyyyMMdd_HHmmss}.fdb";
-            var targetPath = Path.Combine(backupDir, fileName);
-
-            FbConnection.ClearAllPools();
-            await Task.Delay(200, cancellationToken);
-            await CopyFileWithRetryAsync(sourcePath, targetPath, cancellationToken);
-
-            PruneOldBackups(backupDir);
-        }
-        catch
-        {
-            // Backup tự động không được làm gián đoạn khởi động app.
-        }
+        if (!_preferences.Load().AutoBackupEnabled) return;
+        await _backups.BackupAsync(null, true, cancellationToken);
     }
 
     private static async Task CopyFileWithRetryAsync(
@@ -316,26 +275,6 @@ public sealed class FirebirdDatabaseManagementService : IDatabaseManagementServi
         throw new IOException(
             $"Không copy được file cơ sở dữ liệu sau {maxAttempts} lần thử: {Sanitize(lastError?.Message)}",
             lastError);
-    }
-
-    private static void PruneOldBackups(string backupDir)
-    {
-        try
-        {
-            var files = new DirectoryInfo(backupDir)
-                .GetFiles("KAZUKO_auto_*.fdb")
-                .OrderByDescending(f => f.CreationTimeUtc)
-                .Skip(MaxAutoBackups)
-                .ToList();
-            foreach (var file in files)
-            {
-                try { file.Delete(); } catch { /* bỏ qua file đang bị khóa */ }
-            }
-        }
-        catch
-        {
-            // Không quan trọng — lần sau sẽ thử lại.
-        }
     }
 
     private static async Task ResetGeneratorsAsync(

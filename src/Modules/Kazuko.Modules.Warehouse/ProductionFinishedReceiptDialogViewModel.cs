@@ -824,6 +824,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             _goldWeightText = FormatDecimal(total - stone);
             OnPropertyChanged(nameof(GoldWeightText));
         }
+        else
+        {
+            _goldWeightText = string.Empty;
+            OnPropertyChanged(nameof(GoldWeightText));
+        }
     }
 
     private static string CodePrefix(FinishedProductGroupOption? group)
@@ -883,8 +888,15 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         }
         var quantity = TryParseInt(QuantityText, out var q) && q > 0 ? q : 1;
 
-        TryParseDecimal(TotalWeightText, out var totalWeight);
-        TryParseDecimal(StoneWeightText, out var stoneWeight);
+        var validTotal = TryParseDecimal(TotalWeightText, out var totalWeight);
+        var validStone = TryParseDecimal(StoneWeightText, out var stoneWeight);
+        if ((!string.IsNullOrWhiteSpace(TotalWeightText) && !validTotal)
+            || (!string.IsNullOrWhiteSpace(StoneWeightText) && !validStone)
+            || totalWeight < 0 || stoneWeight < 0)
+        {
+            ErrorMessage = "Trọng lượng tổng/đá không hợp lệ. Dùng dấu chấm hoặc dấu phẩy cho phần thập phân, không ngăn cách hàng nghìn.";
+            return;
+        }
         TryParseMoney(CostPriceText, out var costPrice);
         TryParseMoney(SalePriceText, out var salePrice);
         TryParseMoney(SaleLaborCostText, out var saleLabor);
@@ -1229,9 +1241,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         value = 0;
         if (string.IsNullOrWhiteSpace(text))
             return false;
-        var styles = NumberStyles.Number;
-        return decimal.TryParse(text.Trim(), styles, CultureInfo.CurrentCulture, out value)
-            || decimal.TryParse(text.Trim(), styles, CultureInfo.InvariantCulture, out value);
+        return WeightDecimalInput.TryParse(text, out value);
     }
 
     private static bool TryParseMoney(string? text, out decimal value)
@@ -1256,7 +1266,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     }
 
     private static string FormatDecimal(decimal value) =>
-        value.ToString("0.###", CultureInfo.CurrentCulture);
+        WeightDecimalInput.Format(value);
 }
 
 public sealed class ReceiptImageItem : ObservableObject
@@ -1330,8 +1340,6 @@ public sealed class GoldReconcileRowViewModel : ObservableObject
         value = 0;
         if (string.IsNullOrWhiteSpace(text))
             return false;
-        var styles = NumberStyles.Number;
-        return decimal.TryParse(text.Trim(), styles, CultureInfo.CurrentCulture, out value)
-            || decimal.TryParse(text.Trim(), styles, CultureInfo.InvariantCulture, out value);
+        return WeightDecimalInput.TryParse(text, out value);
     }
 }

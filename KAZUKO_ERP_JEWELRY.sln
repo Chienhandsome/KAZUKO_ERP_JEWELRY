@@ -58,6 +58,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Warehouse.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.HumanResources.Tests", "tests\Kazuko.Modules.HumanResources.Tests\Kazuko.Modules.HumanResources.Tests.csproj", "{43249B09-AFC5-467B-BF47-F612D0864325}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kazuko.Modules.Production.Tests", "tests\Kazuko.Modules.Production.Tests\Kazuko.Modules.Production.Tests.csproj", "{10D1A82E-80C9-4ADE-836A-2A35CE18730D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -164,6 +166,10 @@ Global
 		{43249B09-AFC5-467B-BF47-F612D0864325}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{43249B09-AFC5-467B-BF47-F612D0864325}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{43249B09-AFC5-467B-BF47-F612D0864325}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10D1A82E-80C9-4ADE-836A-2A35CE18730D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10D1A82E-80C9-4ADE-836A-2A35CE18730D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10D1A82E-80C9-4ADE-836A-2A35CE18730D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10D1A82E-80C9-4ADE-836A-2A35CE18730D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{CBBF80B3-8A94-4AE0-9AE9-DA28CDA4A3E5} = {C070AF8B-B600-4444-96DD-60890F0D4F54}
@@ -184,5 +190,6 @@ Global
 		{402AACE0-66C2-4A7B-BB94-58F476AF8072} = {5E41D1CA-7884-4AB4-A722-B9D1FFFBDED4}
 		{07864897-B3C8-47E2-B466-E78CC3BFEC6D} = {5E41D1CA-7884-4AB4-A722-B9D1FFFBDED4}
 		{43249B09-AFC5-467B-BF47-F612D0864325} = {5E41D1CA-7884-4AB4-A722-B9D1FFFBDED4}
+		{10D1A82E-80C9-4ADE-836A-2A35CE18730D} = {5E41D1CA-7884-4AB4-A722-B9D1FFFBDED4}
 	EndGlobalSection
 EndGlobal

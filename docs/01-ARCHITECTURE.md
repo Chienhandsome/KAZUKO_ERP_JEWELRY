@@ -1,5 +1,9 @@
 # Kiến trúc
 
+## Báo cáo lương nhân sự
+
+HR mở workspace của module Reports qua `IEmployeeReportsPresenter` (Core), không tham chiếu assembly Reports. `IPayrollReportService` đọc snapshot kỳ lương và phiếu chi liên kết theo công ty của session; UI/VM không chứa SQL. Hai workspace dùng khung báo cáo PDF và xuất Excel chung, không có thao tác tính/chốt/chi tiền trong báo cáo. Xem `docs/09-REPORTING.md`.
+
 ## Dependency direction
 
 ```text
@@ -94,6 +98,10 @@ Schema dự kiến gồm `FORM_DEFINITIONS`, `FORM_FIELDS`, `FORM_ACTIONS`, `FOR
 
 ## Báo cáo / in ấn
 
+Danh mục phân loại phiếu thu/chi dùng contract Core `IVoucherCategoryService`,
+implementation Infrastructure, UI Finance; dữ liệu theo doanh nghiệp và hướng phiếu,
+phiếu lưu snapshot tên loại. Xem `docs/finance-voucher-categories.md` (migration88).
+
 Quyết định mẫu báo cáo A4 và xem trước/in: xem `docs/09-REPORTING.md` (FastReport Open Source + file `.frx`).
 
 ## Hồ sơ nhân viên và cấu hình lương
@@ -125,7 +133,9 @@ yêu cầu bỏ điều chỉnh trước khi tính lại. Thay đổi dùng revi
 không cho tính lại hoặc điều chỉnh. Chốt kiểm tra hash nguồn để từ chối bảng đã lỗi thời.
 Mở chốt cần quyền HR_PAYROLL_REOPEN/Sửa và lý do; các thao tác ghi audit trong transaction.
 Quyền HR_PAYROLL dùng Xem/Thêm(tính)/Sửa(điều chỉnh,chốt). Export cần DATA_EXPORT cùng
-quyền xem bảng lương. Không liên kết chi tiền ở giai đoạn này.
+quyền xem bảng lương. Migration89 nối thưởng/kỷ luật và chi lương với phiếu thu/chi
+trong cùng transaction; xem `docs/employee-money-payroll.md`. Điều chỉnh nhập tay
+giữ riêng với khoản tự lấy từ sổ phát sinh, tính lại không cộng trùng.
 
 ## Khách vãng lai
 
@@ -148,6 +158,10 @@ cộng không áp giới hạn Top N. Báo cáo doanh thu chung vẫn bao gồm 
 Triển khai/khôi phục: xem docs/manual-tests/walk-in-customer.md.
 
 ## Lưu kỳ chấm công
+
+**Xóa ca** cần xác nhận và CAT_EMPLOYEES/Xóa. Backend chỉ xóa ca thuộc công ty của session và chưa có HR_ATTENDANCE_RECORDS; ca có chấm công phải ngừng dùng. Xóa và audit cùng transaction, FK giữ lịch sử khi có ghi đồng thời. Không cascade hay migration. Nút xóa không xuất hiện trong form thêm ca mới.
+
+Chấm công → **Danh mục ca** dùng cùng luồng với danh mục loại thu/chi: danh sách trái, sửa ca bên phải, **Thêm ca mới** mở form con; lưu xong tải lại và chọn ca vừa lưu. `WorkShiftCatalogViewModel` dùng repository được inject; `ShiftEditDialogViewModel` dùng chung validation thêm/sửa, tên tối đa 50 ký tự, giờ tùy chọn HH:mm, cho phép ca qua đêm, không cho hai giờ trùng nhau. `WorkShiftSaveRequest.IsActive` lưu vào cột IS_ACTIVE có sẵn, không migration. Chỉ ngừng dùng, không xóa record chấm công: lưới tháng vẫn gồm ca không hoạt động nếu tháng có record của ca đó. Quyền CAT_EMPLOYEES/Xem để mở, Thêm/Sửa cho từng thao tác. Kiểm tra ở `WorkShiftCatalogTests`, `AttendancePeriodTests` và `Kazuko.WorkShifts.IntegrationChecks` trên bản restore test89.
 
 Migration 84 thêm HR_ATTENDANCE_PERIODS, khóa (COMPANY_ID,PERIOD_YEAR,PERIOD_MONTH).
 Kỳ được lưu ngay khi bấm Thêm kỳ tháng, độc lập số ô đã chấm; không tạo ô chấm công

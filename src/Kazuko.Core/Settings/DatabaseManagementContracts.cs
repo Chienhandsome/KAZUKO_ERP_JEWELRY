@@ -18,6 +18,16 @@ public sealed record DatabaseValidationResult(
     string? ErrorMessage = null,
     int SchemaVersion = 0);
 
+public sealed record DatabaseBackupStatus(
+    DateTimeOffset? LastSuccessAt = null,
+    string? LastSuccessPath = null,
+    DateTimeOffset? LastAttemptAt = null,
+    string? LastError = null,
+    DateTimeOffset? LastVerificationAt = null,
+    string? LastVerifiedPath = null);
+
+public sealed record BackupVerificationResult(int SchemaVersion, int CompanyCount);
+
 /// <summary>Quản lý file cơ sở dữ liệu: xem thông tin, chuyển đổi, backup, tạo mới.</summary>
 public interface IDatabaseManagementService
 {
@@ -38,7 +48,16 @@ public interface IDatabaseManagementService
     Task<string> BackupAsync(
         string targetFolder,
         AuthenticatedSession session,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IProgress<string>? progress = null);
+
+    DatabaseBackupStatus GetBackupStatus();
+
+    Task<BackupVerificationResult> VerifyBackupAsync(
+        string backupPath,
+        AuthenticatedSession session,
+        CancellationToken cancellationToken = default,
+        IProgress<string>? progress = null);
 
     /// <summary>
     /// Tạo DB trắng mới tại đường dẫn chỉ định (copy schema từ DB hiện tại,

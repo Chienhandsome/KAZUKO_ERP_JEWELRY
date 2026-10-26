@@ -2,10 +2,10 @@
 
 ## Quyết định
 
-Module Báo cáo dùng **FastReport Open Source** để dựng mẫu in A4 (file `.frx`).
+Module Báo cáo dùng **FastReport Open Source** để dựng báo cáo A4 bằng code theo bộ lọc và cấu hình cột. Bill A5 và tem dùng mẫu `.frx` lưu trong database.
 
 - Dữ liệu vẫn lấy qua Application/Infrastructure service (không SQL trong View/ViewModel).
-- Mẫu báo cáo A4 nằm ở `Templates/*.frx` (copy ra output). Có thể chỉnh kéo-thả bằng **FastReport Designer Community** (miễn phí).
+- Các `*PrintService` của module Reports dựng FastReport bands khi chạy. Muốn đổi bố cục A4 phải sửa PrintService hoặc cấu hình cột đã hỗ trợ; sửa file trong `Templates/` không đổi các báo cáo dựng động. Không hứa hẹn designer kéo-thả cho báo cáo A4.
 - Runtime: `FastReport.OpenSource` + `FastReport.OpenSource.Export.PdfSimple`.
 - Xem trước trong app: xuất PDF và hiển thị bằng WebView2 (thay DataGrid).
 - Mở PDF ngoài / In: xuất PDF tạm rồi mở shell / verb `print`.
@@ -24,7 +24,7 @@ Bill sau thanh toán bán hàng dùng mẫu FastReport A5 lưu trong Firebird:
 | Contract | `IPrintTemplateStore` / `FirebirdPrintTemplateStore` |
 | Runtime in | `SalesReceiptPrintService` — chọn orientation → load BLOB → bind → PDF |
 | Xem trước | WebView2 PDF; ComboBox **A5 ngang / A5 dọc** (lưu `%LocalAppData%\KazukoERP\sales.receipt.orientation.json`) |
-| Chỉnh sửa | Cài đặt → **Mẫu in bill** (chọn khổ) → Xuất/Import `.frx` |
+| Cài đặt mẫu | Cài đặt → **Mẫu in → Mẫu bill**, chọn khổ A5 ngang/dọc, xem ảnh mẫu đã lưu và bấm **Sửa mẫu bill** để kéo-thả; không có Xuất/Import/Tải lại. |
 
 **Máy in (vd. HP M1212nf):** nút **In** dùng `PrintDocument` thẳng máy mặc định (không hộp thoại), giống setting WPS: khổ **A5**, lề ~4mm, **fit + auto-center + auto-rotate**. Mẫu dọc: lề trái ≥ 14mm / phải ≥ 16mm; khối **Vàng mới / Vàng cũ** trong `ReportSummary`.
 
@@ -39,7 +39,7 @@ Bill sau thanh toán bán hàng dùng mẫu FastReport A5 lưu trong Firebird:
 ### Không làm (giữ free)
 
 - Không mua FastReport WPF commercial / Online Designer.
-- Không nhúng Designer trong app.
+- Không nhúng FastReport Designer thương mại trong app. Designer bill/tem là UI WPF do dự án tự xây dựng trên mẫu `.frx`.
 - Không dùng FlowDocument cho bill nghiệp vụ mới.
 
 ## Tái sử dụng (Shared — module Báo cáo)
@@ -65,6 +65,23 @@ Checklist báo cáo mới:
 
 ## Cột báo cáo
 
+- Nút **Cột báo cáo** dùng chung cho các báo cáo bảng, gồm bảng lương tháng.
+
+## Báo cáo lương nhân viên
+
+Tải lại danh sách nhân viên phải bỏ qua thay đổi lựa chọn tạm thời do ComboBox gửi null trong lúc Clear/Add. Chỉ thao tác đổi bộ lọc của người dùng mới tăng revision và hủy dữ liệu cũ; refresh nội bộ giữ ID nhân viên đang chọn và tiếp tục dựng PDF. Kiểm thử binding ComboBox TwoWay thực tế ở `Kazuko.Modules.Reports.Tests/PayrollEmployeeSelectorTests` cho cả bảng tháng và phiếu cá nhân.
+
+- Nhân sự → Báo cáo hoặc Báo cáo → BÁO CÁO NHÂN SỰ: **Bảng lương tháng** (A4 ngang, cột tùy chọn) và **Phiếu lương cá nhân** (A4 dọc, bắt buộc chọn một nhân viên).
+- Lọc tháng/năm, nhân viên. Mặc định chỉ kỳ CLOSED; bật **Cho phép bản nháp** để xem DRAFT. Bản nháp có nhãn trên mỗi trang PDF và trong Excel.
+- `IPayrollReportService` / `FirebirdPayrollReportService`: phạm vi toàn doanh nghiệp theo chi nhánh của phiên đăng nhập. Tên/mã, công, lương, thưởng và khấu trừ lấy từ snapshot `HR_PAYROLL_LINES`, không tính lại theo hồ sơ/chấm công hiện tại. Danh sách chọn nhân viên cũng đọc snapshot, kể cả người đã nghỉ.
+- Thực nhận = lương + thưởng ghi nhận + thưởng điều chỉnh - khấu trừ ghi nhận - khấu trừ điều chỉnh. Đã chi lấy số tiền từ phiếu chi POSTED của `HR_PAYROLL_PAYMENTS` POSTED; phiếu hủy không tính. Các khoản thu/chi riêng không cộng lại vào lương.
+- Phiếu cá nhân tách khoản ghi nhận/điều chỉnh, diễn giải, phiếu/ngày/phương thức chi và phần ký nhận. Bảng tháng có tổng cộng thực nhận, đã chi, còn phải chi.
+- Dùng `ReportWorkspaceView` với WebView2, FastReport bands dựng động như các báo cáo cấu hình cột; không thêm mẫu FRX hoặc migration. Có lưu PDF, mở PDF, in shell và Excel số/ngày đúng kiểu. Đổi bộ lọc xóa ngay bản xem trước và chặn xuất dữ liệu cũ.
+- Xem cần đồng thời REP_VIEW và HR_PAYROLL; in/lưu PDF thêm REP_EXPORT, Excel thêm DATA_EXPORT. Thu hồi quyền xóa dữ liệu/PDF đang giữ.
+- Kiểm tra: `tests/Kazuko.PayrollReports.IntegrationChecks`, chỉ chạy trên bản restore `test89_*.fdb`; kiểm chứng kỳ nháp/chốt, chi/hủy chi, scope công ty, quyền, UI Light/Dark và PDF nhiều trang. Không ghi dữ liệu mẫu vào DATA.FDB.
+
+## Cấu hình cột
+
 - Nút **Cột báo cáo** mở dialog giống DataGrid: tick ẩn/hiện, ▲▼ đổi thứ tự.
 - Layout lưu theo máy (`reports.*.columns.json`), không ghi Firebird.
 - Áp dụng xong dựng lại PDF preview theo cột đã chọn.
@@ -72,17 +89,29 @@ Checklist báo cáo mới:
 ## Designer (Community, free)
 
 1. Tải FastReport Designer Community từ [GitHub FastReport releases](https://github.com/FastReports/FastReport/releases).
-2. **Bill:** Cài đặt → Xuất `.frx` → mở Designer → lưu → Import lại vào DB.
-3. **Báo cáo A4:** mở file trong `Templates/` → kéo thả → build lại app (copy ra output).
+2. **Bill:** Cài đặt → Mẫu in → chọn A5 ngang/dọc → **Sửa mẫu bill** → sửa, xem trước và lưu trong app.
+3. **Báo cáo A4:** dùng **Cột báo cáo** để đổi ẩn/hiện/thứ tự; thay bố cục khác phải sửa PrintService rồi build lại. Designer FRX chỉ áp dụng cho mẫu được pipeline thực tế nạp từ file/database, không áp dụng cho báo cáo dựng động.
 
-Nếu thiếu `.frx` báo cáo A4 lúc chạy, app tự tạo mẫu mặc định và ghi ra thư mục templates (lần đầu).
+Các file FRX/helper legacy còn trong source không phải nguồn bố cục của báo cáo dựng động.
+
+### Designer bill (WPF)
+
+- `IReceiptDesignerService` (Core), implementation trong Sales; Dashboard không tham chiếu Sales.
+- Nạp đúng mã khổ đang chọn; không đổi khổ giữa phiên sửa để tránh lưu nhầm mẫu. Quyền `SYS_SETTINGS/Sửa` được kiểm tra khi mở, nạp và trước lưu.
+- Toolbar, ô nhập, ComboBox, ListBox và scrollbar dùng chung `Shared.UI/Themes/PrintDesignerResources.xaml` với designer tem. Mặt giấy/mực giữ màu in; chrome dùng theme/font động.
+- Chọn **Vùng nội dung** (trang + band), canvas có lưới 1 mm, bật/tắt bám lưới, zoom 50–200%, kéo và resize tám điểm; X/Y/Rộng/Cao nhập mm. Bảng kéo cả khối, resize phân bổ theo cột/hàng; chọn từng ô từ danh sách hoặc nhấp đúp để sửa chữ/font/căn lề. Có thêm chữ, xóa đối tượng, thay chiều cao vùng và di chuyển bằng phím mũi tên (Shift: 10 px).
+- Band chứa các dòng dữ liệu được lặp theo dữ liệu thật khi in. Trang phụ của Subreport được chọn và sửa riêng. Canvas trình bày bố cục vùng và biểu thức, **Xem trước** render trang đầu bill bằng dữ liệu minh họa với bản nháp chưa lưu.
+- Model chỉnh các thuộc tính layout/text trên XML `.frx`, bảo toàn DataSource, biểu thức, bảng và Subreport; không có trường sửa ScriptText hay mã ứng dụng. Các phần tử không có panel thuộc tính chuyên biệt vẫn được giữ nguyên và có khung để di chuyển.
+- Khi nạp mẫu legacy, áp dụng bố cục runtime một lần rồi đánh dấu `ReportInfo.Description=KAZUKO_RECEIPT_DESIGNER_V1`. Runtime tiếp tục chuẩn bị dữ liệu nhưng không tự căn lại summary/di chuyển footer của mẫu đã đánh dấu, nên giữ vị trí đã kéo.
+- **Lưu mẫu** phải render thành công bản nháp trước khi ghi `IPrintTemplateStore.SaveAsync`; lỗi biểu thức hoặc mất quyền không thay mẫu đã lưu. Notes `Sửa bằng Bill Designer` ngăn auto-refresh seed ghi đè mẫu sửa. Lưu thành công đóng designer và tải lại preview ở Cài đặt. Hủy/đóng có xác nhận bỏ chỉnh sửa nếu còn bản nháp.
+- Không migration; bill vẫn in qua pipeline FastReport/PDF hiện có. Kiểm tra thao tác và theme/DPI: `docs/manual-tests/receipt-designer.md`.
 
 ## Báo cáo đã có
 
 | Key | Mẫu |
 |-----|-----|
-| `reports.warehouse.jewelry_on_hand` | `jewelry_on_hand_v3.frx` |
-| `reports.warehouse.jewelry_on_hand_summary` | `jewelry_on_hand_summary_v1.frx` |
+| `reports.warehouse.jewelry_on_hand` | `JewelryOnHandPrintService` dựng động |
+| `reports.warehouse.jewelry_on_hand_summary` | `JewelryOnHandSummaryPrintService` dựng động |
 | Bill bán hàng (Sales) | `SALES_RECEIPT_A5` trong `PRINT_TEMPLATES` |
 | Tem nữ trang 28x12 (Warehouse) | `TEM_NU_TRANG_28x12` trong `PRINT_TEMPLATES` |
 
@@ -168,6 +197,13 @@ In tem cho sản phẩm nhập kho thành phẩm (dialog Nhập kho TP):
 | Sửa mẫu | Tab **Mẫu in** trong Cài đặt → mục "Mẫu tem nữ trang 28x12" → nút **Sửa mẫu tem** mở designer kéo-thả |
 
 ### Designer sửa mẫu tem
+
+Tab **Mẫu tem** hiển thị ảnh PNG của mẫu đã lưu phía trên nút **Sửa mẫu tem**,
+theo mẫu được nhớ trong cấu hình In tem. Ảnh dùng chung bộ chuẩn bị dữ liệu minh họa
+với designer và lấy thông tin doanh nghiệp từ Thông tin chung. Vào mục Mẫu in hoặc
+lưu trong designer sẽ tải lại ảnh; lỗi render hiển thị tại vùng xem trước và không
+khóa nút sửa. Hai loại mẫu bill/tem đều là `.frx`, lưu thành các bản ghi riêng trong
+`PRINT_TEMPLATES`. Dashboard gọi service qua contract Core, không tham chiếu module khác.
 
 Trình thiết kế trực quan cho mẫu tem nữ trang (tab **Mẫu in** trong Cài đặt):
 

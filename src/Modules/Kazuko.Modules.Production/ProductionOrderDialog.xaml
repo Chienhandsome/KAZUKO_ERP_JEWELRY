@@ -41,6 +41,53 @@
             <Style x:Key="ProductionCompactDateStyle" TargetType="DatePicker" BasedOn="{StaticResource RoundedDatePickerStyle}">
                 <Setter Property="Margin" Value="0" />
             </Style>
+            <!-- The header always shows the checked workers, never ComboBox.SelectionBoxItem. -->
+            <Style x:Key="ProductionWorkerPickerStyle" TargetType="ComboBox" BasedOn="{StaticResource ProductionCompactComboStyle}">
+                <Setter Property="IsTextSearchEnabled" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBox">
+                            <Grid>
+                                <ToggleButton Focusable="False" ClickMode="Press"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                    BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                    BorderThickness="1" CornerRadius="8" Padding="10,3">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
+                                                    <TextBlock x:Name="WorkerSummary" Text="{Binding SelectedWorkerDisplayText, Mode=OneWay}"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource FontSize.Body}"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding SelectedWorkerDisplayText}" />
+                                                    <Path Grid.Column="1" Data="M 0 0 L 6 6 L 12 0" Stroke="{DynamicResource TextSecondaryBrush}"
+                                                          StrokeThickness="1.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                       AllowsTransparency="True" Focusable="False">
+                                    <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}" Margin="0,2,0,0" Padding="4"
+                                            Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/></Trigger>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/></Trigger>
+                                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.7"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -166,19 +213,27 @@
                                        Style="{StaticResource ProductionCompactRowLabelStyle}"
                                        Visibility="{Binding IsInHouse, Converter={StaticResource BoolToVis}}"
                                        ToolTip="Thợ sản xuất" />
-                            <ComboBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4"
-                                      Style="{StaticResource ProductionCompactComboStyle}"
+                            <ComboBox x:Name="WorkerPicker" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4"
+                                      Style="{StaticResource ProductionWorkerPickerStyle}"
                                       ItemsSource="{Binding SelectableEmployees}"
-                                      Text="{Binding SelectedWorkerDisplayText, Mode=OneWay}"
-                                      IsEditable="True" IsReadOnly="True"
+                                      PreviewKeyDown="WorkerPicker_OnPreviewKeyDown"
                                       IsEnabled="{Binding IsDraft}"
                                       Margin="0,0,0,4"
                                       Visibility="{Binding IsInHouse, Converter={StaticResource BoolToVis}}"
                                       ToolTip="Bấm để chọn nhiều thợ">
+                                <ComboBox.ItemContainerStyle>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <EventSetter Event="PreviewMouseLeftButtonDown" Handler="WorkerItem_OnPreviewMouseLeftButtonDown" />
+                                        <EventSetter Event="PreviewMouseLeftButtonUp" Handler="WorkerItem_OnPreviewMouseLeftButtonUp" />
+                                    </Style>
+                                </ComboBox.ItemContainerStyle>
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <CheckBox Content="{Binding DisplayText}"
                                                   IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                  Focusable="False" Background="Transparent"
                                                   VerticalContentAlignment="Center"
                                                   Padding="4,2" />
                                     </DataTemplate>

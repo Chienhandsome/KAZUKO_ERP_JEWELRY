@@ -31,6 +31,9 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
     private bool _isBusy;
     private string _errorMessage = string.Empty;
     private string _statusMessage = string.Empty;
+    private string _backupHistory = "Chưa có lịch sử sao lưu.";
+    private string _operationMessage = string.Empty;
+    private CancellationTokenSource? _backupCancellation;
 
     public DatabaseSettingsViewModel(
         IDatabaseManagementService database,
@@ -47,6 +50,8 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
 
         ChangeDatabaseCommand = new AsyncRelayCommand(ChangeDatabaseAsync, () => !IsBusy);
         BackupCommand = new AsyncRelayCommand(BackupAsync, () => !IsBusy);
+        VerifyBackupCommand = new AsyncRelayCommand(VerifyBackupAsync, () => !IsBusy);
+        CancelBackupCommand = new RelayCommand(CancelBackup, () => _backupCancellation is { IsCancellationRequested: false });
         CreateNewCommand = new AsyncRelayCommand(CreateNewAsync, () => !IsBusy);
         ReloadCommand = new AsyncRelayCommand(LoadAsync, () => !IsBusy);
 
@@ -118,6 +123,10 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
 
     public ICommand ChangeDatabaseCommand { get; }
     public ICommand BackupCommand { get; }
+    public ICommand VerifyBackupCommand { get; }
+    public ICommand CancelBackupCommand { get; }
+    public string BackupHistory { get => _backupHistory; private set => SetProperty(ref _backupHistory, value); }
+    public string OperationMessage { get => _operationMessage; private set => SetProperty(ref _operationMessage, value); }
     public ICommand CreateNewCommand { get; }
     public ICommand ReloadCommand { get; }
 
@@ -143,6 +152,8 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
+            // Local history remains visible even if the database/server cannot be reached.
+            LoadBackupHistory();
             var info = await _database.GetInfoAsync(session);
             FilePath = info.FilePath;
             FileSize = info.FileSizeDisplay;
@@ -249,7 +260,7 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
 
         using var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
-            Description = "Chọn thư mục lưu file backup",
+            Description = "Chọn thư mục lưu bản sao lưu .fbk",
             UseDescriptionForTitle = true,
             ShowNewFolderButton = true
         };
@@ -259,28 +270,81 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
         IsBusy = true;
         ErrorMessage = string.Empty;
         StatusMessage = string.Empty;
+        BeginBackupOperation();
         try
         {
-            var confirm = MessageBox.Show(
-                "Backup cơ sở dữ liệu hiện tại? Quá trình này có thể mất vài giây.",
-                "Xác nhận backup",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            if (confirm != MessageBoxResult.Yes)
-                return;
-
-            var backupPath = await _database.BackupAsync(dialog.SelectedPath, session);
-            StatusMessage = $"Đã backup thành công:\n{backupPath}";
+            var backupPath = await _database.BackupAsync(dialog.SelectedPath, session,
+                _backupCancellation!.Token, new Progress<string>(message => OperationMessage = message));
+            StatusMessage = $"Đã sao lưu thành công:\n{backupPath}\nCó thể bấm Kiểm tra bản sao lưu để khôi phục thử vào database tạm.";
             AskToOpenFolder(Path.GetDirectoryName(backupPath));
         }
+        catch (OperationCanceledException) { StatusMessage = "Đã hủy sao lưu."; }
         catch (Exception ex)
         {
             ErrorMessage = Sanitize(ex.Message);
         }
         finally
         {
+            EndBackupOperation();
             IsBusy = false;
         }
+    }
+
+    private async Task VerifyBackupAsync()
+    {
+        var session = RequireSession();
+        if (session is null || !EnsureAdmin(session)) return;
+        var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Kiểm tra bản sao lưu", Filter = "Bản sao lưu Firebird (*.fbk)|*.fbk", CheckFileExists = true };
+        if (dialog.ShowDialog() != true) return;
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        StatusMessage = string.Empty;
+        BeginBackupOperation();
+        try
+        {
+            var result = await _database.VerifyBackupAsync(dialog.FileName, session, _backupCancellation!.Token,
+                new Progress<string>(message => OperationMessage = message));
+            StatusMessage = $"Bản sao lưu đã khôi phục thử thành công (schema v{result.SchemaVersion}, {result.CompanyCount} công ty). Database tạm đã được dọn dẹp.";
+        }
+        catch (OperationCanceledException) { StatusMessage = "Đã hủy kiểm tra bản sao lưu."; }
+        catch (Exception ex) { ErrorMessage = Sanitize(ex.Message); }
+        finally { EndBackupOperation(); IsBusy = false; }
+    }
+
+    private void BeginBackupOperation()
+    {
+        _backupCancellation = new CancellationTokenSource();
+        OperationMessage = "Đang chuẩn bị…";
+        ((RelayCommand)CancelBackupCommand).NotifyCanExecuteChanged();
+    }
+
+    private void CancelBackup()
+    {
+        OperationMessage = "Đang hủy; chờ Firebird kết thúc thao tác và dọn file tạm…";
+        _backupCancellation?.Cancel();
+        ((RelayCommand)CancelBackupCommand).NotifyCanExecuteChanged();
+    }
+
+    private void EndBackupOperation()
+    {
+        _backupCancellation?.Dispose();
+        _backupCancellation = null;
+        OperationMessage = string.Empty;
+        ((RelayCommand)CancelBackupCommand).NotifyCanExecuteChanged();
+        try { LoadBackupHistory(); }
+        catch (Exception ex) { ErrorMessage = Sanitize(ex.Message); }
+    }
+
+    private void LoadBackupHistory()
+    {
+        var status = _database.GetBackupStatus();
+        BackupHistory = status.LastSuccessAt is { } success
+            ? $"Sao lưu thành công gần nhất: {success.LocalDateTime:dd/MM/yyyy HH:mm:ss}\n{status.LastSuccessPath}"
+            : "Chưa có bản sao lưu thành công được ghi nhận.";
+        if (status.LastVerificationAt is { } verified)
+            BackupHistory += $"\nKhôi phục thử thành công: {verified.LocalDateTime:dd/MM/yyyy HH:mm:ss}\n{status.LastVerifiedPath}";
+        if (!string.IsNullOrEmpty(status.LastError))
+            BackupHistory += $"\nTác vụ gần nhất ({status.LastAttemptAt?.LocalDateTime:dd/MM/yyyy HH:mm:ss}) chưa hoàn tất: {status.LastError}";
     }
 
     private async Task CreateNewAsync()
@@ -432,6 +496,7 @@ public sealed class DatabaseSettingsViewModel : ObservableObject
     {
         ((AsyncRelayCommand)ChangeDatabaseCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)BackupCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)VerifyBackupCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)CreateNewCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)ReloadCommand).NotifyCanExecuteChanged();
     }

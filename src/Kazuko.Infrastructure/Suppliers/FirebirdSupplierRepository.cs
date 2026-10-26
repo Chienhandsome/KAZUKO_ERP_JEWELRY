@@ -280,10 +280,8 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                 code = await GetCodeAsync(connection, (FbTransaction)transaction, id, cancellationToken);
             }
 
-            await transaction.CommitAsync(cancellationToken);
-            committed = true;
-
             await AuditLogWriter.WriteAsync(
+                connection, (FbTransaction)transaction,
                 isCreate ? "SUPPLIER_CREATED" : "SUPPLIER_UPDATED",
                 session.UserId,
                 session.Username,
@@ -296,6 +294,7 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
             if (!isCreate && oldGroupId > 0 && oldGroupId != normalized.SupplierGroupId)
             {
                 await AuditLogWriter.WriteAsync(
+                    connection, (FbTransaction)transaction,
                     "SUPPLIER_GROUP_CHANGED",
                     session.UserId,
                     session.Username,
@@ -306,6 +305,8 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                     cancellationToken);
             }
 
+            await transaction.CommitAsync(cancellationToken);
+            committed = true;
             return new SupplierEditResult(id, code, normalized.Name, normalized.Phone, normalized.Address, normalized.IsActive);
         }
         catch
@@ -335,6 +336,7 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
         ArgumentNullException.ThrowIfNull(session);
         await using var connection = FirebirdDatabase.CreateConnection();
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction();
         var affected = await connection.ExecuteAsync(
             new CommandDefinition("""
                 UPDATE SUPPLIERS
@@ -348,11 +350,13 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
                     USER_ID = session.UserId > 0 ? (object)session.UserId : DBNull.Value,
                     ID = id
                 },
+                transaction,
                 cancellationToken: cancellationToken));
         if (affected == 0)
             throw new InvalidOperationException("Nhà cung cấp không còn tồn tại.");
 
         await AuditLogWriter.WriteAsync(
+            connection, transaction,
             isActive ? "SUPPLIER_REACTIVATED" : "SUPPLIER_ARCHIVED",
             session.UserId,
             session.Username,
@@ -360,6 +364,7 @@ public sealed class FirebirdSupplierRepository : ISupplierRepository
             "SUPPLIERS",
             id.ToString(),
             cancellationToken: cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<SupplierGroupDetail>> GetGroupDetailsAsync(

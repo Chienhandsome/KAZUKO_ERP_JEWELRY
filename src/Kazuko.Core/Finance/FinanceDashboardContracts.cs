@@ -16,14 +16,14 @@ public sealed record FundBalance(string FundName, decimal Balance, string Kind);
 public sealed record CashVoucherListItem(
     long Id, string Code, DateTime VoucherDate, string VoucherType, // IN/OUT
     string Content, string PartyName, string PaymentMethod,
-    decimal AmountVnd, string CreatedByName, string StatusCode);
+    decimal AmountVnd, string CreatedByName, string StatusCode, long? CategoryId = null, string? CategoryName = null);
 
 public sealed record CashVoucherDetail(
     long Id, string Code, DateTime VoucherDate, string VoucherType,
     string PaymentMethod, decimal AmountVnd,
     string? PartyName, string? Notes, string? ReferenceNumber,
     string? SourceDocumentType, long? SourceDocumentId,
-    string CreatedByName, string StatusCode);
+    string CreatedByName, string StatusCode, long? CategoryId = null, string? CategoryName = null);
 
 public sealed record ManualVoucherRequest(
     string VoucherType, // IN/OUT
@@ -32,7 +32,8 @@ public sealed record ManualVoucherRequest(
     decimal AmountVnd,
     string? PartyName,
     string? Notes,
-    string? ReferenceNumber);
+    string? ReferenceNumber,
+    long? CategoryId = null);
 
 public interface IFinanceDashboardRepository
 {

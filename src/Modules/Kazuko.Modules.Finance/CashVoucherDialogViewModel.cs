@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Input;
+using System.Windows;
+using Kazuko.Core.UserManagement;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Mvvm;
@@ -79,6 +81,9 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     private readonly IFinanceVoucherService _voucherService;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly string _voucherType;
+    private readonly IVoucherCategoryService? _categories;
+    private readonly IAuthorizationService? _permissions;
+    private VoucherCategory? _selectedCategory;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
@@ -100,9 +105,9 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
         ICurrentSessionAccessor sessionAccessor,
         IReadOnlyList<CashFundOption> funds,
         IReadOnlyList<BankAccountOption> banks,
-        string voucherType)
+        string voucherType, IVoucherCategoryService? categories = null, IAuthorizationService? permissions = null)
         : this(voucherService, sessionAccessor, funds, banks, voucherType,
-               createVoucherOnSave: true, prefill: null)
+               createVoucherOnSave: true, prefill: null, categories, permissions)
     {
     }
 
@@ -128,11 +133,12 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
         IReadOnlyList<BankAccountOption> banks,
         string voucherType,
         bool createVoucherOnSave,
-        DebtSettlementDialogRequest? prefill)
+        DebtSettlementDialogRequest? prefill, IVoucherCategoryService? categories = null, IAuthorizationService? permissions = null)
     {
         _voucherService = voucherService;
         _sessionAccessor = sessionAccessor;
         _voucherType = voucherType;
+        _categories = categories; _permissions = permissions;
         Funds = funds;
         Banks = banks;
         CreateVoucherOnSave = createVoucherOnSave;
@@ -164,10 +170,38 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(false));
+        ManageCategoriesCommand = new AsyncRelayCommand(ManageCategoriesAsync, () => !IsBusy && SupportsCategories);
     }
 
     public string Title { get; }
     public string VoucherTypeName { get; }
+    public string CategoryLabel => _voucherType == FinancialVoucherTypes.In ? "Loại thu" : "Loại chi";
+    public bool SupportsCategories => CreateVoucherOnSave && _categories is not null;
+    public ObservableCollection<VoucherCategory> Categories { get; } = [];
+    public VoucherCategory? SelectedCategory { get => _selectedCategory; set => SetProperty(ref _selectedCategory, value); }
+    public ICommand ManageCategoriesCommand { get; }
+    public async Task LoadCategoriesAsync()
+    {
+        if (!SupportsCategories || _sessionAccessor.Current is not { } session) return;
+        IsBusy = true;
+        try
+        {
+            var selected = SelectedCategory?.Id;
+            var rows = await _categories!.ListAsync(_voucherType, false, session);
+            Categories.Clear(); foreach (var row in rows) Categories.Add(row);
+            SelectedCategory = Categories.FirstOrDefault(x => x.Id == selected) ?? Categories.FirstOrDefault(x => x.Code == "OTHER") ?? Categories.FirstOrDefault();
+            ErrorMessage = string.Empty;
+        }
+        catch (Exception ex) { Categories.Clear(); SelectedCategory = null; ErrorMessage = $"Không tải được loại thu/chi: {ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+    private async Task ManageCategoriesAsync()
+    {
+        if (_categories is null || _sessionAccessor.Current is not { } session) return;
+        var vm = new VoucherCategoryViewModel(_categories, session, _voucherType, _permissions);
+        new VoucherCategoryDialog(vm) { Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(x => x.IsActive) }.ShowDialog();
+        await LoadCategoriesAsync();
+    }
 
     /// <summary>true = lưu tạo phiếu ngay (module Tài chính); false = chỉ trả input (module Công nợ).</summary>
     public bool CreateVoucherOnSave { get; }
@@ -199,7 +233,12 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     public bool IsBusy
     {
         get => _isBusy;
-        private set => SetProperty(ref _isBusy, value);
+        private set
+        {
+            if (!SetProperty(ref _isBusy, value)) return;
+            ((AsyncRelayCommand)SaveCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)ManageCategoriesCommand).NotifyCanExecuteChanged();
+        }
     }
 
     public string ErrorMessage
@@ -277,6 +316,12 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
     {
         ErrorMessage = string.Empty;
 
+        if (SupportsCategories && (SelectedCategory is null || !SelectedCategory.IsActive || SelectedCategory.VoucherType != _voucherType))
+        {
+            ErrorMessage = "Vui lòng chọn loại thu/chi đang sử dụng.";
+            return;
+        }
+
         var cash = ParseAmount(CashAmountText);
         var bank = ParseAmount(BankTransferAmountText);
         var card = ParseAmount(CardAmountText);
@@ -343,7 +388,7 @@ public sealed class CashVoucherDialogViewModel : ObservableObject
                     totalPayment,
                     NullIfEmpty(PartyName),
                     NullIfEmpty(Notes),
-                    NullIfEmpty(ReferenceNumber));
+                    NullIfEmpty(ReferenceNumber), SelectedCategory?.Id);
                 SavedVoucher = await _voucherService.CreateManualVoucherAsync(request, session);
             }
             else
