@@ -491,13 +491,11 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                             <TextBox Grid.Column="1"
-                                     Text="{Binding IssueQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViQuantityConverter}}"
+                                     Text="{Binding IssueQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource PlainDecimalConverter}, ConverterParameter=PositiveQuantity}"
                                      Style="{StaticResource ProductionDialogFieldStyle}"
                                      Margin="0,0,8,0"
                                      IsEnabled="{Binding CanIssueMaterials}"
-                                     ToolTip="{Binding IssueQuantityHint}"
-                                     behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                                     behaviors:NumericThousandSeparatorBehavior.AllowDecimal="True" />
+                                     ToolTip="Số lượng/trọng lượng: dùng 0.023 hoặc 0,023; không ngăn cách hàng nghìn." />
                             <Button Grid.Column="2" Content="Thêm"
                                     Style="{StaticResource ProductionOutlineButtonStyle}"
                                     Command="{Binding AddIssueLineCommand}" MinHeight="36" />
@@ -518,12 +516,12 @@
                                 <DataGridTextColumn Header="Loại NVL" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"
                                                     grid:DataGridColumnLayout.Key="Name" />
                                 <DataGridTextColumn Header="Số lượng"
-                                                    Binding="{Binding Quantity, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViQuantityConverter}}"
+                                                    Binding="{Binding Quantity, UpdateSourceTrigger=LostFocus, Converter={StaticResource PlainDecimalConverter}, ConverterParameter=PositiveQuantity}"
                                                     Width="100"
                                                     grid:DataGridColumnLayout.Key="Qty">
                                     <DataGridTextColumn.EditingElementStyle>
                                         <Style TargetType="TextBox">
-                                            <Setter Property="behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator" Value="True" />
+                                            <Setter Property="behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator" Value="False" />
                                             <Setter Property="behaviors:NumericThousandSeparatorBehavior.AllowDecimal" Value="True" />
                                         </Style>
                                     </DataGridTextColumn.EditingElementStyle>

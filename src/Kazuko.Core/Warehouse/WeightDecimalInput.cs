@@ -11,6 +11,8 @@ public static class WeightDecimalInput
         if (string.IsNullOrWhiteSpace(text)) return false;
         var input = text.Trim();
         if (input.Count(c => c is '.' or ',') > 1) return false;
+        var separator=input.IndexOfAny(['.',',']);
+        if(separator>=0&&input.Length-separator-1>4)return false;
         return decimal.TryParse(input.Replace(',', '.'),
             NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
             CultureInfo.InvariantCulture, out value);

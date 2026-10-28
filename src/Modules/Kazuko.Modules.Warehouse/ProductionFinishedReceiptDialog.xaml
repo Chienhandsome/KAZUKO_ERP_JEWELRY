@@ -74,12 +74,31 @@
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <TextBlock Grid.Row="0"
+    <StackPanel Grid.Row="0">
+    <TextBlock
                Text="{Binding ErrorMessage}"
                Foreground="{DynamicResource DangerBrush}"
                TextWrapping="Wrap"
                Margin="0,0,0,8"
                Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+  <Expander Header="Tiến độ từng mẫu: đơn đặt / SX / nhập" IsExpanded="True" Margin="0,6,0,6">
+    <DataGrid ItemsSource="{Binding LineProgress}" Style="{StaticResource WhEditableDataGridStyle}" IsReadOnly="True" AutoGenerateColumns="False" MaxHeight="180" CanUserAddRows="False">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Mẫu" Binding="{Binding Model,Mode=OneWay}" Width="320">
+          <DataGridTextColumn.ElementStyle>
+            <Style TargetType="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis"/><Setter Property="ToolTip" Value="{Binding Model}"/></Style>
+          </DataGridTextColumn.ElementStyle>
+        </DataGridTextColumn>
+        <DataGridTextColumn Header="Vàng" Binding="{Binding Gold,Mode=OneWay}" Width="90"/>
+        <DataGridTextColumn Header="Đơn" Binding="{Binding Ordered,Mode=OneWay,TargetNullValue=—}" Width="90"/>
+        <DataGridTextColumn Header="SX" Binding="{Binding Planned,Mode=OneWay}" Width="90"/>
+        <DataGridTextColumn Header="Nhập" Binding="{Binding Received,Mode=OneWay}" Width="90"/>
+        <DataGridTextColumn Header="Thiếu" Binding="{Binding Missing,Mode=OneWay}" Width="90"/>
+        <DataGridTextColumn Header="Tình trạng" Binding="{Binding Status,Mode=OneWay}" Width="190"/>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Expander>
+    </StackPanel>
 
     <!-- 1. Form nhập: 3 cột + panel ảnh -->
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsEnabled="{Binding CanEdit}" Margin="0,0,0,12">
@@ -99,6 +118,7 @@
   <TextBlock Text="{Binding ReceiptState}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,6"/>
   <TextBlock Text="Dòng mẫu LSX (nhập đủ từng mẫu):" Style="{StaticResource ReceiptFormLabelStyle}"/>
   <ComboBox ItemsSource="{Binding OrderLines}" SelectedItem="{Binding SelectedLine}" DisplayMemberPath="ModelName" Style="{StaticResource ReceiptComboStyle}"/>
+
   <TextBlock Text="Ghi chú phiếu:" Style="{StaticResource ReceiptFormLabelStyle}"/>
   <TextBox Text="{Binding ReceiptNotes,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ReceiptFieldStyle}"/>
         <Grid Margin="0,0,0,6">
@@ -426,6 +446,8 @@
                 IsCancel="True" />
       </WrapPanel>
       <WrapPanel>
+        <Button Content="Kiểm tra kết quả" Command="{Binding CheckResultCommand}" Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="8,0,0,0"/>
+        <Button access:PermissionAccess.Rule="CRAFT_ORDER" Content="Mở đơn / Giao hàng" Command="{Binding OpenDeliveryCommand}" Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="8,0,0,0"/>
         <Button Content="In tem đang chọn"
                 Command="{Binding PrintSelectedLabelsCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"

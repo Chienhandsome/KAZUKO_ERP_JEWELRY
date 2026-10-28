@@ -13,6 +13,7 @@ using Kazuko.Core.Printing;
 using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
+using Kazuko.Core.Sales;
 using Kazuko.Modules.Warehouse.Printing;
 
 namespace Kazuko.Modules.Warehouse;
@@ -88,7 +89,8 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         IProductionApplicationService application,
         AuthenticatedSession session,
         IPrintTemplateStore printTemplates,
-        ICompanyProfileService companyProfile, IGoldTypeCatalogService? goldTypes=null, IFinishedReceiptDraftStore? draftStore=null, IFinishedReceiptDocuments? documents=null, long? preferredOrderId=null)
+        ICompanyProfileService companyProfile, IGoldTypeCatalogService? goldTypes=null, IFinishedReceiptDraftStore? draftStore=null, IFinishedReceiptDocuments? documents=null, long? preferredOrderId=null,
+        ICraftOrderApplicationService? craftOrders=null, Func<long,Task>? openDelivery=null)
     {
         _goldTypes=goldTypes;_draftStore=draftStore;_documents=documents;_preferredOrderId=preferredOrderId;
         _warehouse = warehouse;
@@ -97,6 +99,9 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         _session = session;
         _printTemplates = printTemplates;
         _companyProfile = companyProfile;
+        _craftOrders=craftOrders;_openDelivery=openDelivery;
+        CheckResultCommand=new AsyncRelayCommand(CheckResultAsync,()=>!IsBusy&&!IsDetailLoading&&SelectedOrder is not null&&_documents is not null);
+        OpenDeliveryCommand=new AsyncRelayCommand(OpenDeliveryAsync,()=>!IsBusy&&IsPosted&&_detail?.SalesOrderId is >0&&_openDelivery is not null);
         _labelPrintService = new FinishedGoodsLabelPrintService(printTemplates);
 
         AddCommand = new RelayCommand(AddOrUpdateProduct,()=>CanEdit);
@@ -638,6 +643,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
 
     private void OnProductsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        RefreshLineProgress();
         DebtRecorded=false;
         NotifyTotalsChanged();
         RefreshReconcileReceived();

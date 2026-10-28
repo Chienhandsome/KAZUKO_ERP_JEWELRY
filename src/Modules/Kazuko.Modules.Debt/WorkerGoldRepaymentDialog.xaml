@@ -87,8 +87,7 @@
 
     <TextBlock Text="Số chỉ trả *" Style="{StaticResource RepayLabelStyle}" />
     <TextBox x:Name="AmountBox" Style="{StaticResource RepayFieldStyle}"
-             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-             behaviors:NumericThousandSeparatorBehavior.AllowDecimal="True" />
+             ToolTip="Ví dụ: 0.023 hoặc 0,023 chỉ; không dùng dấu phân nhóm hàng nghìn." />
 
     <TextBlock Text="Ngày trả" Style="{StaticResource RepayLabelStyle}" />
     <DatePicker x:Name="PaidDatePicker" Margin="0,0,0,10"

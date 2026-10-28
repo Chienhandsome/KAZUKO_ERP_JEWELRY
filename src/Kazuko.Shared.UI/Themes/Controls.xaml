@@ -8,6 +8,7 @@
     <conv:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
     <conv:VietnameseMoneyConverter x:Key="ViMoneyConverter" />
     <conv:VietnameseQuantityConverter x:Key="ViQuantityConverter" />
+    <conv:PlainDecimalConverter x:Key="PlainDecimalConverter" />
 
     <Style TargetType="Window">
         <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />

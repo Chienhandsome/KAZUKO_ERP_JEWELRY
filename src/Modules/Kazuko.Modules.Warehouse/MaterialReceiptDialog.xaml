@@ -1,4 +1,4 @@
-﻿<Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
+<Window x:Class="Kazuko.Modules.Warehouse.MaterialReceiptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
@@ -245,10 +245,9 @@
                               ToolTip="Thêm loại vàng mới vào danh mục và giá mua/bán lẻ" />
                     </Grid>
                     <TextBox Grid.Row="1" Grid.Column="2"
-                             Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViQuantityConverter}}"
+                             Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource PlainDecimalConverter}, ConverterParameter=PositiveQuantity}"
                              Style="{StaticResource WhRoundedTextBoxStyle}"
-                             behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                             behaviors:NumericThousandSeparatorBehavior.AllowDecimal="True" />
+                             ToolTip="Số lượng/trọng lượng: dùng 0.023 hoặc 0,023; không ngăn cách hàng nghìn." />
                     <TextBox Grid.Row="1" Grid.Column="4"
                              Text="{Binding LineUnitPrice, UpdateSourceTrigger=LostFocus, Converter={StaticResource ViMoneyConverter}}"
                              Style="{StaticResource WhRoundedTextBoxStyle}"

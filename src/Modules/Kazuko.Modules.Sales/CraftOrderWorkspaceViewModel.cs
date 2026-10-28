@@ -35,6 +35,7 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
     private int _searchVersion;
     private int _detailVersion;
     private bool _hasStartedLoading;
+    private long _resultOrderId;
 
     public CraftOrderWorkspaceViewModel(
         ICraftOrderApplicationService craftOrders,
@@ -56,9 +57,31 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
         CreateOrderCommand = new RelayCommand(CreateOrder, () => !IsLoading && CanCreateOrder);
         DeliverCommand = new AsyncRelayCommand(DeliverAsync, () => !IsLoading && CanDeliverSelected);
         CollectCommand = new AsyncRelayCommand(CollectAsync, () => !IsLoading && CanCollectSelected);
+        CheckResultCommand=new AsyncRelayCommand(CheckDeliveryResultAsync,()=>!IsLoading&&(SelectedHeader is not null||_resultOrderId>0));
     }
 
     public ObservableCollection<CraftOrderListItem> Items { get; } = [];
+    public ICommand CheckResultCommand{get;}
+
+    private async Task CheckDeliveryResultAsync()
+    {
+        try{await OpenOrderAsync(SelectedHeader?.Id??_resultOrderId);}
+        catch(Exception ex){StatusMessage="Chưa kiểm tra được kết quả giao hàng. Không giao lại khi chưa xác minh. "+ex.Message;}
+    }
+
+    public async Task OpenOrderAsync(long orderId)
+    {
+        if(orderId<=0)return;
+        _resultOrderId=orderId;
+        IsLoading=true;
+        try
+        {
+            await LoadDetailAsync(orderId);
+            if(SelectedHeader is null)throw new InvalidOperationException("Không tìm thấy đơn đặt hoặc chưa có quyền xem.");
+            StatusMessage=SelectedHeader.HasFinishedGoodsIssue?"Đã xuất thành phẩm. Kiểm tra trạng thái đơn và số tiền còn lại; không giao lại.":"Chưa có phiếu xuất thành phẩm. Có thể giao sau khi kiểm tra đủ món và thanh toán.";
+        }
+        finally{IsLoading=false;((AsyncRelayCommand)CheckResultCommand).NotifyCanExecuteChanged();}
+    }
     public ObservableCollection<CraftOrderLineItem> Lines { get; } = [];
 
     public IReadOnlyList<CraftOrderStatusFilterOption> StatusFilterOptions { get; } =
@@ -146,6 +169,7 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
             OnPropertyChanged(nameof(CanCollectSelected));
             ((AsyncRelayCommand)DeliverCommand).NotifyCanExecuteChanged();
             ((AsyncRelayCommand)CollectCommand).NotifyCanExecuteChanged();
+            ((AsyncRelayCommand)CheckResultCommand).NotifyCanExecuteChanged();
             _onChanged();
         }
     }
@@ -220,6 +244,7 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
         {
             if (!SetProperty(ref _isLoading, value))
                 return;
+            ((AsyncRelayCommand)CheckResultCommand).NotifyCanExecuteChanged();
             ((AsyncRelayCommand)SearchCommand).NotifyCanExecuteChanged();
             ((RelayCommand)CreateOrderCommand).NotifyCanExecuteChanged();
             ((AsyncRelayCommand)DeliverCommand).NotifyCanExecuteChanged();
@@ -445,8 +470,9 @@ public sealed class CraftOrderWorkspaceViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = ex.Message;
-            ReportError?.Invoke(ex.Message);
+            _resultOrderId=header.Id;
+            StatusMessage = "Chưa xác minh được kết quả giao hàng. Bấm Kiểm tra kết quả trước khi giao lại. "+ex.Message;
+            ReportError?.Invoke(StatusMessage);
         }
         finally
         {

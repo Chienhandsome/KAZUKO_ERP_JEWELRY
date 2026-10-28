@@ -30,6 +30,8 @@ public sealed class FinishedReceiptLayoutTests
                     foreach(var resource in new[]{theme,"Typography","Controls"})app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/Kazuko.Shared.UI;component/Themes/"+resource+".xaml")});
                     foreach(var font in new[]{"Caption","Body","Subtitle","Heading","Display"})app.Resources["FontSize."+font]=(double)app.Resources["FontSize."+font]*scale;
                     var vm=new ProductionFinishedReceiptDialogViewModel(Stub<IWarehouseRepository>(),Stub<IProductionQueryRepository>(),Stub<IProductionApplicationService>(),new(1,"test","Test","ADMIN",1,"CN","Chi nhánh"),Stub<IPrintTemplateStore>(),Stub<ICompanyProfileService>());
+                    vm.LineProgress.Add(new("Nhẫn mẫu dài để kiểm tra bố cục","750",2,2,1));
+                    vm.LineProgress.Add(new("Dây chuyền","9999",1,1,0));
                     var window=new ProductionFinishedReceiptDialog(vm){Width=1366,Height=820,WindowState=WindowState.Normal};
                     var root=(FrameworkElement)window.Content;((Panel)root).Background=(Brush)app.Resources["AppBackgroundBrush"];
                     root.Measure(new Size(1334,788));root.Arrange(new Rect(0,0,1334,788));root.UpdateLayout();

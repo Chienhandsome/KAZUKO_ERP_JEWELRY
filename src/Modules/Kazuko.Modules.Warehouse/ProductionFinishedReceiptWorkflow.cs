@@ -41,7 +41,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
     {
         foreach(var command in new[]{AddCommand,CancelEditCommand,CancelCommand,OpenReconcileCommand,SaveDraftCommand,PrintReceiptCommand})
             (command as RelayCommand)?.NotifyCanExecuteChanged();
-        foreach(var command in new[]{SaveCommand,RecordDebtCommand,PrintSelectedLabelsCommand,PrintAllLabelsCommand})
+        foreach(var command in new[]{SaveCommand,RecordDebtCommand,PrintSelectedLabelsCommand,PrintAllLabelsCommand,CheckResultCommand,OpenDeliveryCommand})
             (command as AsyncRelayCommand)?.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(ReceiptState));
     }
@@ -51,6 +51,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
         try
         {
             ErrorMessage="";ImageItems.Clear();WorkerOptions.Clear();GoldReconcileRows.Clear();OrderLines.Clear();SelectedLine=null;
+            _salesLines=[];LineProgress.Clear();
             SelectedImage=null;SelectedWorker=null;DebtRecorded=false;ReconcileMessage="";
             if(item is null)return;
             var detail=await _queries.GetOrderDetailAsync(item.Id,_session.BranchId);
@@ -58,6 +59,12 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
             if(detail is null)throw new InvalidOperationException("LSX không còn tồn tại.");
             _detail=detail;
             foreach(var line in detail.Lines)OrderLines.Add(line);
+            if(detail.SalesOrderId is >0&&_craftOrders is not null)
+            {
+                _salesLines=await _craftOrders.GetLinesAsync(detail.SalesOrderId.Value,_session);
+                if(revision!=_detailRevision)return;
+            }
+            RefreshLineProgress();
             SelectedLocation=Locations.FirstOrDefault(l=>l.Id==detail.FinishedLocationId)??Locations.FirstOrDefault();
             foreach(var image in detail.Attachments.Where(IsImageAttachment))ImageItems.Add(new(image.OriginalFileName,image.StoredPath));
             SelectedImage=ImageItems.FirstOrDefault();
@@ -68,7 +75,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
                 _externalWorkerOption=new(detail.ExternalWorkerId.Value,"Thợ ngoài",detail.ExternalWorkerName??"");
                 WorkerOptions.Clear();WorkerOptions.Add(_externalWorkerOption);
             }
-            SelectedWorker=WorkerOptions.FirstOrDefault();
+            SelectedWorker=WorkerOptions.Count==1?WorkerOptions[0]:null;
             var posted=_documents is null?null:await _documents.GetByOrderAsync(item.Id,_session);
             if(revision!=_detailRevision)return;
             if(posted is not null){SetPosted(posted);return;}
@@ -163,7 +170,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
                 if(SelectedOrder is null||_detail is null||SelectedLocation is null)throw new InvalidOperationException("Chọn LSX và kho nhập.");
                 foreach(var item in Products)FinishedReceiptValidation.ValidateItem(item);
                 FinishedReceiptValidation.ValidateQuantities(_detail.Lines.ToDictionary(l=>l.Id,l=>l.PlannedQuantity),Products);
-                if(MessageBox.Show($"Ghi sổ toàn bộ {Products.Count} món của {SelectedOrder.Code}? Tồn kho và nợ vàng sẽ được lưu cùng nhau.","Xác nhận nhập kho",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
+                if(MessageBox.Show(BuildPostingSummary(),"Xác nhận nhập kho",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
                 _pendingPost=BuildRequest();
                 SaveDraft(); // Durable request ID exists before network/commit.
             }

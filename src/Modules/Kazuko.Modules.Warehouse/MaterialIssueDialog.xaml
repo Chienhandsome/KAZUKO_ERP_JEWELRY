@@ -41,10 +41,9 @@
               <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding SelectedMaterial}"
                         DisplayMemberPath="DisplayName" Height="40" />
               <TextBox Grid.Column="2"
-                       Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViQuantityConverter}}"
-                       Height="40" ToolTip="Số lượng"
-                       behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                       behaviors:NumericThousandSeparatorBehavior.AllowDecimal="True" />
+                       Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource PlainDecimalConverter}, ConverterParameter=PositiveQuantity}"
+                       Height="40"
+                       ToolTip="Số lượng/trọng lượng: dùng 0.023 hoặc 0,023; không ngăn cách hàng nghìn." />
               <Button Grid.Column="4" Content="Thêm dòng" Command="{Binding AddLineCommand}"
                       Style="{DynamicResource PrimaryButtonStyle}" MinHeight="40" />
             </Grid>

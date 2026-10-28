@@ -20,6 +20,7 @@ public sealed class SalesModule : IKazukoModule
 
     public void RegisterServices(IServiceRegistry services)
     {
+        services.AddSingleton<ICraftOrderDeliveryPresenter>(new CraftOrderDeliveryPresenter(()=>CreateViewModel(services),GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services)));
         services.AddSingleton<ISalesPaymentDialogService>(new WpfSalesPaymentDialogService());
         services.AddSingleton<ISalesPriceOverrideDialogService>(new WpfSalesPriceOverrideDialogService());
         var printData = GetRequiredService<ISalesPrintDataService>(services);

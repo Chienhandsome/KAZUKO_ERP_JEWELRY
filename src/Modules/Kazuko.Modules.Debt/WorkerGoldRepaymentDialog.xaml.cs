@@ -1,4 +1,5 @@
 using System.Globalization;
+using Kazuko.Core.Warehouse;
 using System.Windows;
 
 namespace Kazuko.Modules.Debt;
@@ -27,7 +28,7 @@ public partial class WorkerGoldRepaymentDialog : Window
         WorkerNameBox.Text = debt.WorkerDisplayName;
         PurityBox.Text = debt.GoldPurityText;
         RemainingBox.Text = debt.RemainingText;
-        AmountBox.Text = debt.RemainingChi.ToString("#,0.###", CultureInfo.GetCultureInfo("vi-VN"));
+        AmountBox.Text = WeightDecimalInput.Format(debt.RemainingChi);
         PaidDatePicker.SelectedDate = DateTime.Today;
 
         AmountBox.Focus();
@@ -44,7 +45,7 @@ public partial class WorkerGoldRepaymentDialog : Window
     {
         if (!TryParseAmount(AmountBox.Text, out var amount))
         {
-            ShowError("Nhập số chỉ vàng hợp lệ (ví dụ 1,250).");
+            ShowError("Nhập số chỉ hợp lệ: 0.023 hoặc 0,023; tối đa 4 số lẻ, không ngăn cách hàng nghìn.");
             return;
         }
 
@@ -79,16 +80,5 @@ public partial class WorkerGoldRepaymentDialog : Window
         ErrorText.Visibility = Visibility.Visible;
     }
 
-    private static bool TryParseAmount(string? text, out decimal amount)
-    {
-        amount = 0;
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        // Chấp nhận cả dấu phân cách theo máy (vi-VN: 1.250,5) lẫn dạng 1,250.5.
-        var normalized = text.Trim().Replace(" ", string.Empty);
-        var vi = CultureInfo.GetCultureInfo("vi-VN");
-        return decimal.TryParse(normalized, NumberStyles.Number, vi, out amount)
-            || decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
-    }
+    internal static bool TryParseAmount(string? text,out decimal amount)=>WeightDecimalInput.TryParse(text,out amount);
 }

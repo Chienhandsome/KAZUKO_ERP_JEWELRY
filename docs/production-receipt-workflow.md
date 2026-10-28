@@ -13,6 +13,16 @@
 
 Nếu chưa rõ kết quả vì mất kết nối, giữ phiếu và bấm Lưu để xác minh/thử lại cùng mã yêu cầu. Nháp giữ mã yêu cầu trước khi gửi. Không lập phiếu khác để thay lần lưu chưa rõ kết quả. Sau mở lại, ưu tiên tra phiếu đã ghi sổ; nếu chưa thấy thì giữ nguyên request để thử lại.
 
+## UX bổ sung 28/10/2026
+
+- Bảng tiến độ từng mẫu đối chiếu số lượng đơn đặt (nếu có), kế hoạch SX, món đã thêm và số thiếu. Chỉ cảnh báo lệch; chưa thay thế validation đồng bộ kế hoạch LSX với đơn đặt ở backend.
+- LSX nhiều thợ không tự chọn thợ chịu nợ. LSX đúng một thợ có thể điền sẵn; người dùng kiểm tra tên thợ trong xác nhận cuối.
+- Xác nhận ghi sổ hiển thị số món, kho, tổng giá vốn, vàng giao/nhận/hao hụt/nợ và tên thợ; cảnh báo vàng nhận vượt giao.
+- “Kiểm tra kết quả” chỉ đọc phiếu đã lưu, không gửi lại giao dịch. Nếu chưa thấy phiếu, giữ nháp và dùng yêu cầu cũ để thử lại. Lỗi kiểm tra không có nghĩa giao dịch trước đã thất bại.
+- Sau nhập kho, “Mở đơn / Giao hàng” mở đúng đơn đặt qua ICraftOrderDeliveryPresenter trong Core, có kiểm tra quyền xem đơn. Không tự xuất kho hoặc thu tiền; người dùng thực hiện tại màn hình đơn đặt.
+- Màn hình đơn đặt có nút kiểm tra kết quả để đọc lại trạng thái xuất kho/thanh toán sau lỗi mạng.
+- Checklist: [manual test flow chính](manual-tests/production-main-flow-ux.md).
+
 ## Giá vốn và giới hạn đã chốt
 
 - Nếu vàng trong thành phẩm vượt lượng đã giao, đối chiếu cảnh báo để kiểm tra chênh lệch; không tự tạo phiếu nhập hoặc tăng tồn nguyên liệu cho phần vượt đã nằm trong thành phẩm.

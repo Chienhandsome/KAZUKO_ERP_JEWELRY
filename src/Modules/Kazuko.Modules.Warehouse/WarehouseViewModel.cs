@@ -43,6 +43,7 @@ public sealed class WarehouseViewModel : ObservableObject
     private readonly ICompanyProfileService _companyProfile;
     private readonly IFinishedReceiptDraftStore? _receiptDrafts;
     private readonly IFinishedReceiptDocuments? _receiptDocuments;
+    private readonly IProductionFinishedReceiptPresenter? _receiptPresenter;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
     private bool _suppressTabSideEffects;
@@ -139,7 +140,8 @@ public sealed class WarehouseViewModel : ObservableObject
         IPrintTemplateStore printTemplates,
         ICompanyProfileService companyProfile,
         Kazuko.Core.UserManagement.IAuthorizationService? authorization = null,
-        IStocktakeService? stocktakes = null, IFinishedReceiptDraftStore? receiptDrafts=null, IFinishedReceiptDocuments? receiptDocuments=null)
+        IStocktakeService? stocktakes = null, IFinishedReceiptDraftStore? receiptDrafts=null, IFinishedReceiptDocuments? receiptDocuments=null,
+        IProductionFinishedReceiptPresenter? receiptPresenter=null)
     {
         _repository = repository;
         _warehouseGoldPrices = warehouseGoldPrices;
@@ -157,7 +159,7 @@ public sealed class WarehouseViewModel : ObservableObject
         _preferences = preferences;
         _printTemplates = printTemplates;
         _companyProfile = companyProfile;_receiptDrafts=receiptDrafts;_receiptDocuments=receiptDocuments;
-        _permissions = authorization;
+        _permissions = authorization;_receiptPresenter=receiptPresenter;
         Stocktakes = stocktakes is null ? null : new StocktakeTabViewModel(stocktakes,sessionAccessor,authorization);
 
         Locations.Add(new WarehouseLocationOption(0, 0, string.Empty, "Tất cả vị trí", "WAREHOUSE"));
@@ -1633,6 +1635,11 @@ public sealed class WarehouseViewModel : ObservableObject
 
     private void OpenProductionFinishedReceiptDialog()
     {
+        if(_receiptPresenter is not null)
+        {
+            if(_receiptPresenter.Show()){OpenDocumentTab("PRODUCTION_FINISHED_RECEIPT",WarehouseTabs.Receipt);_ = RefreshAllAsync();}
+            return;
+        }
         var session = RequireSession();
         if (session is null)
         {

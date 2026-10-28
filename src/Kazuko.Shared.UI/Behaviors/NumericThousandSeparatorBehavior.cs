@@ -90,7 +90,7 @@ public static class NumericThousandSeparatorBehavior
         var pasted = e.DataObject.GetData(DataFormats.UnicodeText) as string ?? string.Empty;
         var allowDecimal = GetAllowDecimal(textBox);
         var cleaned = allowDecimal
-            ? new string(pasted.Where(ch => char.IsDigit(ch) || ch is '.' or ',').ToArray())
+            ? pasted.Trim()
             : new string(pasted.Where(char.IsDigit).ToArray());
 
         e.CancelCommand();

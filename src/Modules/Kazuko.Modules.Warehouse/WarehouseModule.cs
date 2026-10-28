@@ -32,7 +32,9 @@ public sealed class WarehouseModule : IKazukoModule
             GetRequiredService<IProductionApplicationService>(services),session,GetRequiredService<IPrintTemplateStore>(services),
             GetRequiredService<ICompanyProfileService>(services),GetRequiredService<IGoldTypeCatalogService>(services),
             GetRequiredService<IFinishedReceiptDraftStore>(services),GetRequiredService<IFinishedReceiptDocuments>(services),
-            GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services)));
+            GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services),
+            GetRequiredService<Kazuko.Core.Sales.ICraftOrderApplicationService>(services),
+            id=>GetRequiredService<Kazuko.Core.Sales.ICraftOrderDeliveryPresenter>(services).ShowAsync(id)));
         var templates = GetRequiredService<IPrintTemplateStore>(services);
         var companyProfile = GetRequiredService<ICompanyProfileService>(services);
         services.AddSingleton<ILabelDesignerService>(
@@ -86,7 +88,7 @@ public sealed class WarehouseModule : IKazukoModule
                     printTemplates,
                     companyProfile,
                     GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services),
-                    GetRequiredService<IStocktakeService>(services),GetRequiredService<IFinishedReceiptDraftStore>(services),GetRequiredService<IFinishedReceiptDocuments>(services))
+                    GetRequiredService<IStocktakeService>(services),GetRequiredService<IFinishedReceiptDraftStore>(services),GetRequiredService<IFinishedReceiptDocuments>(services),GetRequiredService<IProductionFinishedReceiptPresenter>(services))
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",

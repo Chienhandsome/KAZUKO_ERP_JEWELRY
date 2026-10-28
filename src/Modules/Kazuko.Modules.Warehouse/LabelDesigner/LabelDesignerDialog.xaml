@@ -169,22 +169,22 @@
                 <TextBlock Text="X" Grid.Row="0" Grid.Column="0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <TextBox Text="{Binding SelectedObject.LeftMm, StringFormat='{}{0:F1}'}"
+                <TextBox Text="{Binding SelectedObject.LeftMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
                          Grid.Row="1" Grid.Column="0" MinHeight="40" Margin="0,2,4,6" />
                 <TextBlock Text="Y" Grid.Row="0" Grid.Column="1"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <TextBox Text="{Binding SelectedObject.TopMm, StringFormat='{}{0:F1}'}"
+                <TextBox Text="{Binding SelectedObject.TopMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
                          Grid.Row="1" Grid.Column="1" MinHeight="40" Margin="4,2,0,6" />
                 <TextBlock Text="Rộng" Grid.Row="2" Grid.Column="0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <TextBox Text="{Binding SelectedObject.WidthMm, StringFormat='{}{0:F1}'}"
+                <TextBox Text="{Binding SelectedObject.WidthMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
                          Grid.Row="3" Grid.Column="0" MinHeight="40" Margin="0,2,4,0" />
                 <TextBlock Text="Cao" Grid.Row="2" Grid.Column="1"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
-                <TextBox Text="{Binding SelectedObject.HeightMm, StringFormat='{}{0:F1}'}"
+                <TextBox Text="{Binding SelectedObject.HeightMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
                          Grid.Row="3" Grid.Column="1" MinHeight="40" Margin="4,2,0,0" />
               </Grid>
 
@@ -221,13 +221,13 @@
                   <StackPanel Grid.Column="0" Margin="0,0,4,0">
                     <TextBlock Text="Cỡ chữ (pt)" Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding SelectedObject.FontSize, StringFormat='{}{0:F1}'}"
+                    <TextBox Text="{Binding SelectedObject.FontSize, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
                              MinHeight="40" Margin="0,2,0,0" />
                   </StackPanel>
                   <StackPanel Grid.Column="1" Margin="4,0,0,0">
                     <TextBlock Text="Góc xoay (độ)" Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding SelectedObject.Angle, StringFormat='{}{0:F0}'}"
+                    <TextBox Text="{Binding SelectedObject.Angle, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
                              MinHeight="40" Margin="0,2,0,0" />
                   </StackPanel>
                 </Grid>

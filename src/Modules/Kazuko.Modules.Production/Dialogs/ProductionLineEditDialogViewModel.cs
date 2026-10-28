@@ -8,6 +8,7 @@ using System.Windows.Input;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Production;
+using Kazuko.Core.Warehouse;
 using Microsoft.Win32;
 
 namespace Kazuko.Modules.Production.Dialogs;
@@ -77,7 +78,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             GoldTypeName = source.GoldTypeName;
             PlannedQuantityText = source.PlannedQuantity.ToString("N0", ViVn);
             LaborCostPerUnitText = FormatLaborCost(source.LaborCostPerUnit);
-            EstimatedWeightChiText = FormatDecimal(source.EstimatedWeightChi, "0.###");
+            EstimatedWeightChiText = WeightDecimalInput.Format(source.EstimatedWeightChi);
             GoldUnitPricePerChiText = FormatLaborCost(source.GoldUnitPricePerChi);
             Description = source.Description;
             Notes = source.Notes;
@@ -327,7 +328,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         labor = 0;
         return int.TryParse(PlannedQuantityText.Trim(), NumberStyles.Integer | NumberStyles.AllowThousands, ViVn, out qty)
             && qty >= 1
-            && decimal.TryParse(EstimatedWeightChiText.Trim(), NumberStyles.Number, ViVn, out weight)
+            && WeightDecimalInput.TryParse(EstimatedWeightChiText, out weight)
             && weight >= 0
             && decimal.TryParse(GoldUnitPricePerChiText.Trim(), NumberStyles.Number, ViVn, out goldPrice)
             && goldPrice >= 0
@@ -377,8 +378,8 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
             ViVn);
         target.LaborCostPerUnit = decimal.Parse(
             LaborCostPerUnitText.Trim(), NumberStyles.Number, ViVn);
-        target.EstimatedWeightChi = decimal.Parse(
-            EstimatedWeightChiText.Trim(), NumberStyles.Number, ViVn);
+        if(!WeightDecimalInput.TryParse(EstimatedWeightChiText,out var estimatedWeight))throw new InvalidOperationException("Trọng lượng vàng không hợp lệ. Dùng dấu chấm hoặc phẩy, tối đa 4 số lẻ.");
+        target.EstimatedWeightChi = estimatedWeight;
         target.GoldUnitPricePerChi = decimal.Parse(
             GoldUnitPricePerChiText.Trim(), NumberStyles.Number, ViVn);
         target.StoneAmountPerUnitVnd = 0m;

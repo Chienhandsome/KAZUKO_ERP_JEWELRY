@@ -175,7 +175,7 @@ public sealed class StocktakeTabViewModel : ObservableObject
     {
             if(SelectedLine is null)return;
             decimal? quantity=string.IsNullOrWhiteSpace(QuantityText)?null:
-                decimal.TryParse(QuantityText,NumberStyles.Number,CultureInfo.GetCultureInfo("vi-VN"),out var parsed)?parsed:
+                QuantityDecimalInput.TryParse(QuantityText,out var parsed)?parsed:
                     throw new InvalidOperationException("Số thực tế không hợp lệ (ví dụ 1.250,5).");
             StocktakeValidation.ValidateQuantity(SelectedLine.Model.Kind,quantity);
             if(LineNotes.Length>500)throw new InvalidOperationException("Ghi chú dòng tối đa 500 ký tự.");

@@ -18,6 +18,19 @@ public sealed class CraftOrderWorkspaceTests
     }
 
     [Fact]
+    public async Task Direct_open_and_result_check_read_exact_order_without_delivery()
+    {
+        var (vm,service)=Create();
+        service.Header=service.Header! with{Id=42,StatusCode=CraftOrderStatuses.Completed,HasFinishedGoodsIssue=true};
+        await vm.OpenOrderAsync(42);
+        Assert.Equal(42,vm.SelectedHeader!.Id);
+        Assert.False(vm.CanDeliverSelected);
+        Assert.Contains("Đã xuất",vm.StatusMessage);
+        Assert.True(vm.CheckResultCommand.CanExecute(null));
+        vm.CheckResultCommand.Execute(null);
+        Assert.Equal(42,vm.SelectedHeader.Id);
+    }
+    [Fact]
     public async Task Unopened_tab_does_not_query_when_filters_change()
     {
         var (vm, service) = Create();

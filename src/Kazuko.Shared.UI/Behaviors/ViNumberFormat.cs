@@ -34,20 +34,7 @@ public static class ViNumberFormat
         return decimal.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out value);
     }
 
-    public static bool TryParseQuantity(string? text, out decimal value)
-    {
-        value = 0m;
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        var trimmed = text.Trim().Replace(" ", string.Empty).TrimEnd(',', '.');
-        if (trimmed.Length == 0)
-            return false;
-
-        return decimal.TryParse(trimmed, NumberStyles.Number, Culture, out value)
-            || decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out value)
-            || TryParseInteger(trimmed, out value);
-    }
+    public static bool TryParseQuantity(string? text,out decimal value)=>Kazuko.Core.Warehouse.QuantityDecimalInput.TryParse(text,out value);
 
     public static bool TryFormatInput(string text, bool allowDecimal, int caret, out string formatted, out int newCaret)
     {
@@ -85,6 +72,7 @@ public static class ViNumberFormat
     {
         formatted = text;
         newCaret = caret;
+        if(text.Any(c=>!char.IsAsciiDigit(c)&&c is not ('.' or ','))||!TryParseQuantity(text,out _))return false;
         var sliceLength = Math.Clamp(caret, 0, text.Length);
         if (!TrySplit(text, out var intDigits, out var fracDigits, out var hadDecimal))
             return false;
@@ -132,7 +120,7 @@ public static class ViNumberFormat
             var after = text[(dot + 1)..];
             var afterDigits = Digits(after);
             // Một dấu chấm và đúng 3 số phía sau là ngăn nghìn (1.250). 1 hoặc 2 số là thập phân (1.5, 1.25).
-            if (afterDigits.Length == 3 && after.Trim().Length == 3)
+            if (afterDigits.Length == 3 && after.Trim().Length == 3 && text[..dot].Length is >0 and <=3 && text[0]!='0')
             {
                 intDigits = Digits(text);
                 return true;

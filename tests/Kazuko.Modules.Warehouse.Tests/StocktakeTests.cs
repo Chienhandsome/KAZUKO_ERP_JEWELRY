@@ -11,6 +11,13 @@ namespace Kazuko.Modules.Warehouse.Tests;
 public sealed class StocktakeTests
 {
     [Theory]
+    [InlineData("0.5",0.5)][InlineData("0,5",0.5)][InlineData("0.023",0.023)][InlineData("0,023",0.023)]
+    public async Task Fractional_count_never_loses_its_decimal_separator(string text,double expected)
+    {
+        var service=new FakeService();var vm=await Create(service);vm.SelectedLine=vm.Lines[0];vm.QuantityText=text;
+        vm.SaveCommand.Execute(null);Assert.Equal("",vm.Error);Assert.Equal((decimal)expected,service.Saved!.Lines[0].Quantity);
+    }
+    [Theory]
     [InlineData("MATERIAL",-1,false)]
     [InlineData("MATERIAL",1.125,true)]
     [InlineData("MATERIAL",1.12345,false)]

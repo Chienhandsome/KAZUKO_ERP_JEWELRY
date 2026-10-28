@@ -3,6 +3,11 @@ using Kazuko.Core.Finance;
 
 namespace Kazuko.Core.Sales;
 
+public interface ICraftOrderDeliveryPresenter
+{
+    Task ShowAsync(long salesOrderId);
+}
+
 public static class SalesOrderTypes
 {
     public const string Retail = "RETAIL";
