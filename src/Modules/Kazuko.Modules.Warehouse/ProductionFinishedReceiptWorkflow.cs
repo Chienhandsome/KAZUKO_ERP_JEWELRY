@@ -115,6 +115,8 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
             if(GoldReconcileRows.Any(r=>r.HasDebt)&&SelectedWorker is null)throw new InvalidOperationException("Chọn thợ chịu nợ vàng.");
             DebtRecorded=true;
             ReconcileMessage="Đã xác nhận đối chiếu. Công nợ chỉ được ghi khi lưu phiếu nhập kho thành công.";
+            if(GoldReconcileRows.Any(r=>r.ReceivedWeight-r.IssuedWeight>.0001m))
+                ReconcileMessage+=" Cảnh báo: vàng trong thành phẩm vượt lượng đã giao; cần kiểm tra chênh lệch. Phần vượt không tự nhập vào kho nguyên liệu.";
         }
         catch(Exception ex){DebtRecorded=false;ReconcileMessage=ex.Message;}
         NotifyReceiptCommands();

@@ -15,6 +15,7 @@ Nếu chưa rõ kết quả vì mất kết nối, giữ phiếu và bấm Lưu 
 
 ## Giá vốn và giới hạn đã chốt
 
+- Nếu vàng trong thành phẩm vượt lượng đã giao, đối chiếu cảnh báo để kiểm tra chênh lệch; không tự tạo phiếu nhập hoặc tăng tồn nguyên liệu cho phần vượt đã nằm trong thành phẩm.
 - Chưa tự phân bổ giá vốn từ LSX: cần người dùng duyệt công thức theo từng lô/nguyên liệu và tiền công trước khi triển khai. Hiện yêu cầu nhập giá vốn dương; công nhập không vượt tổng giá vốn. Không âm thầm thay giá vốn trống thành 0.
 - Không hỗ trợ nhập từng đợt: số món của từng mẫu phải đủ, không chỉ tổng món của cả lệnh. Nếu cần nhận thiếu/hỏng thì phải có quyết định nghiệp vụ riêng.
 - Các trường nhập được giữ trong snapshot bất biến của phiếu; thuộc tính tồn kho cốt lõi vẫn lưu FINISHED_PRODUCTS. Chưa thay công thức giá bán của phân hệ Bán hàng bằng ô giá bán nhập tay.

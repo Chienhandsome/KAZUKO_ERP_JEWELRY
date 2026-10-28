@@ -1,0 +1,1017 @@
+From 10ced1e12179dd760fe87712b0cdf26df1ed2b6c Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Wed, 28 Oct 2026 01:40:32 +0000
+Subject: [PATCH 1/7] fix(production): remove dead QC finished-receipt path
+
+---
+ .../Production/ProductionContracts.cs         |   6 -
+ .../FirebirdProductionApplicationService.cs   | 207 ------------------
+ .../UserManagement/BackendAccess.cs           |   1 -
+ 3 files changed, 214 deletions(-)
+
+diff --git a/src/Kazuko.Core/Production/ProductionContracts.cs b/src/Kazuko.Core/Production/ProductionContracts.cs
+index 7025e5d..c8a3876 100644
+--- a/src/Kazuko.Core/Production/ProductionContracts.cs
++++ b/src/Kazuko.Core/Production/ProductionContracts.cs
+@@ -656,12 +656,6 @@ public interface IProductionApplicationService
+         AuthenticatedSession session,
+         CancellationToken cancellationToken = default);
+ 
+-    Task<ProductionCompleteResult> PostFinishedReceiptAsync(
+-        long productionOrderId,
+-        long expectedRowVersion,
+-        AuthenticatedSession session,
+-        CancellationToken cancellationToken = default);
+-
+     /// <summary>
+     /// Nhập kho thành phẩm luồng thủ công: tạo phiếu NTP + FINISHED_PRODUCTS cho từng item
+     /// (không qua QC). ProductionOrderId nullable — cho phép nhập kho không gắn lệnh.
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index 3629c34..f6b1e33 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -1004,213 +1004,6 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+         }
+     }
+ 
+-    public async Task<ProductionCompleteResult> PostFinishedReceiptAsync(
+-        long productionOrderId,
+-        long expectedRowVersion,
+-        AuthenticatedSession session,
+-        CancellationToken cancellationToken = default)
+-    {
+-        ArgumentNullException.ThrowIfNull(session);
+-        StockPostingSupport.EnsureBranch(session);
+-        if (productionOrderId <= 0)
+-            throw new InvalidOperationException("Thiếu lệnh sản xuất.");
+-
+-        await using var connection = FirebirdDatabase.CreateConnection();
+-        await connection.OpenAsync(cancellationToken);
+-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+-        var fbTx = (FbTransaction)transaction;
+-
+-        try
+-        {
+-            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
+-            var order = await LockOrderHeaderAsync(
+-                connection, fbTx, companyId, session.BranchId, productionOrderId,
+-                expectedRowVersion, cancellationToken, requireVersionMatch: false);
+-
+-            if (order.FinishedReceiptDocumentId is > 0)
+-            {
+-                var prior = await LoadCompletedResultAsync(
+-                    connection, fbTx, productionOrderId, order, cancellationToken);
+-                await transaction.CommitAsync(cancellationToken);
+-                return prior;
+-            }
+-
+-            if (order.RowVersion != expectedRowVersion)
+-                throw new InvalidOperationException("Lệnh đã được cập nhật bởi người khác. Vui lòng tải lại.");
+-            if (!string.Equals(order.StatusCode, ProductionOrderStatuses.Completed, StringComparison.OrdinalIgnoreCase))
+-                throw new InvalidOperationException("Chỉ nhập kho lệnh sản xuất đã hoàn thành.");
+-
+-            var errors = ProductionCompletionValidator.Validate(
+-                ProductionOrderStatuses.InProgress,
+-                order.MaterialIssueDocumentId is > 0);
+-            if (errors.Count > 0)
+-                throw new InvalidOperationException(string.Join(" ", errors));
+-
+-            await EnsureAllocationWithinInProductAsync(connection, fbTx, productionOrderId, cancellationToken);
+-            await EnsureFinishedLocationAsync(
+-                connection, fbTx, order.FinishedLocationId, session.BranchId, cancellationToken);
+-
+-            var docCode = await StockPostingSupport.NextDocumentCodeAsync(
+-                connection, fbTx, ProductionStockDocumentTypes.FinishedReceipt,
+-                session.BranchId, "NTP", cancellationToken);
+-
+-            long documentId;
+-            await using (var insertDoc = new FbCommand("""
+-                INSERT INTO STOCK_DOCUMENTS
+-                    (COMPANY_ID, BRANCH_ID, CODE, DOCUMENT_TYPE, DOCUMENT_DATE,
+-                     DESTINATION_LOCATION_ID, PRODUCTION_ORDER_ID, PURPOSE_CODE,
+-                     NOTES, STATUS_CODE, CREATED_BY, CREATED_AT, POSTED_BY, POSTED_AT)
+-                VALUES
+-                    (@CID, @BID, @CODE, @DTYPE, CURRENT_TIMESTAMP,
+-                     @DEST, @PO, @PURPOSE,
+-                     @NOTES, 'POSTED', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
+-                RETURNING ID
+-                """, connection, fbTx))
+-            {
+-                insertDoc.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+-                insertDoc.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+-                insertDoc.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = docCode;
+-                insertDoc.Parameters.Add("@DTYPE", FbDbType.VarChar, 40).Value =
+-                    ProductionStockDocumentTypes.FinishedReceipt;
+-                insertDoc.Parameters.Add("@DEST", FbDbType.BigInt).Value = order.FinishedLocationId;
+-                insertDoc.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
+-                insertDoc.Parameters.Add("@PURPOSE", FbDbType.VarChar, 40).Value =
+-                    ProductionStockPurposes.FinishedReceipt;
+-                insertDoc.Parameters.Add("@NOTES", FbDbType.VarChar, 1000).Value =
+-                    $"Nhập thành phẩm lệnh {order.Code}";
+-                insertDoc.Parameters.Add("@BY", FbDbType.BigInt).Value =
+-                    session.UserId > 0 ? session.UserId : DBNull.Value;
+-                documentId = Convert.ToInt64(await insertDoc.ExecuteScalarAsync(cancellationToken));
+-            }
+-
+-            var lineNo = 0;
+-            decimal totalLabor = 0;
+-            var qcUnits = await LoadQcUnitsForCompleteAsync(connection, fbTx, productionOrderId, cancellationToken);
+-            foreach (var unit in qcUnits)
+-            {
+-                lineNo++;
+-                var components = await LoadUnitComponentsAsync(connection, fbTx, unit.Id, cancellationToken);
+-                var cost = ProductionCostCalculator.Calculate(
+-                    components.Select(c => new ProductionCostCalculator.ComponentCostInput(
+-                        c.ComponentKind, c.QuantityUsed, c.UnitCostSnapshot, c.GoldPricePerChiSnapshot)),
+-                    unit.LaborCostSnapshot,
+-                    unit.ActualGoldWeight);
+-                totalLabor += cost.LaborCost;
+-
+-                var serial = await StockPostingSupport.NextDocumentCodeAsync(
+-                    connection, fbTx, "FINISHED_PRODUCT", session.BranchId, "TP", cancellationToken);
+-
+-                long productId;
+-                await using (var insertFp = new FbCommand("""
+-                    INSERT INTO FINISHED_PRODUCTS
+-                        (COMPANY_ID, BRANCH_ID, PRODUCTION_ORDER_ID, SALES_ORDER_ID, PRODUCTION_QC_UNIT_ID,
+-                         CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT,
+-                         MATERIAL_COST, LABOR_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST,
+-                         LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT)
+-                    VALUES
+-                        (@CID, @BID, @PO, @SO, @QC,
+-                         @CODE, @BARCODE, @QR, @NAME, @PURITY, @TW, @GW,
+-                         @MAT, @LABOR, @NON, @TOTAL,
+-                         @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
+-                    RETURNING ID
+-                    """, connection, fbTx))
+-                {
+-                    insertFp.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
+-                    insertFp.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
+-                    insertFp.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
+-                    insertFp.Parameters.Add("@SO", FbDbType.BigInt).Value =
+-                        order.SalesOrderId is > 0 ? order.SalesOrderId.Value : DBNull.Value;
+-                    insertFp.Parameters.Add("@QC", FbDbType.BigInt).Value = unit.Id;
+-                    insertFp.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = serial;
+-                    insertFp.Parameters.Add("@BARCODE", FbDbType.VarChar, 80).Value = serial;
+-                    insertFp.Parameters.Add("@QR", FbDbType.VarChar, 80).Value = serial;
+-                    insertFp.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = unit.ModelName;
+-                    insertFp.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
+-                        string.IsNullOrWhiteSpace(unit.GoldPurityCode) ? DBNull.Value : unit.GoldPurityCode;
+-                    insertFp.Parameters.Add("@TW", FbDbType.Decimal).Value = cost.GoldWeight;
+-                    insertFp.Parameters.Add("@GW", FbDbType.Decimal).Value = cost.GoldWeight;
+-                    insertFp.Parameters.Add("@MAT", FbDbType.Decimal).Value = cost.GoldMaterialCost;
+-                    insertFp.Parameters.Add("@LABOR", FbDbType.Decimal).Value = cost.LaborCost;
+-                    insertFp.Parameters.Add("@NON", FbDbType.Decimal).Value = cost.NonGoldMaterialCost;
+-                    insertFp.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = cost.TotalCost;
+-                    insertFp.Parameters.Add("@LOC", FbDbType.BigInt).Value = order.FinishedLocationId;
+-                    insertFp.Parameters.Add("@BY", FbDbType.BigInt).Value =
+-                        session.UserId > 0 ? session.UserId : DBNull.Value;
+-                    productId = Convert.ToInt64(await insertFp.ExecuteScalarAsync(cancellationToken));
+-                }
+-
+-                await using (var linkUnit = new FbCommand("""
+-                    UPDATE PRODUCTION_QC_UNITS
+-                       SET FINISHED_PRODUCT_ID = @FP
+-                     WHERE ID = @ID AND FINISHED_PRODUCT_ID IS NULL
+-                    """, connection, fbTx))
+-                {
+-                    linkUnit.Parameters.Add("@FP", FbDbType.BigInt).Value = productId;
+-                    linkUnit.Parameters.Add("@ID", FbDbType.BigInt).Value = unit.Id;
+-                    if (await linkUnit.ExecuteNonQueryAsync(cancellationToken) != 1)
+-                        throw new InvalidOperationException($"Không gắn thành phẩm cho đơn vị QC #{unit.Id}.");
+-                }
+-
+-                await FirebirdFinishedProductTransferService.InsertDocumentLineAsync(
+-                    connection, fbTx, documentId, lineNo, productId,
+-                    null, order.FinishedLocationId, "NEW", "IN_STOCK", cost.TotalCost, cancellationToken,
+-                    null, null, 0, cost.GoldWeight, cost.LaborCost, cost.NonGoldMaterialCost);
+-
+-                await FirebirdFinishedProductTransferService.InsertMovementAsync(
+-                    connection, fbTx, companyId, session.BranchId, productId,
+-                    "IN", ProductionStockDocumentTypes.FinishedReceipt, documentId, 1, cost.TotalCost,
+-                    order.FinishedLocationId, null, order.FinishedLocationId,
+-                    "NEW", "IN_STOCK", session.UserId, cancellationToken);
+-            }
+-
+-            long rowVersion;
+-            await using (var updateOrder = new FbCommand("""
+-                UPDATE PRODUCTION_ORDERS
+-                   SET FINISHED_RECEIPT_DOCUMENT_ID = @DOC,
+-                       UPDATED_BY = @BY,
+-                       UPDATED_AT = CURRENT_TIMESTAMP,
+-                       ROW_VERSION = ROW_VERSION + 1
+-                 WHERE ID = @ID
+-                   AND STATUS_CODE = 'COMPLETED'
+-                   AND FINISHED_RECEIPT_DOCUMENT_ID IS NULL
+-                   AND ROW_VERSION = @VERSION
+-                RETURNING ROW_VERSION
+-                """, connection, fbTx))
+-            {
+-                updateOrder.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
+-                updateOrder.Parameters.Add("@BY", FbDbType.BigInt).Value =
+-                    session.UserId > 0 ? session.UserId : DBNull.Value;
+-                updateOrder.Parameters.Add("@ID", FbDbType.BigInt).Value = productionOrderId;
+-                updateOrder.Parameters.Add("@VERSION", FbDbType.BigInt).Value = expectedRowVersion;
+-                var updated = await updateOrder.ExecuteScalarAsync(cancellationToken);
+-                if (updated is null or DBNull)
+-                    throw new InvalidOperationException("Không thể nhập kho. Dữ liệu lệnh đã thay đổi.");
+-                rowVersion = Convert.ToInt64(updated);
+-            }
+-
+-            await AuditLogWriter.WriteAsync(
+-                connection, fbTx, "PRODUCTION_FINISHED_RECEIPT_POSTED",
+-                session.UserId, session.Username, session.BranchId,
+-                "PRODUCTION_ORDER", productionOrderId.ToString(), order.Code, cancellationToken);
+-
+-            await transaction.CommitAsync(cancellationToken);
+-            return new ProductionCompleteResult(
+-                productionOrderId, order.Code, documentId, docCode,
+-                qcUnits.Count, null, totalLabor, rowVersion);
+-        }
+-        catch (FbException ex) when (IsUniqueViolation(ex))
+-        {
+-            await transaction.RollbackAsync(cancellationToken);
+-            throw new InvalidOperationException(
+-                $"Lỗi trùng dữ liệu khi nhập kho: {ex.Message}", ex);
+-        }
+-        catch
+-        {
+-            await transaction.RollbackAsync(cancellationToken);
+-            throw;
+-        }
+-    }
+-
+     public async Task<ManualFinishedReceiptResult> PostManualFinishedReceiptAsync(
+         PostManualFinishedReceiptRequest request,
+         AuthenticatedSession session,
+diff --git a/src/Kazuko.Infrastructure/UserManagement/BackendAccess.cs b/src/Kazuko.Infrastructure/UserManagement/BackendAccess.cs
+index 584286c..c61476f 100644
+--- a/src/Kazuko.Infrastructure/UserManagement/BackendAccess.cs
++++ b/src/Kazuko.Infrastructure/UserManagement/BackendAccess.cs
+@@ -88,7 +88,6 @@ public static class BackendAccess
+                 "PostMaterialIssueAsync" => Has("PROD_MATERIAL_ISSUE", PermissionAction.Add),
+                 "PostWorkerReturnAsync" or "RecordQcAsync" or "RecordReworkReturnAsync" => Has("PROD_QC", PermissionAction.Edit),
+                 "CompleteAsync" => Has("PROD_COMPLETE", PermissionAction.Edit),
+-                "PostFinishedReceiptAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add),
+                 "PostManualFinishedReceiptAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add) && Has("PROD_GOLD_RECONCILE", PermissionAction.Add),
+                 "RecordWorkerGoldDebtAsync" => Has("PROD_GOLD_RECONCILE", PermissionAction.Add),
+                 "CancelAsync" => Has("PROD_CANCEL", PermissionAction.Delete), _ => false },
+-- 
+2.43.0
+
+
+From 6de0832f3407a3b5bf28fcc8643d781746351c64 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Wed, 28 Oct 2026 01:41:03 +0000
+Subject: [PATCH 2/7] fix(production): release sales order when cancelling its
+ production order
+
+---
+ .../FirebirdProductionApplicationService.cs   | 54 ++++++++++++++++++-
+ 1 file changed, 52 insertions(+), 2 deletions(-)
+
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index f6b1e33..4f793cf 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -1388,9 +1388,10 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+             string code;
+             string status;
+             long rowVersion;
++            long? salesOrderId = null;
+ 
+             await using (var select = new FbCommand("""
+-                SELECT CODE, STATUS_CODE, ROW_VERSION
++                SELECT CODE, STATUS_CODE, ROW_VERSION, SALES_ORDER_ID
+                 FROM PRODUCTION_ORDERS
+                 WHERE ID = @ID
+                   AND COMPANY_ID = @CID
+@@ -1407,6 +1408,7 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+                 code = reader.GetString(0);
+                 status = reader.GetString(1);
+                 rowVersion = reader.GetInt64(2);
++                salesOrderId = reader.IsDBNull(3) ? null : reader.GetInt64(3);
+                 if (rowVersion != expectedRowVersion)
+                     throw new InvalidOperationException("Lệnh đã được cập nhật bởi người khác. Vui lòng tải lại.");
+             }
+@@ -1498,12 +1500,60 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+                 rowVersion = Convert.ToInt64(result);
+             }
+ 
++            // Giải phóng đơn bán: lúc tạo LSX, đơn CUSTOM đã bị đẩy sang IN_PRODUCTION
++            // (MarkCraftOrderInProductionAsync) và unique UQ_PO_SALES_ORDER + picker NOT EXISTS
++            // sẽ chặn tạo LSX mới nếu còn link. Chỉ trả khi đơn đang IN_PRODUCTION và
++            // không còn LSX nào khác còn sống trỏ tới nó. Trạng thái trả về là CONFIRMED
++            // (đơn đã được shop chấp nhận khi tạo LSX; CONFIRMED đủ điều kiện tạo LSX mới).
++            var salesOrderReleased = false;
++            if (salesOrderId is > 0)
++            {
++                await using (var liveCmd = new FbCommand("""
++                    SELECT COUNT(*) FROM PRODUCTION_ORDERS
++                    WHERE SALES_ORDER_ID = @SO AND ID <> @PO AND STATUS_CODE <> 'CANCELLED'
++                    """, connection, fbTx))
++                {
++                    liveCmd.Parameters.Add("@SO", FbDbType.BigInt).Value = salesOrderId.Value;
++                    liveCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
++                    if (Convert.ToInt32(await liveCmd.ExecuteScalarAsync(cancellationToken)) == 0)
++                    {
++                        await using (var releaseCmd = new FbCommand("""
++                            UPDATE SALES_ORDERS
++                               SET STATUS_CODE = 'CONFIRMED',
++                                   UPDATED_AT = CURRENT_TIMESTAMP
++                             WHERE ID = @SO
++                               AND ORDER_TYPE = 'CUSTOM'
++                               AND STATUS_CODE = 'IN_PRODUCTION'
++                            """, connection, fbTx))
++                        {
++                            releaseCmd.Parameters.Add("@SO", FbDbType.BigInt).Value = salesOrderId.Value;
++                            if (await releaseCmd.ExecuteNonQueryAsync(cancellationToken) > 0)
++                            {
++                                salesOrderReleased = true;
++                                await using (var unlinkCmd = new FbCommand("""
++                                    UPDATE PRODUCTION_ORDERS
++                                       SET SALES_ORDER_ID = NULL
++                                     WHERE ID = @PO
++                                    """, connection, fbTx))
++                                {
++                                    unlinkCmd.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
++                                    await unlinkCmd.ExecuteNonQueryAsync(cancellationToken);
++                                }
++                            }
++                        }
++                    }
++                }
++            }
++
+             var reasonText = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
++            var auditData = reasonText is null ? code : $"{code}|{reasonText}";
++            if (salesOrderReleased)
++                auditData += $"|releasedSalesOrder:{salesOrderId}";
+             await AuditLogWriter.WriteAsync(
+                 connection, fbTx, "PRODUCTION_ORDER_CANCELLED",
+                 session.UserId, session.Username, session.BranchId,
+                 "PRODUCTION_ORDER", productionOrderId.ToString(),
+-                reasonText is null ? code : $"{code}|{reasonText}",
++                auditData,
+                 cancellationToken);
+ 
+             await transaction.CommitAsync(cancellationToken);
+-- 
+2.43.0
+
+
+From 5bb34f5285de86e4964a51595c3ea3082eeaf356 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Wed, 28 Oct 2026 01:42:28 +0000
+Subject: [PATCH 3/7] feat(production): idempotent production order creation
+ via request dedupe
+
+---
+ .../0092__production_order_requests.sql       | 17 +++++++++++
+ .../Production/ProductionContracts.cs         |  6 +++-
+ .../FirebirdProductionApplicationService.cs   | 30 +++++++++++++++++++
+ .../ProductionOrderDialogViewModel.cs         | 16 ++++++++--
+ 4 files changed, 66 insertions(+), 3 deletions(-)
+ create mode 100644 database/migrations/0092__production_order_requests.sql
+
+diff --git a/database/migrations/0092__production_order_requests.sql b/database/migrations/0092__production_order_requests.sql
+new file mode 100644
+index 0000000..cb3b98c
+--- /dev/null
++++ b/database/migrations/0092__production_order_requests.sql
+@@ -0,0 +1,17 @@
++/* Forward-only. Order create-request snapshot permits safe retry of LSX creation
++   (same pattern as 0091 for finished receipts). Restore pre-migration .fbk to roll back;
++   do not drop tables with posted documents. */
++SET AUTODDL OFF;
++CREATE TABLE PRODUCTION_ORDER_REQUESTS (
++ ID BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
++ COMPANY_ID BIGINT NOT NULL REFERENCES COMPANIES(ID),
++ BRANCH_ID BIGINT NOT NULL REFERENCES BRANCHES(ID),
++ REQUEST_ID CHAR(36) CHARACTER SET ASCII NOT NULL,
++ REQUEST_HASH CHAR(64) CHARACTER SET ASCII NOT NULL,
++ ORDER_ID BIGINT NOT NULL REFERENCES PRODUCTION_ORDERS(ID),
++ PAYLOAD BLOB SUB_TYPE TEXT CHARACTER SET UTF8 NOT NULL,
++ CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
++ CONSTRAINT UQ_PROD_ORDER_REQUEST UNIQUE(COMPANY_ID,BRANCH_ID,REQUEST_ID),
++ CONSTRAINT UQ_PROD_ORDER_ORDER UNIQUE(ORDER_ID)
++);
++COMMIT;
+diff --git a/src/Kazuko.Core/Production/ProductionContracts.cs b/src/Kazuko.Core/Production/ProductionContracts.cs
+index c8a3876..3dfc77d 100644
+--- a/src/Kazuko.Core/Production/ProductionContracts.cs
++++ b/src/Kazuko.Core/Production/ProductionContracts.cs
+@@ -361,7 +361,11 @@ public sealed record ProductionOrderDraft(
+     long? RowVersion,
+     IReadOnlyList<long> EmployeeIds,
+     IReadOnlyList<ProductionOrderLineDraft> Lines,
+-    IReadOnlyList<ProductionAttachmentDraft> Attachments);
++    IReadOnlyList<ProductionAttachmentDraft> Attachments,
++    // Idempotency cho tạo mới (kiểu PRODUCTION_RECEIPT_REQUESTS): dialog giữ 1 Guid
++    // cho cả phiên tạo, retry cùng RequestId trả LSX cũ, khác nội dung bị chặn.
++    // Sửa bản nháp không dùng (đã có ROW_VERSION). Guid.Empty = không dedupe.
++    Guid RequestId = default);
+ 
+ public sealed record ProductionOrderSaveResult(
+     long Id,
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index 4f793cf..a5158b0 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -20,6 +20,8 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+         _attachmentStore = attachmentStore;
+     }
+ 
++    private sealed record OrderRequestRow(long OrderId, string Code, long RowVersion, string RequestHash);
++
+     public async Task<ProductionOrderSaveResult> SaveDraftAsync(
+         ProductionOrderDraft draft,
+         AuthenticatedSession session,
+@@ -51,6 +53,26 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+             long rowVersion;
+             var isCreate = draft.Id is null or <= 0;
+ 
++            // Idempotency cho tạo mới (kiểu PRODUCTION_RECEIPT_REQUESTS): retry cùng
++            // RequestId trả LSX cũ, khác nội dung bị chặn. Sửa bản nháp không dedupe.
++            string? orderRequestHash = null;
++            if (isCreate && draft.RequestId != Guid.Empty)
++            {
++                orderRequestHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(draft))));
++                var priorOrder = await connection.QuerySingleOrDefaultAsync<OrderRequestRow>(new CommandDefinition("""
++                    SELECT R.ORDER_ID AS OrderId, O.CODE AS Code, O.ROW_VERSION AS RowVersion, R.REQUEST_HASH AS RequestHash
++                    FROM PRODUCTION_ORDER_REQUESTS R JOIN PRODUCTION_ORDERS O ON O.ID = R.ORDER_ID
++                    WHERE R.COMPANY_ID = @companyId AND R.BRANCH_ID = @branch AND R.REQUEST_ID = @id
++                    """, new { companyId, branch = session.BranchId, id = draft.RequestId.ToString() }, fbTx, cancellationToken: cancellationToken));
++                if (priorOrder is not null)
++                {
++                    if (priorOrder.RequestHash.Trim() != orderRequestHash)
++                        throw new InvalidOperationException("Yêu cầu tạo lệnh này đã lưu với nội dung khác. Tải lại lệnh đã tạo.");
++                    await transaction.CommitAsync(cancellationToken);
++                    return new ProductionOrderSaveResult(priorOrder.OrderId, priorOrder.Code, priorOrder.RowVersion);
++                }
++            }
++
+             if (isCreate)
+             {
+                 code = await StockPostingSupport.NextDocumentCodeAsync(
+@@ -118,6 +140,14 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+             await SyncAttachmentsAsync(connection, fbTx, orderId, code, session.UserId, draft.Attachments, cancellationToken,files);
+             await MarkCraftOrderInProductionAsync(connection, fbTx, draft.SalesOrderId, cancellationToken);
+ 
++            if (isCreate && draft.RequestId != Guid.Empty && orderRequestHash is not null)
++            {
++                await connection.ExecuteAsync(new CommandDefinition("""
++                    INSERT INTO PRODUCTION_ORDER_REQUESTS(COMPANY_ID,BRANCH_ID,REQUEST_ID,REQUEST_HASH,ORDER_ID,PAYLOAD)
++                    VALUES(@companyId,@branch,@id,@requestHash,@orderId,@payload)
++                    """, new { companyId, branch = session.BranchId, id = draft.RequestId.ToString(), requestHash = orderRequestHash, orderId, payload = JsonSerializer.Serialize(draft) }, fbTx, cancellationToken: cancellationToken));
++            }
++
+             await AuditLogWriter.WriteAsync(
+                 connection, fbTx, "PRODUCTION_ORDER_DRAFT_SAVED",
+                 session.UserId, session.Username, session.BranchId,
+diff --git a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
+index f6eda03..f2711ac 100644
+--- a/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Production/ProductionOrderDialogViewModel.cs
+@@ -64,6 +64,10 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+     private readonly IBankAccountRepository? _bankAccounts;
+     private readonly ICustomerEditorService? _customerEditor;
+ 
++    // Idempotency tạo LSX: giữ 1 Guid cho cả phiên tạo, retry cùng RequestId
++    // trả LSX cũ thay vì tạo lệnh trùng (kiểu _requestId của dialog nhập kho).
++    private Guid _createRequestId = Guid.NewGuid();
++
+     private string _customerSearch = string.Empty;
+     private CraftCustomerOption? _selectedCustomer;
+     private bool _isCustomerSuggestionsOpen;
+@@ -1610,9 +1614,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+                 _id is > 0 ? _rowVersion : null,
+                 employeeIds,
+                 lineDrafts,
+-                attachmentDrafts);
++                attachmentDrafts,
++                _createRequestId);
+ 
++            var wasCreate = _id is null or <= 0;
+             var result = await _application.SaveDraftAsync(draft, RequireSession());
++            // Tạo mới thành công: xoay RequestId để lần tạo tiếp theo không đụng request cũ.
++            if (wasCreate) _createRequestId = Guid.NewGuid();
+             _id = result.Id;
+             Code = result.Code;
+             _rowVersion = result.RowVersion;
+@@ -2009,9 +2017,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
+                 _id is > 0 ? _rowVersion : null,
+                 employeeIds,
+                 lineDrafts,
+-                attachmentDrafts);
++                attachmentDrafts,
++                _createRequestId);
+ 
++            var wasCreate = _id is null or <= 0;
+             var result = await _application.SaveDraftAsync(draft, RequireSession());
++            // Tạo mới thành công: xoay RequestId để lần tạo tiếp theo không đụng request cũ.
++            if (wasCreate) _createRequestId = Guid.NewGuid();
+             _id = result.Id;
+             Code = result.Code;
+             _rowVersion = result.RowVersion;
+-- 
+2.43.0
+
+
+From 85a38cb52e52580ae974a7741f412b69278c663a Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Wed, 28 Oct 2026 01:42:34 +0000
+Subject: [PATCH 4/7] fix(finance): block generic reversal of finished-goods
+ receipt documents
+
+---
+ .../Finance/FirebirdDocumentReversalService.cs         | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/src/Kazuko.Infrastructure/Finance/FirebirdDocumentReversalService.cs b/src/Kazuko.Infrastructure/Finance/FirebirdDocumentReversalService.cs
+index 0257d34..577b429 100644
+--- a/src/Kazuko.Infrastructure/Finance/FirebirdDocumentReversalService.cs
++++ b/src/Kazuko.Infrastructure/Finance/FirebirdDocumentReversalService.cs
+@@ -1,6 +1,7 @@
+ using FirebirdSql.Data.FirebirdClient;
+ using Kazuko.Core.Authentication;
+ using Kazuko.Core.Finance;
++using Kazuko.Core.Production;
+ using Kazuko.Core.Warehouse;
+ using Kazuko.Infrastructure.Data;
+ using Kazuko.Infrastructure.Warehouse;
+@@ -52,6 +53,15 @@ public sealed class FirebirdDocumentReversalService : IDocumentReversalService
+             if (status != StockDocumentStatuses.Posted)
+                 throw new InvalidOperationException("Chỉ hủy chứng từ đã ghi sổ.");
+ 
++            // Phiếu nhập kho thành phẩm KHÔNG đảo bằng chức năng chung: nhánh đảo này
++            // không gỡ FINISHED_RECEIPT_DOCUMENT_ID khỏi LSX, không đảo nợ vàng thợ,
++            // không đổi trạng thái FINISHED_PRODUCTS (đảo xong sẽ kẹt 3 đầu). Chặn rõ
++            // ràng cho tới khi có nhánh đảo riêng đầy đủ.
++            if (string.Equals(docType, ProductionStockDocumentTypes.FinishedReceipt, StringComparison.OrdinalIgnoreCase))
++                throw new InvalidOperationException(
++                    "Phiếu nhập kho thành phẩm không đảo bằng chức năng đảo chứng từ chung. " +
++                    "Cần quy trình đảo riêng (gỡ nợ vàng thợ, gỡ gắn LSX, trả trạng thái thành phẩm).");
++
+             await EnsureNoOpenDependentsAsync(connection, fbTx, documentId, docType, cancellationToken);
+ 
+             // Movements → invert balances + insert reverse rows
+-- 
+2.43.0
+
+
+From 5e8e92e0b9fc7fb66e151e48388042f210df0259 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Wed, 28 Oct 2026 01:42:55 +0000
+Subject: [PATCH 5/7] fix(production): require production order for manual
+ finished receipt
+
+---
+ src/Kazuko.Core/Production/ProductionContracts.cs         | 3 ++-
+ .../Production/FirebirdProductionApplicationService.cs    | 8 ++++++--
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/src/Kazuko.Core/Production/ProductionContracts.cs b/src/Kazuko.Core/Production/ProductionContracts.cs
+index 3dfc77d..b4af832 100644
+--- a/src/Kazuko.Core/Production/ProductionContracts.cs
++++ b/src/Kazuko.Core/Production/ProductionContracts.cs
+@@ -662,7 +662,8 @@ public interface IProductionApplicationService
+ 
+     /// <summary>
+     /// Nhập kho thành phẩm luồng thủ công: tạo phiếu NTP + FINISHED_PRODUCTS cho từng item
+-    /// (không qua QC). ProductionOrderId nullable — cho phép nhập kho không gắn lệnh.
++    /// (không qua QC). Luồng sản xuất bắt buộc gắn LSX (ProductionOrderId &gt; 0);
++    /// nhập ngoài/nhập đầu kỳ không LSX là nghiệp vụ khác, cần nguồn nhập riêng.
+     /// </summary>
+     Task<ManualFinishedReceiptResult> PostManualFinishedReceiptAsync(
+         PostManualFinishedReceiptRequest request,
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index a5158b0..875fd0f 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -1049,8 +1049,12 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+         if (request.Items is null || request.Items.Count == 0)
+             throw new InvalidOperationException("Chưa có sản phẩm nào để nhập kho.");
+         if(request.RequestId==Guid.Empty)throw new InvalidOperationException("Phiếu nhập cần mã yêu cầu để thử lại an toàn.");
+-        if (request.ProductionOrderId is not null && request.ProductionOrderId <= 0)
+-            throw new InvalidOperationException("Lệnh sản xuất không hợp lệ.");
++        // Luồng sản xuất bắt buộc gắn LSX (khớp UI đã bắt chọn LSX). Nhập ngoài/
++        // nhập đầu kỳ không LSX là nghiệp vụ khác, cần nguồn nhập riêng — không
++        // cho đi qua đường này để tránh nhập kho không đối chiếu vàng, không ghi nợ.
++        if (request.ProductionOrderId is not > 0)
++            throw new InvalidOperationException(
++                "Nhập kho thành phẩm trong luồng sản xuất bắt buộc chọn lệnh sản xuất (LSX).");
+ 
+         foreach (var item in request.Items)
+             FinishedReceiptValidation.ValidateItem(item);
+-- 
+2.43.0
+
+
+From 0d86fbf91ca982b6aa60cdfa04b5845c06a03db3 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Wed, 28 Oct 2026 01:43:54 +0000
+Subject: [PATCH 6/7] feat(production): prefill receipt loss from worker-return
+ balances, audit on change
+
+---
+ src/Kazuko.Core/Production/ProductionContracts.cs |  5 ++++-
+ .../FirebirdProductionQueryRepository.cs          |  6 ++++--
+ .../FirebirdProductionReceiptSettlement.cs        | 15 +++++++++++++++
+ .../GoldReconcileDialog.xaml                      |  9 ++++++++-
+ .../ProductionFinishedReceiptDialogViewModel.cs   | 14 ++++++++++++--
+ 5 files changed, 43 insertions(+), 6 deletions(-)
+
+diff --git a/src/Kazuko.Core/Production/ProductionContracts.cs b/src/Kazuko.Core/Production/ProductionContracts.cs
+index b4af832..f2ceb1c 100644
+--- a/src/Kazuko.Core/Production/ProductionContracts.cs
++++ b/src/Kazuko.Core/Production/ProductionContracts.cs
+@@ -507,7 +507,10 @@ public sealed record ManualFinishedReceiptResult(
+ /// </summary>
+ public sealed record IssuedGoldByPurityDto(
+     string? PurityCode,
+-    decimal WeightChi);
++    decimal WeightChi,
++    // Hao hụt thợ đã báo ở bước trả hàng (SUM QUANTITY_LOSS theo loại vàng) —
++    // dùng prefill hao hụt lúc nhập kho để 2 bước dùng chung 1 con số.
++    decimal ReportedLossChi = 0);
+ 
+ /// <summary>
+ /// Đá đã giao theo từng loại NVL (từ PRODUCTION_MATERIAL_BALANCES).
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs
+index 5145f83..8878bc0 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionQueryRepository.cs
+@@ -716,10 +716,12 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
+         try
+         {
+             // Vàng đã giao theo từng loại (PURITY_CODE), từ PRODUCTION_MATERIAL_BALANCES.
+-            // Đơn vị chuẩn của vàng là chỉ.
++            // Đơn vị chuẩn của vàng là chỉ. Kèm hao hụt thợ đã báo ở bước trả hàng
++            // (QUANTITY_LOSS) để dialog nhập kho prefill, tránh nhập lại 2 số khác nhau.
+             var rows = await connection.QueryAsync<IssuedGoldByPurityDto>(
+                 new CommandDefinition("""
+-                    SELECT M.PURITY_CODE AS PurityCode, COALESCE(SUM(B.QUANTITY_ISSUED-B.QUANTITY_RETURNED-B.QUANTITY_SCRAP), 0) AS WeightChi
++                    SELECT M.PURITY_CODE AS PurityCode, COALESCE(SUM(B.QUANTITY_ISSUED-B.QUANTITY_RETURNED-B.QUANTITY_SCRAP), 0) AS WeightChi,
++                           COALESCE(SUM(B.QUANTITY_LOSS), 0) AS ReportedLossChi
+                     FROM PRODUCTION_MATERIAL_BALANCES B
+                     JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
+                     JOIN PRODUCTION_ORDERS PO ON PO.ID = B.PRODUCTION_ORDER_ID
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs
+index fd4a52c..9fdae93 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs
+@@ -2,6 +2,7 @@ using Dapper;
+ using FirebirdSql.Data.FirebirdClient;
+ using Kazuko.Core.Authentication;
+ using Kazuko.Core.Production;
++using Kazuko.Infrastructure.Data;
+ 
+ namespace Kazuko.Infrastructure.Production;
+ 
+@@ -25,6 +26,14 @@ public sealed partial class FirebirdProductionApplicationService
+         if(request.GoldSettlements.GroupBy(x=>x.GoldPurityCode,StringComparer.OrdinalIgnoreCase).Any(g=>g.Count()!=1)||
+            !codes.SetEquals(request.GoldSettlements.Select(x=>x.GoldPurityCode)))
+             throw new InvalidOperationException("Đối chiếu chưa đủ từng loại vàng; mở đối chiếu và xác nhận lại.");
++        // Hao hụt thợ đã báo ở bước trả hàng (QUANTITY_LOSS): 1 lần đối chiếu dùng
++        // chung 1 con số. Dialog đã prefill số này; nếu người dùng sửa khác thì vẫn
++        // cho sửa nhưng ghi rõ vào audit log để truy vết.
++        var reportedLoss=(await connection.QueryAsync<ReceiptIssuedGold>(new CommandDefinition("""
++            SELECT M.PURITY_CODE AS Code,COALESCE(SUM(B.QUANTITY_LOSS),0) AS Weight
++            FROM PRODUCTION_MATERIAL_BALANCES B JOIN MATERIALS M ON M.ID=B.MATERIAL_ID
++            WHERE B.PRODUCTION_ORDER_ID=@id AND M.MATERIAL_TYPE='GOLD' GROUP BY M.PURITY_CODE
++            """,new{id=request.ProductionOrderId},transaction,cancellationToken:cancellationToken))).ToDictionary(x=>x.Code,x=>x.Weight,StringComparer.OrdinalIgnoreCase);
+         foreach(var row in request.GoldSettlements)
+         {
+             var weightIssued=issued.GetValueOrDefault(row.GoldPurityCode);
+@@ -32,6 +41,12 @@ public sealed partial class FirebirdProductionApplicationService
+             var balance=weightIssued-weightReceived;
+             if(row.LossWeightChi<0||row.LossWeightChi>Math.Max(balance,0))
+                 throw new InvalidOperationException($"{row.GoldPurityCode}: hao hụt không hợp lệ hoặc vượt phần chênh lệch.");
++            var lossReported=reportedLoss.GetValueOrDefault(row.GoldPurityCode);
++            if(row.LossWeightChi!=lossReported)
++                await AuditLogWriter.WriteAsync(connection,transaction,"GOLD_LOSS_ADJUSTED",
++                    session.UserId,session.Username,session.BranchId,
++                    "PRODUCTION_ORDER",request.ProductionOrderId!.Value.ToString(),
++                    $"{orderCode}|{row.GoldPurityCode}|reported:{lossReported:0.####}|entered:{row.LossWeightChi:0.####}",cancellationToken);
+             var debt=balance-row.LossWeightChi;
+             if(debt<=.0001m)continue;
+             if(row.WorkerId is null or <=0)throw new InvalidOperationException("Chọn thợ chịu nợ vàng trước khi ghi nhập kho.");
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/GoldReconcileDialog.xaml b/src/Modules/Kazuko.Modules.Warehouse/GoldReconcileDialog.xaml
+index a8cb008..927f38c 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/GoldReconcileDialog.xaml
++++ b/src/Modules/Kazuko.Modules.Warehouse/GoldReconcileDialog.xaml
+@@ -133,12 +133,19 @@
+                 <Style TargetType="TextBlock" BasedOn="{StaticResource WhRightAlignTextStyle}" />
+               </DataGridTextColumn.ElementStyle>
+             </DataGridTextColumn>
++            <DataGridTextColumn Header="Đã báo hao hụt (chỉ)"
++                                Binding="{Binding ReportedLossWeight, Mode=OneWay, StringFormat={}{0:0.###}}"
++                                IsReadOnly="True" Width="130">
++              <DataGridTextColumn.ElementStyle>
++                <Style TargetType="TextBlock" BasedOn="{StaticResource WhRightAlignTextStyle}" />
++              </DataGridTextColumn.ElementStyle>
++            </DataGridTextColumn>
+             <DataGridTemplateColumn Header="Hao hụt (chỉ)" Width="130">
+               <DataGridTemplateColumn.CellTemplate>
+                 <DataTemplate>
+                   <TextBox Text="{Binding LossWeightText, UpdateSourceTrigger=PropertyChanged}"
+                            Style="{StaticResource WhMoneyBoxStyle}"
+-                           ToolTip="Nhân viên tự gõ. Hao hụt không ghi công nợ." />
++                           ToolTip="Mặc định = số thợ đã báo lúc trả hàng (cột bên trái). Sửa khác số đã báo vẫn được, hệ thống ghi lại vào nhật ký. Hao hụt không ghi công nợ." />
+                 </DataTemplate>
+               </DataGridTemplateColumn.CellTemplate>
+             </DataGridTemplateColumn>
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
+index 59b8127..8100355 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptDialogViewModel.cs
+@@ -667,11 +667,19 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
+             var issued = issuedByPurity
+                 .Where(d => NormalizePurity(d.PurityCode) == purity)
+                 .Sum(d => d.WeightChi);
++            var reportedLoss = issuedByPurity
++                .Where(d => NormalizePurity(d.PurityCode) == purity)
++                .Sum(d => d.ReportedLossChi);
+             receivedByPurity.TryGetValue(purity, out var received);
+             var row = new GoldReconcileRowViewModel(purity)
+             {
+                 IssuedWeight = issued,
+                 ReceivedWeight = received,
++                ReportedLossWeight = reportedLoss,
++                // Prefill hao hụt = số thợ đã báo lúc trả hàng: 1 lần đối chiếu dùng
++                // chung 1 con số, không bắt nhập lại. Nháp đã lưu (nếu có) sẽ ghi đè
++                // ở bước khôi phục sau đó; RefreshReconcileReceived không đụng ô này.
++                LossWeightText = reportedLoss > 0 ? WeightDecimalInput.Format(reportedLoss) : string.Empty,
+             };
+             row.PropertyChanged += OnReconcileRowPropertyChanged;
+             GoldReconcileRows.Add(row);
+@@ -1151,12 +1159,14 @@ public sealed class GoldReconcileRowViewModel : ObservableObject
+ 
+     public string PurityDisplay => string.IsNullOrWhiteSpace(PurityCode) ? "Không rõ" : PurityCode;
+ 
+-    private decimal _issuedWeight,_receivedWeight;
++    private decimal _issuedWeight,_receivedWeight,_reportedLossWeight;
+     public decimal IssuedWeight { get=>_issuedWeight; set{if(SetProperty(ref _issuedWeight,value))NotifyWeights();} }
+     public decimal ReceivedWeight { get=>_receivedWeight; set{if(SetProperty(ref _receivedWeight,value))NotifyWeights();} }
++    /// <summary>Hao hụt thợ đã báo ở bước trả hàng (chỉ) — chỉ để đối chiếu, không tự trừ.</summary>
++    public decimal ReportedLossWeight { get=>_reportedLossWeight; set=>SetProperty(ref _reportedLossWeight,value); }
+     private void NotifyWeights(){OnPropertyChanged(nameof(DebtWeight));OnPropertyChanged(nameof(DebtDisplay));OnPropertyChanged(nameof(HasDebt));}
+ 
+-    /// <summary>Hao hụt (chỉ): nhân viên tự gõ từng dòng, không ghi công nợ.</summary>
++    /// <summary>Hao hụt (chỉ): mặc định = số thợ đã báo lúc trả hàng, sửa được, không ghi công nợ.</summary>
+     public string LossWeightText
+     {
+         get => _lossWeightText;
+-- 
+2.43.0
+
+
+From 3506146d2d2924f297390fc44a17d8939b952e13 Mon Sep 17 00:00:00 2001
+From: Muse <muse@local>
+Date: Wed, 28 Oct 2026 01:45:31 +0000
+Subject: [PATCH 7/7] feat(production): record surplus gold receipt when
+ received exceeds issued
+
+---
+ .../Production/ProductionContracts.cs         |   6 +-
+ .../FirebirdProductionApplicationService.cs   |   5 +-
+ .../FirebirdProductionReceiptSettlement.cs    | 129 +++++++++++++++++-
+ .../ProductionFinishedReceiptWorkflow.cs      |   4 +-
+ 4 files changed, 138 insertions(+), 6 deletions(-)
+
+diff --git a/src/Kazuko.Core/Production/ProductionContracts.cs b/src/Kazuko.Core/Production/ProductionContracts.cs
+index f2ceb1c..06a2f52 100644
+--- a/src/Kazuko.Core/Production/ProductionContracts.cs
++++ b/src/Kazuko.Core/Production/ProductionContracts.cs
+@@ -103,6 +103,8 @@ public static class ProductionStockPurposes
+     public const string MaterialDelivery = "PRODUCTION_MATERIAL_DELIVERY";
+     public const string Return = "PRODUCTION_RETURN";
+     public const string FinishedReceipt = "PRODUCTION_FINISHED_RECEIPT";
++    /// <summary>Phiếu nhập NVL ghi nhận vàng thừa từ đối chiếu LSX (vàng trong TP vượt lượng đã giao).</summary>
++    public const string GoldSurplus = "GOLD_SURPLUS_RECEIPT";
+ }
+ 
+ public sealed record ProductionOrderListFilter(
+@@ -499,7 +501,9 @@ public sealed record ManualFinishedReceiptResult(
+     long DocumentId,
+     string DocumentCode,
+     int ProductCount,
+-    PostManualFinishedReceiptRequest? PostedRequest = null);
++    PostManualFinishedReceiptRequest? PostedRequest = null,
++    // Mã phiếu nhập NVL vàng thừa (nếu đối chiếu có loại vàng nhận vượt giao).
++    string? SurplusDocumentCode = null);
+ 
+ /// <summary>
+ /// Vàng đã giao theo từng loại vàng (PURITY_CODE của material).
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+index 875fd0f..c8db0f8 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionApplicationService.cs
+@@ -1265,8 +1265,9 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+                         $"Không gắn phiếu nhập cho lệnh {orderCode}. Dữ liệu lệnh đã thay đổi.");
+             }
+ 
++            string? surplusDocumentCode = null;
+             if(request.ProductionOrderId is >0)
+-                await PostReceiptGoldSettlementsAsync(connection,fbTx,request,session,orderCode!,cancellationToken);
++                surplusDocumentCode = await PostReceiptGoldSettlementsAsync(connection,fbTx,request,session,orderCode!,cancellationToken);
+             var postedRequest=request with{Items=committedItems};
+             await connection.ExecuteAsync(new CommandDefinition("""
+                 INSERT INTO PRODUCTION_RECEIPT_REQUESTS(COMPANY_ID,BRANCH_ID,REQUEST_ID,REQUEST_HASH,DOCUMENT_ID,PAYLOAD)
+@@ -1280,7 +1281,7 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
+                 "STOCK_DOCUMENT", documentId.ToString(), docCode, cancellationToken);
+ 
+             await transaction.CommitAsync(cancellationToken);
+-            return new ManualFinishedReceiptResult(documentId, docCode, request.Items.Count,postedRequest);
++            return new ManualFinishedReceiptResult(documentId, docCode, request.Items.Count,postedRequest,surplusDocumentCode);
+         }
+         catch (FbException ex) when (IsUniqueViolation(ex))
+         {
+diff --git a/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs b/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs
+index 9fdae93..ad19860 100644
+--- a/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs
++++ b/src/Kazuko.Infrastructure/Production/FirebirdProductionReceiptSettlement.cs
+@@ -1,8 +1,10 @@
+ using Dapper;
+ using FirebirdSql.Data.FirebirdClient;
+ using Kazuko.Core.Authentication;
++using Kazuko.Core.Inventory;
+ using Kazuko.Core.Production;
+ using Kazuko.Infrastructure.Data;
++using Kazuko.Infrastructure.Warehouse;
+ 
+ namespace Kazuko.Infrastructure.Production;
+ 
+@@ -11,7 +13,11 @@ public sealed partial class FirebirdProductionApplicationService
+     private sealed record ReceiptRequestRow(long Id,string Code,string Payload,string RequestHash);
+     private sealed record ReceiptPlannedLine(long Id,int Quantity,string GoldCode);
+     private sealed record ReceiptIssuedGold(string Code,decimal Weight);
+-    private static async Task PostReceiptGoldSettlementsAsync(FbConnection connection,FbTransaction transaction,
++    /// <summary>
++    /// Ghi nợ vàng thợ + chứng từ vàng thừa. Trả về mã phiếu nhập NVL vàng thừa
++    /// (null nếu không có loại vàng nào nhận vượt giao).
++    /// </summary>
++    private static async Task<string?> PostReceiptGoldSettlementsAsync(FbConnection connection,FbTransaction transaction,
+         PostManualFinishedReceiptRequest request,AuthenticatedSession session,string orderCode,CancellationToken cancellationToken)
+     {
+         if(request.GoldSettlements is null)throw new InvalidOperationException("Chưa xác nhận đối chiếu vàng của phiếu nhập.");
+@@ -34,6 +40,7 @@ public sealed partial class FirebirdProductionApplicationService
+             FROM PRODUCTION_MATERIAL_BALANCES B JOIN MATERIALS M ON M.ID=B.MATERIAL_ID
+             WHERE B.PRODUCTION_ORDER_ID=@id AND M.MATERIAL_TYPE='GOLD' GROUP BY M.PURITY_CODE
+             """,new{id=request.ProductionOrderId},transaction,cancellationToken:cancellationToken))).ToDictionary(x=>x.Code,x=>x.Weight,StringComparer.OrdinalIgnoreCase);
++        var surplusEntries=new List<(string Purity,decimal Surplus,long? WorkerId,string? WorkerType)>();
+         foreach(var row in request.GoldSettlements)
+         {
+             var weightIssued=issued.GetValueOrDefault(row.GoldPurityCode);
+@@ -48,7 +55,14 @@ public sealed partial class FirebirdProductionApplicationService
+                     "PRODUCTION_ORDER",request.ProductionOrderId!.Value.ToString(),
+                     $"{orderCode}|{row.GoldPurityCode}|reported:{lossReported:0.####}|entered:{row.LossWeightChi:0.####}",cancellationToken);
+             var debt=balance-row.LossWeightChi;
+-            if(debt<=.0001m)continue;
++            if(debt<=.0001m)
++            {
++                // Vàng trong TP vượt lượng đã giao: trước đây lặng lẽ bỏ qua, số thừa
++                // "chìm" trong GoldWeight thành phẩm. Nay ghi nhận riêng (xem cuối hàm).
++                if(balance<-.0001m)
++                    surplusEntries.Add((row.GoldPurityCode,-balance,row.WorkerId,row.WorkerType));
++                continue;
++            }
+             if(row.WorkerId is null or <=0)throw new InvalidOperationException("Chọn thợ chịu nợ vàng trước khi ghi nhập kho.");
+             string? workerName;
+             if(row.WorkerType==WorkerGoldDebtWorkerTypes.ExternalWorker)
+@@ -66,5 +80,116 @@ public sealed partial class FirebirdProductionApplicationService
+             await InsertReceiptGoldDebtAsync(connection,transaction,new(row.WorkerId.Value,workerName,row.GoldPurityCode,
+                 debt,weightIssued,weightReceived,row.LossWeightChi,request.ProductionOrderId!.Value,orderCode,null,row.WorkerType!),session,cancellationToken);
+         }
++        if(surplusEntries.Count==0)return null;
++        return await InsertGoldSurplusReceiptAsync(connection,transaction,request,session,orderCode,surplusEntries,cancellationToken);
++    }
++
++    /// <summary>
++    /// Tạo 1 phiếu nhập NVL ghi nhận vàng thừa từ đối chiếu: mỗi loại vàng nhận vượt
++    /// giao là 1 dòng, tăng tồn NVL tại kho NVL của LSX, ghi rõ nguồn chênh lệch.
++    /// Chạy trong cùng transaction với phiếu nhập TP nên lỗi ở đây rollback toàn bộ.
++    /// </summary>
++    private static async Task<string> InsertGoldSurplusReceiptAsync(FbConnection connection,FbTransaction transaction,
++        PostManualFinishedReceiptRequest request,AuthenticatedSession session,string orderCode,
++        IReadOnlyList<(string Purity,decimal Surplus,long? WorkerId,string? WorkerType)> surplusEntries,
++        CancellationToken cancellationToken)
++    {
++        var companyId=await StockPostingSupport.GetCompanyIdAsync(connection,transaction,cancellationToken);
++        var sourceLocationId=await connection.QuerySingleAsync<long>(new CommandDefinition(
++            "SELECT SOURCE_LOCATION_ID FROM PRODUCTION_ORDERS WHERE ID=@id",
++            new{id=request.ProductionOrderId!.Value},transaction,cancellationToken:cancellationToken));
++        var docCode=await StockPostingSupport.NextDocumentCodeAsync(
++            connection,transaction,"STOCK_RECEIPT",session.BranchId,"PNK",cancellationToken);
++        var docNotes=$"Vàng thừa từ đối chiếu {orderCode}: vàng trong TP vượt lượng đã giao, cần xác định nguồn chênh lệch.";
++        long documentId;
++        await using(var insertDoc=new FbCommand("""
++            INSERT INTO STOCK_DOCUMENTS
++                (COMPANY_ID,BRANCH_ID,CODE,DOCUMENT_TYPE,DOCUMENT_DATE,
++                 DESTINATION_LOCATION_ID,PRODUCTION_ORDER_ID,PURPOSE_CODE,
++                 NOTES,STATUS_CODE,CREATED_BY,CREATED_AT,POSTED_BY,POSTED_AT)
++            VALUES
++                (@CID,@BID,@CODE,'RECEIPT',@DATE,
++                 @DEST,@PO,@PURPOSE,
++                 @NOTES,'POSTED',@BY,CURRENT_TIMESTAMP,@BY,CURRENT_TIMESTAMP)
++            RETURNING ID
++            """,connection,transaction))
++        {
++            insertDoc.Parameters.Add("@CID",FbDbType.BigInt).Value=companyId;
++            insertDoc.Parameters.Add("@BID",FbDbType.BigInt).Value=session.BranchId;
++            insertDoc.Parameters.Add("@CODE",FbDbType.VarChar,40).Value=docCode;
++            insertDoc.Parameters.Add("@DATE",FbDbType.TimeStamp).Value=request.ReceiptDate;
++            insertDoc.Parameters.Add("@DEST",FbDbType.BigInt).Value=sourceLocationId;
++            insertDoc.Parameters.Add("@PO",FbDbType.BigInt).Value=request.ProductionOrderId.Value;
++            insertDoc.Parameters.Add("@PURPOSE",FbDbType.VarChar,40).Value=ProductionStockPurposes.GoldSurplus;
++            insertDoc.Parameters.Add("@NOTES",FbDbType.VarChar,1000).Value=docNotes;
++            insertDoc.Parameters.Add("@BY",FbDbType.BigInt).Value=session.UserId>0?session.UserId:DBNull.Value;
++            documentId=Convert.ToInt64(await insertDoc.ExecuteScalarAsync(cancellationToken));
++        }
++        var lineNo=0;
++        foreach(var entry in surplusEntries)
++        {
++            lineNo++;
++            // Ưu tiên NVL vàng của chính LSX này (theo balance); fallback danh mục vàng theo loại.
++            var material=await connection.QuerySingleOrDefaultAsync<(long MaterialId,decimal? UnitCost)>(new CommandDefinition("""
++                SELECT FIRST 1 B.MATERIAL_ID AS MaterialId,B.UNIT_COST_SNAPSHOT AS UnitCost
++                FROM PRODUCTION_MATERIAL_BALANCES B JOIN MATERIALS M ON M.ID=B.MATERIAL_ID
++                WHERE B.PRODUCTION_ORDER_ID=@id AND M.MATERIAL_TYPE='GOLD' AND UPPER(M.PURITY_CODE)=UPPER(@purity)
++                ORDER BY B.ID
++                """,new{id=request.ProductionOrderId.Value,purity=entry.Purity},transaction,cancellationToken:cancellationToken));
++            if(material.MaterialId<=0)
++            {
++                var fallbackId=await connection.QuerySingleOrDefaultAsync<long>(new CommandDefinition("""
++                    SELECT FIRST 1 ID FROM MATERIALS
++                    WHERE COMPANY_ID=@companyId AND MATERIAL_TYPE='GOLD' AND UPPER(PURITY_CODE)=UPPER(@purity)
++                    """,new{companyId,purity=entry.Purity},transaction,cancellationToken:cancellationToken));
++                if(fallbackId<=0)
++                    throw new InvalidOperationException($"Không tìm được NVL vàng loại {entry.Purity} để ghi nhận vàng thừa. Kiểm tra danh mục NVL.");
++                material=(fallbackId,null);
++            }
++            var unitCost=material.UnitCost;
++            if(unitCost is null or 0)
++            {
++                unitCost=await connection.QuerySingleOrDefaultAsync<decimal>(new CommandDefinition("""
++                    SELECT COALESCE(AVERAGE_COST,0) FROM STOCK_BALANCES
++                    WHERE MATERIAL_ID=@mid AND LOCATION_ID=@loc
++                    """,new{mid=material.MaterialId,loc=sourceLocationId},transaction,cancellationToken:cancellationToken));
++            }
++            var unitCostValue=unitCost??0;
++            var lineNotes=$"Vàng thừa đối chiếu {orderCode} loại {entry.Purity}: nhận vượt giao {entry.Surplus:0.####} chỉ.";
++            long lineId;
++            await using(var insertLine=new FbCommand("""
++                INSERT INTO STOCK_DOCUMENT_LINES
++                    (DOCUMENT_ID,LINE_NUMBER,MATERIAL_ID,QUANTITY,UNIT_COST,LINE_AMOUNT,
++                     STANDARD_UNIT_CODE,CURRENCY_CODE,EXCHANGE_RATE,UNIT_PRICE,AMOUNT_VND,NOTES)
++                VALUES
++                    (@DOC,@LN,@MID,@QTY,@COST,@AMT,
++                     @UNIT,'VND',1,@PRICE,@AVND,@NOTES)
++                RETURNING ID
++                """,connection,transaction))
++            {
++                insertLine.Parameters.Add("@DOC",FbDbType.BigInt).Value=documentId;
++                insertLine.Parameters.Add("@LN",FbDbType.Integer).Value=lineNo;
++                insertLine.Parameters.Add("@MID",FbDbType.BigInt).Value=material.MaterialId;
++                insertLine.Parameters.Add("@QTY",FbDbType.Decimal).Value=entry.Surplus;
++                insertLine.Parameters.Add("@COST",FbDbType.Decimal).Value=unitCostValue;
++                insertLine.Parameters.Add("@AMT",FbDbType.Decimal).Value=entry.Surplus*unitCostValue;
++                insertLine.Parameters.Add("@UNIT",FbDbType.VarChar,20).Value=StockUnitConverter.StandardUnitFor(MaterialTypes.Gold);
++                insertLine.Parameters.Add("@PRICE",FbDbType.Decimal).Value=unitCostValue;
++                insertLine.Parameters.Add("@AVND",FbDbType.Decimal).Value=entry.Surplus*unitCostValue;
++                insertLine.Parameters.Add("@NOTES",FbDbType.VarChar,500).Value=lineNotes;
++                lineId=Convert.ToInt64(await insertLine.ExecuteScalarAsync(cancellationToken));
++            }
++            await StockPostingSupport.ApplyMaterialBalanceChangeAsync(
++                connection,transaction,material.MaterialId,sourceLocationId,
++                entry.Surplus,unitCostValue,cancellationToken);
++            await StockPostingSupport.InsertMovementAsync(
++                connection,transaction,documentId,lineId,material.MaterialId,
++                sourceLocationId,"IN",entry.Surplus,unitCostValue,session.UserId,cancellationToken);
++        }
++        await AuditLogWriter.WriteAsync(connection,transaction,"GOLD_SURPLUS_RECORDED",
++            session.UserId,session.Username,session.BranchId,
++            "STOCK_DOCUMENT",documentId.ToString(),
++            $"{docCode}|{orderCode}|{string.Join(",",surplusEntries.Select(s=>$"{s.Purity}:{s.Surplus:0.####}"))}",cancellationToken);
++        return docCode;
+     }
+ }
+diff --git a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptWorkflow.cs b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptWorkflow.cs
+index cde34cd..feadf40 100644
+--- a/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptWorkflow.cs
++++ b/src/Modules/Kazuko.Modules.Warehouse/ProductionFinishedReceiptWorkflow.cs
+@@ -180,7 +180,9 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
+         _postedResult=result;_pendingPost=null;Products.Clear();
+         foreach(var product in result.PostedRequest.Items)Products.Add(product);
+         ReceiptDate=result.PostedRequest.ReceiptDate;ReceiptNotes=result.PostedRequest.Notes??"";IsPosted=true;
+-        ErrorMessage="Đã nhập kho. Có thể in phiếu/tem hoặc đóng cửa sổ.";
++        ErrorMessage=result.SurplusDocumentCode is null
++            ? "Đã nhập kho. Có thể in phiếu/tem hoặc đóng cửa sổ."
++            : $"Đã nhập kho. Có vàng thừa đã ghi vào phiếu nhập NVL {result.SurplusDocumentCode} — kiểm tra nguồn chênh lệch. Có thể in phiếu/tem hoặc đóng cửa sổ.";
+     }
+     private void PrintPostedReceipt()
+     {
+-- 
+2.43.0
+

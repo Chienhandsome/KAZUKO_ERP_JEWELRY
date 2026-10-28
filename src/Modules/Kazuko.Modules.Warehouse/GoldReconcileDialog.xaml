@@ -133,12 +133,19 @@
                 <Style TargetType="TextBlock" BasedOn="{StaticResource WhRightAlignTextStyle}" />
               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
+            <DataGridTextColumn Header="Đã báo hao hụt (chỉ)"
+                                Binding="{Binding ReportedLossWeight, Mode=OneWay, StringFormat={}{0:0.###}}"
+                                IsReadOnly="True" Width="130">
+              <DataGridTextColumn.ElementStyle>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource WhRightAlignTextStyle}" />
+              </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
             <DataGridTemplateColumn Header="Hao hụt (chỉ)" Width="130">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <TextBox Text="{Binding LossWeightText, UpdateSourceTrigger=PropertyChanged}"
                            Style="{StaticResource WhMoneyBoxStyle}"
-                           ToolTip="Nhân viên tự gõ. Hao hụt không ghi công nợ." />
+                           ToolTip="Mặc định = số thợ đã báo lúc trả hàng (cột bên trái). Sửa khác số đã báo vẫn được, hệ thống ghi lại vào nhật ký. Hao hụt không ghi công nợ." />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

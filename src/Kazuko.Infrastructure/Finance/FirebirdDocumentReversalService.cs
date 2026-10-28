@@ -1,6 +1,7 @@
 using FirebirdSql.Data.FirebirdClient;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
+using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 using Kazuko.Infrastructure.Data;
 using Kazuko.Infrastructure.Warehouse;
@@ -51,6 +52,15 @@ public sealed class FirebirdDocumentReversalService : IDocumentReversalService
                 throw new InvalidOperationException("Chứng từ đã hủy — không đảo lần hai.");
             if (status != StockDocumentStatuses.Posted)
                 throw new InvalidOperationException("Chỉ hủy chứng từ đã ghi sổ.");
+
+            // Phiếu nhập kho thành phẩm KHÔNG đảo bằng chức năng chung: nhánh đảo này
+            // không gỡ FINISHED_RECEIPT_DOCUMENT_ID khỏi LSX, không đảo nợ vàng thợ,
+            // không đổi trạng thái FINISHED_PRODUCTS (đảo xong sẽ kẹt 3 đầu). Chặn rõ
+            // ràng cho tới khi có nhánh đảo riêng đầy đủ.
+            if (string.Equals(docType, ProductionStockDocumentTypes.FinishedReceipt, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Phiếu nhập kho thành phẩm không đảo bằng chức năng đảo chứng từ chung. " +
+                    "Cần quy trình đảo riêng (gỡ nợ vàng thợ, gỡ gắn LSX, trả trạng thái thành phẩm).");
 
             await EnsureNoOpenDependentsAsync(connection, fbTx, documentId, docType, cancellationToken);
 

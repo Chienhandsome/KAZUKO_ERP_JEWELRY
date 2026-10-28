@@ -88,7 +88,6 @@ public static class BackendAccess
                 "PostMaterialIssueAsync" => Has("PROD_MATERIAL_ISSUE", PermissionAction.Add),
                 "PostWorkerReturnAsync" or "RecordQcAsync" or "RecordReworkReturnAsync" => Has("PROD_QC", PermissionAction.Edit),
                 "CompleteAsync" => Has("PROD_COMPLETE", PermissionAction.Edit),
-                "PostFinishedReceiptAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add),
                 "PostManualFinishedReceiptAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add) && Has("PROD_GOLD_RECONCILE", PermissionAction.Add),
                 "RecordWorkerGoldDebtAsync" => Has("PROD_GOLD_RECONCILE", PermissionAction.Add),
                 "CancelAsync" => Has("PROD_CANCEL", PermissionAction.Delete), _ => false },

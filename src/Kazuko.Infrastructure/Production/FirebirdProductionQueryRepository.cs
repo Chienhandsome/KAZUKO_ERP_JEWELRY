@@ -716,10 +716,12 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
         try
         {
             // Vàng đã giao theo từng loại (PURITY_CODE), từ PRODUCTION_MATERIAL_BALANCES.
-            // Đơn vị chuẩn của vàng là chỉ.
+            // Đơn vị chuẩn của vàng là chỉ. Kèm hao hụt thợ đã báo ở bước trả hàng
+            // (QUANTITY_LOSS) để dialog nhập kho prefill, tránh nhập lại 2 số khác nhau.
             var rows = await connection.QueryAsync<IssuedGoldByPurityDto>(
                 new CommandDefinition("""
-                    SELECT M.PURITY_CODE AS PurityCode, COALESCE(SUM(B.QUANTITY_ISSUED-B.QUANTITY_RETURNED-B.QUANTITY_SCRAP), 0) AS WeightChi
+                    SELECT M.PURITY_CODE AS PurityCode, COALESCE(SUM(B.QUANTITY_ISSUED-B.QUANTITY_RETURNED-B.QUANTITY_SCRAP), 0) AS WeightChi,
+                           COALESCE(SUM(B.QUANTITY_LOSS), 0) AS ReportedLossChi
                     FROM PRODUCTION_MATERIAL_BALANCES B
                     JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
                     JOIN PRODUCTION_ORDERS PO ON PO.ID = B.PRODUCTION_ORDER_ID

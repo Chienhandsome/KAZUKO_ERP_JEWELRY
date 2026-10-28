@@ -361,7 +361,11 @@ public sealed record ProductionOrderDraft(
     long? RowVersion,
     IReadOnlyList<long> EmployeeIds,
     IReadOnlyList<ProductionOrderLineDraft> Lines,
-    IReadOnlyList<ProductionAttachmentDraft> Attachments);
+    IReadOnlyList<ProductionAttachmentDraft> Attachments,
+    // Idempotency cho tạo mới (kiểu PRODUCTION_RECEIPT_REQUESTS): dialog giữ 1 Guid
+    // cho cả phiên tạo, retry cùng RequestId trả LSX cũ, khác nội dung bị chặn.
+    // Sửa bản nháp không dùng (đã có ROW_VERSION). Guid.Empty = không dedupe.
+    Guid RequestId = default);
 
 public sealed record ProductionOrderSaveResult(
     long Id,
@@ -503,7 +507,10 @@ public sealed record ManualFinishedReceiptResult(
 /// </summary>
 public sealed record IssuedGoldByPurityDto(
     string? PurityCode,
-    decimal WeightChi);
+    decimal WeightChi,
+    // Hao hụt thợ đã báo ở bước trả hàng (SUM QUANTITY_LOSS theo loại vàng) —
+    // dùng prefill hao hụt lúc nhập kho để 2 bước dùng chung 1 con số.
+    decimal ReportedLossChi = 0);
 
 /// <summary>
 /// Đá đã giao theo từng loại NVL (từ PRODUCTION_MATERIAL_BALANCES).
@@ -656,15 +663,10 @@ public interface IProductionApplicationService
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
 
-    Task<ProductionCompleteResult> PostFinishedReceiptAsync(
-        long productionOrderId,
-        long expectedRowVersion,
-        AuthenticatedSession session,
-        CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Nhập kho thành phẩm luồng thủ công: tạo phiếu NTP + FINISHED_PRODUCTS cho từng item
-    /// (không qua QC). ProductionOrderId nullable — cho phép nhập kho không gắn lệnh.
+    /// (không qua QC). Luồng sản xuất bắt buộc gắn LSX (ProductionOrderId &gt; 0);
+    /// nhập ngoài/nhập đầu kỳ không LSX là nghiệp vụ khác, cần nguồn nhập riêng.
     /// </summary>
     Task<ManualFinishedReceiptResult> PostManualFinishedReceiptAsync(
         PostManualFinishedReceiptRequest request,

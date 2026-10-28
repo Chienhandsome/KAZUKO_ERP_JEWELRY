@@ -667,11 +667,19 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
             var issued = issuedByPurity
                 .Where(d => NormalizePurity(d.PurityCode) == purity)
                 .Sum(d => d.WeightChi);
+            var reportedLoss = issuedByPurity
+                .Where(d => NormalizePurity(d.PurityCode) == purity)
+                .Sum(d => d.ReportedLossChi);
             receivedByPurity.TryGetValue(purity, out var received);
             var row = new GoldReconcileRowViewModel(purity)
             {
                 IssuedWeight = issued,
                 ReceivedWeight = received,
+                ReportedLossWeight = reportedLoss,
+                // Prefill hao hụt = số thợ đã báo lúc trả hàng: 1 lần đối chiếu dùng
+                // chung 1 con số, không bắt nhập lại. Nháp đã lưu (nếu có) sẽ ghi đè
+                // ở bước khôi phục sau đó; RefreshReconcileReceived không đụng ô này.
+                LossWeightText = reportedLoss > 0 ? WeightDecimalInput.Format(reportedLoss) : string.Empty,
             };
             row.PropertyChanged += OnReconcileRowPropertyChanged;
             GoldReconcileRows.Add(row);
@@ -1151,12 +1159,14 @@ public sealed class GoldReconcileRowViewModel : ObservableObject
 
     public string PurityDisplay => string.IsNullOrWhiteSpace(PurityCode) ? "Không rõ" : PurityCode;
 
-    private decimal _issuedWeight,_receivedWeight;
+    private decimal _issuedWeight,_receivedWeight,_reportedLossWeight;
     public decimal IssuedWeight { get=>_issuedWeight; set{if(SetProperty(ref _issuedWeight,value))NotifyWeights();} }
     public decimal ReceivedWeight { get=>_receivedWeight; set{if(SetProperty(ref _receivedWeight,value))NotifyWeights();} }
+    /// <summary>Hao hụt thợ đã báo ở bước trả hàng (chỉ) — chỉ để đối chiếu, không tự trừ.</summary>
+    public decimal ReportedLossWeight { get=>_reportedLossWeight; set=>SetProperty(ref _reportedLossWeight,value); }
     private void NotifyWeights(){OnPropertyChanged(nameof(DebtWeight));OnPropertyChanged(nameof(DebtDisplay));OnPropertyChanged(nameof(HasDebt));}
 
-    /// <summary>Hao hụt (chỉ): nhân viên tự gõ từng dòng, không ghi công nợ.</summary>
+    /// <summary>Hao hụt (chỉ): mặc định = số thợ đã báo lúc trả hàng, sửa được, không ghi công nợ.</summary>
     public string LossWeightText
     {
         get => _lossWeightText;

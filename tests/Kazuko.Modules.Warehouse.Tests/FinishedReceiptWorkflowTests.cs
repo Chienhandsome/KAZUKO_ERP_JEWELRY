@@ -45,6 +45,23 @@ public sealed class FinishedReceiptWorkflowTests
         vm.GoldReconcileRows[0].LossWeightText="0.1";Assert.False(vm.DebtRecorded);
     }
     [Fact]
+    public void Surplus_confirmation_warns_without_posting_material_stock()
+    {
+        var writes=0;var vm=Create((m,a)=>m.Name switch
+        {
+            "GetOrderDetailAsync"=>Task.FromResult<ProductionOrderDetail?>(Detail(1)),
+            "GetIssuedGoldByPurityAsync"=>Task.FromResult<IReadOnlyList<IssuedGoldByPurityDto>>([new("750",.8m)]),
+            "GetIssuedStoneByMaterialAsync"=>Task.FromResult<IReadOnlyList<IssuedStoneByMaterialDto>>([]),
+            _=>throw new NotSupportedException()
+        },()=>writes++);
+        vm.SelectedOrder=new(1,"A");vm.Products.Add(Item());
+        vm.RecordDebtCommand.Execute(null);
+        Assert.True(vm.DebtRecorded);
+        Assert.Contains("vượt lượng đã giao",vm.ReconcileMessage);
+        Assert.Contains("không tự nhập",vm.ReconcileMessage);
+        Assert.Equal(0,writes);
+    }
+    [Fact]
     public void Busy_and_posted_forms_block_mutation_and_pending_editor_cannot_be_lost()
     {
         var vm=Create((m,a)=>throw new NotSupportedException());

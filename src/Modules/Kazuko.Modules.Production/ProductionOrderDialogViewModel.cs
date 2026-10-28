@@ -64,6 +64,10 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private readonly IBankAccountRepository? _bankAccounts;
     private readonly ICustomerEditorService? _customerEditor;
 
+    // Idempotency tạo LSX: giữ 1 Guid cho cả phiên tạo, retry cùng RequestId
+    // trả LSX cũ thay vì tạo lệnh trùng (kiểu _requestId của dialog nhập kho).
+    private Guid _createRequestId = Guid.NewGuid();
+
     private string _customerSearch = string.Empty;
     private CraftCustomerOption? _selectedCustomer;
     private bool _isCustomerSuggestionsOpen;
@@ -1610,9 +1614,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 _id is > 0 ? _rowVersion : null,
                 employeeIds,
                 lineDrafts,
-                attachmentDrafts);
+                attachmentDrafts,
+                _createRequestId);
 
+            var wasCreate = _id is null or <= 0;
             var result = await _application.SaveDraftAsync(draft, RequireSession());
+            // Tạo mới thành công: xoay RequestId để lần tạo tiếp theo không đụng request cũ.
+            if (wasCreate) _createRequestId = Guid.NewGuid();
             _id = result.Id;
             Code = result.Code;
             _rowVersion = result.RowVersion;
@@ -2009,9 +2017,13 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
                 _id is > 0 ? _rowVersion : null,
                 employeeIds,
                 lineDrafts,
-                attachmentDrafts);
+                attachmentDrafts,
+                _createRequestId);
 
+            var wasCreate = _id is null or <= 0;
             var result = await _application.SaveDraftAsync(draft, RequireSession());
+            // Tạo mới thành công: xoay RequestId để lần tạo tiếp theo không đụng request cũ.
+            if (wasCreate) _createRequestId = Guid.NewGuid();
             _id = result.Id;
             Code = result.Code;
             _rowVersion = result.RowVersion;

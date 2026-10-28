@@ -20,6 +20,8 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
         _attachmentStore = attachmentStore;
     }
 
+    private sealed record OrderRequestRow(long OrderId, string Code, long RowVersion, string RequestHash);
+
     public async Task<ProductionOrderSaveResult> SaveDraftAsync(
         ProductionOrderDraft draft,
         AuthenticatedSession session,
@@ -50,6 +52,26 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
             string code;
             long rowVersion;
             var isCreate = draft.Id is null or <= 0;
+
+            // Idempotency cho tạo mới (kiểu PRODUCTION_RECEIPT_REQUESTS): retry cùng
+            // RequestId trả LSX cũ, khác nội dung bị chặn. Sửa bản nháp không dedupe.
+            string? orderRequestHash = null;
+            if (isCreate && draft.RequestId != Guid.Empty)
+            {
+                orderRequestHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(draft))));
+                var priorOrder = await connection.QuerySingleOrDefaultAsync<OrderRequestRow>(new CommandDefinition("""
+                    SELECT R.ORDER_ID AS OrderId, O.CODE AS Code, O.ROW_VERSION AS RowVersion, R.REQUEST_HASH AS RequestHash
+                    FROM PRODUCTION_ORDER_REQUESTS R JOIN PRODUCTION_ORDERS O ON O.ID = R.ORDER_ID
+                    WHERE R.COMPANY_ID = @companyId AND R.BRANCH_ID = @branch AND R.REQUEST_ID = @id
+                    """, new { companyId, branch = session.BranchId, id = draft.RequestId.ToString() }, fbTx, cancellationToken: cancellationToken));
+                if (priorOrder is not null)
+                {
+                    if (priorOrder.RequestHash.Trim() != orderRequestHash)
+                        throw new InvalidOperationException("Yêu cầu tạo lệnh này đã lưu với nội dung khác. Tải lại lệnh đã tạo.");
+                    await transaction.CommitAsync(cancellationToken);
+                    return new ProductionOrderSaveResult(priorOrder.OrderId, priorOrder.Code, priorOrder.RowVersion);
+                }
+            }
 
             if (isCreate)
             {
@@ -117,6 +139,14 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
             await ReplaceWorkersAsync(connection, fbTx, orderId, draft.EmployeeIds, cancellationToken);
             await SyncAttachmentsAsync(connection, fbTx, orderId, code, session.UserId, draft.Attachments, cancellationToken,files);
             await MarkCraftOrderInProductionAsync(connection, fbTx, draft.SalesOrderId, cancellationToken);
+
+            if (isCreate && draft.RequestId != Guid.Empty && orderRequestHash is not null)
+            {
+                await connection.ExecuteAsync(new CommandDefinition("""
+                    INSERT INTO PRODUCTION_ORDER_REQUESTS(COMPANY_ID,BRANCH_ID,REQUEST_ID,REQUEST_HASH,ORDER_ID,PAYLOAD)
+                    VALUES(@companyId,@branch,@id,@requestHash,@orderId,@payload)
+                    """, new { companyId, branch = session.BranchId, id = draft.RequestId.ToString(), requestHash = orderRequestHash, orderId, payload = JsonSerializer.Serialize(draft) }, fbTx, cancellationToken: cancellationToken));
+            }
 
             await AuditLogWriter.WriteAsync(
                 connection, fbTx, "PRODUCTION_ORDER_DRAFT_SAVED",
@@ -1004,213 +1034,6 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
         }
     }
 
-    public async Task<ProductionCompleteResult> PostFinishedReceiptAsync(
-        long productionOrderId,
-        long expectedRowVersion,
-        AuthenticatedSession session,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(session);
-        StockPostingSupport.EnsureBranch(session);
-        if (productionOrderId <= 0)
-            throw new InvalidOperationException("Thiếu lệnh sản xuất.");
-
-        await using var connection = FirebirdDatabase.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var fbTx = (FbTransaction)transaction;
-
-        try
-        {
-            var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
-            var order = await LockOrderHeaderAsync(
-                connection, fbTx, companyId, session.BranchId, productionOrderId,
-                expectedRowVersion, cancellationToken, requireVersionMatch: false);
-
-            if (order.FinishedReceiptDocumentId is > 0)
-            {
-                var prior = await LoadCompletedResultAsync(
-                    connection, fbTx, productionOrderId, order, cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
-                return prior;
-            }
-
-            if (order.RowVersion != expectedRowVersion)
-                throw new InvalidOperationException("Lệnh đã được cập nhật bởi người khác. Vui lòng tải lại.");
-            if (!string.Equals(order.StatusCode, ProductionOrderStatuses.Completed, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Chỉ nhập kho lệnh sản xuất đã hoàn thành.");
-
-            var errors = ProductionCompletionValidator.Validate(
-                ProductionOrderStatuses.InProgress,
-                order.MaterialIssueDocumentId is > 0);
-            if (errors.Count > 0)
-                throw new InvalidOperationException(string.Join(" ", errors));
-
-            await EnsureAllocationWithinInProductAsync(connection, fbTx, productionOrderId, cancellationToken);
-            await EnsureFinishedLocationAsync(
-                connection, fbTx, order.FinishedLocationId, session.BranchId, cancellationToken);
-
-            var docCode = await StockPostingSupport.NextDocumentCodeAsync(
-                connection, fbTx, ProductionStockDocumentTypes.FinishedReceipt,
-                session.BranchId, "NTP", cancellationToken);
-
-            long documentId;
-            await using (var insertDoc = new FbCommand("""
-                INSERT INTO STOCK_DOCUMENTS
-                    (COMPANY_ID, BRANCH_ID, CODE, DOCUMENT_TYPE, DOCUMENT_DATE,
-                     DESTINATION_LOCATION_ID, PRODUCTION_ORDER_ID, PURPOSE_CODE,
-                     NOTES, STATUS_CODE, CREATED_BY, CREATED_AT, POSTED_BY, POSTED_AT)
-                VALUES
-                    (@CID, @BID, @CODE, @DTYPE, CURRENT_TIMESTAMP,
-                     @DEST, @PO, @PURPOSE,
-                     @NOTES, 'POSTED', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
-                RETURNING ID
-                """, connection, fbTx))
-            {
-                insertDoc.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
-                insertDoc.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
-                insertDoc.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = docCode;
-                insertDoc.Parameters.Add("@DTYPE", FbDbType.VarChar, 40).Value =
-                    ProductionStockDocumentTypes.FinishedReceipt;
-                insertDoc.Parameters.Add("@DEST", FbDbType.BigInt).Value = order.FinishedLocationId;
-                insertDoc.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
-                insertDoc.Parameters.Add("@PURPOSE", FbDbType.VarChar, 40).Value =
-                    ProductionStockPurposes.FinishedReceipt;
-                insertDoc.Parameters.Add("@NOTES", FbDbType.VarChar, 1000).Value =
-                    $"Nhập thành phẩm lệnh {order.Code}";
-                insertDoc.Parameters.Add("@BY", FbDbType.BigInt).Value =
-                    session.UserId > 0 ? session.UserId : DBNull.Value;
-                documentId = Convert.ToInt64(await insertDoc.ExecuteScalarAsync(cancellationToken));
-            }
-
-            var lineNo = 0;
-            decimal totalLabor = 0;
-            var qcUnits = await LoadQcUnitsForCompleteAsync(connection, fbTx, productionOrderId, cancellationToken);
-            foreach (var unit in qcUnits)
-            {
-                lineNo++;
-                var components = await LoadUnitComponentsAsync(connection, fbTx, unit.Id, cancellationToken);
-                var cost = ProductionCostCalculator.Calculate(
-                    components.Select(c => new ProductionCostCalculator.ComponentCostInput(
-                        c.ComponentKind, c.QuantityUsed, c.UnitCostSnapshot, c.GoldPricePerChiSnapshot)),
-                    unit.LaborCostSnapshot,
-                    unit.ActualGoldWeight);
-                totalLabor += cost.LaborCost;
-
-                var serial = await StockPostingSupport.NextDocumentCodeAsync(
-                    connection, fbTx, "FINISHED_PRODUCT", session.BranchId, "TP", cancellationToken);
-
-                long productId;
-                await using (var insertFp = new FbCommand("""
-                    INSERT INTO FINISHED_PRODUCTS
-                        (COMPANY_ID, BRANCH_ID, PRODUCTION_ORDER_ID, SALES_ORDER_ID, PRODUCTION_QC_UNIT_ID,
-                         CODE, BARCODE_VALUE, QR_VALUE, PRODUCT_NAME, GOLD_PURITY, TOTAL_WEIGHT, GOLD_WEIGHT,
-                         MATERIAL_COST, LABOR_COST, NON_GOLD_MATERIAL_COST, TOTAL_COST,
-                         LOCATION_ID, STATUS_CODE, RECEIVED_BY, RECEIVED_AT, CREATED_BY, CREATED_AT)
-                    VALUES
-                        (@CID, @BID, @PO, @SO, @QC,
-                         @CODE, @BARCODE, @QR, @NAME, @PURITY, @TW, @GW,
-                         @MAT, @LABOR, @NON, @TOTAL,
-                         @LOC, 'IN_STOCK', @BY, CURRENT_TIMESTAMP, @BY, CURRENT_TIMESTAMP)
-                    RETURNING ID
-                    """, connection, fbTx))
-                {
-                    insertFp.Parameters.Add("@CID", FbDbType.BigInt).Value = companyId;
-                    insertFp.Parameters.Add("@BID", FbDbType.BigInt).Value = session.BranchId;
-                    insertFp.Parameters.Add("@PO", FbDbType.BigInt).Value = productionOrderId;
-                    insertFp.Parameters.Add("@SO", FbDbType.BigInt).Value =
-                        order.SalesOrderId is > 0 ? order.SalesOrderId.Value : DBNull.Value;
-                    insertFp.Parameters.Add("@QC", FbDbType.BigInt).Value = unit.Id;
-                    insertFp.Parameters.Add("@CODE", FbDbType.VarChar, 40).Value = serial;
-                    insertFp.Parameters.Add("@BARCODE", FbDbType.VarChar, 80).Value = serial;
-                    insertFp.Parameters.Add("@QR", FbDbType.VarChar, 80).Value = serial;
-                    insertFp.Parameters.Add("@NAME", FbDbType.VarChar, 200).Value = unit.ModelName;
-                    insertFp.Parameters.Add("@PURITY", FbDbType.VarChar, 30).Value =
-                        string.IsNullOrWhiteSpace(unit.GoldPurityCode) ? DBNull.Value : unit.GoldPurityCode;
-                    insertFp.Parameters.Add("@TW", FbDbType.Decimal).Value = cost.GoldWeight;
-                    insertFp.Parameters.Add("@GW", FbDbType.Decimal).Value = cost.GoldWeight;
-                    insertFp.Parameters.Add("@MAT", FbDbType.Decimal).Value = cost.GoldMaterialCost;
-                    insertFp.Parameters.Add("@LABOR", FbDbType.Decimal).Value = cost.LaborCost;
-                    insertFp.Parameters.Add("@NON", FbDbType.Decimal).Value = cost.NonGoldMaterialCost;
-                    insertFp.Parameters.Add("@TOTAL", FbDbType.Decimal).Value = cost.TotalCost;
-                    insertFp.Parameters.Add("@LOC", FbDbType.BigInt).Value = order.FinishedLocationId;
-                    insertFp.Parameters.Add("@BY", FbDbType.BigInt).Value =
-                        session.UserId > 0 ? session.UserId : DBNull.Value;
-                    productId = Convert.ToInt64(await insertFp.ExecuteScalarAsync(cancellationToken));
-                }
-
-                await using (var linkUnit = new FbCommand("""
-                    UPDATE PRODUCTION_QC_UNITS
-                       SET FINISHED_PRODUCT_ID = @FP
-                     WHERE ID = @ID AND FINISHED_PRODUCT_ID IS NULL
-                    """, connection, fbTx))
-                {
-                    linkUnit.Parameters.Add("@FP", FbDbType.BigInt).Value = productId;
-                    linkUnit.Parameters.Add("@ID", FbDbType.BigInt).Value = unit.Id;
-                    if (await linkUnit.ExecuteNonQueryAsync(cancellationToken) != 1)
-                        throw new InvalidOperationException($"Không gắn thành phẩm cho đơn vị QC #{unit.Id}.");
-                }
-
-                await FirebirdFinishedProductTransferService.InsertDocumentLineAsync(
-                    connection, fbTx, documentId, lineNo, productId,
-                    null, order.FinishedLocationId, "NEW", "IN_STOCK", cost.TotalCost, cancellationToken,
-                    null, null, 0, cost.GoldWeight, cost.LaborCost, cost.NonGoldMaterialCost);
-
-                await FirebirdFinishedProductTransferService.InsertMovementAsync(
-                    connection, fbTx, companyId, session.BranchId, productId,
-                    "IN", ProductionStockDocumentTypes.FinishedReceipt, documentId, 1, cost.TotalCost,
-                    order.FinishedLocationId, null, order.FinishedLocationId,
-                    "NEW", "IN_STOCK", session.UserId, cancellationToken);
-            }
-
-            long rowVersion;
-            await using (var updateOrder = new FbCommand("""
-                UPDATE PRODUCTION_ORDERS
-                   SET FINISHED_RECEIPT_DOCUMENT_ID = @DOC,
-                       UPDATED_BY = @BY,
-                       UPDATED_AT = CURRENT_TIMESTAMP,
-                       ROW_VERSION = ROW_VERSION + 1
-                 WHERE ID = @ID
-                   AND STATUS_CODE = 'COMPLETED'
-                   AND FINISHED_RECEIPT_DOCUMENT_ID IS NULL
-                   AND ROW_VERSION = @VERSION
-                RETURNING ROW_VERSION
-                """, connection, fbTx))
-            {
-                updateOrder.Parameters.Add("@DOC", FbDbType.BigInt).Value = documentId;
-                updateOrder.Parameters.Add("@BY", FbDbType.BigInt).Value =
-                    session.UserId > 0 ? session.UserId : DBNull.Value;
-                updateOrder.Parameters.Add("@ID", FbDbType.BigInt).Value = productionOrderId;
-                updateOrder.Parameters.Add("@VERSION", FbDbType.BigInt).Value = expectedRowVersion;
-                var updated = await updateOrder.ExecuteScalarAsync(cancellationToken);
-                if (updated is null or DBNull)
-                    throw new InvalidOperationException("Không thể nhập kho. Dữ liệu lệnh đã thay đổi.");
-                rowVersion = Convert.ToInt64(updated);
-            }
-
-            await AuditLogWriter.WriteAsync(
-                connection, fbTx, "PRODUCTION_FINISHED_RECEIPT_POSTED",
-                session.UserId, session.Username, session.BranchId,
-                "PRODUCTION_ORDER", productionOrderId.ToString(), order.Code, cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return new ProductionCompleteResult(
-                productionOrderId, order.Code, documentId, docCode,
-                qcUnits.Count, null, totalLabor, rowVersion);
-        }
-        catch (FbException ex) when (IsUniqueViolation(ex))
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw new InvalidOperationException(
-                $"Lỗi trùng dữ liệu khi nhập kho: {ex.Message}", ex);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-
     public async Task<ManualFinishedReceiptResult> PostManualFinishedReceiptAsync(
         PostManualFinishedReceiptRequest request,
         AuthenticatedSession session,
@@ -1226,8 +1049,12 @@ public sealed partial class FirebirdProductionApplicationService : IProductionAp
         if (request.Items is null || request.Items.Count == 0)
             throw new InvalidOperationException("Chưa có sản phẩm nào để nhập kho.");
         if(request.RequestId==Guid.Empty)throw new InvalidOperationException("Phiếu nhập cần mã yêu cầu để thử lại an toàn.");
-        if (request.ProductionOrderId is not null && request.ProductionOrderId <= 0)
-            throw new InvalidOperationException("Lệnh sản xuất không hợp lệ.");
+        // Luồng sản xuất bắt buộc gắn LSX (khớp UI đã bắt chọn LSX). Nhập ngoài/
+        // nhập đầu kỳ không LSX là nghiệp vụ khác, cần nguồn nhập riêng — không
+        // cho đi qua đường này để tránh nhập kho không đối chiếu vàng, không ghi nợ.
+        if (request.ProductionOrderId is not > 0)
+            throw new InvalidOperationException(
+                "Nhập kho thành phẩm trong luồng sản xuất bắt buộc chọn lệnh sản xuất (LSX).");
 
         foreach (var item in request.Items)
             FinishedReceiptValidation.ValidateItem(item);
