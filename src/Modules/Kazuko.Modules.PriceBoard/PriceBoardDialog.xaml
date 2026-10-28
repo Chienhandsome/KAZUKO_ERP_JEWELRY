@@ -389,6 +389,8 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button access:PermissionAccess.Rule="CAT_GOLD_PRICE:Edit" Content="Bảng giá TV" Command="{Binding TvSettingsCommand}"
+                        Style="{StaticResource PbOutlineButtonStyle}" MinWidth="120" Margin="0,0,8,0" />
                 <Button Content="Lịch sử biến động giá" Style="{StaticResource PbOutlineButtonStyle}"
                         Command="{Binding HistoryCommand}" MinWidth="190" />
                 <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"

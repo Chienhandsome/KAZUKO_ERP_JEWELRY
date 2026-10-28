@@ -29,6 +29,7 @@ public sealed class FirebirdDatabaseManagementService : IDatabaseManagementServi
         "SALES_ORDER_LINES",
         "SALES_ORDERS",
         // Sản xuất
+        "PRODUCTION_RECEIPT_REQUESTS",
         "PRODUCTION_MATERIAL_BALANCES",
         "PRODUCTION_ORDER_WORKERS",
         "PRODUCTION_ORDER_LINES",

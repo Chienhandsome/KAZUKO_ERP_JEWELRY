@@ -116,6 +116,7 @@ public sealed class PriceBoardDialogViewModel : ObservableObject
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke(), () => !IsBusy);
         HistoryCommand = new RelayCommand(OpenHistory, () => !IsBusy);
+        TvSettingsCommand = new RelayCommand(_dialogs.ShowTvSettings, () => !IsBusy);
         AddGoldCommand = new AsyncRelayCommand(AddGoldAsync, () => !IsBusy);
         DeleteGoldCommand = new AsyncRelayCommand(DeleteGoldAsync, () => !IsBusy && SelectedGold is not null);
         AddCurrencyCommand = new AsyncRelayCommand(AddCurrencyAsync, () => !IsBusy);
@@ -125,6 +126,7 @@ public sealed class PriceBoardDialogViewModel : ObservableObject
     }
 
     public event Action? RequestClose;
+    public ICommand TvSettingsCommand { get; }
 
     public ObservableCollection<GoldPriceRowViewModel> GoldPrices { get; } = new();
     public ObservableCollection<CurrencyRateRowViewModel> Currencies { get; } = new();

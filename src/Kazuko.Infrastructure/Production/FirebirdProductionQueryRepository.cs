@@ -128,7 +128,7 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                            FROM PRODUCTION_ORDER_LINES POL
                            WHERE POL.PRODUCTION_ORDER_ID = PO.ID
                        ) AS INTEGER), 0) AS PlannedQuantityTotal,
-                       PO.ROW_VERSION AS RowVersion
+                       PO.ROW_VERSION AS RowVersion,PO.FINISHED_RECEIPT_DOCUMENT_ID AS FinishedReceiptDocumentId
                 FROM PRODUCTION_ORDERS PO
                 LEFT JOIN SALES_ORDERS SO ON SO.ID = PO.SALES_ORDER_ID
                 LEFT JOIN CUSTOMERS C ON C.ID = SO.CUSTOMER_ID AND C.COMPANY_ID = PO.COMPANY_ID
@@ -719,7 +719,7 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
             // Đơn vị chuẩn của vàng là chỉ.
             var rows = await connection.QueryAsync<IssuedGoldByPurityDto>(
                 new CommandDefinition("""
-                    SELECT M.PURITY_CODE AS PurityCode, COALESCE(SUM(B.QUANTITY_ISSUED), 0) AS WeightChi
+                    SELECT M.PURITY_CODE AS PurityCode, COALESCE(SUM(B.QUANTITY_ISSUED-B.QUANTITY_RETURNED-B.QUANTITY_SCRAP), 0) AS WeightChi
                     FROM PRODUCTION_MATERIAL_BALANCES B
                     JOIN MATERIALS M ON M.ID = B.MATERIAL_ID
                     JOIN PRODUCTION_ORDERS PO ON PO.ID = B.PRODUCTION_ORDER_ID
@@ -733,11 +733,7 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                     cancellationToken: cancellationToken));
             return rows.AsList();
         }
-        catch (FbException)
-        {
-            // Migration 46 not applied yet — no material balances.
-            return Array.Empty<IssuedGoldByPurityDto>();
-        }
+        catch (FbException ex) { throw new InvalidOperationException("Không tải được dữ liệu sản xuất. Hãy thử lại; chưa thể đối chiếu vàng.",ex); }
     }
 
     public async Task<IReadOnlyList<IssuedStoneByMaterialDto>> GetIssuedStoneByMaterialAsync(
@@ -772,11 +768,7 @@ public sealed class FirebirdProductionQueryRepository : IProductionQueryReposito
                     cancellationToken: cancellationToken));
             return rows.AsList();
         }
-        catch (FbException)
-        {
-            // Migration 46 not applied yet — no material balances.
-            return Array.Empty<IssuedStoneByMaterialDto>();
-        }
+        catch (FbException ex) { throw new InvalidOperationException("Không tải được dữ liệu sản xuất. Hãy thử lại; chưa thể đối chiếu vàng.",ex); }
     }
 
     private static async Task<IReadOnlyList<ProductionQcUnitDto>> LoadQcUnitsAsync(

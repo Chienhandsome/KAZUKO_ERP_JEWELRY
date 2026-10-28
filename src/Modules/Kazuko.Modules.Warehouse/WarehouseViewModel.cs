@@ -41,6 +41,8 @@ public sealed class WarehouseViewModel : ObservableObject
     private readonly IPreferencesService _preferences;
     private readonly IPrintTemplateStore _printTemplates;
     private readonly ICompanyProfileService _companyProfile;
+    private readonly IFinishedReceiptDraftStore? _receiptDrafts;
+    private readonly IFinishedReceiptDocuments? _receiptDocuments;
     private CancellationTokenSource? _loadCts;
     private bool _suppressDocumentDetailLoad;
     private bool _suppressTabSideEffects;
@@ -137,7 +139,7 @@ public sealed class WarehouseViewModel : ObservableObject
         IPrintTemplateStore printTemplates,
         ICompanyProfileService companyProfile,
         Kazuko.Core.UserManagement.IAuthorizationService? authorization = null,
-        IStocktakeService? stocktakes = null)
+        IStocktakeService? stocktakes = null, IFinishedReceiptDraftStore? receiptDrafts=null, IFinishedReceiptDocuments? receiptDocuments=null)
     {
         _repository = repository;
         _warehouseGoldPrices = warehouseGoldPrices;
@@ -154,7 +156,7 @@ public sealed class WarehouseViewModel : ObservableObject
         _productionApplication = productionApplication;
         _preferences = preferences;
         _printTemplates = printTemplates;
-        _companyProfile = companyProfile;
+        _companyProfile = companyProfile;_receiptDrafts=receiptDrafts;_receiptDocuments=receiptDocuments;
         _permissions = authorization;
         Stocktakes = stocktakes is null ? null : new StocktakeTabViewModel(stocktakes,sessionAccessor,authorization);
 
@@ -1641,11 +1643,12 @@ public sealed class WarehouseViewModel : ObservableObject
         var dialog = new ProductionFinishedReceiptDialog(
             new ProductionFinishedReceiptDialogViewModel(
                 _repository, _productionQueries, _productionApplication, session,
-                _printTemplates, _companyProfile))
+                _printTemplates, _companyProfile, _goldTypes, _receiptDrafts, _receiptDocuments))
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() == true)
+        dialog.ShowDialog();
+        if (dialog.DataContext is ProductionFinishedReceiptDialogViewModel {IsPosted:true})
         {
             OpenDocumentTab("PRODUCTION_FINISHED_RECEIPT", WarehouseTabs.Receipt);
             _ = RefreshAllAsync();

@@ -68,6 +68,8 @@ Sau POSTED không sửa trực tiếp số liệu tài chính/tồn. Điều ch�
 
 ## 5. Nhập NVL
 
+Dialog nhập NVL và nhập thành phẩm không gán Enter toàn form vào lệnh ghi sổ/lưu nhập kho, nút ghi sổ không là nút mặc định. Người dùng chủ động chọn nút để xác nhận, tránh nhập kho khi đang gõ dữ liệu hoặc nhận Enter từ máy quét.
+
 ### Nguồn (`SOURCE_TYPE`)
 
 - `SUPPLIER`: bắt buộc `SUPPLIER_ID`; `CUSTOMER_ID` NULL. Cho phép tạo nhanh NCC qua `ISupplierEditorService`.

@@ -40,8 +40,7 @@
       <Button access:PermissionAccess.Rule="INV_MATERIAL_RECEIPT:Add" Content="Ghi sổ nhập kho"
               Style="{StaticResource WhPrimaryButtonStyle}"
               Command="{Binding SaveCommand}"
-              MinWidth="160"
-              IsDefault="True" />
+              MinWidth="160" />
     </StackPanel>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

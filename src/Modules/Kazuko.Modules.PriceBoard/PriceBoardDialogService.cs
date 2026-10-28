@@ -9,16 +9,21 @@ public sealed class PriceBoardDialogService : IPriceBoardDialogService
     private readonly IPriceBoardRepository _repository;
     private readonly IGoldTypeCatalogService _goldTypes;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly IPriceBoardTvController? _tv;
 
     public PriceBoardDialogService(
         IPriceBoardRepository repository,
         IGoldTypeCatalogService goldTypes,
-        ICurrentSessionAccessor sessionAccessor)
+        ICurrentSessionAccessor sessionAccessor,
+        IPriceBoardTvController? tv = null)
     {
         _repository = repository;
         _goldTypes = goldTypes;
         _sessionAccessor = sessionAccessor;
+        _tv = tv;
     }
+
+    internal void ShowTvSettings() => _tv?.ShowSettings();
 
     public void ShowPriceBoard()
     {

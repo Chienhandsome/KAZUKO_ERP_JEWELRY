@@ -6,6 +6,7 @@
 - Xác định module sở hữu use case.
 - Kiểm tra working tree để không ghi đè thay đổi của người khác.
 - Nếu thay đổi kiến trúc hoặc contract công khai, cập nhật docs cùng code.
+- Nếu ERP đang chạy/debug khóa file hoặc database và chặn công việc, được người dùng cho phép tự dừng đúng tiến trình ERP của workspace rồi thử lại. Xác minh đường dẫn/tiến trình giữ tài nguyên, không dừng hàng loạt host `dotnet`, IDE hoặc dịch vụ khác; báo ngắn sau khi dừng. Xem quy tắc chung trong `AGENTS.md`.
 
 ## Definition of Done
 

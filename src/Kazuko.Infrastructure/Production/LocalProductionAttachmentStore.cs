@@ -2,7 +2,7 @@ using Kazuko.Core.Production;
 
 namespace Kazuko.Infrastructure.Production;
 
-public sealed class LocalProductionAttachmentStore : IProductionAttachmentStore
+public sealed class LocalProductionAttachmentStore(string? root=null) : IProductionAttachmentStore
 {
     private const long MaxImageBytes = 10 * 1024 * 1024;
     private const long MaxDesignBytes = 50 * 1024 * 1024;
@@ -18,7 +18,7 @@ public sealed class LocalProductionAttachmentStore : IProductionAttachmentStore
         ".zip", ".rar", ".7z", ".doc", ".docx", ".xls", ".xlsx"
     };
 
-    public string ManagedRoot => Path.Combine(
+    public string ManagedRoot => root??Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "KazukoERP",
         "production-attachments");
@@ -141,7 +141,7 @@ public sealed class LocalProductionAttachmentStore : IProductionAttachmentStore
     {
         fullPath = Path.GetFullPath(path);
         var root = Path.GetFullPath(ManagedRoot);
-        return fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+        return fullPath.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar,Path.AltDirectorySeparatorChar)+Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string SanitizeOrderCode(string orderCode)

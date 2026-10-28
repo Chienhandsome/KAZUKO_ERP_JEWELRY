@@ -223,7 +223,7 @@
     <!-- Footer -->
     <DockPanel Grid.Row="4" Margin="0,16,0,0" LastChildFill="True">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-        <Button access:PermissionAccess.Rule="PROD_GOLD_RECONCILE:Add" Content="Ghi công nợ"
+        <Button access:PermissionAccess.Rule="PROD_GOLD_RECONCILE:Add" Content="Xác nhận đối chiếu"
                 Command="{Binding RecordDebtCommand}"
                 Style="{StaticResource WhPrimaryButtonStyle}"
                 MinWidth="140" MinHeight="40" Margin="0,0,8,0"

@@ -20,6 +20,7 @@ public sealed class ProductionViewModel : ObservableObject
     private const string FilterAll = "Tất cả";
 
     private readonly IProductionQueryRepository _queries;
+    private readonly IProductionFinishedReceiptPresenter? _receiptPresenter;
     private readonly IProductionApplicationService _application;
     private readonly IProductionAttachmentStore _attachments;
     private readonly IProductionPrintDataService _printData;
@@ -62,9 +63,9 @@ public sealed class ProductionViewModel : ObservableObject
         ICraftOrderApplicationService craftOrders,
         ICashFundRepository cashFunds,
         IBankAccountRepository bankAccounts,
-        ICustomerEditorService customerEditor)
+        ICustomerEditorService customerEditor, IProductionFinishedReceiptPresenter? receiptPresenter=null)
     {
-        _queries = queries;
+        _queries = queries;_receiptPresenter=receiptPresenter;
         _application = application;
         _attachments = attachments;
         _printData = printData;
@@ -90,6 +91,11 @@ public sealed class ProductionViewModel : ObservableObject
         CustomerFilterOptions.Add(FilterAll);
         SalesOrderFilterOptions.Add(FilterAll);
 
+        OpenReceiptCommand=new ParameterRelayCommand(p=>
+        {
+            try{if((p as ProductionOrderRowViewModel??SelectedOrder) is {IsCompleted:true} row){_receiptPresenter?.Show(row.Id);_ = LoadAsync();}}
+            catch(Exception ex){ErrorMessage=ex.Message;}
+        },p=>(p as ProductionOrderRowViewModel??SelectedOrder) is {IsCompleted:true});
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
         ResetFiltersCommand = new AsyncRelayCommand(ResetFiltersAsync);
         CreateOrderCommand = new AsyncRelayCommand(CreateOrderAsync);
@@ -292,6 +298,7 @@ public sealed class ProductionViewModel : ObservableObject
     }
 
     public ICommand RefreshCommand { get; }
+    public ICommand OpenReceiptCommand {get;}
     public ICommand ResetFiltersCommand { get; }
     public ICommand CreateOrderCommand { get; }
     public ICommand OpenDetailCommand { get; }
@@ -623,8 +630,8 @@ public sealed class ProductionViewModel : ObservableObject
         {
             ErrorMessage = string.Empty;
             var result = await _application.CompleteAsync(row.Id, row.RowVersion, session);
-            StatusMessage = $"Đã hoàn tất {result.Code} ({result.FinishedProductCount} món). Chọn lệnh này tại Kho → Nhập thành phẩm để ghi tồn kho.";
             await LoadAsync();
+            StatusMessage = $"Đã hoàn tất {result.Code}. Bấm Nhập kho / Xem phiếu trên lệnh để tiếp tục.";
         }
         catch (Exception ex)
         {
@@ -648,7 +655,8 @@ public sealed class ProductionOrderRowViewModel : ObservableObject
         // trống nếu phiếu chưa giao.
         MaterialIssueDateDisplay = item.MaterialIssueDate?.ToString("dd/MM/yyyy", ViCulture) ?? "—";
         DueDateDisplay = item.DueDate?.ToString("dd/MM/yyyy", ViCulture) ?? "—";
-        StatusDisplay = ProductionOrderStatuses.ToListDisplay(item.StatusCode);
+        IsCompleted=item.StatusCode==ProductionOrderStatuses.Completed;
+        StatusDisplay = IsCompleted?(item.FinishedReceiptDocumentId is >0?"Đã nhập kho":"Hoàn thành — chờ nhập kho"):ProductionOrderStatuses.ToListDisplay(item.StatusCode);
         SourceDisplay = item.OrderSource switch
         {
             ProductionOrderSources.Stock => "Chế tác nhập kho",
@@ -696,5 +704,6 @@ public sealed class ProductionOrderRowViewModel : ObservableObject
     public string StatusCode { get; }
     public bool IsDraft { get; }
     public bool IsInProgress { get; }
+    public bool IsCompleted {get;}
     public bool CanDelete { get; }
 }

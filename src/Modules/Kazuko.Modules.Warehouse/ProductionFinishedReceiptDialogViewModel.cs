@@ -10,6 +10,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.Printing;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 using Kazuko.Modules.Warehouse.Printing;
@@ -23,7 +24,7 @@ namespace Kazuko.Modules.Warehouse;
 /// - TL vàng tự tính = TL tổng − TL đá, cho phép sửa tay.
 /// - Lưu: ghi sổ qua <c>PostManualFinishedReceiptAsync</c> (không qua QC).
 /// </summary>
-public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
+public sealed partial class ProductionFinishedReceiptDialogViewModel : ObservableObject
 {
     private static readonly string[] GoldPurityOptions =
         ["9999", "999", "750", "680", "610", "585", "416", "375", "18K", "24K"];
@@ -87,8 +88,9 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         IProductionApplicationService application,
         AuthenticatedSession session,
         IPrintTemplateStore printTemplates,
-        ICompanyProfileService companyProfile)
+        ICompanyProfileService companyProfile, IGoldTypeCatalogService? goldTypes=null, IFinishedReceiptDraftStore? draftStore=null, IFinishedReceiptDocuments? documents=null, long? preferredOrderId=null)
     {
+        _goldTypes=goldTypes;_draftStore=draftStore;_documents=documents;_preferredOrderId=preferredOrderId;
         _warehouse = warehouse;
         _queries = queries;
         _application = application;
@@ -97,30 +99,29 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         _companyProfile = companyProfile;
         _labelPrintService = new FinishedGoodsLabelPrintService(printTemplates);
 
-        AddCommand = new RelayCommand(AddOrUpdateProduct);
-        EditCommand = new RelayCommand(LoadSelectedForEdit, () => SelectedProduct is not null && !IsBusy);
-        DeleteCommand = new RelayCommand(DeleteSelectedProduct, () => SelectedProduct is not null && !IsBusy);
-        CancelEditCommand = new RelayCommand(CancelEdit, () => IsEditing);
-        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
-        CancelCommand = new RelayCommand(() => DialogResult = false);
+        AddCommand = new RelayCommand(AddOrUpdateProduct,()=>CanEdit);
+        EditCommand = new RelayCommand(LoadSelectedForEdit, () => SelectedProduct is not null && CanEdit);
+        DeleteCommand = new RelayCommand(DeleteSelectedProduct, () => SelectedProduct is not null && CanEdit);
+        CancelEditCommand = new RelayCommand(CancelEdit, () => CanEdit);
+        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy&&!IsDetailLoading&&!IsPosted);
+        CancelCommand = new RelayCommand(() => {if(CanClose())DialogResult=false;},()=>!IsBusy);
         SelectImageCommand = new RelayCommand<ReceiptImageItem>(item =>
         {
             if (item is not null)
                 SelectedImage = item;
         });
-        RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => !IsBusy && !_debtRecorded);
-        OpenReconcileCommand = new RelayCommand(OpenReconcileDialog);
+        RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => CanEdit&&_reconcileLoaded);
+        OpenReconcileCommand = new RelayCommand(OpenReconcileDialog,()=>CanEdit&&_reconcileLoaded);
         CreateProductGroupCommand = new RelayCommand(CreateProductGroup, () => !IsBusy);
         CreateSymbolCommand = new RelayCommand(CreateSymbol, () => !IsBusy);
         PrintSelectedLabelsCommand = new AsyncRelayCommand(
             () => PrintLabelsAsync(onlyChecked: true),
-            () => !IsBusy && Products.Count > 0);
+            () => !IsBusy && IsPosted && Products.Count > 0);
         PrintAllLabelsCommand = new AsyncRelayCommand(
             () => PrintLabelsAsync(onlyChecked: false),
-            () => !IsBusy && Products.Count > 0);
-        PrintReceiptCommand = new RelayCommand(() => MessageBox.Show(
-            "Chức năng in phiếu đang phát triển.", "In phiếu",
-            MessageBoxButton.OK, MessageBoxImage.Information));
+            () => !IsBusy && IsPosted && Products.Count > 0);
+        PrintReceiptCommand = new RelayCommand(PrintPostedReceipt,()=>IsPosted&&!IsBusy);
+        SaveDraftCommand=new RelayCommand(()=>{try{SaveDraft();}catch(Exception ex){ErrorMessage=ex.Message;}},()=>CanEdit&&SelectedOrder is not null);
 
         Products.CollectionChanged += OnProductsChanged;
         _ = LoadLookupsAsync();
@@ -134,7 +135,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ObservableCollection<FinishedProductSymbolOption> Symbols { get; } = [];
     public ObservableCollection<ProductionOrderWorkerDto> WorkerOptions { get; } = [];
 
-    public IReadOnlyList<string> GoldPurityChoices => GoldPurityOptions;
+    public ObservableCollection<string> GoldPurityChoices {get;}=[];
     public IReadOnlyList<string> SupplierChoices => SupplierOptions;
 
     public ProductionFinishedReceiptOrderOption? SelectedOrder
@@ -142,8 +143,11 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         get => _selectedOrder;
         set
         {
-            if (SetProperty(ref _selectedOrder, value))
-                _ = LoadDetailAsync(value);
+            if(value==_selectedOrder)return;
+            if(IsBusy||_pendingPost is not null||IsPosted||HasPendingEditor){ErrorMessage="Hoàn tất hoặc hủy món đang nhập trước khi đổi LSX.";OnPropertyChanged();return;}
+            try {if(_selectedOrder is not null&&Products.Count>0)SaveDraft();}
+            catch(Exception ex){ErrorMessage=ex.Message;OnPropertyChanged();return;}
+            if (SetProperty(ref _selectedOrder, value)) {Products.Clear();ClearForm();_requestId=Guid.NewGuid();_ = LoadDetailAsync(value);}
         }
     }
 
@@ -353,8 +357,10 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedProduct, value))
             {
+                NotifyReceiptCommands();
                 (EditCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (DeleteCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                if(IsPosted&&value is not null)LoadSelectedForEdit();
             }
         }
     }
@@ -366,6 +372,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         {
             if (SetProperty(ref _isBusy, value))
             {
+                NotifyReceiptCommands();
                 (EditCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (DeleteCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (CreateProductGroupCommand as RelayCommand)?.NotifyCanExecuteChanged();
@@ -516,7 +523,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     public ProductionOrderWorkerDto? SelectedWorker
     {
         get => _selectedWorker;
-        set => SetProperty(ref _selectedWorker, value);
+        set {if(SetProperty(ref _selectedWorker,value))DebtRecorded=false;}
     }
 
     /// <summary>Các dòng đối chiếu vàng theo từng loại vàng.</summary>
@@ -540,6 +547,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         {
             if (SetProperty(ref _debtRecorded, value))
                 (RecordDebtCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+            OnPropertyChanged(nameof(ReceiptState));
         }
     }
 
@@ -573,6 +581,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     {
         try
         {
+            if(_goldTypes is null)throw new InvalidOperationException("Thiếu danh mục loại vàng.");
+            foreach(var gold in await _goldTypes.ListAsync())GoldPurityChoices.Add(gold.Code);
             var locations = await _warehouse.GetLocationsAsync(_session);
             Locations.Clear();
             foreach (var location in locations.Where(location =>
@@ -602,90 +612,14 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             Orders.Clear();
             foreach (var item in orders)
                 Orders.Add(item);
-            SelectedOrder = Orders.FirstOrDefault();
+            if(_preferredOrderId is >0 && Orders.All(x=>x.Id!=_preferredOrderId))Orders.Add(new(_preferredOrderId.Value,"LSX đã nhập kho"));
+            SelectedOrder = Orders.FirstOrDefault(x=>x.Id==_preferredOrderId);
+            if(_preferredOrderId is null)ErrorMessage="Chọn LSX hoàn thành để nhập hoặc tiếp tục bản nháp.";
 
             if (Locations.Count == 0)
                 ErrorMessage = "Chưa cấu hình kho thành phẩm cho chi nhánh.";
             else if (Orders.Count == 0)
                 ErrorMessage = "Không có lệnh đã hoàn thành đang chờ nhập kho.";
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-    }
-
-    private async Task LoadDetailAsync(ProductionFinishedReceiptOrderOption? item)
-    {
-        var requestedId = item?.Id;
-        try
-        {
-            ErrorMessage = string.Empty;
-            _detail = null;
-            ImageItems.Clear();
-            SelectedImage = null;
-            WorkerOptions.Clear();
-            _externalWorkerOption = null;
-            SelectedWorker = null;
-            GoldReconcileRows.Clear();
-            DebtRecorded = false;
-            ReconcileMessage = string.Empty;
-            IssuedStoneSummaryText = string.Empty;
-            NotifyDetailChanged();
-            OnPropertyChanged(nameof(HasImages));
-            if (item is not null)
-            {
-                var detail = await _queries.GetOrderDetailAsync(item.Id, _session.BranchId);
-                if (SelectedOrder?.Id != requestedId)
-                    return;
-                _detail = detail;
-            }
-            if (_detail is not null)
-            {
-                SelectedLocation = Locations.FirstOrDefault(x => x.Id == _detail.FinishedLocationId)
-                    ?? Locations.FirstOrDefault();
-                foreach (var attachment in _detail.Attachments.Where(IsImageAttachment))
-                    ImageItems.Add(new ReceiptImageItem(attachment.OriginalFileName, attachment.StoredPath));
-                SelectedImage = ImageItems.FirstOrDefault();
-
-                // Đối chiếu vàng: thợ + số vàng đã giao từ bản ghi giao NVL.
-                _externalWorkerOption = null;
-                foreach (var worker in _detail.Workers)
-                    WorkerOptions.Add(worker);
-                if (_detail.ExecutionType == ProductionExecutionTypes.Outsourced
-                    && _detail.ExternalWorkerId is { } externalWorkerId
-                    && !string.IsNullOrWhiteSpace(_detail.ExternalWorkerName)
-                    && WorkerOptions.All(w => w.EmployeeId != externalWorkerId))
-                {
-                    // Lệnh thuê ngoài: cho chọn thợ ngoài để ghi công nợ vàng.
-                    _externalWorkerOption = new ProductionOrderWorkerDto(
-                        externalWorkerId, "Thợ ngoài", _detail.ExternalWorkerName);
-                    WorkerOptions.Add(_externalWorkerOption);
-                }
-                SelectedWorker = WorkerOptions.FirstOrDefault();
-                try
-                {
-                    // Đối chiếu vàng theo từng loại: load vàng đã giao group theo PURITY_CODE,
-                    // kết hợp với vàng đã nhận từ SP trong bảng (group theo GoldPurityCode).
-                    var issuedByPurity = await _queries.GetIssuedGoldByPurityAsync(item!.Id, _session.BranchId);
-                    RebuildReconcileRows(issuedByPurity);
-
-                    // Đá đã giao: chỉ hiển thị tham khảo, không tham gia đối chiếu.
-                    var issuedStones = await _queries.GetIssuedStoneByMaterialAsync(item!.Id, _session.BranchId);
-                    IssuedStoneSummaryText = issuedStones.Count == 0
-                        ? string.Empty
-                        : "Đá đã giao: " + string.Join(", ", issuedStones.Select(s =>
-                            $"{s.QuantityIssued:0.###} {(string.IsNullOrWhiteSpace(s.UnitCode) ? "viên" : s.UnitCode)} {s.MaterialName}".Trim()));
-                }
-                catch (Exception ex)
-                {
-                    ReconcileMessage = $"Không tải được số vàng đã giao: {ex.Message}";
-                }
-            }
-            NotifyDetailChanged();
-            OnPropertyChanged(nameof(HasImages));
-            OnPropertyChanged(nameof(TotalDebtGold));
-            OnPropertyChanged(nameof(HasAnyDebt));
         }
         catch (Exception ex)
         {
@@ -704,6 +638,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 
     private void OnProductsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        DebtRecorded=false;
         NotifyTotalsChanged();
         RefreshReconcileReceived();
         (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
@@ -752,9 +687,6 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     /// </summary>
     private void RefreshReconcileReceived()
     {
-        if (GoldReconcileRows.Count == 0)
-            return;
-
         var receivedByPurity = Products
             .GroupBy(p => NormalizePurity(p.GoldPurityCode))
             .ToDictionary(g => g.Key, g => g.Sum(p => p.GoldWeight));
@@ -785,7 +717,10 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         if (e.PropertyName is nameof(GoldReconcileRowViewModel.LossWeightText)
             or nameof(GoldReconcileRowViewModel.DebtWeight)
             or nameof(GoldReconcileRowViewModel.DebtDisplay))
+        {
+            DebtRecorded=false;
             NotifyReconcileTotalsChanged();
+        }
     }
 
     private void NotifyReconcileTotalsChanged()
@@ -876,6 +811,8 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
     private void AddOrUpdateProduct()
     {
         ErrorMessage = string.Empty;
+        if(!CanEdit)return;
+        if(SelectedLine is null){ErrorMessage="Chọn dòng mẫu của LSX.";return;}
         if (string.IsNullOrWhiteSpace(ProductName))
         {
             ErrorMessage = "Nhập tên sản phẩm.";
@@ -886,7 +823,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             ErrorMessage = "Trọng lượng vàng phải lớn hơn 0.";
             return;
         }
-        var quantity = TryParseInt(QuantityText, out var q) && q > 0 ? q : 1;
+        if(!int.TryParse(QuantityText,System.Globalization.NumberStyles.None,CultureInfo.InvariantCulture,out var quantity)||quantity<=0||quantity>10000){ErrorMessage="Số lượng phải là số nguyên từ 1 đến 10.000.";return;}
 
         var validTotal = TryParseDecimal(TotalWeightText, out var totalWeight);
         var validStone = TryParseDecimal(StoneWeightText, out var stoneWeight);
@@ -897,15 +834,19 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             ErrorMessage = "Trọng lượng tổng/đá không hợp lệ. Dùng dấu chấm hoặc dấu phẩy cho phần thập phân, không ngăn cách hàng nghìn.";
             return;
         }
-        TryParseMoney(CostPriceText, out var costPrice);
+        if(!TryParseMoney(CostPriceText,out var costPrice)||costPrice<=0){ErrorMessage="Nhập giá vốn nguyên VND lớn hơn 0.";return;}
+        foreach(var money in new[]{SalePriceText,SaleLaborCostText,PurchaseLaborCostText})if(!string.IsNullOrWhiteSpace(money)&&!TryParseMoney(money,out _)){ErrorMessage="Giá và tiền công phải là số tiền nguyên VND không âm.";return;}
         TryParseMoney(SalePriceText, out var salePrice);
         TryParseMoney(SaleLaborCostText, out var saleLabor);
         TryParseMoney(PurchaseLaborCostText, out var purchaseLabor);
         var hasPurchaseLabor = !string.IsNullOrWhiteSpace(PurchaseLaborCostText);
 
+        if(!GoldPurityChoices.Contains(GoldPurityCode)||GoldPurityCode!=SelectedLine.GoldTypeCode){ErrorMessage="Chọn loại vàng đúng mẫu của LSX.";return;}
+        if(Math.Abs(totalWeight-goldWeight-stoneWeight)>.0001m||totalWeight<=0||purchaseLabor>costPrice){ErrorMessage="Kiểm tra tổng = vàng + đá; công nhập không vượt giá vốn.";return;}
+        if(Products.Count(p=>p.OrderLineId==SelectedLine.Id)-(IsEditing?1:0)+quantity>SelectedLine.PlannedQuantity){ErrorMessage="Số món vượt kế hoạch của dòng mẫu.";return;}
         var items = new List<ManualFinishedProductItem>(quantity);
         // Bỏ check "Tạo mã riêng cho từng món" → cả N dòng dùng chung 1 mã.
-        var sharedCode = GenerateSeparateCodes ? null : NextProductCode(peek: false);
+        string? sharedCode = null; // Each piece has an independent serial.
         for (var i = 0; i < quantity; i++)
         {
             string code;
@@ -940,7 +881,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
                 SupplierName: string.IsNullOrWhiteSpace(SupplierName) ? null : SupplierName.Trim(),
                 ModelCode: string.IsNullOrWhiteSpace(ModelCode) ? null : ModelCode.Trim(),
                 SymbolCode: string.IsNullOrWhiteSpace(SymbolCode) ? null : SymbolCode.Trim(),
-                Notes: string.IsNullOrWhiteSpace(FormNotes) ? null : FormNotes.Trim()));
+                Notes: string.IsNullOrWhiteSpace(FormNotes) ? null : FormNotes.Trim(),OrderLineId:SelectedLine.Id));
         }
 
         if (IsEditing && _editingIndex >= 0 && _editingIndex < Products.Count)
@@ -967,6 +908,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
             return;
 
         var item = Products[index];
+        SelectedLine=OrderLines.FirstOrDefault(l=>l.Id==item.OrderLineId);
         ProductName = item.ProductName;
         SelectedProductGroup = ProductGroups.FirstOrDefault(g => g.Name == item.ProductGroup);
         GoldPurityCode = item.GoldPurityCode ?? item.GoldAge ?? string.Empty;
@@ -977,10 +919,10 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         _goldWeightText = FormatDecimal(item.GoldWeight);
         OnPropertyChanged(nameof(GoldWeightText));
         QuantityText = "1";
-        CostPriceText = item.CostPrice?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
-        SalePriceText = item.SalePrice?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
-        SaleLaborCostText = item.SaleLaborCost?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
-        PurchaseLaborCostText = (item.PurchaseLaborCost ?? item.CraftLaborCost)?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
+        CostPriceText = item.CostPrice?.ToString("N0",CultureInfo.GetCultureInfo("vi-VN")) ?? string.Empty;
+        SalePriceText = item.SalePrice?.ToString("N0",CultureInfo.GetCultureInfo("vi-VN")) ?? string.Empty;
+        SaleLaborCostText = item.SaleLaborCost?.ToString("N0",CultureInfo.GetCultureInfo("vi-VN")) ?? string.Empty;
+        PurchaseLaborCostText = (item.PurchaseLaborCost ?? item.CraftLaborCost)?.ToString("N0",CultureInfo.GetCultureInfo("vi-VN")) ?? string.Empty;
         SupplierName = item.SupplierName ?? string.Empty;
         ModelCode = item.ModelCode ?? string.Empty;
         SelectSymbol(item.SymbolCode);
@@ -1015,6 +957,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
 
     private void ClearForm()
     {
+        SelectedLine=null;
         ProductName = string.Empty;
         GoldPurityCode = string.Empty;
         WeightUnitCode = "Chỉ";
@@ -1038,45 +981,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(PreviewProductCode));
     }
 
-    private async Task SaveAsync()
-    {
-        ErrorMessage = string.Empty;
-        if (Products.Count == 0)
-        {
-            ErrorMessage = "Chưa có sản phẩm nào để nhập kho.";
-            return;
-        }
-        if (SelectedLocation is null)
-        {
-            ErrorMessage = "Chọn kho nhập.";
-            return;
-        }
-        IsBusy = true;
-        try
-        {
-            var request = new PostManualFinishedReceiptRequest(
-                ReceiptDate: ReceiptDate.Date,
-                LocationId: SelectedLocation.Id,
-                ProductionOrderId: SelectedOrder?.Id,
-                Items: Products.ToList(),
-                Notes: string.IsNullOrWhiteSpace(FormNotes) ? null : FormNotes.Trim());
-            var result = await _application.PostManualFinishedReceiptAsync(request, _session);
-            MessageBox.Show(
-                $"Đã lưu {result.ProductCount} sản phẩm. Số phiếu: {result.DocumentCode}.",
-                "Nhập kho thành phẩm",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            DialogResult = true;
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
+    private Task SaveAsync()=>PostReceiptAsync();
 
     private void OpenReconcileDialog()
     {
@@ -1181,60 +1086,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         SelectedSymbol = match;
     }
 
-    private async Task RecordDebtAsync()
-    {
-        ReconcileMessage = string.Empty;
-        if (SelectedOrder is null)
-        {
-            ReconcileMessage = "Chọn lệnh sản xuất để đối chiếu vàng.";
-            return;
-        }
-        if (SelectedWorker is null)
-        {
-            ReconcileMessage = "Chọn thợ.";
-            return;
-        }
-        var debtRows = GoldReconcileRows.Where(r => r.HasDebt).ToList();
-        if (debtRows.Count == 0)
-        {
-            ReconcileMessage = "Không có loại vàng nào nợ (Nợ phải lớn hơn 0 mới ghi công nợ).";
-            return;
-        }
-        IsBusy = true;
-        try
-        {
-            var workerType = ReferenceEquals(SelectedWorker, _externalWorkerOption)
-                ? WorkerGoldDebtWorkerTypes.ExternalWorker
-                : WorkerGoldDebtWorkerTypes.Employee;
-            // Ghi công nợ riêng cho từng loại vàng có nợ > 0.
-            foreach (var row in debtRows)
-            {
-                var request = new RecordWorkerGoldDebtRequest(
-                    WorkerId: SelectedWorker.EmployeeId,
-                    WorkerName: SelectedWorker.FullName,
-                    GoldPurityCode: string.IsNullOrWhiteSpace(row.PurityCode) ? null : row.PurityCode,
-                    WeightChi: row.DebtWeight,
-                    WeightIssuedChi: row.IssuedWeight,
-                    WeightReceivedChi: row.ReceivedWeight,
-                    WeightLossChi: row.LossWeight,
-                    ProductionOrderId: SelectedOrder.Id,
-                    ProductionOrderCode: SelectedOrder.Code,
-                    Notes: null,
-                    WorkerType: workerType);
-                await _application.RecordWorkerGoldDebtAsync(request, _session);
-            }
-            DebtRecorded = true;
-            ReconcileMessage = $"Đã ghi công nợ vàng thành công ({debtRows.Count} loại vàng).";
-        }
-        catch (Exception ex)
-        {
-            ReconcileMessage = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
+    private Task RecordDebtAsync(){PrepareSettlement();return Task.CompletedTask;}
 
     private static bool TryParseDecimal(string? text, out decimal value)
     {
@@ -1244,15 +1096,7 @@ public sealed class ProductionFinishedReceiptDialogViewModel : ObservableObject
         return WeightDecimalInput.TryParse(text, out value);
     }
 
-    private static bool TryParseMoney(string? text, out decimal value)
-    {
-        value = 0;
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-        var digits = new string(text.Where(char.IsDigit).ToArray());
-        return digits.Length > 0
-            && decimal.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out value);
-    }
+    private static bool TryParseMoney(string? text,out decimal value)=>FinishedReceiptValidation.TryMoney(text,out value);
 
     private static bool TryParseInt(string? text, out int value)
     {
@@ -1307,9 +1151,10 @@ public sealed class GoldReconcileRowViewModel : ObservableObject
 
     public string PurityDisplay => string.IsNullOrWhiteSpace(PurityCode) ? "Không rõ" : PurityCode;
 
-    public decimal IssuedWeight { get; set; }
-
-    public decimal ReceivedWeight { get; set; }
+    private decimal _issuedWeight,_receivedWeight;
+    public decimal IssuedWeight { get=>_issuedWeight; set{if(SetProperty(ref _issuedWeight,value))NotifyWeights();} }
+    public decimal ReceivedWeight { get=>_receivedWeight; set{if(SetProperty(ref _receivedWeight,value))NotifyWeights();} }
+    private void NotifyWeights(){OnPropertyChanged(nameof(DebtWeight));OnPropertyChanged(nameof(DebtDisplay));OnPropertyChanged(nameof(HasDebt));}
 
     /// <summary>Hao hụt (chỉ): nhân viên tự gõ từng dòng, không ghi công nợ.</summary>
     public string LossWeightText

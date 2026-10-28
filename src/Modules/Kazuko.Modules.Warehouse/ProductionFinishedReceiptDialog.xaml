@@ -13,7 +13,6 @@
     <KeyBinding Key="F1" Command="{Binding AddCommand}" />
     <KeyBinding Key="F2" Command="{Binding EditCommand}" />
     <KeyBinding Key="Delete" Command="{Binding DeleteCommand}" />
-    <KeyBinding Key="Enter" Command="{Binding SaveCommand}" />
     <KeyBinding Key="P" Modifiers="Control" Command="{Binding PrintReceiptCommand}" />
   </Window.InputBindings>
   <Window.Resources>
@@ -69,7 +68,7 @@
   <Grid Margin="16">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="Auto" />
+      <RowDefinition Height="2*" MinHeight="160" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" MinHeight="140" />
       <RowDefinition Height="Auto" />
@@ -83,7 +82,8 @@
                Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
 
     <!-- 1. Form nhập: 3 cột + panel ảnh -->
-    <Grid Grid.Row="1" Margin="0,0,0,12">
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsEnabled="{Binding CanEdit}" Margin="0,0,0,12">
+    <Grid>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="20" />
@@ -96,6 +96,11 @@
 
       <!-- Cột 1: định danh / phân loại -->
       <StackPanel Grid.Column="0">
+  <TextBlock Text="{Binding ReceiptState}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,6"/>
+  <TextBlock Text="Dòng mẫu LSX (nhập đủ từng mẫu):" Style="{StaticResource ReceiptFormLabelStyle}"/>
+  <ComboBox ItemsSource="{Binding OrderLines}" SelectedItem="{Binding SelectedLine}" DisplayMemberPath="ModelName" Style="{StaticResource ReceiptComboStyle}"/>
+  <TextBlock Text="Ghi chú phiếu:" Style="{StaticResource ReceiptFormLabelStyle}"/>
+  <TextBox Text="{Binding ReceiptNotes,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ReceiptFieldStyle}"/>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="140" />
@@ -168,8 +173,8 @@
           <TextBlock Text="Loại vàng:" Style="{StaticResource ReceiptFormLabelStyle}"
                      ToolTip="Loại / tuổi vàng (GOLD_TYPES)" />
           <ComboBox Grid.Column="1" ItemsSource="{Binding GoldPurityChoices}"
-                    Text="{Binding GoldPurityCode, UpdateSourceTrigger=PropertyChanged}"
-                    IsEditable="True"
+                    SelectedItem="{Binding GoldPurityCode, UpdateSourceTrigger=PropertyChanged}"
+                    IsEditable="False"
                     IsTextSearchEnabled="True"
                     Style="{StaticResource ReceiptComboStyle}"
                     ToolTip="Chọn loại/tuổi vàng (750, 999…)" />
@@ -301,9 +306,7 @@
                   MinHeight="30" Padding="12,4"
                   ToolTip="Thêm ký hiệu mới" />
         </Grid>
-        <CheckBox Content="Tạo mã riêng cho từng món"
-                  IsChecked="{Binding GenerateSeparateCodes}"
-                  Margin="0,2,0,8" VerticalContentAlignment="Center" />
+        <TextBlock Text="Mỗi món một mã riêng; mã chính thức được cấp khi ghi sổ." TextWrapping="Wrap"/>
         <TextBlock Text="Ghi chú:" Style="{StaticResource WhFieldLabelStyle}" Margin="0,0,0,4" />
         <TextBox Text="{Binding FormNotes, UpdateSourceTrigger=PropertyChanged}"
                  Style="{StaticResource ReceiptFieldStyle}"
@@ -392,9 +395,10 @@
       </Border>
     </Grid>
 
+    </ScrollViewer>
     <!-- 2. Thanh nút action -->
-    <DockPanel Grid.Row="2" Margin="0,0,0,12" LastChildFill="False">
-      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+    <WrapPanel Grid.Row="2" Margin="0,0,0,12">
+      <WrapPanel>
         <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Thêm (F1)"
                 Command="{Binding AddCommand}"
                 Style="{StaticResource WhPrimaryButtonStyle}"
@@ -407,22 +411,21 @@
                 Command="{Binding DeleteCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="130" MinHeight="40" Margin="0,0,8,0" />
-        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Lưu in (Enter)"
+        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Ghi sổ nhập kho"
                 Command="{Binding SaveCommand}"
                 Style="{StaticResource WhPrimaryButtonStyle}"
                 MinWidth="140" MinHeight="40" Margin="0,0,8,0" />
-        <Button Content="Hủy"
+        <Button Content="Bỏ món đang nhập"
                 Command="{Binding CancelEditCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
-                MinWidth="80" MinHeight="40" Margin="0,0,8,0"
-                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
+                MinWidth="80" MinHeight="40" Margin="0,0,8,0" />
         <Button Content="Hủy"
                 Command="{Binding CancelCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="80" MinHeight="40"
                 IsCancel="True" />
-      </StackPanel>
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+      </WrapPanel>
+      <WrapPanel>
         <Button Content="In tem đang chọn"
                 Command="{Binding PrintSelectedLabelsCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
@@ -431,12 +434,13 @@
                 Command="{Binding PrintAllLabelsCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="110" MinHeight="40" Margin="8,0,0,0" />
+        <Button Content="Lưu nháp" Command="{Binding SaveDraftCommand}" Style="{StaticResource WhOutlineButtonStyle}" Margin="8,0,0,0"/>
         <Button Content="In phiếu (Ctrl+P)"
                 Command="{Binding PrintReceiptCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="150" MinHeight="40" Margin="8,0,0,0" />
-      </StackPanel>
-    </DockPanel>
+      </WrapPanel>
+    </WrapPanel>
 
     <!-- 3. DataGrid sản phẩm -->
     <Border Grid.Row="3" Style="{DynamicResource CardBorderStyle}" Padding="0">
@@ -563,7 +567,7 @@
               MinWidth="150" MinHeight="64" Margin="8,0,0,0"
               FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold"
               ToolTip="Mở đối chiếu vàng đã giao / đã nhận, ghi công nợ thợ." />
-      <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Grid.Column="7" Content="✓ ĐÃ KIỂM TRA"
+      <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Grid.Column="7" Content="Ghi sổ nhập kho"
               Command="{Binding SaveCommand}"
               Style="{StaticResource WhPrimaryButtonStyle}"
               MinWidth="180" MinHeight="64" Margin="8,0,0,0"

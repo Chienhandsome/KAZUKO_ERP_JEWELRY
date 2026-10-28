@@ -232,3 +232,10 @@ và phân bổ thu tiền vẫn trên toàn bộ khoản mở của khách. Thu 
 DebtTab.SelectedCustomer, không lấy dòng chọn trong danh mục. Sau thu tiền reload
 bộ lọc hiện có; hủy/đổi khách trong lúc tải bỏ phản hồi cũ. Xem
 `docs/manual-tests/customer-activity-filters.md`.
+
+## Bảng giá TV
+
+PriceBoard hỗ trợ đồng thời cửa sổ HDMI và trang HTTP chỉ đọc trên LAN, dùng giá
+bán lẻ hiện có. Core giữ cấu hình/snapshot, Infrastructure lưu JSON cục bộ và phục
+vụ tài nguyên web nhúng; module WPF điều phối phiên đăng nhập, cập nhật giá và
+WebView2. Không migration database. Xem [thiết lập và hành vi](tv-price-board.md).

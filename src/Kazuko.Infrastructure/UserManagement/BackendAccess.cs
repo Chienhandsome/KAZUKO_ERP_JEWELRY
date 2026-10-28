@@ -18,6 +18,7 @@ public static class BackendAccess
         if (contract.EndsWith("ReportService", StringComparison.Ordinal)) return Has("REP_VIEW");
         return contract switch
         {
+            "IFinishedReceiptDocuments" => Has("INV_FINISHED_RECEIPT"),
             "ICustomerRepository" => method switch {
                 "SaveAsync" => Has("CAT_CUSTOMERS", SaveAction()), "SetActiveAsync" => Has("CAT_CUSTOMERS", args.ElementAtOrDefault(1) is true ? PermissionAction.Edit : PermissionAction.Delete),
                 "CreateGroupAsync" => Has("CAT_CUSTOMERS", PermissionAction.Add),
@@ -87,7 +88,8 @@ public static class BackendAccess
                 "PostMaterialIssueAsync" => Has("PROD_MATERIAL_ISSUE", PermissionAction.Add),
                 "PostWorkerReturnAsync" or "RecordQcAsync" or "RecordReworkReturnAsync" => Has("PROD_QC", PermissionAction.Edit),
                 "CompleteAsync" => Has("PROD_COMPLETE", PermissionAction.Edit),
-                "PostFinishedReceiptAsync" or "PostManualFinishedReceiptAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add),
+                "PostFinishedReceiptAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add),
+                "PostManualFinishedReceiptAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add) && Has("PROD_GOLD_RECONCILE", PermissionAction.Add),
                 "RecordWorkerGoldDebtAsync" => Has("PROD_GOLD_RECONCILE", PermissionAction.Add),
                 "CancelAsync" => Has("PROD_CANCEL", PermissionAction.Delete), _ => false },
             "IProductionQueryRepository" => method switch {

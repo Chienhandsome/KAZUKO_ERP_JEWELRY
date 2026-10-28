@@ -50,7 +50,7 @@ public sealed class ProductionModule : IKazukoModule
                 {
                     DataContext = new ProductionViewModel(
                         queries, application, attachments, printData, session, externalWorkerEditor, goldTypes,
-                        craftOrders, cashFunds, bankAccounts, customerEditor)
+                        craftOrders, cashFunds, bankAccounts, customerEditor,GetRequiredService<IProductionFinishedReceiptPresenter>(services))
                 };
             },
             AssetRoot + "SX.png",

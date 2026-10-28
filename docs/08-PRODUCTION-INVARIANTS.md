@@ -1,5 +1,14 @@
 # Invariant nghiệp vụ Sản xuất
 
+## Quyết định triển khai 26/10/2026
+
+Luồng hiện hành nhập tay sau hoàn thành, nhận đủ từng dòng mẫu trong một phiếu.
+Đối chiếu và nợ vàng ghi cùng transaction nhập kho, không ghi độc lập trước đó.
+Serial chỉ cấp khi ghi sổ; giữ request/snapshot bất biến ở schema 91 để thử lại và in.
+Giá vốn hiện nhập tay có validation; công thức tự phân bổ còn chờ duyệt.
+Các mô tả QC/component/giá vốn tự động bên dưới áp dụng nhánh QC cũ, không phải
+điều kiện ngầm của form nhập tay. Xem [luồng hiện hành và giới hạn](production-receipt-workflow.md).
+
 Tài liệu quyết định cho module `Kazuko.Production`. Mọi implementation phải tuân thủ `docs/07-PRODUCTION-MODULE-IMPLEMENTATION-PLAN.md` và tài liệu này. Nếu mâu thuẫn với code thì cập nhật tài liệu cùng commit.
 
 ## Quyết định luồng nhập kho 2026-10-09

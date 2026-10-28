@@ -262,12 +262,17 @@
                     <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button access:PermissionAccess.Rule="PROD_COMPLETE:Edit" Content="Hoàn thành"
+                                <StackPanel Orientation="Horizontal">
+ <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Nhập / Phiếu" ToolTip="Nhập kho thành phẩm hoặc xem/in lại phiếu đã ghi sổ"
+ Command="{Binding DataContext.OpenReceiptCommand,RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"
+ Visibility="{Binding IsCompleted,Converter={StaticResource BoolToVis}}" Style="{StaticResource ProductionPrimaryButtonStyle}" MinHeight="28" Padding="8,2"/>
+ <Button access:PermissionAccess.Rule="PROD_COMPLETE:Edit" Content="Hoàn thành"
                                         Command="{Binding DataContext.CompleteOrderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
                                         Style="{StaticResource ProductionPrimaryButtonStyle}"
                                         MinHeight="28" Padding="8,2"
                                         Visibility="{Binding IsInProgress, Converter={StaticResource BoolToVis}}" />
+</StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

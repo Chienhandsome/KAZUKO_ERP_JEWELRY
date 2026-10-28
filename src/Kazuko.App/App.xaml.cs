@@ -112,6 +112,8 @@ public partial class App : Application
         IPayrollService payroll = new FirebirdPayrollService(_sessionAccessor);
         IEmployeeMoneyService employeeMoney = new FirebirdEmployeeMoneyService();
         IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
+        _services.AddSingleton<IPriceBoardTvSettingsStore>(new JsonPriceBoardTvSettingsStore());
+        _services.AddSingleton<IPriceBoardTvServerFactory>(new PriceBoardTvServerFactory());
         IGoldTypeCatalogService goldTypeCatalog = new FirebirdGoldTypeCatalogService();
         IMaterialReceiptService materialReceipts = new FirebirdMaterialReceiptService();
         IMaterialIssueService materialIssues = new FirebirdMaterialIssueService();
@@ -135,6 +137,8 @@ public partial class App : Application
         IFinanceVoucherService financeVouchers = new FirebirdFinanceVoucherService();
         IVoucherCategoryService voucherCategories = new FirebirdVoucherCategoryService();
         IProductionQueryRepository productionQueries = new FirebirdProductionQueryRepository();
+        _services.AddSingleton<IFinishedReceiptDraftStore>(new JsonFinishedReceiptDraftStore());
+        _services.AddSingleton<IFinishedReceiptDocuments>(new FirebirdFinishedReceiptDocuments());
         IProductionAttachmentStore productionAttachments = new LocalProductionAttachmentStore();
         IProductionApplicationService productionApplication =
             new FirebirdProductionApplicationService(productionAttachments);
@@ -268,6 +272,7 @@ public partial class App : Application
         Protect<IDocumentReversalService>(); Protect<IPartyCreditService>(); Protect<IFinanceDashboardRepository>();
         Protect<IFinanceVoucherService>(); Protect<ICashFundRepository>(); Protect<IBankAccountRepository>();
         Protect<IVoucherCategoryService>();
+        Protect<IFinishedReceiptDocuments>();
         Protect<IProductionQueryRepository>(); Protect<IProductionApplicationService>(); Protect<IProductionPrintDataService>();
         Protect<ISalesCheckoutApplicationService>(); Protect<ISalesQueryRepository>(); Protect<ISalesPrintDataService>(); Protect<ISalesAuthorizationService>();
         Protect<ICraftOrderApplicationService>(); Protect<IWholesaleSalesApplicationService>(); Protect<IUserManagementRepository>();
@@ -320,6 +325,7 @@ public partial class App : Application
 
     private void ShowLogin()
     {
+        (_services.GetService(typeof(IPriceBoardTvController)) as IPriceBoardTvController)?.Stop();
         _sessionAccessor.Clear();
         var viewModel = new LoginViewModel(_services.GetRequiredService<IAuthenticationService>());
         var loginView = new LoginView { DataContext = viewModel };
@@ -356,5 +362,11 @@ public partial class App : Application
         };
 
         window.Show();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        (_services.GetService(typeof(IPriceBoardTvController)) as IPriceBoardTvController)?.Stop();
+        base.OnExit(e);
     }
 }

@@ -1530,8 +1530,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             // sẽ xóa sạch IssueLines khi lệnh chưa có phiếu giao NVL.
             var issueSnapshot = IssueLines.Select(x => x.Clone()).ToList();
 
-            // Nếu chưa có lệnh (chưa lưu), lưu draft trước
-            if (_id is not > 0)
+            // Save current edits before locking the order and posting stock.
+            if (IsDraft)
             {
                 var saved = await SaveDraftInternalAsync();
                 if (!saved)

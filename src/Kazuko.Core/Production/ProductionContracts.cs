@@ -144,7 +144,8 @@ public sealed record ProductionOrderListItem(
     string? WorkerDisplayName,
     string ModelSummary,
     int PlannedQuantityTotal,
-    long RowVersion);
+    long RowVersion,
+    long? FinishedReceiptDocumentId = null);
 
 public sealed record ProductionFinishedReceiptOrderOption(long Id, string Code);
 
@@ -476,19 +477,25 @@ public sealed record ManualFinishedProductItem(
     string? SupplierName,
     string? ModelCode,
     string? SymbolCode,
-    string? Notes);
+    string? Notes,
+    long? OrderLineId = null);
+
+public sealed record ReceiptGoldSettlement(string GoldPurityCode, decimal LossWeightChi, long? WorkerId, string? WorkerType);
 
 public sealed record PostManualFinishedReceiptRequest(
     DateTime ReceiptDate,
     long LocationId,
     long? ProductionOrderId,
     IReadOnlyList<ManualFinishedProductItem> Items,
-    string? Notes);
+    string? Notes,
+    Guid RequestId = default,
+    IReadOnlyList<ReceiptGoldSettlement>? GoldSettlements = null);
 
 public sealed record ManualFinishedReceiptResult(
     long DocumentId,
     string DocumentCode,
-    int ProductCount);
+    int ProductCount,
+    PostManualFinishedReceiptRequest? PostedRequest = null);
 
 /// <summary>
 /// Vàng đã giao theo từng loại vàng (PURITY_CODE của material).

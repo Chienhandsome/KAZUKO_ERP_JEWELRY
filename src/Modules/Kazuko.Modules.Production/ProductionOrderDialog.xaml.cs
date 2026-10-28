@@ -11,6 +11,12 @@ public partial class ProductionOrderDialog : Window
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Closing+=(_,e)=>
+        {
+            if(DataContext is not ProductionOrderDialogViewModel vm)return;
+            if(vm.IsBusy){e.Cancel=true;return;}
+            if(vm.IsDraft&&MessageBox.Show("Đóng LSX? Thay đổi chưa bấm Lưu nháp sẽ bị bỏ.","Đóng lệnh",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)e.Cancel=true;
+        };
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

@@ -27,6 +27,12 @@ public sealed class WarehouseModule : IKazukoModule
         services.AddSingleton<IExternalWorkerEditorService>(
             new ExternalWorkerEditorService(workers, craft, session));
 
+        services.AddSingleton<IProductionFinishedReceiptPresenter>(new ProductionFinishedReceiptPresenter(
+            GetRequiredService<IWarehouseRepository>(services),GetRequiredService<IProductionQueryRepository>(services),
+            GetRequiredService<IProductionApplicationService>(services),session,GetRequiredService<IPrintTemplateStore>(services),
+            GetRequiredService<ICompanyProfileService>(services),GetRequiredService<IGoldTypeCatalogService>(services),
+            GetRequiredService<IFinishedReceiptDraftStore>(services),GetRequiredService<IFinishedReceiptDocuments>(services),
+            GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services)));
         var templates = GetRequiredService<IPrintTemplateStore>(services);
         var companyProfile = GetRequiredService<ICompanyProfileService>(services);
         services.AddSingleton<ILabelDesignerService>(
@@ -80,7 +86,7 @@ public sealed class WarehouseModule : IKazukoModule
                     printTemplates,
                     companyProfile,
                     GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services),
-                    GetRequiredService<IStocktakeService>(services))
+                    GetRequiredService<IStocktakeService>(services),GetRequiredService<IFinishedReceiptDraftStore>(services),GetRequiredService<IFinishedReceiptDocuments>(services))
             },
             AssetRoot + "KHO.png",
             "Quản lý nguyên vật liệu\nvà trang sức thành phẩm",

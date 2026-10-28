@@ -12,6 +12,8 @@ public partial class ProductionFinishedReceiptDialog : Window
         InitializeComponent();
         DataContext = viewModel;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        Closing+=(_,e)=>e.Cancel=!viewModel.CanClose();
+        Closed+=(_,_)=>viewModel.PropertyChanged-=OnViewModelPropertyChanged;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

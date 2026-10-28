@@ -1,3 +1,7 @@
+using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
+using Dapper;
 using FirebirdSql.Data.FirebirdClient;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Inventory;
@@ -7,7 +11,7 @@ using Kazuko.Infrastructure.Warehouse;
 
 namespace Kazuko.Infrastructure.Production;
 
-public sealed class FirebirdProductionApplicationService : IProductionApplicationService
+public sealed partial class FirebirdProductionApplicationService : IProductionApplicationService
 {
     private readonly IProductionAttachmentStore _attachmentStore;
 
@@ -34,6 +38,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var fbTx = (FbTransaction)transaction;
 
+        using var files=new ProductionAttachmentCommit(_attachmentStore);
         try
         {
             var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
@@ -110,7 +115,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
 
             await ReplaceLinesAsync(connection, fbTx, orderId, draft.Lines, cancellationToken);
             await ReplaceWorkersAsync(connection, fbTx, orderId, draft.EmployeeIds, cancellationToken);
-            await SyncAttachmentsAsync(connection, fbTx, orderId, code, session.UserId, draft.Attachments, cancellationToken);
+            await SyncAttachmentsAsync(connection, fbTx, orderId, code, session.UserId, draft.Attachments, cancellationToken,files);
             await MarkCraftOrderInProductionAsync(connection, fbTx, draft.SalesOrderId, cancellationToken);
 
             await AuditLogWriter.WriteAsync(
@@ -118,7 +123,9 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 session.UserId, session.Username, session.BranchId,
                 "PRODUCTION_ORDER", orderId.ToString(), code, cancellationToken);
 
+            files.BeginCommit();
             await transaction.CommitAsync(cancellationToken);
+            files.Commit();
             return new ProductionOrderSaveResult(orderId, code, rowVersion);
         }
         catch (FbException ex) when (IsSalesOrderUniqueViolation(ex))
@@ -1218,11 +1225,12 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             throw new InvalidOperationException("Thiếu kho nhập thành phẩm.");
         if (request.Items is null || request.Items.Count == 0)
             throw new InvalidOperationException("Chưa có sản phẩm nào để nhập kho.");
+        if(request.RequestId==Guid.Empty)throw new InvalidOperationException("Phiếu nhập cần mã yêu cầu để thử lại an toàn.");
         if (request.ProductionOrderId is not null && request.ProductionOrderId <= 0)
             throw new InvalidOperationException("Lệnh sản xuất không hợp lệ.");
 
         foreach (var item in request.Items)
-            ValidateManualFinishedProductItem(item);
+            FinishedReceiptValidation.ValidateItem(item);
 
         var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in request.Items)
@@ -1243,6 +1251,22 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
             await EnsureFinishedLocationAsync(
                 connection, fbTx, request.LocationId, session.BranchId, cancellationToken);
 
+            var requestHash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request))));
+            var prior=await connection.QuerySingleOrDefaultAsync<ReceiptRequestRow>(new CommandDefinition("""
+                SELECT D.ID AS Id,D.CODE AS Code,R.PAYLOAD AS Payload,R.REQUEST_HASH AS RequestHash
+                FROM PRODUCTION_RECEIPT_REQUESTS R JOIN STOCK_DOCUMENTS D ON D.ID=R.DOCUMENT_ID
+                WHERE R.COMPANY_ID=@companyId AND R.BRANCH_ID=@branch AND R.REQUEST_ID=@id
+                """,new{companyId,branch=session.BranchId,id=request.RequestId.ToString()},fbTx,cancellationToken:cancellationToken));
+            if(prior is not null)
+            {
+                if(prior.RequestHash.Trim()!=requestHash)throw new InvalidOperationException("Yêu cầu này đã lưu với nội dung khác. Tải lại phiếu đã ghi sổ.");
+                var posted=JsonSerializer.Deserialize<PostManualFinishedReceiptRequest>(prior.Payload)!;
+                await transaction.CommitAsync(cancellationToken);
+                return new(prior.Id,prior.Code,posted.Items.Count,posted);
+            }
+            var goldCodes=(await connection.QueryAsync<string>(new CommandDefinition(
+                "SELECT CODE FROM GOLD_TYPES WHERE COMPANY_ID=@companyId AND IS_ACTIVE=TRUE",new{companyId},fbTx,cancellationToken:cancellationToken))).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if(request.Items.Any(i=>!goldCodes.Contains(i.GoldPurityCode??"")))throw new InvalidOperationException("Loại vàng không còn hoạt động hoặc không thuộc danh mục.");
             string? orderCode = null;
             long? salesOrderId = null;
             long? productionOrderRowVersion = null;
@@ -1251,6 +1275,12 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 var orderLink = await LoadProductionOrderLinkAsync(
                     connection, fbTx, companyId, session.BranchId,
                     request.ProductionOrderId.Value, cancellationToken);
+                var planned=(await connection.QueryAsync<ReceiptPlannedLine>(new CommandDefinition(
+                    "SELECT ID AS Id,PLANNED_QUANTITY AS Quantity,GOLD_TYPE_CODE AS GoldCode FROM PRODUCTION_ORDER_LINES WHERE PRODUCTION_ORDER_ID=@id",
+                    new{id=request.ProductionOrderId.Value},fbTx,cancellationToken:cancellationToken))).ToArray();
+                FinishedReceiptValidation.ValidateQuantities(planned.ToDictionary(x=>x.Id,x=>x.Quantity),request.Items);
+                if(request.Items.Any(i=>!string.Equals(i.GoldPurityCode,planned.Single(p=>p.Id==i.OrderLineId).GoldCode,StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("Loại vàng từng món phải khớp dòng mẫu LSX.");
                 orderCode = orderLink.Code;
                 salesOrderId = orderLink.SalesOrderId;
                 productionOrderRowVersion = orderLink.RowVersion;
@@ -1301,20 +1331,22 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 documentId = Convert.ToInt64(await insertDoc.ExecuteScalarAsync(cancellationToken));
             }
 
+            var committedItems=new List<ManualFinishedProductItem>();
             var lineNo = 0;
             foreach (var item in request.Items)
             {
                 lineNo++;
 
-                var code = (item.ProductCode ?? string.Empty).Trim();
+                var code = string.Empty; // Official serial allocated only on commit.
                 if (code.Length == 0)
                     code = await StockPostingSupport.NextDocumentCodeAsync(
                         connection, fbTx, "FINISHED_PRODUCT_MANUAL", session.BranchId,
                         ResolveManualProductCodePrefix(item.ProductGroup), cancellationToken);
-                var barcode = (item.BarcodeValue ?? string.Empty).Trim();
+                var barcode = string.Empty;
                 if (barcode.Length == 0)
                     barcode = code;
 
+                committedItems.Add(item with{ProductCode=code,BarcodeValue=barcode});
                 var costPrice = item.CostPrice ?? 0;
                 var laborCost = item.PurchaseLaborCost ?? item.CraftLaborCost ?? 0;
                 var materialCost = Math.Max(0, costPrice - laborCost);
@@ -1370,6 +1402,10 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                     null, request.LocationId, "NEW", "IN_STOCK", costPrice, cancellationToken,
                     null, null, 0, item.GoldWeight, laborCost, 0);
 
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "UPDATE FINISHED_PRODUCTS SET GOLD_TYPE_ID=(SELECT ID FROM GOLD_TYPES WHERE COMPANY_ID=@companyId AND CODE=@code) WHERE ID=@productId",
+                    new{companyId,code=item.GoldPurityCode,productId},fbTx,cancellationToken:cancellationToken));
+
                 await FirebirdFinishedProductTransferService.InsertMovementAsync(
                     connection, fbTx, companyId, session.BranchId, productId,
                     "IN", ProductionStockDocumentTypes.FinishedReceipt, documentId, 1, costPrice,
@@ -1402,6 +1438,13 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                         $"Không gắn phiếu nhập cho lệnh {orderCode}. Dữ liệu lệnh đã thay đổi.");
             }
 
+            if(request.ProductionOrderId is >0)
+                await PostReceiptGoldSettlementsAsync(connection,fbTx,request,session,orderCode!,cancellationToken);
+            var postedRequest=request with{Items=committedItems};
+            await connection.ExecuteAsync(new CommandDefinition("""
+                INSERT INTO PRODUCTION_RECEIPT_REQUESTS(COMPANY_ID,BRANCH_ID,REQUEST_ID,REQUEST_HASH,DOCUMENT_ID,PAYLOAD)
+                VALUES(@companyId,@branch,@id,@requestHash,@documentId,@payload)
+                """,new{companyId,branch=session.BranchId,id=request.RequestId.ToString(),requestHash,documentId,payload=JsonSerializer.Serialize(postedRequest)},fbTx,cancellationToken:cancellationToken));
             await MarkCraftOrderReadyAsync(connection, fbTx, salesOrderId, cancellationToken);
 
             await AuditLogWriter.WriteAsync(
@@ -1410,7 +1453,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 "STOCK_DOCUMENT", documentId.ToString(), docCode, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return new ManualFinishedReceiptResult(documentId, docCode, request.Items.Count);
+            return new ManualFinishedReceiptResult(documentId, docCode, request.Items.Count,postedRequest);
         }
         catch (FbException ex) when (IsUniqueViolation(ex))
         {
@@ -1424,34 +1467,13 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         }
     }
 
-    public async Task<long> RecordWorkerGoldDebtAsync(
-        RecordWorkerGoldDebtRequest request,
-        AuthenticatedSession session,
-        CancellationToken cancellationToken = default)
+    public Task<long> RecordWorkerGoldDebtAsync(RecordWorkerGoldDebtRequest request, AuthenticatedSession session, CancellationToken cancellationToken=default)
+        => throw new InvalidOperationException("Đối chiếu vàng được lưu cùng phiếu nhập thành phẩm. Mở phiếu nhập kho để tiếp tục.");
+
+    private static async Task<long> InsertReceiptGoldDebtAsync(FbConnection connection,FbTransaction fbTx,
+        RecordWorkerGoldDebtRequest request,AuthenticatedSession session,CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(session);
-        StockPostingSupport.EnsureBranch(session);
-        if (request.ProductionOrderId <= 0)
-            throw new InvalidOperationException("Thiếu lệnh sản xuất để đối chiếu vàng.");
-        if (request.WorkerId <= 0 || string.IsNullOrWhiteSpace(request.WorkerName))
-            throw new InvalidOperationException("Thiếu thông tin thợ nợ vàng.");
-        if (request.WeightChi <= 0)
-            throw new InvalidOperationException("Số vàng nợ phải lớn hơn 0 mới được ghi công nợ.");
-        var workerType = string.IsNullOrWhiteSpace(request.WorkerType)
-            ? WorkerGoldDebtWorkerTypes.Employee
-            : request.WorkerType.Trim().ToUpperInvariant();
-        if (workerType != WorkerGoldDebtWorkerTypes.Employee
-            && workerType != WorkerGoldDebtWorkerTypes.ExternalWorker)
-            throw new InvalidOperationException("Loại thợ ghi công nợ không hợp lệ.");
-
-        await using var connection = FirebirdDatabase.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var fbTx = (FbTransaction)transaction;
-
-        try
-        {
+        var workerType=request.WorkerType;
             var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, fbTx, cancellationToken);
             var orderCode = await LoadProductionOrderCodeAsync(
                 connection, fbTx, companyId, session.BranchId,
@@ -1546,25 +1568,8 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 session.UserId, session.Username, session.BranchId,
                 "WORKER_GOLD_DEBT", debtId.ToString(), code, cancellationToken);
 
-            await transaction.CommitAsync(cancellationToken);
-            return debtId;
-        }
-        catch (FbException ex) when (IsMissingTableViolation(ex, "WORKER_GOLD_DEBTS"))
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw new InvalidOperationException(
-                "Chưa có bảng WORKER_GOLD_DEBTS. Đóng app và chạy migration 64 (`0064__worker_gold_debts.sql`).", ex);
-        }
-        catch (FbException ex) when (IsUniqueViolation(ex))
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw new InvalidOperationException("Lệnh này đã được ghi công nợ vàng cho loại vàng này.", ex);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+
+        return debtId;
     }
 
     public async Task<ProductionCancelResult> CancelAsync(
@@ -1999,7 +2004,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         string orderCode,
         long userId,
         IReadOnlyList<ProductionAttachmentDraft> attachments,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,ProductionAttachmentCommit files)
     {
         var existingPaths = new List<string>();
         await using (var load = new FbCommand(
@@ -2028,15 +2033,15 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
                 }
 
                 if (!string.IsNullOrWhiteSpace(attachment.StoredPath))
-                    _attachmentStore.TryDeleteManagedFile(attachment.StoredPath);
-                _attachmentStore.TryDeleteStagingFile(attachment.StagingPath);
+                    files.DeleteAfterCommit(attachment.StoredPath);
+                files.DeleteAfterCommit(attachment.StagingPath);
                 continue;
             }
 
             var storedPath = attachment.StoredPath;
             if (!string.IsNullOrWhiteSpace(attachment.StagingPath))
             {
-                storedPath = await _attachmentStore.FinalizeAsync(
+                storedPath = await files.FinalizeAsync(
                     attachment.StagingPath, orderCode, cancellationToken);
             }
 
@@ -2100,7 +2105,7 @@ public sealed class FirebirdProductionApplicationService : IProductionApplicatio
         foreach (var path in existingPaths)
         {
             if (!keptPaths.Contains(path))
-                _attachmentStore.TryDeleteManagedFile(path);
+                files.DeleteAfterCommit(path);
         }
     }
 

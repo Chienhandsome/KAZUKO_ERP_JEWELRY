@@ -62,8 +62,14 @@ public sealed class FinishedReceiptWeightCultureTests
         Assert.Empty(vm.Products);Assert.NotEmpty(vm.ErrorMessage);
     }
 
-    private static ProductionFinishedReceiptDialogViewModel Create()=>new(Stub<IWarehouseRepository>(),Stub<IProductionQueryRepository>(),
-        Stub<IProductionApplicationService>(),new(1,"test","Test","ADMIN",1,"CN","Chi nhánh"),Stub<IPrintTemplateStore>(),Stub<ICompanyProfileService>());
+    private static ProductionFinishedReceiptDialogViewModel Create()
+    {
+        var vm=new ProductionFinishedReceiptDialogViewModel(Stub<IWarehouseRepository>(),Stub<IProductionQueryRepository>(),
+            Stub<IProductionApplicationService>(),new(1,"test","Test","ADMIN",1,"CN","Chi nhánh"),Stub<IPrintTemplateStore>(),Stub<ICompanyProfileService>());
+        vm.GoldPurityChoices.Add("750");var line=new ProductionOrderLineDto(1,1,"M1","Nhẫn thử","750","Vàng 750",10,100,1,1000,0,null,null);
+        vm.OrderLines.Add(line);vm.SelectedLine=line;vm.CostPriceText="1.000";
+        return vm;
+    }
     private static T Stub<T>() where T:class=>DispatchProxy.Create<T,UnusedService>();
     public class UnusedService:DispatchProxy
     {
