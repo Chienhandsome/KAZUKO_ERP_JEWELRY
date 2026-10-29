@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Sales.Dialogs.SalesCustomerLookupDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
         Title="Tìm khách hàng"
         Width="640" Height="480" MinWidth="520" MinHeight="360"
         WindowStartupLocation="CenterOwner"
@@ -29,7 +30,7 @@
                            TextWrapping="Wrap"
                            Margin="0,6,0,8" />
             </StackPanel>
-            <DataGrid ItemsSource="{Binding Results}"
+            <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="sales.SalesCustomerLookupDialog.Results" ItemsSource="{Binding Results}"
                       SelectedItem="{Binding SelectedCustomer}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
@@ -40,10 +41,10 @@
                       GridLinesVisibility="Horizontal"
                       MouseDoubleClick="DataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Loại khách" Binding="{Binding KindText}" Width="160" />
-                    <DataGridTextColumn Header="Mã" Binding="{Binding Code}" Width="100" />
-                    <DataGridTextColumn Header="Tên khách" Binding="{Binding Name}" Width="*" MinWidth="160" />
-                    <DataGridTextColumn Header="Điện thoại" Binding="{Binding Phone}" Width="120" />
+                    <DataGridTextColumn grid:DataGridColumnLayout.Key="KindText" Header="Loại khách" Binding="{Binding KindText}" Width="160" />
+                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Code" Header="Mã" Binding="{Binding Code}" Width="100" />
+                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Name" Header="Tên khách" Binding="{Binding Name}" Width="*" MinWidth="160" />
+                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Phone" Header="Điện thoại" Binding="{Binding Phone}" Width="120" />
                 </DataGrid.Columns>
             </DataGrid>
         </DockPanel>

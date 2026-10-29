@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Warehouse.ExternalWorkerDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
         Title="Danh mục thợ ngoài"
         Width="920" Height="640" MinWidth="780" MinHeight="520"
@@ -46,14 +47,14 @@
                         <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" MinHeight="36"
                                  VerticalContentAlignment="Center" />
                     </DockPanel>
-                    <DataGrid ItemsSource="{Binding Workers}" SelectedItem="{Binding SelectedWorker}"
+                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="warehouse.ExternalWorkerDialog.Workers" ItemsSource="{Binding Workers}" SelectedItem="{Binding SelectedWorker}"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
                               SelectionMode="Single" FontSize="{DynamicResource FontSize.Body}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Mã" Binding="{Binding Code}" Width="90" />
-                            <DataGridTextColumn Header="Tên" Binding="{Binding Name}" Width="*" />
-                            <DataGridTextColumn Header="Điện thoại" Binding="{Binding Phone}" Width="110" />
-                            <DataGridTextColumn Header="TT" Binding="{Binding StatusDisplay}" Width="90" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Code" Header="Mã" Binding="{Binding Code}" Width="90" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Name" Header="Tên" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Phone" Header="Điện thoại" Binding="{Binding Phone}" Width="110" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="StatusDisplay" Header="TT" Binding="{Binding StatusDisplay}" Width="90" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

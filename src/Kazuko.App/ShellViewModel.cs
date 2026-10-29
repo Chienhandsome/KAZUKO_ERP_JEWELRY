@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Mvvm;
 using Kazuko.Core.UserManagement;
+using Kazuko.Core.Settings;
 
 namespace Kazuko.App;
 
@@ -36,6 +37,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     private readonly IModuleNavigationRegistry _registry;
     private readonly INavigationService _navigation;
     private readonly IAuthorizationService _authorization;
+    private readonly ITableColumnLayoutSession? _tableLayouts;
     private readonly DispatcherTimer _clockTimer;
     private object? _currentView;
     private string _currentTitle = string.Empty;
@@ -52,12 +54,15 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         IModuleNavigationRegistry registry,
         INavigationService navigation,
         IAuthorizationService authorization,
-        Action logout)
+        Action logout,
+        ITableColumnLayoutSession? tableLayouts = null)
     {
         DisplayName = displayName;
         _registry = registry;
         _navigation = navigation;
         _authorization = authorization;
+        _tableLayouts = tableLayouts;
+        if (_tableLayouts is not null) _tableLayouts.StatusChanged += OnTableLayoutStatusChanged;
 
         NavigationItems = new ObservableCollection<NavigationItemViewModel>(
             registry.Items
@@ -85,6 +90,17 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     }
 
     public string DisplayName { get; }
+    public string TableLayoutStatus => _tableLayouts?.StatusMessage ?? "KAZUKO ERP JEWELRY";
+    public string TableLayoutDetail => _tableLayouts?.LastError ?? TableLayoutStatus;
+
+    private void OnTableLayoutStatusChanged(object? sender, EventArgs args)
+    {
+        System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            OnPropertyChanged(nameof(TableLayoutStatus));
+            OnPropertyChanged(nameof(TableLayoutDetail));
+        });
+    }
     public System.Windows.Visibility PriceBoardVisibility => _authorization.Current.Allows("CAT_GOLD_PRICE")
         ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
     public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
@@ -153,6 +169,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         _clockTimer.Tick -= OnClockTick;
         _navigation.NavigationRequested -= OnNavigationRequested;
         _authorization.Changed -= OnPermissionsChanged;
+        if (_tableLayouts is not null) _tableLayouts.StatusChanged -= OnTableLayoutStatusChanged;
     }
 
     private void OnNavigationRequested(object? sender, NavigationRequestedEventArgs e)

@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Preserve the exact bytes recorded in the deployed migration ledger.
+database/migrations/0093__user_table_layouts.sql -text

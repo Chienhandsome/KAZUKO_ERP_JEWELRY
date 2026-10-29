@@ -163,7 +163,7 @@
                                FontSize="{DynamicResource FontSize.Caption}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,6" />
-                    <DataGrid Style="{StaticResource SalesDataGridStyle}"
+                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" Style="{StaticResource SalesDataGridStyle}"
                               ItemsSource="{Binding Lines}"
                               SelectedItem="{Binding SelectedLine}"
                               BorderThickness="0"

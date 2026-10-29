@@ -17,10 +17,12 @@ public sealed class PriceBoardModule : IKazukoModule
         var repository = GetRequiredService<IPriceBoardRepository>(services);
         var goldTypes = GetRequiredService<IGoldTypeCatalogService>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
-        IPriceBoardTvController tv = new PriceBoardTvService(repository,
+        services.AddSingleton<ITvDisplayService>(new WindowsTvDisplayService());
+        IPriceBoardTvController tv = new PriceBoardTvService(
             GetRequiredService<Kazuko.Core.Company.ICompanyProfileService>(services),session,
             GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services),
-            GetRequiredService<IPriceBoardTvSettingsStore>(services),GetRequiredService<IPriceBoardTvServerFactory>(services));
+            GetRequiredService<IPriceBoardTvHostClientFactory>(services),
+            GetRequiredService<ITvDisplayService>(services));
         services.AddSingleton(tv);
         services.AddSingleton<IPriceBoardDialogService>(
             new PriceBoardDialogService(repository, goldTypes, session, tv));

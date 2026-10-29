@@ -1221,7 +1221,7 @@
                                                 CommandParameter="{Binding ElementName=TopCustomersGrid}" />
                                     </WrapPanel>
                                     <TextBlock Text="Tổng hợp doanh thu theo loại khách" FontWeight="SemiBold" Margin="0,8,0,8" />
-                                    <DataGrid x:Name="SalesSummaryGrid" ItemsSource="{Binding SalesSummary}" Style="{DynamicResource WorkspaceGridStyle}"
+                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="customers.CustomerView.SalesSummary" x:Name="SalesSummaryGrid" ItemsSource="{Binding SalesSummary}" Style="{DynamicResource WorkspaceGridStyle}"
                                               AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="150">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn grid:DataGridColumnLayout.Key="Kind" Header="Loại khách" Binding="{Binding Kind, Mode=OneWay}" Width="*" />

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using Microsoft.Win32;
 
 namespace Kazuko.Modules.PriceBoard;
 
@@ -9,6 +10,8 @@ public partial class PriceBoardTvSettingsWindow : Window
     public PriceBoardTvSettingsWindow(PriceBoardTvSettingsViewModel vm)
     {
         InitializeComponent();_vm=vm;DataContext=vm;vm.PropertyChanged+=Changed;
+        SystemEvents.DisplaySettingsChanged+=DisplaySettingsChanged;
+        Activated+=(_,_)=>vm.RefreshMonitorsCommand.Execute(null);
         Loaded+=async(_,_)=>
         {
             try{await TvBrowser.InitializeAsync(PreviewBrowser);}
@@ -17,8 +20,12 @@ public partial class PriceBoardTvSettingsWindow : Window
             if(IsLoaded)await vm.InitializeAsync();
         };
         Closing+=(_,e)=>{if(vm.IsBusy)e.Cancel=true;};
-        Closed+=(_,_)=>{vm.PropertyChanged-=Changed;vm.Dispose();PreviewBrowser.Dispose();};
+        Closed+=(_,_)=>{SystemEvents.DisplaySettingsChanged-=DisplaySettingsChanged;vm.PropertyChanged-=Changed;vm.Dispose();PreviewBrowser.Dispose();};
         BusyText.Visibility=Visibility.Collapsed;
+    }
+    private void DisplaySettingsChanged(object? sender,EventArgs e)
+    {
+        Dispatcher.InvokeAsync(()=>{if(IsLoaded)_vm.RefreshMonitorsCommand.Execute(null);});
     }
     private void Changed(object? sender,PropertyChangedEventArgs e)
     {

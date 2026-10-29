@@ -56,7 +56,7 @@ Mỗi báo cáo A4 mới chỉ viết phần riêng; phần khung dùng chung tr
 | `ReportWorkspaceView` | Layout: pane PDF trái + panel lọc phải (WebView2) |
 | `FastReportPdfExporter` | Export PDF tạm, mở ngoài, in shell |
 | `FastReportTemplateHelper` | Đường dẫn `.frx`, `Mm()`, text, bind DataBand, filter text |
-| `ReportColumnLayout` / dialog | Ẩn-hiện + thứ tự cột, lưu `%LocalAppData%\KazukoERP` |
+| `ReportColumnLayout` / dialog | Ẩn-hiện + thứ tự cột, lưu Firebird theo công ty/tài khoản qua facade chung với DataGrid |
 | `ReportSharedResources.xaml` | Style TextBox / ComboBox / nút bo góc |
 
 Checklist báo cáo mới:
@@ -87,7 +87,7 @@ Tải lại danh sách nhân viên phải bỏ qua thay đổi lựa chọn tạ
 ## Cấu hình cột
 
 - Nút **Cột báo cáo** mở dialog giống DataGrid: tick ẩn/hiện, ▲▼ đổi thứ tự.
-- Layout lưu theo máy (`reports.*.columns.json`), không ghi Firebird.
+- Layout lưu Firebird qua migration 93, theo công ty/tài khoản; cache/outbox trên máy và nhập file `reports.*.columns.json` cũ khi DB chưa có layout bảng đó. Xem `docs/table-column-layout.md`.
 - Áp dụng xong dựng lại PDF preview theo cột đã chọn.
 
 ## Designer (Community, free)

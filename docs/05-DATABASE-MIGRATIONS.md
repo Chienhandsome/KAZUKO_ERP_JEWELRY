@@ -520,3 +520,13 @@ powershell -File "database\tools\Invoke-KazukoMigration.ps1" `
   powershell -File "database\tools\Invoke-KazukoMigration.ps1" -MigrationPath "database\migrations\0069__sales_wholesale_permission.sql"
   ```
 
+
+## Migration 93: cấu hình cột cá nhân
+
+USER_TABLE_LAYOUTS lưu layout DataGrid/báo cáo theo COMPANY_ID, USER_ID và
+SETTINGS_KEY. Payload JSON UTF8 có version; REVISION/UPDATED_AT theo dõi lần ghi.
+Artifact 0093__user_table_layouts.sql không có COMMIT trung gian; runner ghi ledger.
+Checksum: EE0A9C3E946DA4721F2864F2C85E3ECFE970916782921F01F93FE58CAAEDEC9D.
+Đã backup/restore, kiểm thử trên test89_table_layout.fdb rồi áp dụng DATA.FDB ngày
+29/10/2026. Xác minh: database/verification/verify_user_table_layouts.sql.
+Hành vi cache/offline, kiểm thử và rollback: docs/table-column-layout.md.

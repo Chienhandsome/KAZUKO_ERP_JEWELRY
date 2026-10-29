@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.UserManagement.UserManagementView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:local="clr-namespace:Kazuko.Modules.UserManagement"
              MinWidth="960" MinHeight="560"
@@ -296,16 +297,16 @@
               </StackPanel>
             </DockPanel>
 
-            <DataGrid ItemsSource="{Binding Users}"
+            <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="usermanagement.UserManagementView.Users" ItemsSource="{Binding Users}"
                       SelectedItem="{Binding SelectedUser}"
                       Style="{StaticResource UmDataGridStyle}"
                       ColumnHeaderStyle="{StaticResource UmColumnHeaderStyle}"
                       IsReadOnly="True"
                       VerticalScrollBarVisibility="Auto">
               <DataGrid.Columns>
-                <DataGridTextColumn Header="Email" Binding="{Binding Email, Mode=OneWay}" Width="*" />
-                <DataGridTextColumn Header="Họ tên" Binding="{Binding DisplayName, Mode=OneWay}" Width="*" />
-                <DataGridTextColumn Header="Tài khoản" Binding="{Binding Username, Mode=OneWay}" Width="160" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="Email" Header="Email" Binding="{Binding Email, Mode=OneWay}" Width="*" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="DisplayName" Header="Họ tên" Binding="{Binding DisplayName, Mode=OneWay}" Width="*" />
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="Username" Header="Tài khoản" Binding="{Binding Username, Mode=OneWay}" Width="160" />
               </DataGrid.Columns>
             </DataGrid>
           </DockPanel>
@@ -334,7 +335,7 @@
                          VerticalAlignment="Center" />
             </DockPanel>
 
-            <DataGrid ItemsSource="{Binding GroupedPermissions}"
+            <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="usermanagement.UserManagementView.GroupedPermissions" ItemsSource="{Binding GroupedPermissions}"
                       Style="{StaticResource UmDataGridStyle}"
                       ColumnHeaderStyle="{StaticResource UmColumnHeaderStyle}"
                       VerticalScrollBarVisibility="Auto">
@@ -352,9 +353,9 @@
                 </GroupStyle>
               </DataGrid.GroupStyle>
               <DataGrid.Columns>
-                <DataGridTextColumn Header="Chức năng" Binding="{Binding FunctionName, Mode=OneWay}"
+                <DataGridTextColumn grid:DataGridColumnLayout.Key="FunctionName" Header="Chức năng" Binding="{Binding FunctionName, Mode=OneWay}"
                                     Width="*" IsReadOnly="True" />
-                <DataGridTemplateColumn Header="Bị khóa" Width="80">
+                <DataGridTemplateColumn grid:DataGridColumnLayout.Key="IsLocked" Header="Bị khóa" Width="80">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
                       <CheckBox IsChecked="{Binding IsLocked, UpdateSourceTrigger=PropertyChanged}"
@@ -362,7 +363,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Xem" Width="70">
+                <DataGridTemplateColumn grid:DataGridColumnLayout.Key="CanView" Header="Xem" Width="70">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
                       <CheckBox IsChecked="{Binding CanView, UpdateSourceTrigger=PropertyChanged}"
@@ -371,7 +372,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Thêm" Width="70">
+                <DataGridTemplateColumn grid:DataGridColumnLayout.Key="CanAdd" Header="Thêm" Width="70">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
                       <CheckBox IsChecked="{Binding CanAdd, UpdateSourceTrigger=PropertyChanged}"
@@ -380,7 +381,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Sửa" Width="70">
+                <DataGridTemplateColumn grid:DataGridColumnLayout.Key="CanEdit" Header="Sửa" Width="70">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
                       <CheckBox IsChecked="{Binding CanEdit, UpdateSourceTrigger=PropertyChanged}"
@@ -389,7 +390,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Xóa" Width="70">
+                <DataGridTemplateColumn grid:DataGridColumnLayout.Key="CanDelete" Header="Xóa" Width="70">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
                       <CheckBox IsChecked="{Binding CanDelete, UpdateSourceTrigger=PropertyChanged}"
@@ -398,7 +399,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Tất cả" Width="80">
+                <DataGridTemplateColumn grid:DataGridColumnLayout.Key="All" Header="Tất cả" Width="80">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
                       <CheckBox IsChecked="{Binding All, UpdateSourceTrigger=PropertyChanged}"

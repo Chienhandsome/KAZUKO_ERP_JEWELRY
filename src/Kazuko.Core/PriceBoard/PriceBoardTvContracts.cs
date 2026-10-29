@@ -46,7 +46,7 @@ public interface IPriceBoardTvServerFactory
 public interface IPriceBoardTvController
 {
     void ShowSettings();
-    void Stop();
+    void Detach();
 }
 
 public static class PriceBoardTvSnapshotBuilder

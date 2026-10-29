@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
+using Microsoft.Win32;
 
 namespace Kazuko.Modules.PriceBoard;
 
@@ -30,24 +31,44 @@ public sealed record TvMonitor(string Device,string Name,int Left,int Top,int Wi
 public sealed class PriceBoardTvWindow : Window
 {
     private readonly WebView2 _browser=new();
+    private readonly ITvDisplayService _displays;
+    private readonly string _monitorDevice;
     private string _url;
-    public PriceBoardTvWindow(string url,TvMonitor monitor)
+    public PriceBoardTvWindow(string url,TvMonitor monitor,ITvDisplayService displays)
     {
-        _url=url;
+        _url=url;_displays=displays;_monitorDevice=monitor.Device;
         Title="Bảng giá vàng TV — Esc để đóng";WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.NoResize;
         Content=_browser;Width=960;Height=540;WindowStartupLocation=WindowStartupLocation.Manual;
         Loaded+=async(_,_)=>
         {
-            SetWindowPos(new WindowInteropHelper(this).Handle,IntPtr.Zero,monitor.Left,monitor.Top,monitor.Width,monitor.Height,0x0040);
             try
             {
+                if(!PositionOnSelectedMonitor()){Close();return;}
                 await TvBrowser.InitializeAsync(_browser);if(!IsLoaded)return;
                 _browser.CoreWebView2.WebMessageReceived+=(_,e)=>{if(e.TryGetWebMessageAsString()=="close-tv")Close();};
                 _browser.Source=new Uri(_url);
             }
             catch(Exception ex){MessageBox.Show("Không mở được bảng giá TV: "+ex.Message,Title);Close();}
         };
-        PreviewKeyDown+=(_,e)=>{if(e.Key==Key.Escape)Close();};Closed+=(_,_)=>_browser.Dispose();
+        SystemEvents.DisplaySettingsChanged+=DisplaySettingsChanged;
+        PreviewKeyDown+=(_,e)=>{if(e.Key==Key.Escape)Close();};
+        Closed+=(_,_)=>{SystemEvents.DisplaySettingsChanged-=DisplaySettingsChanged;_browser.Dispose();};
+    }
+    private bool PositionOnSelectedMonitor()
+    {
+        var monitor=_displays.GetMonitors().FirstOrDefault(x=>x.Device==_monitorDevice);
+        if(monitor is null)return false;
+        SetWindowPos(new WindowInteropHelper(this).Handle,IntPtr.Zero,monitor.Left,monitor.Top,monitor.Width,monitor.Height,0x0040);
+        return true;
+    }
+    private void DisplaySettingsChanged(object? sender,EventArgs e)
+    {
+        Dispatcher.InvokeAsync(()=>
+        {
+            if(!IsLoaded)return;
+            try{if(!PositionOnSelectedMonitor())Close();}
+            catch{Close();}
+        });
     }
     public void Navigate(string url){_url=url;if(_browser.CoreWebView2 is not null)_browser.Source=new Uri(url);}
     [DllImport("user32.dll")]private static extern bool SetWindowPos(IntPtr window,IntPtr after,int x,int y,int width,int height,uint flags);

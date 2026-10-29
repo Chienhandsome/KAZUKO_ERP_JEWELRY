@@ -149,7 +149,7 @@
                                     MinHeight="36" MinWidth="64" Margin="0" />
                         </Grid>
                     </ScrollViewer>
-                    <DataGrid Style="{StaticResource SalesDataGridStyle}"
+                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" Style="{StaticResource SalesDataGridStyle}"
                               ItemsSource="{Binding BuyLines}"
                               SelectedItem="{Binding SelectedBuyLine}"
                               BorderThickness="0"

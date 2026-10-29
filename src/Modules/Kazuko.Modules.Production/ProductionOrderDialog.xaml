@@ -391,7 +391,7 @@
                     </Border>
 
                     <Border Style="{StaticResource ProductionCardStyle}" Padding="0">
-                        <DataGrid Style="{StaticResource ProductionDataGridStyle}"
+                        <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" Style="{StaticResource ProductionDataGridStyle}"
                                   ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
                                   MinHeight="80"
                                   BorderThickness="0"
@@ -506,7 +506,7 @@
                         </Grid>
                     </Border>
                     <Border Style="{StaticResource ProductionCardStyle}" Padding="0">
-                        <DataGrid Style="{StaticResource ProductionEditableDataGridStyle}"
+                        <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" Style="{StaticResource ProductionEditableDataGridStyle}"
                                   ItemsSource="{Binding IssueLines}"
                                   MinHeight="80"
                                   IsReadOnly="{Binding ShowIssueHistory}"

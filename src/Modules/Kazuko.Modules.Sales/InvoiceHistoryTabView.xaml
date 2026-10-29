@@ -1,6 +1,7 @@
 <UserControl x:Class="Kazuko.Modules.Sales.InvoiceHistoryTabView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -229,45 +230,45 @@
                             </Grid>
 
                             <TextBlock Text="Thành phẩm" Style="{StaticResource SalesSectionHeaderStyle}" Margin="0,0,0,6" />
-                            <DataGrid ItemsSource="{Binding SelectedDetail.SaleLines}"
+                            <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="sales.InvoiceHistoryTabView.SelectedDetail-SaleLines" ItemsSource="{Binding SelectedDetail.SaleLines}"
                                       Style="{StaticResource SalesDataGridStyle}"
                                       IsReadOnly="True"
                                       MaxHeight="180"
                                       Margin="0,0,0,12"
                                       BorderThickness="0">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Mã" Binding="{Binding ProductCode}" Width="120" />
-                                    <DataGridTextColumn Header="Tên" Binding="{Binding ProductName}" Width="*" />
-                                    <DataGridTextColumn Header="TL vàng" Binding="{Binding GoldWeightChi, StringFormat=0.####}" Width="80" />
-                                    <DataGridTextColumn Header="Thành tiền" Binding="{Binding Amounts.TotalAmountVnd, StringFormat=N0}" Width="110" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="ProductCode" Header="Mã" Binding="{Binding ProductCode}" Width="120" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="ProductName" Header="Tên" Binding="{Binding ProductName}" Width="*" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="GoldWeightChi" Header="TL vàng" Binding="{Binding GoldWeightChi, StringFormat=0.####}" Width="80" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Amounts.TotalAmountVnd" Header="Thành tiền" Binding="{Binding Amounts.TotalAmountVnd, StringFormat=N0}" Width="110" />
                                 </DataGrid.Columns>
                             </DataGrid>
 
                             <TextBlock Text="Vàng cũ" Style="{StaticResource SalesSectionHeaderStyle}" Margin="0,0,0,6" />
-                            <DataGrid ItemsSource="{Binding SelectedDetail.OldGoldLines}"
+                            <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="sales.InvoiceHistoryTabView.SelectedDetail-OldGoldLines" ItemsSource="{Binding SelectedDetail.OldGoldLines}"
                                       Style="{StaticResource SalesDataGridStyle}"
                                       IsReadOnly="True"
                                       MaxHeight="160"
                                       Margin="0,0,0,12"
                                       BorderThickness="0">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Loại" Binding="{Binding MaterialName}" Width="*" />
-                                    <DataGridTextColumn Header="TL vàng" Binding="{Binding Amounts.GoldWeightChi, StringFormat=0.####}" Width="80" />
-                                    <DataGridTextColumn Header="TL QĐ" Binding="{Binding Amounts.ConvertedWeightChi, StringFormat=0.####}" Width="80" />
-                                    <DataGridTextColumn Header="Thành tiền" Binding="{Binding Amounts.AmountVnd, StringFormat=N0}" Width="110" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="MaterialName" Header="Loại" Binding="{Binding MaterialName}" Width="*" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Amounts.GoldWeightChi" Header="TL vàng" Binding="{Binding Amounts.GoldWeightChi, StringFormat=0.####}" Width="80" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Amounts.ConvertedWeightChi" Header="TL QĐ" Binding="{Binding Amounts.ConvertedWeightChi, StringFormat=0.####}" Width="80" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="Amounts.AmountVnd" Header="Thành tiền" Binding="{Binding Amounts.AmountVnd, StringFormat=N0}" Width="110" />
                                 </DataGrid.Columns>
                             </DataGrid>
 
                             <TextBlock Text="Thanh toán" Style="{StaticResource SalesSectionHeaderStyle}" Margin="0,0,0,6" />
-                            <DataGrid ItemsSource="{Binding SelectedDetail.Allocations}"
+                            <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="sales.InvoiceHistoryTabView.SelectedDetail-Allocations" ItemsSource="{Binding SelectedDetail.Allocations}"
                                       Style="{StaticResource SalesDataGridStyle}"
                                       IsReadOnly="True"
                                       MaxHeight="140"
                                       BorderThickness="0">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="P.thức" Binding="{Binding PaymentMethod}" Width="100" />
-                                    <DataGridTextColumn Header="Số tiền" Binding="{Binding AmountVnd, StringFormat=N0}" Width="120" />
-                                    <DataGridTextColumn Header="Tham chiếu" Binding="{Binding ReferenceNumber}" Width="*" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="PaymentMethod" Header="P.thức" Binding="{Binding PaymentMethod}" Width="100" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="AmountVnd" Header="Số tiền" Binding="{Binding AmountVnd, StringFormat=N0}" Width="120" />
+                                    <DataGridTextColumn grid:DataGridColumnLayout.Key="ReferenceNumber" Header="Tham chiếu" Binding="{Binding ReferenceNumber}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </StackPanel>

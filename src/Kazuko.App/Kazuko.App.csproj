@@ -3,11 +3,16 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>KAZUKO_ERP_JEWELRY</AssemblyName>
     <RootNamespace>Kazuko.App</RootNamespace>
     <PlatformTarget>x64</PlatformTarget>
     <FirebirdHome>$(MSBuildThisFileDirectory)..\..\firebird\Firebird-5.0.4.1812-0-windows-x64</FirebirdHome>
   </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Kazuko.Core\Kazuko.Core.csproj" />
     <ProjectReference Include="..\Kazuko.Infrastructure\Kazuko.Infrastructure.csproj" />

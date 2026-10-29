@@ -1,63 +1,22 @@
-using System.IO;
-using System.Text.Json;
+using Kazuko.Core.Settings;
 
 namespace Kazuko.Shared.UI.DataGridLayout;
 
-/// <summary>
-/// Persists DataGrid column visibility/order under LocalAppData (UI preference, not Firebird).
-/// File: %LocalAppData%\KazukoERP\{settingsKey}.json
-/// </summary>
+/// <summary>Shared facade for grids and report columns; the host supplies persistence.</summary>
 public static class DataGridColumnLayoutStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static ITableColumnLayoutStore? _store;
+    public static ITableColumnLayoutStore? Current => _store;
 
-    public static string GetSettingsPath(string settingsKey)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(settingsKey);
-        var fileName = settingsKey.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-            ? settingsKey
-            : settingsKey + ".json";
+    public static void Configure(ITableColumnLayoutStore store) =>
+        _store = store ?? throw new ArgumentNullException(nameof(store));
 
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KazukoERP",
-            fileName);
-    }
-
-    public static DataGridColumnLayoutSettings? Load(string settingsKey)
-    {
-        try
-        {
-            var path = GetSettingsPath(settingsKey);
-            if (!File.Exists(path))
-                return null;
-
-            return JsonSerializer.Deserialize<DataGridColumnLayoutSettings>(
-                       File.ReadAllText(path),
-                       JsonOptions);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-    }
+    public static DataGridColumnLayoutSettings? Load(string settingsKey) => _store?.Load(settingsKey);
 
     public static void Save(string settingsKey, DataGridColumnLayoutSettings settings)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(settingsKey);
-        ArgumentNullException.ThrowIfNull(settings);
-
-        var path = GetSettingsPath(settingsKey);
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
-
-        var temporaryPath = path + ".tmp";
-        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, JsonOptions));
-        File.Move(temporaryPath, path, overwrite: true);
+        if (_store is null)
+            throw new InvalidOperationException("The host must configure the table column layout store before opening views.");
+        _store.Save(settingsKey, settings);
     }
 }

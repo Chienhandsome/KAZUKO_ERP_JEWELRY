@@ -360,7 +360,7 @@
                                Style="{StaticResource SalesSectionHeaderStyle}"
                                Margin="0,16,0,8" />
                     <Border CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="1">
-                    <DataGrid ItemsSource="{Binding Lines}" Style="{StaticResource SalesDataGridStyle}"
+                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding Lines}" Style="{StaticResource SalesDataGridStyle}"
                               grid:DataGridColumnLayout.SettingsKey="Sales.CraftOrderLines.v1"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"

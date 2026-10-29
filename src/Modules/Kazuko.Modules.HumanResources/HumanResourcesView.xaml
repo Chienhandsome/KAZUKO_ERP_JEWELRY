@@ -444,7 +444,7 @@
                     </DockPanel>
 
                     <Grid Grid.Row="1">
-                        <DataGrid x:Name="EmployeeListGrid"
+                        <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" x:Name="EmployeeListGrid"
                                   ItemsSource="{Binding Employees}"
                                   SelectedItem="{Binding SelectedEmployee}"
                                   Style="{StaticResource HrDataGridStyle}"

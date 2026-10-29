@@ -1,8 +1,12 @@
+using Kazuko.Core.Settings;
 using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
+using System.Windows.Media;
 
 namespace Kazuko.Shared.UI.DataGridLayout;
 
@@ -12,6 +16,26 @@ namespace Kazuko.Shared.UI.DataGridLayout;
 /// </summary>
 public static class DataGridColumnLayout
 {
+    private static readonly DependencyProperty StoreProperty = DependencyProperty.RegisterAttached(
+        "Store", typeof(ITableColumnLayoutStore), typeof(DataGridColumnLayout));
+    private static readonly DependencyProperty AutoSaveProperty = DependencyProperty.RegisterAttached(
+        "AutoSave", typeof(AutoSaveSubscription), typeof(DataGridColumnLayout));
+
+    public static void Persist(DataGrid grid)
+    {
+        var store = (ITableColumnLayoutStore?)grid.GetValue(StoreProperty) ?? DataGridColumnLayoutStore.Current;
+        store?.Save(GetSettingsKey(grid)!, Capture(grid));
+    }
+
+    /// <summary>Flush debounce timers before a host awaits database synchronization.</summary>
+    public static void FlushPendingLayouts(DependencyObject root)
+    {
+        if (root is DataGrid grid && grid.GetValue(AutoSaveProperty) is AutoSaveSubscription subscription)
+            subscription.Save();
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+            FlushPendingLayouts(VisualTreeHelper.GetChild(root, index));
+    }
+
     public static readonly DependencyProperty KeyProperty = DependencyProperty.RegisterAttached(
         "Key",
         typeof(string),
@@ -130,7 +154,7 @@ public static class DataGridColumnLayout
                 continue;
 
             column.Visibility = saved.IsVisible ? Visibility.Visible : Visibility.Collapsed;
-            if (saved.Width is > 0)
+            if (saved.Width is > 0 && double.IsFinite(saved.Width.Value))
                 column.Width = new DataGridLength(saved.Width.Value);
         }
     }
@@ -211,7 +235,7 @@ public static class DataGridColumnLayout
 
         var settingsKey = GetSettingsKey(dataGrid);
         if (!string.IsNullOrWhiteSpace(settingsKey))
-            DataGridColumnLayoutStore.Save(settingsKey, Capture(dataGrid));
+            Persist(dataGrid);
     }
 
     private static void OnSettingsKeyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -267,7 +291,9 @@ public static class DataGridColumnLayout
         if (string.IsNullOrWhiteSpace(settingsKey))
             return;
 
-        var settings = DataGridColumnLayoutStore.Load(settingsKey);
+        var store = DataGridColumnLayoutStore.Current;
+        grid.SetValue(StoreProperty, store);
+        var settings = store?.Load(settingsKey);
         if (settings is not null)
             Apply(grid, settings);
         else if (GetAutoFitOnFirstLoad(grid))
@@ -275,6 +301,114 @@ public static class DataGridColumnLayout
 
         if (GetEnableHeaderMenu(grid))
             AttachHeaderMenu(grid);
+
+        AttachAutoSave(grid);
+    }
+
+    private static void AttachAutoSave(DataGrid grid) => grid.SetValue(AutoSaveProperty, new AutoSaveSubscription(grid));
+
+    private sealed class AutoSaveSubscription
+    {
+        private readonly DataGrid _grid;
+        private readonly DispatcherTimer _timer;
+        private readonly HashSet<DataGridColumn> _observed = [];
+        private readonly DependencyPropertyDescriptor[] _descriptors =
+        [
+            DependencyPropertyDescriptor.FromProperty(DataGridColumn.WidthProperty, typeof(DataGridColumn))!,
+            DependencyPropertyDescriptor.FromProperty(DataGridColumn.VisibilityProperty, typeof(DataGridColumn))!
+        ];
+        private bool _dirty;
+        private bool _attached;
+        private Window? _owner;
+
+        public AutoSaveSubscription(DataGrid grid)
+        {
+            _grid = grid;
+            _timer = new DispatcherTimer(DispatcherPriority.Background, grid.Dispatcher)
+            {
+                Interval = TimeSpan.FromMilliseconds(350)
+            };
+            _timer.Tick += (_, _) => Save();
+            grid.Loaded += OnLoaded;
+            grid.Unloaded += OnUnloaded;
+            OnLoaded(grid, new RoutedEventArgs());
+        }
+
+        public void Save()
+        {
+            _timer.Stop();
+            if (!_dirty)
+                return;
+            try
+            {
+                Persist(_grid);
+                _dirty = false;
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                Trace.TraceWarning("Cannot save table column layout: {0}", ex.Message);
+            }
+        }
+
+        private void Changed(object? sender, EventArgs args)
+        {
+            _dirty = true;
+            _timer.Stop();
+            _timer.Start();
+        }
+
+        private void Reordered(object? sender, DataGridColumnEventArgs args) => Changed(sender, args);
+        private void OnClosing(object? sender, CancelEventArgs args) => Save();
+
+        private void ObserveColumns()
+        {
+            foreach (var column in _grid.Columns)
+            {
+                if (!_observed.Add(column))
+                    continue;
+                foreach (var descriptor in _descriptors)
+                    descriptor.AddValueChanged(column, Changed);
+            }
+        }
+
+        private void ColumnsChanged(object? sender, NotifyCollectionChangedEventArgs args)
+        {
+            foreach (var column in _observed.Where(column => !_grid.Columns.Contains(column)).ToArray())
+            {
+                foreach (var descriptor in _descriptors)
+                    descriptor.RemoveValueChanged(column, Changed);
+                _observed.Remove(column);
+            }
+            ObserveColumns();
+        }
+
+        private void OnLoaded(object? sender, RoutedEventArgs args)
+        {
+            if (_attached)
+                return;
+            _attached = true;
+            ObserveColumns();
+            _grid.ColumnReordered += Reordered;
+            ((INotifyCollectionChanged)_grid.Columns).CollectionChanged += ColumnsChanged;
+            _owner = Window.GetWindow(_grid);
+            if (_owner is not null)
+                _owner.Closing += OnClosing;
+        }
+
+        private void OnUnloaded(object? sender, RoutedEventArgs args)
+        {
+            Save();
+            foreach (var column in _observed)
+                foreach (var descriptor in _descriptors)
+                    descriptor.RemoveValueChanged(column, Changed);
+            _observed.Clear();
+            _grid.ColumnReordered -= Reordered;
+            ((INotifyCollectionChanged)_grid.Columns).CollectionChanged -= ColumnsChanged;
+            if (_owner is not null)
+                _owner.Closing -= OnClosing;
+            _owner = null;
+            _attached = false;
+        }
     }
 
     private static void ScheduleAutoFit(DataGrid grid)
@@ -319,7 +453,7 @@ public static class DataGridColumnLayout
         menu.Items.Add(showColumns);
         menu.Items.Add(fitColumns);
 
-        var basedOn = grid.ColumnHeaderStyle;
+        var basedOn = grid.ColumnHeaderStyle ?? grid.TryFindResource(typeof(DataGridColumnHeader)) as Style;
         var style = basedOn is null
             ? new Style(typeof(DataGridColumnHeader))
             : new Style(typeof(DataGridColumnHeader), basedOn);

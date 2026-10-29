@@ -1,3 +1,4 @@
+using Kazuko.Core.Settings;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -9,14 +10,12 @@ namespace Kazuko.Shared.UI.DataGridLayout;
 public partial class DataGridColumnVisibilityDialog : Window
 {
     private readonly DataGrid _dataGrid;
-    private readonly string _settingsKey;
     private readonly ObservableCollection<DataGridColumnVisibilityItem> _items = [];
 
     public DataGridColumnVisibilityDialog(DataGrid dataGrid, string settingsKey)
     {
         _dataGrid = dataGrid ?? throw new ArgumentNullException(nameof(dataGrid));
         ArgumentException.ThrowIfNullOrWhiteSpace(settingsKey);
-        _settingsKey = settingsKey;
 
         InitializeComponent();
         LoadColumns();
@@ -58,8 +57,10 @@ public partial class DataGridColumnVisibilityDialog : Window
         {
             var key = DataGridColumnLayout.GetColumnKey(column);
             var header = DataGridColumnLayout.ResolveHeader(column);
-            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(header))
+            if (string.IsNullOrWhiteSpace(key))
                 continue;
+            if (string.IsNullOrWhiteSpace(header))
+                header = key is "Select" ? "Chọn dòng" : "Thao tác";
 
             _items.Add(new DataGridColumnVisibilityItem(
                 column,
@@ -98,13 +99,20 @@ public partial class DataGridColumnVisibilityDialog : Window
 
     private void ApplyButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!_items.Any(item => item.IsVisible))
+        {
+            MessageBox.Show(this, "Cần giữ ít nhất một cột hiển thị.", "Cột hiển thị",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         var settings = new DataGridColumnLayoutSettings(
             _items.Select((item, index) =>
                     new DataGridColumnSetting(item.Key, item.IsVisible, index))
                 .ToArray());
 
         DataGridColumnLayout.Apply(_dataGrid, settings);
-        DataGridColumnLayoutStore.Save(_settingsKey, settings);
+        DataGridColumnLayout.Persist(_dataGrid);
 
         DialogResult = true;
         Close();

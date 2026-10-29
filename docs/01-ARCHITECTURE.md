@@ -29,6 +29,12 @@ Kazuko.App ─────────> Infrastructure
 
 `Kazuko.Core` không tham chiếu WPF, Firebird hoặc project nghiệp vụ. `Infrastructure` hiện thực các interface về lưu cấu hình, database, file, update và dịch vụ hệ thống. `Shared.UI` chứa theme, style và control WPF dùng chung. `Kazuko.App` chỉ composition/bootstrap và host shell.
 
+Layout cột DataGrid/báo cáo dùng `ITableColumnLayoutStore` và DTO snapshot v1 trong
+Core.Settings. Sau đăng nhập, App tải `DatabaseTableColumnLayoutSession` trước khi
+mở shell; repository Firebird ghim DB/session và lưu bảng `USER_TABLE_LAYOUTS`
+(migration 93), theo công ty/tài khoản/bảng. Cache/outbox trên máy phục vụ UI và
+retry bất đồng bộ, xem [table-column-layout.md](table-column-layout.md).
+
 ## Luồng chuẩn
 
 ```text
@@ -248,7 +254,14 @@ bộ lọc hiện có; hủy/đổi khách trong lúc tải bỏ phản hồi c�
 
 ## Bảng giá TV
 
-PriceBoard hỗ trợ đồng thời cửa sổ HDMI và trang HTTP chỉ đọc trên LAN, dùng giá
+PriceBoard hỗ trợ cửa sổ HDMI/Miracast và trang HTTP chỉ đọc trên LAN, dùng giá
 bán lẻ hiện có. Core giữ cấu hình/snapshot, Infrastructure lưu JSON cục bộ và phục
 vụ tài nguyên web nhúng; module WPF điều phối phiên đăng nhập, cập nhật giá và
-WebView2. Không migration database. Xem [thiết lập và hành vi](tv-price-board.md).
+WebView2. Phần phát chạy trong tiến trình riêng (`--price-board-host`) với tray,
+đọc giá qua nguồn chỉ đọc theo công ty. Đóng/đăng xuất ERP chỉ detach điều khiển;
+host vẫn giữ HTTP/cửa sổ và tự cập nhật DB, kiểm tra quyền phát định kỳ. IPC chỉ
+cho cùng tài khoản Windows, singleton theo DB/chi nhánh/phiên Windows; không đưa
+credential vào command line/file. Miracast dùng picker Cast của Windows, sau kết nối người dùng chọn màn
+hình đích; ITvDisplayService giữ thao tác UI hệ thống, theo dõi thay đổi màn hình
+và không tự chọn màn hình chính khi TV ngắt. Không migration database. Xem
+[thiết lập và hành vi](tv-price-board.md).

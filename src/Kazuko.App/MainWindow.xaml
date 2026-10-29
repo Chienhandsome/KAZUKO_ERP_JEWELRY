@@ -445,7 +445,8 @@
                     <ColumnDefinition Width="34*" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Text="KAZUKO ERP JEWELRY"
+                <TextBlock Text="{Binding TableLayoutStatus, Mode=OneWay}"
+                           ToolTip="{Binding TableLayoutDetail, Mode=OneWay}" TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource OnPrimaryBrush}"
                            FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="Bold" />

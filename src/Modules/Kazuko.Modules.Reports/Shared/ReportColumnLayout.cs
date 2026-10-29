@@ -1,3 +1,4 @@
+using Kazuko.Core.Settings;
 using Kazuko.Shared.UI.DataGridLayout;
 
 namespace Kazuko.Modules.Reports.Shared;

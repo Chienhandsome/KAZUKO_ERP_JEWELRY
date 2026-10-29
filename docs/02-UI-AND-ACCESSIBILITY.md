@@ -60,9 +60,14 @@ Style DataGrid (brush/typography) vẫn **local trong module** (`CustomerDataGri
 
 Quick menu cột (chuột phải header) và lưu layout là **tái sử dụng** qua `Kazuko.Shared.UI.DataGridLayout`:
 
-- Gắn `grid:DataGridColumnLayout.SettingsKey` (file JSON dưới `%LocalAppData%\KazukoERP\`), `EnableHeaderMenu=True`, tùy chọn `AutoFitOnFirstLoad=True`.
+- Gắn `grid:DataGridColumnLayout.SettingsKey` ổn định, `EnableHeaderMenu=True`, tùy chọn `AutoFitOnFirstLoad=True`.
 - Mỗi cột gắn `grid:DataGridColumnLayout.Key` ổn định (không dùng header tiếng Việt làm khóa).
-- Menu: **Cột hiển thị** (ẩn/hiện + đổi thứ tự) và **Dãn cột**; visibility/order/độ rộng Absolute lưu trên máy, không ghi Firebird.
+- Menu: **Cột hiển thị** (ẩn/hiện + đổi thứ tự) và **Dãn cột**; visibility/order/độ rộng Absolute lưu Firebird theo công ty/tài khoản, có cache/outbox trên máy khi mất kết nối.
+
+Rà soát 29/10/2026: cả 78 DataGrid khai báo khóa bảng/cột và menu tường minh;
+layout tự lưu khi thay đổi, giữ độ rộng khi áp dụng dialog. DTO/contract ở Core,
+Firebird repository/cache ở Infrastructure, App cấu hình facade dùng chung với
+cột báo cáo sau đăng nhập. Migration 93 và checklist: [table-column-layout.md](table-column-layout.md).
 
 Dialog tạo/sửa nghiệp vụ: Window riêng, owner-centered, `ScrollViewer`, Enter lưu / Escape hủy, không hard-code màu/font size.
 

@@ -1,6 +1,7 @@
 <Window x:Class="Kazuko.Modules.Customers.CitizenScanDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
         Title="Quét CCCD — nhập nhanh khách hàng" Width="780" Height="680" MinWidth="620" MinHeight="480"
         FontSize="{DynamicResource FontSize.Body}" FontFamily="{DynamicResource AppFontFamily}"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
@@ -69,15 +70,15 @@
                     <TextBlock Text="So sánh thông tin" FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Subtitle}" Margin="0,8" />
                     <TextBlock Text="Sửa trực tiếp cột Từ CCCD nếu thông tin chưa đúng. Ngày: dd/MM/yyyy; giới tính: Nam, Nữ hoặc Khác."
                                TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8" />
-                    <DataGrid IsEnabled="{Binding CanReadInput}" ItemsSource="{Binding Changes}" AutoGenerateColumns="False" IsReadOnly="True"
+                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="customers.CitizenScanDialog.Changes" IsEnabled="{Binding CanReadInput}" ItemsSource="{Binding Changes}" AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserAddRows="False" HeadersVisibility="Column" MinHeight="170" ScrollViewer.VerticalScrollBarVisibility="Disabled" EnableRowVirtualization="False"
                               RowBackground="{DynamicResource SurfaceBrush}" AlternatingRowBackground="{DynamicResource SurfaceAltBrush}"
                               BorderBrush="{DynamicResource BorderBrush}" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
                               Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Trường" Binding="{Binding Field}" Width="110" ElementStyle="{StaticResource ScanCellText}" />
-                            <DataGridTextColumn Header="Trên form" Binding="{Binding Current}" Width="*" ElementStyle="{StaticResource ScanCellText}" />
-                            <DataGridTemplateColumn Header="Từ CCCD (có thể sửa)" Width="*">
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Field" Header="Trường" Binding="{Binding Field}" Width="110" ElementStyle="{StaticResource ScanCellText}" />
+                            <DataGridTextColumn grid:DataGridColumnLayout.Key="Current" Header="Trên form" Binding="{Binding Current}" Width="*" ElementStyle="{StaticResource ScanCellText}" />
+                            <DataGridTemplateColumn grid:DataGridColumnLayout.Key="Scanned" Header="Từ CCCD (có thể sửa)" Width="*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBox Text="{Binding Scanned, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"

@@ -729,7 +729,7 @@
                                                               SelectedItem="{Binding OverviewRawStatus}" />
                                                 </WrapPanel>
                                                 <Grid Grid.Row="2">
-                                                    <DataGrid ItemsSource="{Binding OverviewRawBalances}"
+                                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding OverviewRawBalances}"
                                                               Style="{StaticResource CompactPreviewGridStyle}"
                                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                                               grid:DataGridColumnLayout.SettingsKey="warehouse-overview-raw"
@@ -801,7 +801,7 @@
                                                               SelectedItem="{Binding OverviewFinishedStatus}" />
                                                 </WrapPanel>
                                                 <Grid Grid.Row="2">
-                                                    <DataGrid ItemsSource="{Binding OverviewFinishedProducts}"
+                                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding OverviewFinishedProducts}"
                                                               Style="{StaticResource CompactPreviewGridStyle}"
                                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                                               grid:DataGridColumnLayout.SettingsKey="warehouse-overview-finished"
@@ -868,7 +868,7 @@
                                                               SelectedItem="{Binding OverviewSaleStatus}" />
                                                 </WrapPanel>
                                                 <Grid Grid.Row="2">
-                                                    <DataGrid ItemsSource="{Binding OverviewSaleItems}"
+                                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding OverviewSaleItems}"
                                                               Style="{StaticResource CompactPreviewGridStyle}"
                                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                                               grid:DataGridColumnLayout.SettingsKey="warehouse-overview-sale"
@@ -977,7 +977,7 @@
                                                         Command="{Binding ViewAllRecentHistoryCommand}" />
                                             </Grid>
                                             <Grid Grid.Row="1">
-                                                <DataGrid ItemsSource="{Binding RecentDocuments}"
+                                                <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding RecentDocuments}"
                                                           Style="{StaticResource WarehouseDataGridStyle}"
                                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                                           grid:DataGridColumnLayout.SettingsKey="warehouse-overview-recent"
@@ -1044,7 +1044,7 @@
                                     <ColumnDefinition Width="300" MinWidth="260" />
                                 </Grid.ColumnDefinitions>
                                 <Grid Grid.Column="0">
-                                    <DataGrid ItemsSource="{Binding Balances}"
+                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding Balances}"
                                               SelectedItem="{Binding SelectedBalance}"
                                               Style="{StaticResource WarehouseDataGridStyle}"
                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
@@ -1188,7 +1188,7 @@
                                     <ColumnDefinition Width="300" MinWidth="260" />
                                 </Grid.ColumnDefinitions>
                                 <Grid Grid.Column="0">
-                                    <DataGrid ItemsSource="{Binding FinishedProducts}"
+                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding FinishedProducts}"
                                               SelectedItem="{Binding SelectedFinishedProduct}"
                                               Style="{StaticResource WarehouseDataGridStyle}"
                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
@@ -1300,7 +1300,7 @@
                                     <ColumnDefinition Width="300" MinWidth="260" />
                                 </Grid.ColumnDefinitions>
                                 <Grid Grid.Column="0">
-                                    <DataGrid ItemsSource="{Binding SaleItems}"
+                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding SaleItems}"
                                               SelectedItem="{Binding SelectedSaleItem}"
                                               Style="{StaticResource WarehouseDataGridStyle}"
                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
@@ -1395,7 +1395,7 @@
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
                             <Grid Grid.Row="1" Margin="0,0,0,10">
-                                <DataGrid ItemsSource="{Binding Documents}"
+                                <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding Documents}"
                                           SelectedItem="{Binding SelectedDocument}"
                                           Style="{StaticResource WarehouseDataGridStyle}"
                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
@@ -1451,7 +1451,7 @@
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                FontSize="{DynamicResource FontSize.Body}"
                                                Visibility="{Binding HasDocumentDetail, Converter={StaticResource InverseBoolToVis}}" />
-                                    <DataGrid Grid.Column="2" ItemsSource="{Binding DocumentLines}"
+                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" Grid.Column="2" ItemsSource="{Binding DocumentLines}"
                                               Style="{StaticResource WarehouseDataGridStyle}"
                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                               grid:DataGridColumnLayout.SettingsKey="warehouse-receipt-lines"
@@ -1490,7 +1490,7 @@
                                         Command="{Binding ClearDocumentFiltersCommand}" MinWidth="90" />
                             </WrapPanel>
                             <Grid Grid.Row="1" Margin="0,0,0,10">
-                                <DataGrid ItemsSource="{Binding Documents}"
+                                <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding Documents}"
                                           SelectedItem="{Binding SelectedDocument}"
                                           Style="{StaticResource WarehouseDataGridStyle}"
                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
@@ -1557,7 +1557,7 @@
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                FontSize="{DynamicResource FontSize.Body}"
                                                Visibility="{Binding HasDocumentDetail, Converter={StaticResource InverseBoolToVis}}" />
-                                    <DataGrid Grid.Column="2" ItemsSource="{Binding DocumentLines}"
+                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" Grid.Column="2" ItemsSource="{Binding DocumentLines}"
                                               Style="{StaticResource WarehouseDataGridStyle}"
                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                               grid:DataGridColumnLayout.SettingsKey="warehouse-issue-lines"
@@ -1602,7 +1602,7 @@
                                         Margin="12,0,0,0" />
                             </WrapPanel>
                             <Grid Grid.Row="1" Margin="0,0,0,10">
-                                <DataGrid ItemsSource="{Binding Documents}"
+                                <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" ItemsSource="{Binding Documents}"
                                           SelectedItem="{Binding SelectedDocument}"
                                           Style="{StaticResource WarehouseDataGridStyle}"
                                           ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
@@ -1670,7 +1670,7 @@
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                FontSize="{DynamicResource FontSize.Body}"
                                                Visibility="{Binding HasDocumentDetail, Converter={StaticResource InverseBoolToVis}}" />
-                                    <DataGrid Grid.Column="2" ItemsSource="{Binding DocumentLines}"
+                                    <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" Grid.Column="2" ItemsSource="{Binding DocumentLines}"
                                               Style="{StaticResource WarehouseDataGridStyle}"
                                               ColumnHeaderStyle="{StaticResource WarehouseDataGridColumnHeaderStyle}"
                                               grid:DataGridColumnLayout.SettingsKey="warehouse-transfer-lines"

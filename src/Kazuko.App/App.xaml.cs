@@ -49,6 +49,8 @@ using Kazuko.Modules.UserManagement;
 using Kazuko.Modules.Warehouse;
 using Kazuko.Shared.UI.Behaviors;
 using Kazuko.Shared.UI.Services;
+using Kazuko.Shared.UI.DataGridLayout;
+using Kazuko.App.PriceBoardHost;
 
 namespace Kazuko.App;
 
@@ -58,11 +60,35 @@ public partial class App : Application
     private readonly ModuleNavigationRegistry _navigation = new();
     private readonly ICurrentSessionAccessor _sessionAccessor = new CurrentSessionAccessor();
     private IDatabaseManagementService _backgroundDatabase = null!;
+    private DatabaseTableColumnLayoutSession? _tableLayouts;
+    private PriceBoardHostRuntime? _priceBoardHost;
+    private Mutex? _priceBoardHostMutex;
+    private bool _hostMode, _ownsHostMutex;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.FirstOrDefault() == "--price-board-host")
+        {
+            _hostMode=true;
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            try
+            {
+                if(e.Args.Length!=2)throw new ArgumentException("Thiếu phạm vi bảng giá TV.");
+                var scope=e.Args[1];
+                var pipe=PriceBoardHostProtocol.PipeName(scope);
+                _priceBoardHostMutex=new Mutex(true,"Local\\"+pipe,out _ownsHostMutex);
+                if(!_ownsHostMutex){Shutdown();return;}
+                var session=new CurrentSessionAccessor();
+                _priceBoardHost=new PriceBoardHostRuntime(scope,new FirebirdTvPriceSource(),new FirebirdCompanyProfileService(),
+                    new JsonPriceBoardTvSettingsStore(Environment.GetEnvironmentVariable("KAZUKO_TV_SETTINGS_ROOT")),
+                    new PriceBoardTvServerFactory(),new WindowsTvDisplayService(),session,new FirebirdAuthorizationService(session),()=>Shutdown());
+            }
+            catch(Exception ex){System.Diagnostics.Trace.TraceError("TV host startup failed: {0}",ex.Message);Shutdown(1);}
+            return;
+        }
         TextBoxSelectAllBehavior.Register();
+        Kazuko.Shared.UI.DataGridLayout.DataGridColumnLayoutStore.Configure(new JsonTableColumnLayoutStore());
         RegisterFoundation();
         RegisterModules();
         ApplySavedAppearance();
@@ -115,6 +141,8 @@ public partial class App : Application
         IEmployeeMoneyService employeeMoney = new FirebirdEmployeeMoneyService();
         IPriceBoardRepository priceBoard = new FirebirdPriceBoardRepository();
         _services.AddSingleton<IPriceBoardTvSettingsStore>(new JsonPriceBoardTvSettingsStore());
+        _services.AddSingleton<IPriceBoardTvHostClientFactory>(new PriceBoardTvHostClientFactory(
+            Environment.ProcessPath ?? throw new InvalidOperationException("Không xác định được executable ERP."),typeof(App).Assembly.Location));
         _services.AddSingleton<IPriceBoardTvServerFactory>(new PriceBoardTvServerFactory());
         IGoldTypeCatalogService goldTypeCatalog = new FirebirdGoldTypeCatalogService();
         IMaterialReceiptService materialReceipts = new FirebirdMaterialReceiptService();
@@ -327,24 +355,46 @@ public partial class App : Application
 
     private void ShowLogin()
     {
-        (_services.GetService(typeof(IPriceBoardTvController)) as IPriceBoardTvController)?.Stop();
+        (_services.GetService(typeof(IPriceBoardTvController)) as IPriceBoardTvController)?.Detach();
         _sessionAccessor.Clear();
         var viewModel = new LoginViewModel(_services.GetRequiredService<IAuthenticationService>());
         var loginView = new LoginView { DataContext = viewModel };
         var window = new LoginWindow { Content = loginView };
 
+        var signingIn = false;
         viewModel.SignedIn += async (_, session) =>
         {
+            if (signingIn) return;
+            signingIn = true;
+            window.IsEnabled = false;
             _sessionAccessor.Set(session);
             var authorization = _services.GetRequiredService<IAuthorizationService>();
-            try { await authorization.RefreshAsync(); }
+            DatabaseTableColumnLayoutSession layouts;
+            try
+            {
+                await authorization.RefreshAsync();
+                var repository = new FirebirdTableColumnLayoutRepository(session);
+                var journalPath = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "KazukoERP", "table-layouts", repository.CacheScope, "cache.json");
+                layouts = new DatabaseTableColumnLayoutSession(repository, journalPath, new JsonTableColumnLayoutStore());
+                await layouts.InitializeAsync();
+                if (!window.IsLoaded) { await layouts.DisposeAsync(); return; }
+                _tableLayouts = layouts;
+                DataGridColumnLayoutStore.Configure(layouts);
+            }
             catch (Exception)
             {
                 _sessionAccessor.Clear(); authorization.Clear();
-                MessageBox.Show("Không tải được quyền sử dụng. Vui lòng đăng nhập lại.", "Đăng nhập", MessageBoxButton.OK, MessageBoxImage.Warning);
+                signingIn = false;
+                window.IsEnabled = true;
+                MessageBox.Show("Không tải được phiên làm việc. Vui lòng đăng nhập lại.", "Đăng nhập", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             MainWindow? shell = null;
+            var loggingOut = false;
+            var closing = false;
+            var allowClose = false;
             var shellViewModel = new ShellViewModel(
                 session.DisplayName,
                 _navigation,
@@ -352,12 +402,38 @@ public partial class App : Application
                 authorization,
                 () =>
                 {
-                    _sessionAccessor.Clear();
-                    authorization.Clear();
-                    ShowLogin();
+                    loggingOut = true;
                     shell?.Close();
-                });
+                }, layouts);
             shell = new MainWindow { DataContext = shellViewModel };
+            shell.Closing += async (_, args) =>
+            {
+                if (allowClose) return;
+                args.Cancel = true;
+                if (closing) return;
+                closing = true;
+                shell.IsEnabled = false;
+                try
+                {
+                    DataGridColumnLayout.FlushPendingLayouts(shell);
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                    await layouts.FlushAsync(timeout.Token);
+                }
+                catch (OperationCanceledException) { /* The durable outbox is retried on next login. */ }
+                catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Cannot flush table layouts: {0}", ex.Message); }
+                finally
+                {
+                    if (loggingOut)
+                    {
+                        authorization.Clear();
+                        ShowLogin();
+                    }
+                    allowClose = true;
+                    shell.Close();
+                    await layouts.DisposeAsync();
+                    if (ReferenceEquals(_tableLayouts, layouts)) _tableLayouts = null;
+                }
+            };
             MainWindow = shell;
             shell.Show();
             window.Close();
@@ -368,7 +444,28 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        (_services.GetService(typeof(IPriceBoardTvController)) as IPriceBoardTvController)?.Stop();
+        if(_hostMode)
+        {
+            _priceBoardHost?.Dispose();
+            if(_ownsHostMutex)_priceBoardHostMutex?.ReleaseMutex();
+            _priceBoardHostMutex?.Dispose();
+            base.OnExit(e);
+            return;
+        }
+        // Application.Shutdown (for example after switching DB) can bypass an
+        // asynchronous Closing handler. The repository is pinned to the old DB.
+        if (_tableLayouts is { } layouts)
+        {
+            try
+            {
+                if (MainWindow is not null) DataGridColumnLayout.FlushPendingLayouts(MainWindow);
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                layouts.FlushAsync(timeout.Token).GetAwaiter().GetResult();
+                layouts.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Table layouts retained locally: {0}", ex.Message); }
+        }
+        (_services.GetService(typeof(IPriceBoardTvController)) as IPriceBoardTvController)?.Detach();
         base.OnExit(e);
     }
 }
