@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Suppliers;
 
@@ -8,11 +8,14 @@ public sealed class SupplierEditorService : ISupplierEditorService
 {
     private readonly ISupplierRepository _repository;
     private readonly ICurrentSessionAccessor _sessionAccessor;
+    private readonly IBusinessTaxLookupService _taxLookup;
 
-    public SupplierEditorService(ISupplierRepository repository, ICurrentSessionAccessor sessionAccessor)
+    public SupplierEditorService(ISupplierRepository repository, ICurrentSessionAccessor sessionAccessor,
+        IBusinessTaxLookupService taxLookup)
     {
         _repository = repository;
         _sessionAccessor = sessionAccessor;
+        _taxLookup = taxLookup;
     }
 
     public SupplierEditResult? ShowCreate() => Show(null);
@@ -21,7 +24,7 @@ public sealed class SupplierEditorService : ISupplierEditorService
 
     private SupplierEditResult? Show(long? supplierId)
     {
-        var viewModel = new SupplierEditDialogViewModel(_repository, _sessionAccessor, supplierId);
+        var viewModel = new SupplierEditDialogViewModel(_repository, _sessionAccessor, supplierId, _taxLookup);
         var dialog = new SupplierEditDialog
         {
             Owner = ResolveOwner(),
@@ -39,6 +42,7 @@ public sealed class SupplierEditorService : ISupplierEditorService
                 dialog.Close();
         };
 
+        dialog.Closed += (_, _) => viewModel.CancelTaxLookup();
         dialog.ShowDialog();
         return result;
     }

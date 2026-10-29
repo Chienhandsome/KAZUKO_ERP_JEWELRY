@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
@@ -106,6 +106,8 @@ public partial class App : Application
             new FixedHostVersionProvider(1));
         ICustomerRepository customers = new FirebirdCustomerRepository();
         ISupplierRepository suppliers = new FirebirdSupplierRepository();
+        _services.AddSingleton<IBusinessTaxLookupService>(new VietQrBusinessTaxLookupService(
+            new System.Net.Http.HttpClient(new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false })));
         IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
         IWarehouseGoldPriceRepository warehouseGoldPrices = new FirebirdWarehouseGoldPriceRepository();
         IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();

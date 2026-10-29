@@ -1,4 +1,4 @@
-using Kazuko.Core.Authentication;
+﻿using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
@@ -17,7 +17,8 @@ public sealed class SuppliersModule : IKazukoModule
     {
         var repository = GetRequiredService<ISupplierRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
-        services.AddSingleton<ISupplierEditorService>(new SupplierEditorService(repository, session));
+        services.AddSingleton<ISupplierEditorService>(new SupplierEditorService(repository, session,
+            GetRequiredService<IBusinessTaxLookupService>(services)));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

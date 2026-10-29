@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
@@ -29,6 +29,9 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
     private readonly ISupplierRepository _repository;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly long? _supplierId;
+    private readonly IBusinessTaxLookupService _taxLookup;
+    private CancellationTokenSource? _taxLookupCts;
+    private string _taxLookupMessage = string.Empty;
     private bool _isBusy;
     private bool _isLoading;
     private string _title = "THÊM NHÀ CUNG CẤP";
@@ -55,11 +58,13 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
     public SupplierEditDialogViewModel(
         ISupplierRepository repository,
         ICurrentSessionAccessor sessionAccessor,
-        long? supplierId)
+        long? supplierId,
+        IBusinessTaxLookupService taxLookup)
     {
         _repository = repository;
         _sessionAccessor = sessionAccessor;
         _supplierId = supplierId;
+        _taxLookup = taxLookup;
 
         Regions.Add(string.Empty);
         foreach (var region in RegionOptions)
@@ -67,6 +72,7 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy && !IsLoading);
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(null), () => !IsBusy);
+        LookupTaxCommand = new AsyncRelayCommand(LookupTaxAsync, () => IsFormEnabled);
 
         _ = InitializeAsync();
     }
@@ -178,6 +184,8 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
             {
                 CommandManager.InvalidateRequerySuggested();
                 ((RelayCommand)CancelCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)SaveCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)LookupTaxCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsFormEnabled));
             }
         }
@@ -190,6 +198,8 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
         {
             if (SetProperty(ref _isLoading, value))
             {
+                ((AsyncRelayCommand)SaveCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)LookupTaxCommand).NotifyCanExecuteChanged();
                 CommandManager.InvalidateRequerySuggested();
                 OnPropertyChanged(nameof(IsFormEnabled));
             }
@@ -230,11 +240,72 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
 
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
+    public ICommand LookupTaxCommand { get; }
+    public string TaxLookupMessage
+    {
+        get => _taxLookupMessage;
+        private set => SetProperty(ref _taxLookupMessage, value);
+    }
+
+    public void CancelTaxLookup() => _taxLookupCts?.Cancel();
+
+    private async Task LookupTaxAsync()
+    {
+        var requestedCode = TaxCode;
+        IsBusy = true;
+        FormError = string.Empty;
+        TaxLookupMessage = "Đang tra cứu MST…";
+        using var cancellation = new CancellationTokenSource();
+        _taxLookupCts = cancellation;
+        try
+        {
+            var result = await _taxLookup.LookupAsync(requestedCode, cancellation.Token);
+            if (cancellation.IsCancellationRequested || TaxCode != requestedCode)
+            {
+                TaxLookupMessage = string.Empty;
+                return;
+            }
+            if (result is null)
+            {
+                TaxLookupMessage = "VietQR chưa có dữ liệu cho MST này. Bạn có thể kiểm tra lại MST hoặc nhập thông tin thủ công.";
+                return;
+            }
+            TaxCode = result.TaxCode;
+            if (!string.IsNullOrWhiteSpace(result.Name))
+            {
+                Name = result.Name;
+                NameError = string.Empty;
+            }
+            if (!string.IsNullOrWhiteSpace(result.Address))
+                Address = result.Address;
+            TaxLookupMessage = "Đã điền thông tin doanh nghiệp. Vui lòng kiểm tra trước khi lưu.";
+        }
+        catch (OperationCanceledException)
+        {
+            TaxLookupMessage = string.Empty;
+        }
+        catch (InvalidOperationException ex)
+        {
+            TaxLookupMessage = string.Empty;
+            FormError = ex.Message;
+        }
+        catch (Exception)
+        {
+            TaxLookupMessage = string.Empty;
+            FormError = "Không thể tra cứu MST. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _taxLookupCts = null;
+            IsBusy = false;
+        }
+    }
 
     private async Task InitializeAsync()
     {
         IsLoading = true;
         FormError = string.Empty;
+
 
         try
         {

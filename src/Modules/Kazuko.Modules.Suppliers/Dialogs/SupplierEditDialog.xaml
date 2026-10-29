@@ -1,4 +1,4 @@
-<Window x:Class="Kazuko.Modules.Suppliers.SupplierEditDialog"
+﻿<Window x:Class="Kazuko.Modules.Suppliers.SupplierEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
@@ -21,6 +21,11 @@
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="Margin" Value="0,2,0,8" />
             <Setter Property="TextWrapping" Value="Wrap" />
+            <Style.Triggers>
+                <Trigger Property="Text" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="DialogFieldStyle" TargetType="TextBox">
             <Setter Property="Margin" Value="0,0,0,4" />
@@ -212,81 +217,109 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Cột trái: Thông tin chính -->
-                    <StackPanel Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,10">
+                        <TextBlock Text="Mã số thuế" Style="{StaticResource FieldLabelStyle}" />
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding TaxCode, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource DialogFieldStyle}" Margin="0,0,8,0"
+                                     ToolTip="Tra cứu MST gốc 10 số của đơn vị chủ quản" />
+                            <Button Grid.Column="1" Content="Tra cứu" Command="{Binding LookupTaxCommand}"
+                                    Style="{StaticResource RoundedOutlineButtonStyle}"
+                                    ToolTip="Tra cứu MST và điền tên, địa chỉ doanh nghiệp" />
+                        </Grid>
+                        <TextBlock Text="{Binding TaxLookupMessage, Mode=OneWay}" TextWrapping="Wrap"
+                                   FontSize="{DynamicResource FontSize.Caption}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
                         <TextBlock Text="Mã nhà cung cấp" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding CodeDisplay, Mode=OneWay}"
                                  Style="{StaticResource DialogFieldStyle}"
                                  IsReadOnly="True"
                                  Background="{DynamicResource SurfaceAltBrush}" />
-
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,10">
                         <TextBlock Text="Tên nhà cung cấp *" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
                         <TextBlock Text="{Binding NameError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
-
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
                         <TextBlock Text="Nhóm nhà cung cấp *" Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox ItemsSource="{Binding Groups}"
                                   SelectedItem="{Binding SelectedGroup}"
                                   DisplayMemberPath="Name"
                                   Style="{StaticResource DialogComboStyle}" />
                         <TextBlock Text="{Binding GroupError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
-
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,10">
+                        <TextBlock Text="Người liên hệ" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding ContactName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,10">
                         <TextBlock Text="Số điện thoại *" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
                         <TextBlock Text="{Binding PhoneError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
-
+                    </StackPanel>
+                    <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,0,0,10">
                         <TextBlock Text="Email" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
                         <TextBlock Text="{Binding EmailError, Mode=OneWay}" Style="{StaticResource FieldErrorStyle}" />
-
-                        <TextBlock Text="Mã số thuế" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox Text="{Binding TaxCode, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource DialogFieldStyle}" />
-
-                        <TextBlock Text="Mã thương hiệu" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox Text="{Binding BrandCode, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource DialogFieldStyle}" />
-
-                        <TextBlock Text="TCCS" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox Text="{Binding Tccs, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource DialogFieldStyle}" />
                     </StackPanel>
-
-                    <!-- Cột phải: Người liên hệ, địa chỉ & trạng thái -->
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Người liên hệ" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox Text="{Binding ContactName, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource DialogFieldStyle}" />
-
+                    <StackPanel Grid.Row="4" Grid.Column="0" Margin="0,0,0,10">
                         <TextBlock Text="Chức vụ liên hệ" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding ContactTitle, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
-
+                    </StackPanel>
+                    <StackPanel Grid.Row="4" Grid.Column="2" Margin="0,0,0,10">
                         <TextBlock Text="Khu vực" Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox ItemsSource="{Binding Regions}"
                                   SelectedItem="{Binding Region}"
                                   Style="{StaticResource DialogComboStyle}"
                                   IsEditable="False" />
-
+                    </StackPanel>
+                    <StackPanel Grid.Row="5" Grid.Column="0" Margin="0,0,0,10">
+                        <TextBlock Text="Mã thương hiệu" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding BrandCode, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="5" Grid.Column="2" Margin="0,0,0,10">
+                        <TextBlock Text="TCCS" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox Text="{Binding Tccs, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource DialogFieldStyle}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Margin="0,0,0,10">
                         <TextBlock Text="Địa chỉ" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}" />
-
+                    </StackPanel>
+                    <StackPanel Grid.Row="7" Grid.ColumnSpan="3" Margin="0,0,0,10">
                         <TextBlock Text="Ghi chú" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource DialogFieldStyle}"
                                  AcceptsReturn="True" MinHeight="75"
                                  TextWrapping="Wrap" VerticalContentAlignment="Top" />
-
-                        <CheckBox Content="Đang hợp tác"
-                                  IsChecked="{Binding IsActive}"
-                                  Margin="0,12,0,0"
-                                  FontSize="{DynamicResource FontSize.Body}"
-                                  Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
+                    <CheckBox Grid.Row="8" Grid.ColumnSpan="3" Content="Đang hợp tác" IsChecked="{Binding IsActive}"
+                              FontSize="{DynamicResource FontSize.Body}" Foreground="{DynamicResource TextPrimaryBrush}" />
                 </Grid>
             </Border>
         </ScrollViewer>

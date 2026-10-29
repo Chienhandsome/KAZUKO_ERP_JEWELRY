@@ -336,7 +336,7 @@ public sealed class FirebirdProductionPrintDataService : IProductionPrintDataSer
         var lines = new List<ProductionOrderPrintLine>();
         await using var command = new FbCommand("""
             SELECT POL.LINE_NUMBER, POL.MODEL_NAME, POL.PLANNED_QUANTITY,
-                   POL.GOLD_WEIGHT, POL.GOLD_PURITY_CODE, POL.LABOR_COST
+                   POL.ESTIMATED_WEIGHT_CHI, POL.GOLD_TYPE_CODE, POL.LABOR_COST_PER_UNIT
             FROM PRODUCTION_ORDER_LINES POL
             WHERE POL.PRODUCTION_ORDER_ID = @ID
             ORDER BY POL.LINE_NUMBER

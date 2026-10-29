@@ -219,31 +219,7 @@ public sealed class ProductionViewModel : ObservableObject
                 (DeleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
                 (CompleteOrderCommand as ParameterRelayCommand)?.NotifyCanExecuteChanged();
                 (PrintOrderCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
-                if (value is not null)
-                    PopulateFiltersFromOrder(value);
             }
-        }
-    }
-
-    /// <summary>
-    /// Điền thông tin phiếu đang chọn lên các field filter phía trên.
-    /// </summary>
-    private void PopulateFiltersFromOrder(ProductionOrderRowViewModel order)
-    {
-        _suppressAutoSearch = true;
-        try
-        {
-            OrderCodeFilterText = order.Code ?? string.Empty;
-            CustomerFilterText = NormalizeFilterOption(order.CustomerName);
-            SalesOrderFilterText = NormalizeFilterOption(order.SalesOrderCode);
-            WorkerFilterText = NormalizeFilterOption(order.WorkerDisplayName);
-            EnsureFilterOption(CustomerFilterOptions, CustomerFilterText);
-            EnsureFilterOption(SalesOrderFilterOptions, SalesOrderFilterText);
-            EnsureFilterOption(WorkerFilterOptions, WorkerFilterText);
-        }
-        finally
-        {
-            _suppressAutoSearch = false;
         }
     }
 
@@ -251,14 +227,6 @@ public sealed class ProductionViewModel : ObservableObject
     {
         var text = (value ?? string.Empty).Trim();
         return text.Length == 0 || text == "—" ? FilterAll : text;
-    }
-
-    private static void EnsureFilterOption(ObservableCollection<string> options, string value)
-    {
-        if (IsFilterAll(value))
-            return;
-        if (!options.Contains(value, StringComparer.OrdinalIgnoreCase))
-            options.Add(value);
     }
 
     public string StatusMessage

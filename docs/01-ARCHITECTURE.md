@@ -1,10 +1,23 @@
-# Kiến trúc
+﻿# Kiến trúc
 
 ## Báo cáo lương nhân sự
 
 HR mở workspace của module Reports qua `IEmployeeReportsPresenter` (Core), không tham chiếu assembly Reports. `IPayrollReportService` đọc snapshot kỳ lương và phiếu chi liên kết theo công ty của session; UI/VM không chứa SQL. Hai workspace dùng khung báo cáo PDF và xuất Excel chung, không có thao tác tính/chốt/chi tiền trong báo cáo. Xem `docs/09-REPORTING.md`.
 
 ## Dependency direction
+
+Tra cứu MST nhà cung cấp dùng `IBusinessTaxLookupService` (Core), triển khai
+`VietQrBusinessTaxLookupService` (Infrastructure) qua HTTP như TestScan. Chỉ hỗ trợ
+tra cứu MST gốc 10 số; không tra chi nhánh hoặc tự bỏ hậu tố để điền công ty mẹ.
+MST chi nhánh vẫn nhập/lưu thủ công được. Không cần tài khoản/API key.
+Bấm Tra cứu chỉ điền MST/tên/địa chỉ vào bản nháp, không tự lưu. Không xóa trường
+thiếu trong phản hồi; kiểm tra MST phản hồi khớp yêu cầu, chặn lưu/chỉnh form trong
+lúc tra cứu và hủy yêu cầu khi đóng dialog. Timeout 15 giây, thông báo lỗi mạng,
+giới hạn lượt hoặc nguồn chưa có dữ liệu. Không migration. Form dùng hàng Grid
+chung cho hai cột để giữ căn hàng khi hiện lỗi/thông báo.
+Theo yêu cầu người dùng, bỏ tích hợp Xinvoice và giao diện cấu hình khóa.
+VietQR thông báo ngừng endpoint này từ 01/03/2027; cần xem lại nguồn API trước mốc đó.
+Nguồn: https://www.vietqr.io/tra-cuu-mst
 
 ```text
 Kazuko.App ───────────────┐
