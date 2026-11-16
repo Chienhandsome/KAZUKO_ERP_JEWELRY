@@ -21,8 +21,8 @@
       <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
 
       <Style x:Key="CompactFieldStyle" TargetType="TextBox" BasedOn="{StaticResource WhRoundedTextBoxStyle}">
-        <Setter Property="MinHeight" Value="36" />
-        <Setter Property="Height" Value="36" />
+        <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
+        <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
         <Setter Property="Margin" Value="2,0" />
         <Setter Property="Padding" Value="8,4" />
         <Setter Property="VerticalAlignment" Value="Center" />
@@ -107,7 +107,7 @@
               <StackPanel>
                 <TextBlock Text="Ngày" Style="{StaticResource WhFieldLabelStyle}" />
                 <DatePicker SelectedDate="{Binding DocumentDate}"
-                            MinHeight="40"
+                            MinHeight="{DynamicResource SingleLineFieldMinHeight}"
                             FontSize="{DynamicResource FontSize.Body}"
                             VerticalContentAlignment="Center" />
               </StackPanel>

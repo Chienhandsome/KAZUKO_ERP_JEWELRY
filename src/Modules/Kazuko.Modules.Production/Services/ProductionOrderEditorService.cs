@@ -3,6 +3,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
+using Kazuko.Core.HumanResources;
 using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Sales;
@@ -60,7 +61,7 @@ public sealed class ProductionOrderEditorService : IProductionOrderEditorService
             Require<ICashFundRepository>(),
             Require<IBankAccountRepository>(),
             Require<ICustomerEditorService>(),
-            preferredOrderSource);
+            preferredOrderSource, Require<IEmployeeEditorService>());
 
         var dialog = new ProductionOrderDialog
         {

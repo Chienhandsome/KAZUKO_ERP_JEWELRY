@@ -34,7 +34,7 @@
     <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10" IsEnabled="{Binding CanEdit}">
       <TextBlock Text="Vùng nội dung:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
       <ComboBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" DisplayMemberPath="DisplayName"
-                Width="350" MinHeight="40" Margin="0,0,12,0" AutomationProperties.Name="Vùng nội dung bill" />
+                Width="350" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,12,0" AutomationProperties.Name="Vùng nội dung bill" />
       <CheckBox Content="Bám lưới 1 mm" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" Margin="0,0,12,0" />
       <TextBlock Text="Thu phóng:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
       <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="2" Value="1" Width="110" VerticalAlignment="Center" />
@@ -58,7 +58,7 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
           <StackPanel>
             <TextBlock Text="Chiều cao vùng (mm)" Foreground="{DynamicResource TextSecondaryBrush}" />
-            <TextBox Text="{Binding SectionHeightMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="40" Margin="0,4,0,12" />
+            <TextBox Text="{Binding SectionHeightMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,4,0,12" />
             <TextBlock Text="Danh sách đối tượng" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
             <ListBox ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}" DisplayMemberPath="DisplayName"
                      MinHeight="80" MaxHeight="160" Margin="0,0,0,12" HorizontalContentAlignment="Stretch"
@@ -76,13 +76,13 @@
                 <TextBlock Text="Vị trí và kích thước (mm)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
                 <UniformGrid Columns="2" Margin="0,0,0,12">
                   <StackPanel Margin="0,0,4,6"><TextBlock Text="X" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding SelectedObject.LeftMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                    <TextBox Text="{Binding SelectedObject.LeftMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" /></StackPanel>
                   <StackPanel Margin="4,0,0,6"><TextBlock Text="Y" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding SelectedObject.TopMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                    <TextBox Text="{Binding SelectedObject.TopMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" /></StackPanel>
                   <StackPanel Margin="0,0,4,0"><TextBlock Text="Rộng" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding SelectedObject.WidthMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                    <TextBox Text="{Binding SelectedObject.WidthMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" /></StackPanel>
                   <StackPanel Margin="4,0,0,0"><TextBlock Text="Cao" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding SelectedObject.HeightMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                    <TextBox Text="{Binding SelectedObject.HeightMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" /></StackPanel>
                 </UniformGrid>
               </StackPanel>
               <StackPanel Visibility="{Binding SelectedObject.IsText, Converter={StaticResource BoolToVis}}">
@@ -92,21 +92,21 @@
                 <TextBlock Text="Giữ các trường trong dấu [ ] để in dữ liệu. Xem trước để kiểm tra biểu thức trước khi lưu."
                            TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,10" />
                 <TextBlock Text="Font chữ" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <ComboBox x:Name="FontFamilyCombo" SelectedItem="{Binding SelectedObject.FontFamilyName}" MinHeight="40" Margin="0,2,0,8" />
+                <ComboBox x:Name="FontFamilyCombo" SelectedItem="{Binding SelectedObject.FontFamilyName}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,8" />
                 <UniformGrid Columns="2" Margin="0,0,0,8">
                   <StackPanel Margin="0,0,4,0"><TextBlock Text="Cỡ chữ (pt)" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding SelectedObject.FontSize, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                    <TextBox Text="{Binding SelectedObject.FontSize, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" /></StackPanel>
                   <StackPanel Margin="4,0,0,0"><TextBlock Text="Góc xoay (độ)" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding SelectedObject.Angle, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="40" /></StackPanel>
+                    <TextBox Text="{Binding SelectedObject.Angle, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" /></StackPanel>
                 </UniformGrid>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                   <CheckBox Content="Đậm" IsChecked="{Binding SelectedObject.Bold}" Margin="0,0,16,0" />
                   <CheckBox Content="Nghiêng" IsChecked="{Binding SelectedObject.Italic}" />
                 </StackPanel>
                 <TextBlock Text="Căn ngang" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <ComboBox ItemsSource="{Binding HorizontalAlignments}" SelectedItem="{Binding SelectedObject.HorzAlign}" MinHeight="40" Margin="0,2,0,8" />
+                <ComboBox ItemsSource="{Binding HorizontalAlignments}" SelectedItem="{Binding SelectedObject.HorzAlign}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,8" />
                 <TextBlock Text="Căn dọc" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <ComboBox ItemsSource="{Binding VerticalAlignments}" SelectedItem="{Binding SelectedObject.VertAlign}" MinHeight="40" Margin="0,2,0,12" />
+                <ComboBox ItemsSource="{Binding VerticalAlignments}" SelectedItem="{Binding SelectedObject.VertAlign}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,12" />
               </StackPanel>
               <Button Content="Xóa đối tượng" Command="{Binding DeleteCommand}" Style="{StaticResource PrintDesignerOutlineButtonStyle}" />
             </StackPanel>

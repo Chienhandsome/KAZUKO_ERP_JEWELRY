@@ -20,7 +20,7 @@
             <conv:NullOrEmptyToVisibilityConverter x:Key="NotNullToVis" Invert="True" />
 
             <Style x:Key="FilterFieldStyle" TargetType="TextBox" BasedOn="{StaticResource RoundedTextBoxStyle}">
-                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
                 <Setter Property="Margin" Value="0,0,8,0" />
             </Style>
 
@@ -28,13 +28,13 @@
                 <Setter Property="IsReadOnly" Value="True" />
                 <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
                 <Setter Property="Margin" Value="0,0,0,8" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
                 <Setter Property="Padding" Value="10,4" />
             </Style>
 
             <!-- Rounded ComboBox -->
             <Style x:Key="FilterComboStyle" TargetType="ComboBox">
-                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
                 <Setter Property="Margin" Value="0,0,8,0" />
                 <Setter Property="Padding" Value="10,4" />
                 <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />

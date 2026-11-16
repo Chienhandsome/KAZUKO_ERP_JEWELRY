@@ -19,7 +19,7 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 
 ## Nút, ô nhập và ô chọn
 
-- Dùng style chung trong Kazuko.Shared.UI. Form và hộp thoại dùng chiều cao tối thiểu 44 DIP, bo góc 10 DIP và lề ngang trong control 12 DIP. Các nút cùng hàng có cùng chiều cao và cách nhau 8 DIP. Cho phép control cao thêm theo cỡ chữ.
+- Dùng style chung trong Kazuko.Shared.UI. Nút trong form và hộp thoại dùng chiều cao tối thiểu 44 DIP. Form và hộp thoại dùng bo góc 10 DIP và lề ngang trong control 12 DIP. Các ô một dòng (ô nhập, mật khẩu, ô chọn và ô ngày) dùng tài nguyên SingleLineFieldMinHeight mặc định 32 DIP. Riêng màn đăng nhập đặt mức tối thiểu 44 DIP. Ô nhiều dòng giữ chiều cao theo nội dung. Các nút cùng hàng có cùng chiều cao và cách nhau 8 DIP. Cho phép control cao thêm theo cỡ chữ.
 - Bảng dữ liệu và thanh công cụ dùng phiên bản gọn với chiều cao tối thiểu 32 DIP và bo góc 6 DIP. Màu, chữ và trạng thái tương tác dùng cùng quy tắc với form.
 - Mỗi nhóm thao tác có một nút chính dùng nền PrimaryBrush và chữ OnPrimaryBrush. Nút phụ dùng nền theo theme, viền mảnh và chữ thông thường. Nút nguy hiểm dùng màu cảnh báo và nhãn nêu rõ thao tác, ví dụ **Xóa**.
 - Ô nhập có nhãn phía trên, canh trái. Ô chỉ đọc có nền dịu hơn và vẫn cho sao chép khi cần. Khi kiểm tra dữ liệu thất bại, dùng viền cảnh báo và thông báo ngay dưới ô liên quan.
@@ -36,7 +36,7 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Ô ngày dùng `RoundedDatePickerStyle` trong `Shared.UI/Themes/DatePicker.xaml`;
   style `DatePicker` mặc định kế thừa mẫu này. Style riêng phải `BasedOn` cùng mẫu,
   giữ các binding và trạng thái khóa form. Định dạng ngày ngắn theo `vi-VN`,
-  chiều cao tối thiểu 40 px; không dùng template ngày mặc định của Windows.
+  chiều cao tối thiểu 32 DIP; không dùng template ngày mặc định của Windows.
 - Kiểm tra bằng keyboard: tab order, default button, focus visible và access key khi phù hợp.
 - Ô nhập một dòng (`TextBox`, `PasswordBox`) bôi đen toàn bộ nội dung khi nhận focus bằng click hoặc Tab. Ô chỉ đọc và ô nhiều dòng (`AcceptsReturn`) không bôi đen. Hành vi gắn ở `TextBoxSelectAllBehavior.Register` lúc khởi động, vì style có key riêng không kế thừa setter của style `TextBox` mặc định.
 - Ô tiền và số lượng ngắt hàng nghìn theo vi-VN (`1.000.000`, số lượng lẻ `1.250,5`) bằng `NumericThousandSeparatorBehavior`. Sau khi sửa chữ, behavior phải đẩy binding lên source (kể cả lúc rời ô): gán `Text` trong `TextChanged` nằm trong lượt cập nhật của WPF nên nếu không đẩy lại thì ô hiện số nhưng thuộc tính vẫn bằng 0. Ô binding vào `decimal` dùng `ViMoneyConverter` hoặc `ViQuantityConverter`, không dùng `StringFormat=N0` trên ô đang gõ — binding WPF mặc định đọc dấu chấm theo en-US.

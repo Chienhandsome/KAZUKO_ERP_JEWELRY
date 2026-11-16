@@ -43,7 +43,7 @@
                    Margin="0,2,0,0" />
         <WrapPanel Margin="0,6,0,0">
         <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
-                  Width="180" MinHeight="40" Margin="0,0,8,0" VerticalAlignment="Center" />
+                  Width="180" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,8,0" VerticalAlignment="Center" />
         <Button Content="Nạp mẫu" Command="{Binding LoadReferenceTemplateCommand}"
                 ToolTip="Nạp bản đã lưu của mẫu được chọn; các chỉnh sửa chưa lưu sẽ được bỏ"
                 Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="0,0,8,0" />
@@ -170,22 +170,22 @@
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
                 <TextBox Text="{Binding SelectedObject.LeftMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
-                         Grid.Row="1" Grid.Column="0" MinHeight="40" Margin="0,2,4,6" />
+                         Grid.Row="1" Grid.Column="0" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,4,6" />
                 <TextBlock Text="Y" Grid.Row="0" Grid.Column="1"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
                 <TextBox Text="{Binding SelectedObject.TopMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
-                         Grid.Row="1" Grid.Column="1" MinHeight="40" Margin="4,2,0,6" />
+                         Grid.Row="1" Grid.Column="1" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="4,2,0,6" />
                 <TextBlock Text="Rộng" Grid.Row="2" Grid.Column="0"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
                 <TextBox Text="{Binding SelectedObject.WidthMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
-                         Grid.Row="3" Grid.Column="0" MinHeight="40" Margin="0,2,4,0" />
+                         Grid.Row="3" Grid.Column="0" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,4,0" />
                 <TextBlock Text="Cao" Grid.Row="2" Grid.Column="1"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="{DynamicResource FontSize.Caption}" />
                 <TextBox Text="{Binding SelectedObject.HeightMm, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
-                         Grid.Row="3" Grid.Column="1" MinHeight="40" Margin="4,2,0,0" />
+                         Grid.Row="3" Grid.Column="1" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="4,2,0,0" />
               </Grid>
 
               <!-- Thuộc tính chữ -->
@@ -211,7 +211,7 @@
                            FontSize="{DynamicResource FontSize.Caption}" />
                 <ComboBox x:Name="FontFamilyCombo"
                           SelectedItem="{Binding SelectedObject.FontFamilyName}"
-                          MinHeight="40" Margin="0,2,0,8" />
+                          MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,8" />
 
                 <Grid Margin="0,0,0,8">
                   <Grid.ColumnDefinitions>
@@ -222,13 +222,13 @@
                     <TextBlock Text="Cỡ chữ (pt)" Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="{DynamicResource FontSize.Caption}" />
                     <TextBox Text="{Binding SelectedObject.FontSize, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
-                             MinHeight="40" Margin="0,2,0,0" />
+                             MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,0" />
                   </StackPanel>
                   <StackPanel Grid.Column="1" Margin="4,0,0,0">
                     <TextBlock Text="Góc xoay (độ)" Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="{DynamicResource FontSize.Caption}" />
                     <TextBox Text="{Binding SelectedObject.Angle, Converter={StaticResource PlainDecimalConverter}, ValidatesOnExceptions=True}"
-                             MinHeight="40" Margin="0,2,0,0" />
+                             MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,0" />
                   </StackPanel>
                 </Grid>
 
@@ -249,7 +249,7 @@
                                FontSize="{DynamicResource FontSize.Caption}" />
                     <ComboBox ItemsSource="{Binding HorizontalAlignments}"
                               SelectedItem="{Binding SelectedObject.HorzAlign}"
-                              MinHeight="40" Margin="0,2,0,0">
+                              MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,0">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding Converter={StaticResource HorzAlignConverter}}" />
@@ -262,7 +262,7 @@
                                FontSize="{DynamicResource FontSize.Caption}" />
                     <ComboBox ItemsSource="{Binding VerticalAlignments}"
                               SelectedItem="{Binding SelectedObject.VertAlign}"
-                              MinHeight="40" Margin="0,2,0,0">
+                              MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,2,0,0">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding Converter={StaticResource VertAlignConverter}}" />
@@ -290,7 +290,7 @@
                            Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
                 <ComboBox ItemsSource="{Binding BarcodeKinds}" DisplayMemberPath="Label" SelectedValuePath="Code"
                           SelectedValue="{Binding SelectedObject.BarcodeKind, Mode=TwoWay}"
-                          MinHeight="40" Margin="0,0,0,10" />
+                          MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,10" />
                 <TextBlock Text="Dữ liệu quét: mã hàng" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
                 <TextBlock Text="Barcode và QR đều chứa mã hàng, ví dụ B600022. Xem trước/In thử dùng dữ liệu mẫu; in tem hàng thật dùng mã của sản phẩm đó."

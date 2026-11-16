@@ -193,7 +193,7 @@
           <ComboBox ItemsSource="{Binding WorkerOptions}"
                     SelectedItem="{Binding SelectedWorker}"
                     Style="{StaticResource WhComboStyle}"
-                    MinHeight="36"
+                    MinHeight="{DynamicResource SingleLineFieldMinHeight}"
                     ToolTip="Chọn thợ để ghi công nợ khi còn nợ vàng.">
             <ComboBox.ItemTemplate>
               <DataTemplate>

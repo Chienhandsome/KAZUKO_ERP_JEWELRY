@@ -27,7 +27,7 @@
 
         <StackPanel Grid.Row="1" Margin="0,0,0,8">
             <TextBlock Text="Tên nhóm *" Style="{StaticResource DetailLabelStyle}" />
-            <TextBox Style="{DynamicResource RoundedTextBoxStyle}" MinHeight="40"
+            <TextBox Style="{DynamicResource RoundedTextBoxStyle}" MinHeight="{DynamicResource SingleLineFieldMinHeight}"
                      Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" MaxLength="150" />
         </StackPanel>
 

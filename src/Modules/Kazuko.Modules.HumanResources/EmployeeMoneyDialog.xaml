@@ -18,7 +18,7 @@
     <TextBlock Text="Cách xử lý"/><ComboBox ItemsSource="{Binding Handlings}" SelectedItem="{Binding SelectedHandling}" Margin="0,4,0,12"/>
     <TextBlock Text="Nội dung / lý do"/><TextBox Text="{Binding Description,UpdateSourceTrigger=PropertyChanged}" MaxLength="500" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" Margin="0,4,0,12"/>
    </StackPanel>
-   <TextBlock Text="Ngày phát sinh / thanh toán"/><DatePicker SelectedDate="{Binding EventDate}" MinHeight="40" Margin="0,4,0,12"/>
+   <TextBlock Text="Ngày phát sinh / thanh toán"/><DatePicker SelectedDate="{Binding EventDate}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,4,0,12"/>
    <StackPanel Visibility="{Binding ShowsAmount,Converter={StaticResource BoolVis}}">
     <TextBlock Text="Số tiền (VND)"/><TextBox Text="{Binding AmountText,UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsSalary}" Margin="0,4,0,12"
      xmlns:beh="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI" beh:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"/>

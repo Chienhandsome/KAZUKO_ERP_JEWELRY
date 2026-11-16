@@ -1,3 +1,4 @@
+using Kazuko.Core.HumanResources;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.DependencyInjection;
@@ -50,7 +51,8 @@ public sealed class ProductionModule : IKazukoModule
                 {
                     DataContext = new ProductionViewModel(
                         queries, application, attachments, printData, session, externalWorkerEditor, goldTypes,
-                        craftOrders, cashFunds, bankAccounts, customerEditor,GetRequiredService<IProductionFinishedReceiptPresenter>(services))
+                        craftOrders, cashFunds, bankAccounts, customerEditor, GetRequiredService<IProductionFinishedReceiptPresenter>(services),
+                        GetRequiredService<IEmployeeEditorService>(services))
                 };
             },
             AssetRoot + "SX.png",

@@ -22,8 +22,8 @@
                            FontSize="{DynamicResource FontSize.Body}"
                            Margin="0,0,0,8" />
                 <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         MinHeight="36"
-                         Padding="10,6"
+                         MinHeight="{DynamicResource SingleLineFieldMinHeight}"
+                         Padding="10,4"
                          FontSize="{DynamicResource FontSize.Body}" />
                 <TextBlock Text="{Binding StatusMessage}"
                            Foreground="{DynamicResource DangerBrush}"

@@ -1,3 +1,4 @@
+using Kazuko.Core.HumanResources;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
@@ -27,6 +28,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private readonly ProductionPrintService _printer = new();
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IExternalWorkerEditorService _externalWorkerEditor;
+    private readonly IEmployeeEditorService? _employeeEditor;
     private readonly long _branchId;
 
     private long? _id;
@@ -95,7 +97,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ICashFundRepository? cashFunds = null,
         IBankAccountRepository? bankAccounts = null,
         ICustomerEditorService? customerEditor = null,
-        string? preferredOrderSource = null)
+        string? preferredOrderSource = null, IEmployeeEditorService? employeeEditor = null)
     {
         _orderId = orderId;
         _queries = queries;
@@ -104,6 +106,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         _printData = printData;
         _sessionAccessor = sessionAccessor;
         _externalWorkerEditor = externalWorkerEditor;
+        _employeeEditor = employeeEditor;
         _goldTypes = goldTypes;
         _branchId = branchId;
         _craftOrders = craftOrders;
@@ -142,6 +145,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         AddEmployeeCommand = new RelayCommand(AddSelectedEmployee, () => IsDraft && SelectedEmployeeToAdd is not null && !IsBusy);
         RemoveEmployeeCommand = new RelayCommand<ProductionEmployeeOption>(RemoveEmployee, _ => IsDraft && !IsBusy);
         RefreshWorkersCommand = new AsyncRelayCommand(LoadExternalWorkersAsync);
+        CreateEmployeeCommand = new AsyncRelayCommand(CreateEmployeeAsync, () => _employeeEditor is not null && IsDraft && IsInHouse && !IsBusy);
         CreateExternalWorkerCommand = new RelayCommand(CreateExternalWorker, () => IsDraft && !IsBusy);
         RefreshStockMaterialsCommand = new AsyncRelayCommand(LoadStockMaterialsAsync, () => CanIssueMaterials && !IsBusy);
         AddIssueLineCommand = new RelayCommand(AddIssueLine, () => CanIssueMaterials && !IsBusy);
@@ -741,6 +745,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     public ICommand AddEmployeeCommand { get; }
     public ICommand RemoveEmployeeCommand { get; }
     public ICommand RefreshWorkersCommand { get; }
+    public ICommand CreateEmployeeCommand { get; }
     public ICommand CreateExternalWorkerCommand { get; }
     public ICommand RefreshStockMaterialsCommand { get; }
     public ICommand AddIssueLineCommand { get; }
@@ -1235,6 +1240,24 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ExternalWorkers.Clear();
         foreach (var item in items)
             ExternalWorkers.Add(new ProductionExternalWorkerItemViewModel(item));
+    }
+
+    private async Task CreateEmployeeAsync()
+    {
+        try
+        {
+            if (_employeeEditor?.ShowCreate() is not { } created)
+                return;
+
+            await LoadEmployeesAsync();
+            var worker = SelectableEmployees.FirstOrDefault(item => item.Id == created.Id);
+            if (worker is not null)
+                worker.IsSelected = true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
     }
 
     private void CreateExternalWorker()
@@ -2089,6 +2112,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ((AsyncRelayCommand)AddLineCommand).NotifyCanExecuteChanged();
         ((ParameterRelayCommand)EditLineCommand).NotifyCanExecuteChanged();
         ((RelayCommand)CreateCustomerCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)CreateEmployeeCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PostDepositCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RefreshStockMaterialsCommand).NotifyCanExecuteChanged();
         ((RelayCommand)AddMinimumMaterialsToIssueCommand).NotifyCanExecuteChanged();

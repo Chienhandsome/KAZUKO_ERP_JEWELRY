@@ -58,44 +58,44 @@
                     </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Mã NV" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding CodeDisplay, Mode=OneWay}" IsReadOnly="True" MinHeight="40" Margin="0,0,0,8"
-                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                    <TextBox Text="{Binding CodeDisplay, Mode=OneWay}" IsReadOnly="True" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8"
+                             Padding="10,4" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceAltBrush}"
                              Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
 
                     <TextBlock Text="Họ và tên *" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding FullName, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,2"
-                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                    <TextBox Text="{Binding FullName, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,2"
+                             Padding="10,4" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
                     <TextBlock Text="{Binding FullNameError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
                                FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                     <TextBlock Text="Giới tính" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <ComboBox ItemsSource="{Binding Genders}" SelectedItem="{Binding Gender}" MinHeight="40" Margin="0,0,0,8"
+                    <ComboBox ItemsSource="{Binding Genders}" SelectedItem="{Binding Gender}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8"
                               FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Ngày sinh" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
                     <DatePicker SelectedDate="{Binding DateOfBirth}" Margin="0,0,0,8" FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Mã chấm công (tự sinh, có thể sửa)" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding AttendanceCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
-                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                    <TextBox Text="{Binding AttendanceCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8"
+                             Padding="10,4" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Số điện thoại" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
-                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                    <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8"
+                             Padding="10,4" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
 
                     <TextBlock Text="Email" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,2"
-                             Padding="10,6" FontSize="{DynamicResource FontSize.Body}"
+                    <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,2"
+                             Padding="10,4" FontSize="{DynamicResource FontSize.Body}"
                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
                     <TextBlock Text="{Binding EmailError, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}"
@@ -112,11 +112,11 @@
                     <DatePicker SelectedDate="{Binding HireDate}" Margin="0,0,0,8" FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Loại hợp đồng" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <ComboBox ItemsSource="{Binding ContractTypes}" SelectedItem="{Binding ContractType}" MinHeight="40" Margin="0,0,0,8"
+                    <ComboBox ItemsSource="{Binding ContractTypes}" SelectedItem="{Binding ContractType}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8"
                               FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Trạng thái" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                    <ComboBox ItemsSource="{Binding StatusLabels}" SelectedItem="{Binding SelectedStatusLabel}" MinHeight="40" Margin="0,0,0,8"
+                    <ComboBox ItemsSource="{Binding StatusLabels}" SelectedItem="{Binding SelectedStatusLabel}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8"
                               FontSize="{DynamicResource FontSize.Body}" />
 
                     <TextBlock Text="Ảnh nhân viên" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
@@ -195,7 +195,7 @@
                             <TextBox Grid.Column="4" Text="{Binding ShiftSalaryText, UpdateSourceTrigger=LostFocus}"
                                      IsEnabled="{Binding IsSalaryPerShift}"
                                      behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                                     MinHeight="40" Padding="10,6"
+                                     MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="10,4"
                                      FontSize="{DynamicResource FontSize.Body}"
                                      Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                      BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
@@ -223,7 +223,7 @@
                             <TextBox Grid.Column="4" Text="{Binding MonthlySalaryText, UpdateSourceTrigger=LostFocus}"
                                      IsEnabled="{Binding IsMonthlySalaryEnabled}"
                                      behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                                     MinHeight="40" Padding="10,6"
+                                     MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="10,4"
                                      FontSize="{DynamicResource FontSize.Body}"
                                      Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                      BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"

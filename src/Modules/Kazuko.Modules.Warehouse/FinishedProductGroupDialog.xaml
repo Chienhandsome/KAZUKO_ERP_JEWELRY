@@ -43,13 +43,13 @@
       <TextBlock Text="Mã *" Style="{StaticResource WhFieldLabelStyle}" />
       <TextBox Text="{Binding Code, UpdateSourceTrigger=PropertyChanged}"
                Style="{StaticResource WhRoundedTextBoxStyle}"
-               MinHeight="36" Margin="0,0,0,10"
+               MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,10"
                CharacterCasing="Upper" />
 
       <TextBlock Text="Tên *" Style="{StaticResource WhFieldLabelStyle}" />
       <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                Style="{StaticResource WhRoundedTextBoxStyle}"
-               MinHeight="36" />
+               MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
     </StackPanel>
   </DockPanel>
 </Window>

@@ -17,7 +17,7 @@
             <Setter Property="Margin" Value="0,0,0,8" />
         </Style>
         <Style x:Key="Fld" TargetType="TextBox">
-            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             <Setter Property="Margin" Value="0,0,0,8" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="VerticalContentAlignment" Value="Center" />

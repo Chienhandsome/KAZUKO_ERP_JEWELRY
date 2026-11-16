@@ -30,12 +30,12 @@
             </Style>
             <Style x:Key="ProductionCompactFieldStyle" TargetType="TextBox" BasedOn="{StaticResource ProductionDialogFieldStyle}">
                 <Setter Property="Margin" Value="0" />
-                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
                 <Setter Property="Padding" Value="10,3" />
             </Style>
             <Style x:Key="ProductionCompactComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ProductionDialogComboStyle}">
                 <Setter Property="Margin" Value="0" />
-                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
                 <Setter Property="Padding" Value="10,3" />
             </Style>
             <Style x:Key="ProductionCompactDateStyle" TargetType="DatePicker" BasedOn="{StaticResource RoundedDatePickerStyle}">
@@ -213,32 +213,43 @@
                                        Style="{StaticResource ProductionCompactRowLabelStyle}"
                                        Visibility="{Binding IsInHouse, Converter={StaticResource BoolToVis}}"
                                        ToolTip="Thợ sản xuất" />
-                            <ComboBox x:Name="WorkerPicker" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4"
-                                      Style="{StaticResource ProductionWorkerPickerStyle}"
-                                      ItemsSource="{Binding SelectableEmployees}"
-                                      PreviewKeyDown="WorkerPicker_OnPreviewKeyDown"
-                                      IsEnabled="{Binding IsDraft}"
-                                      Margin="0,0,0,4"
-                                      Visibility="{Binding IsInHouse, Converter={StaticResource BoolToVis}}"
-                                      ToolTip="Bấm để chọn nhiều thợ">
-                                <ComboBox.ItemContainerStyle>
-                                    <Style TargetType="ComboBoxItem">
-                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                        <Setter Property="Background" Value="Transparent" />
-                                        <EventSetter Event="PreviewMouseLeftButtonDown" Handler="WorkerItem_OnPreviewMouseLeftButtonDown" />
-                                        <EventSetter Event="PreviewMouseLeftButtonUp" Handler="WorkerItem_OnPreviewMouseLeftButtonUp" />
-                                    </Style>
-                                </ComboBox.ItemContainerStyle>
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <CheckBox Content="{Binding DisplayText}"
-                                                  IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
-                                                  Focusable="False" Background="Transparent"
-                                                  VerticalContentAlignment="Center"
-                                                  Padding="4,2" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <Grid Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,0,0,4"
+                                  Visibility="{Binding IsInHouse, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="WorkerPicker"
+                                          Style="{StaticResource ProductionWorkerPickerStyle}"
+                                          ItemsSource="{Binding SelectableEmployees}"
+                                          PreviewKeyDown="WorkerPicker_OnPreviewKeyDown"
+                                          IsEnabled="{Binding IsDraft}"
+                                          ToolTip="Bấm để chọn nhiều thợ">
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="WorkerItem_OnPreviewMouseLeftButtonDown" />
+                                            <EventSetter Event="PreviewMouseLeftButtonUp" Handler="WorkerItem_OnPreviewMouseLeftButtonUp" />
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Content="{Binding DisplayText}"
+                                                      IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                      Focusable="False" Background="Transparent"
+                                                      VerticalContentAlignment="Center"
+                                                      Padding="4,2" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button Grid.Column="1" Content="Thêm thợ SX"
+                                        access:PermissionAccess.Rule="CAT_EMPLOYEES:Add"
+                                        Command="{Binding CreateEmployeeCommand}"
+                                        Style="{StaticResource FormSecondaryButtonStyle}"
+                                        MinHeight="{DynamicResource SingleLineFieldMinHeight}"
+                                        Padding="12,2" Margin="8,0,0,0" />
+                            </Grid>
 
                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Xưởng"
                                        Style="{StaticResource ProductionCompactRowLabelStyle}"

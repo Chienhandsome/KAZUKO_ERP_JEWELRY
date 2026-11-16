@@ -17,7 +17,7 @@
       <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
     <Style x:Key="RepayFieldStyle" TargetType="TextBox">
-      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
       <Setter Property="Padding" Value="10,4" />
       <Setter Property="Margin" Value="0,0,0,10" />
       <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />

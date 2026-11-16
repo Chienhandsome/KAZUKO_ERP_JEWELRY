@@ -3,7 +3,7 @@
     <Style x:Key="DatePickerCalendarButtonStyle" TargetType="Button">
         <Setter Property="MinWidth" Value="28" />
         <Setter Property="MinHeight" Value="28" />
-        <Setter Property="Padding" Value="5" />
+        <Setter Property="Padding" Value="4" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -31,9 +31,9 @@
     </Style>
 
     <Style x:Key="RoundedDatePickerStyle" TargetType="DatePicker">
-        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
         <Setter Property="MinWidth" Value="170" />
-        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="Padding" Value="10,1" />
         <Setter Property="Language" Value="vi-VN" />
         <Setter Property="SelectedDateFormat" Value="Short" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />

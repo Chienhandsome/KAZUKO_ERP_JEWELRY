@@ -31,12 +31,12 @@
           <StackPanel>
             <TextBlock Text="Đơn bán / đơn đặt" Foreground="{DynamicResource TextSecondaryBrush}" />
             <ComboBox ItemsSource="{Binding Orders}" SelectedItem="{Binding SelectedOrder}"
-                      DisplayMemberPath="DisplayName" Height="40" />
+                      DisplayMemberPath="DisplayName" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
           </StackPanel>
           <StackPanel Grid.Column="2">
             <TextBlock Text="Kho/vị trí xuất" Foreground="{DynamicResource TextSecondaryBrush}" />
             <ComboBox ItemsSource="{Binding Locations}" SelectedItem="{Binding SourceLocation}"
-                      DisplayMemberPath="DisplayName" Height="40" />
+                      DisplayMemberPath="DisplayName" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
           </StackPanel>
         </Grid>
 
@@ -48,11 +48,11 @@
           </Grid.ColumnDefinitions>
           <StackPanel>
             <TextBlock Text="Người giao" Foreground="{DynamicResource TextSecondaryBrush}" />
-            <TextBox Text="{Binding DeliveredByName, UpdateSourceTrigger=PropertyChanged}" Height="40" />
+            <TextBox Text="{Binding DeliveredByName, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
           </StackPanel>
           <StackPanel Grid.Column="2">
             <TextBlock Text="Người nhận" Foreground="{DynamicResource TextSecondaryBrush}" />
-            <TextBox Text="{Binding ReceivedByName, UpdateSourceTrigger=PropertyChanged}" Height="40" />
+            <TextBox Text="{Binding ReceivedByName, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
           </StackPanel>
         </Grid>
 
@@ -65,7 +65,7 @@
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <ComboBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}"
-                        DisplayMemberPath="Code" Height="40" ToolTip="Chọn serial thuộc đơn" />
+                        DisplayMemberPath="Code" MinHeight="{DynamicResource SingleLineFieldMinHeight}" ToolTip="Chọn serial thuộc đơn" />
               <Button Grid.Column="2" Content="Thêm sản phẩm" Command="{Binding AddProductCommand}"
                       Style="{DynamicResource PrimaryButtonStyle}" MinHeight="40" />
             </Grid>

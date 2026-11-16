@@ -4,8 +4,8 @@
         <ResourceDictionary Source="/Kazuko.Shared.UI;component/Themes/DatePicker.xaml" />
     </ResourceDictionary.MergedDictionaries>
         <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
+            <Setter Property="Padding" Value="12,4" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -22,7 +22,6 @@
                                 CornerRadius="8"
                                 SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost"
-                                          Margin="{TemplateBinding Padding}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -254,7 +253,7 @@
             <Setter Property="Margin" Value="0,0,0,8" />
         </Style>
         <Style x:Key="ReportNumberStyle" TargetType="TextBox" BasedOn="{StaticResource RoundedTextBoxStyle}">
-            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 

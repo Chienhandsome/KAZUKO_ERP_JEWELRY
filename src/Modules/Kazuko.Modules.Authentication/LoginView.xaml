@@ -1,9 +1,11 @@
 <UserControl x:Class="Kazuko.Modules.Authentication.LoginView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:system="clr-namespace:System;assembly=System.Runtime"
              xmlns:local="clr-namespace:Kazuko.Modules.Authentication">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <system:Double x:Key="SingleLineFieldMinHeight">44</system:Double>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Background="{DynamicResource AppBackgroundBrush}">
@@ -98,15 +100,15 @@
 
                     <StackPanel Grid.Row="3" Margin="0,2,0,0">
                         <TextBlock Text="Mật khẩu" Style="{StaticResource FormLabelStyle}" />
-                        <Grid MinHeight="44">
+                        <Grid>
                             <PasswordBox x:Name="PasswordInput"
                                          Style="{StaticResource FormPasswordStyle}"
-                                         Padding="12,6,60,6"
+                                         Padding="12,4,60,4"
                                          PasswordChanged="PasswordBox_OnPasswordChanged"
                                          IsEnabled="{Binding IsFormEnabled}" />
                             <TextBox x:Name="VisiblePasswordInput"
                                      Style="{StaticResource FormTextBoxStyle}"
-                                     Padding="12,6,60,6"
+                                     Padding="12,4,60,4"
                                      Visibility="Collapsed"
                                      TextChanged="VisiblePassword_OnTextChanged"
                                      IsEnabled="{Binding IsFormEnabled}" />

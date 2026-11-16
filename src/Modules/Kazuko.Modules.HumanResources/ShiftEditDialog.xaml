@@ -32,8 +32,8 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0">
             <StackPanel IsEnabled="{Binding CanEdit}">
                 <TextBlock Text="Tên ca *" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,10"
-                         Padding="10,6" FontSize="{DynamicResource FontSize.Body}" MaxLength="50"
+                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,10"
+                         Padding="10,4" FontSize="{DynamicResource FontSize.Body}" MaxLength="50"
                          Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
 
@@ -45,15 +45,15 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Giờ bắt đầu (HH:mm)" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                        <TextBox Text="{Binding StartTimeText, UpdateSourceTrigger=PropertyChanged}" MinHeight="40"
-                                 Padding="10,6" FontSize="{DynamicResource FontSize.Body}" MaxLength="5"
+                        <TextBox Text="{Binding StartTimeText, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}"
+                                 Padding="10,4" FontSize="{DynamicResource FontSize.Body}" MaxLength="5"
                                  Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
                     </StackPanel>
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Giờ kết thúc (HH:mm)" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSize.Caption}" />
-                        <TextBox Text="{Binding EndTimeText, UpdateSourceTrigger=PropertyChanged}" MinHeight="40"
-                                 Padding="10,6" FontSize="{DynamicResource FontSize.Body}" MaxLength="5"
+                        <TextBox Text="{Binding EndTimeText, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}"
+                                 Padding="10,4" FontSize="{DynamicResource FontSize.Body}" MaxLength="5"
                                  Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
                     </StackPanel>

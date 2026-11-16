@@ -26,11 +26,11 @@
             </Style>
             <Style x:Key="LineCompactFieldStyle" TargetType="TextBox" BasedOn="{StaticResource ProductionDialogFieldStyle}">
                 <Setter Property="Margin" Value="0,0,0,6" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             </Style>
             <Style x:Key="LineCompactComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ProductionDialogComboStyle}">
                 <Setter Property="Margin" Value="0,0,0,6" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             </Style>
         </ResourceDictionary>
     </Window.Resources>

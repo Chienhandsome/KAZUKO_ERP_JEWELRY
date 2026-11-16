@@ -47,7 +47,8 @@ public sealed class DatePickerStyleTests
                 host.Show();
                 Layout();
                 Assert.Equal("vi-VN", field.Language.IetfLanguageTag, ignoreCase: true);
-                Assert.True(field.ActualHeight >= 40);
+                Assert.Equal(32d, field.ActualHeight, precision: 1);
+                Assert.Equal(field.ActualHeight, empty.ActualHeight, precision: 1);
                 var editor = Assert.IsType<DatePickerTextBox>(field.Template.FindName("PART_TextBox", field));
                 Assert.Equal("19/10/2026", editor.Text);
                 Assert.True(editor.ExtentWidth <= editor.ViewportWidth + 1, "The full date must fit at the largest font scale.");

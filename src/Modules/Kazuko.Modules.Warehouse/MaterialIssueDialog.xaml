@@ -23,9 +23,9 @@
 
         <TextBlock Text="Kho xuất" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
         <ComboBox ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}"
-                  DisplayMemberPath="DisplayName" Height="40" />
+                  DisplayMemberPath="DisplayName" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
         <TextBlock Text="Người nhận" Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}" />
-        <TextBox Text="{Binding ReceivedByName, UpdateSourceTrigger=PropertyChanged}" Height="40" />
+        <TextBox Text="{Binding ReceivedByName, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
 
         <Border Style="{DynamicResource CardBorderStyle}" Padding="12" Margin="0,12,0,0">
           <StackPanel>
@@ -40,10 +40,10 @@
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding SelectedMaterial}"
-                        DisplayMemberPath="DisplayName" Height="40" />
+                        DisplayMemberPath="DisplayName" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
               <TextBox Grid.Column="2"
                        Text="{Binding LineQuantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource PlainDecimalConverter}, ConverterParameter=PositiveQuantity}"
-                       Height="40"
+                       MinHeight="{DynamicResource SingleLineFieldMinHeight}"
                        ToolTip="Số lượng/trọng lượng: dùng 0.023 hoặc 0,023; không ngăn cách hàng nghìn." />
               <Button Grid.Column="4" Content="Thêm dòng" Command="{Binding AddLineCommand}"
                       Style="{DynamicResource PrimaryButtonStyle}" MinHeight="40" />

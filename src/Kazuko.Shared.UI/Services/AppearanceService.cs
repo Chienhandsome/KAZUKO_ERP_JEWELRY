@@ -62,7 +62,16 @@ public sealed class AppearanceService : IAppearanceService
 
     private static void ApplyFontScale(double scale)
     {
+        var resources = Application.Current.Resources;
         foreach (var item in BaseFontSizes)
-            Application.Current.Resources[item.Key] = item.Value * scale;
+            resources[item.Key] = item.Value * scale;
+
+        const string fieldHeightKey = "SingleLineFieldMinHeight";
+        var fieldResources = resources.MergedDictionaries.FirstOrDefault(dictionary => dictionary.Contains(fieldHeightKey));
+        if (fieldResources?[fieldHeightKey] is double fieldHeight)
+        {
+            var extraLineHeight = BaseFontSizes["FontSize.Body"] * Math.Max(0, scale - 1) * 1.25;
+            resources[fieldHeightKey] = Math.Ceiling(fieldHeight + extraLineHeight);
+        }
     }
 }

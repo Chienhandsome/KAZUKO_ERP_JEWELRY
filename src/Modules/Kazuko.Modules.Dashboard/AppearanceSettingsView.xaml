@@ -18,12 +18,12 @@
                 <TextBlock Text="Chủ đề" Margin="0,0,0,6" FontWeight="SemiBold" />
                 <ComboBox ItemsSource="{Binding Themes}"
                           SelectedItem="{Binding SelectedTheme}"
-                          DisplayMemberPath="Label" MinHeight="42" Padding="10,6" />
+                          DisplayMemberPath="Label" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="10,4" />
 
                 <TextBlock Text="Cỡ chữ" Margin="0,20,0,6" FontWeight="SemiBold" />
                 <ComboBox ItemsSource="{Binding FontScales}"
                           SelectedItem="{Binding SelectedFontScale}"
-                          DisplayMemberPath="Label" MinHeight="42" Padding="10,6" />
+                          DisplayMemberPath="Label" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="10,4" />
 
                 <TextBlock Text="Thay đổi được áp dụng và lưu tự động."
                            Margin="0,22,0,0"

@@ -11,7 +11,7 @@
         Background="{DynamicResource AppBackgroundBrush}">
     <Window.Resources>
         <Style x:Key="HistComboStyle" TargetType="ComboBox">
-            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             <Setter Property="MinWidth" Value="220" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />

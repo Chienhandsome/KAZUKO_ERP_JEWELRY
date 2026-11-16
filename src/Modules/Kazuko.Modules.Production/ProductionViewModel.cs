@@ -1,3 +1,4 @@
+using Kazuko.Core.HumanResources;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
@@ -26,6 +27,7 @@ public sealed class ProductionViewModel : ObservableObject
     private readonly IProductionPrintDataService _printData;
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IExternalWorkerEditorService _externalWorkerEditor;
+    private readonly IEmployeeEditorService? _employeeEditor;
     private readonly IGoldTypeCatalogService _goldTypes;
     private readonly ICraftOrderApplicationService _craftOrders;
     private readonly ICashFundRepository _cashFunds;
@@ -63,7 +65,8 @@ public sealed class ProductionViewModel : ObservableObject
         ICraftOrderApplicationService craftOrders,
         ICashFundRepository cashFunds,
         IBankAccountRepository bankAccounts,
-        ICustomerEditorService customerEditor, IProductionFinishedReceiptPresenter? receiptPresenter=null)
+        ICustomerEditorService customerEditor, IProductionFinishedReceiptPresenter? receiptPresenter=null,
+        IEmployeeEditorService? employeeEditor = null)
     {
         _queries = queries;_receiptPresenter=receiptPresenter;
         _application = application;
@@ -71,6 +74,7 @@ public sealed class ProductionViewModel : ObservableObject
         _printData = printData;
         _sessionAccessor = sessionAccessor;
         _externalWorkerEditor = externalWorkerEditor;
+        _employeeEditor = employeeEditor;
         _goldTypes = goldTypes;
         _craftOrders = craftOrders;
         _cashFunds = cashFunds;
@@ -501,7 +505,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _craftOrders,
                     _cashFunds,
                     _bankAccounts,
-                    _customerEditor)
+                    _customerEditor, employeeEditor: _employeeEditor)
             };
             dialog.ShowDialog();
             await LoadAsync();
@@ -536,7 +540,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _craftOrders,
                     _cashFunds,
                     _bankAccounts,
-                    _customerEditor)
+                    _customerEditor, employeeEditor: _employeeEditor)
             };
             dialog.ShowDialog();
             await LoadAsync();

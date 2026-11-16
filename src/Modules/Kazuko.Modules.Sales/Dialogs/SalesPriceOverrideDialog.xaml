@@ -56,17 +56,17 @@
             <TextBlock Text="Giá vàng / chỉ" Foreground="{DynamicResource TextSecondaryBrush}" />
             <TextBox Text="{Binding GoldPrice, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
                      behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                     MinHeight="36" Margin="0,0,0,8" />
+                     MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8" />
             <TextBlock Text="Tiền công" Foreground="{DynamicResource TextSecondaryBrush}" />
             <TextBox Text="{Binding LaborAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
                      behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                     MinHeight="36" Margin="0,0,0,8" />
+                     MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8" />
             <TextBlock Text="Tiền đá" Foreground="{DynamicResource TextSecondaryBrush}" />
             <TextBox Text="{Binding StoneAmount, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource ViMoneyConverter}}"
                      behaviors:NumericThousandSeparatorBehavior.EnableLiveThousandSeparator="True"
-                     MinHeight="36" Margin="0,0,0,8" />
+                     MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8" />
             <TextBlock Text="Lý do điều chỉnh (tuỳ chọn)" Foreground="{DynamicResource TextSecondaryBrush}" />
-            <TextBox Text="{Binding OverrideReason, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" Margin="0,0,0,8" />
+            <TextBox Text="{Binding OverrideReason, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,8" />
             <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
         </StackPanel>
     </DockPanel>

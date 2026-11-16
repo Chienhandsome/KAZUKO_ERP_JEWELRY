@@ -34,7 +34,7 @@
         <conv:BrushKeyToBrushConverter x:Key="BrushKeyToBrush" />
 
         <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
-            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
@@ -52,7 +52,6 @@
                                 CornerRadius="8"
                                 SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost"
-                                          Margin="{TemplateBinding Padding}"
                                           VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -76,12 +75,12 @@
             <Setter Property="IsReadOnly" Value="True" />
             <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
             <Setter Property="Margin" Value="0,0,0,8" />
-            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             <Setter Property="Padding" Value="10,4" />
         </Style>
 
         <Style x:Key="FilterComboStyle" TargetType="ComboBox">
-            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
             <Setter Property="Margin" Value="0,0,8,0" />
             <Setter Property="Padding" Value="8,2" />
             <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />

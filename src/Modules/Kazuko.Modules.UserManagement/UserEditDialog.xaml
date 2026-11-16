@@ -37,7 +37,7 @@
           <ControlTemplate TargetType="TextBox">
             <Border x:Name="FieldBorder" Background="{TemplateBinding Background}"
                     BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
-              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocusWithin" Value="True">
@@ -54,7 +54,7 @@
           <ControlTemplate TargetType="PasswordBox">
             <Border x:Name="FieldBorder" Background="{TemplateBinding Background}"
                     BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
-              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+              <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocusWithin" Value="True">

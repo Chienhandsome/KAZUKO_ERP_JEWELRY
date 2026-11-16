@@ -44,7 +44,7 @@
                                 Command="{Binding SearchCommand}" MinHeight="36" MinWidth="72" Margin="8,0,0,0" />
                         <CheckBox DockPanel.Dock="Right" Content="Chỉ đang hoạt động"
                                   IsChecked="{Binding ActiveOnly}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" MinHeight="36"
+                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}"
                                  VerticalContentAlignment="Center" />
                     </DockPanel>
                     <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="warehouse.ExternalWorkerDialog.Workers" ItemsSource="{Binding Workers}" SelectedItem="{Binding SelectedWorker}"
@@ -65,17 +65,17 @@
                             <TextBlock Text="Chi tiết thợ" FontSize="{DynamicResource FontSize.Subtitle}"
                                        FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8" />
                             <TextBlock Text="Mã *" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="36" />
+                            <TextBox Text="{Binding EditCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Tên *" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="36" />
+                            <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Điện thoại" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="36" />
+                            <TextBox Text="{Binding EditPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Địa chỉ" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="36" />
+                            <TextBox Text="{Binding EditAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="MST / CCCD" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditIdTaxNumber, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="36" />
+                            <TextBox Text="{Binding EditIdTaxNumber, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Thông tin thanh toán" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditPaymentInfo, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="36" />
+                            <TextBox Text="{Binding EditPaymentInfo, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Ghi chú" Foreground="{DynamicResource TextSecondaryBrush}" />
                             <TextBox Text="{Binding EditNotes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                                      Height="64" AcceptsReturn="True" TextWrapping="Wrap" />

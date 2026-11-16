@@ -37,7 +37,7 @@
 
       <TextBlock Text="Mẫu tem" Style="{StaticResource WhFieldLabelStyle}" />
       <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
-                MinHeight="40" Margin="0,4,0,12" />
+                MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,4,0,12" />
       <Grid Margin="0,0,0,12">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
@@ -54,10 +54,10 @@
         <ComboBox Grid.Row="1" Grid.Column="0"
                   ItemsSource="{Binding Printers}"
                   SelectedItem="{Binding SelectedPrinter}"
-                  MinHeight="40" Margin="0,4,0,0" />
+                  MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,4,0,0" />
         <TextBox Grid.Row="1" Grid.Column="2"
                  Text="{Binding VerticalOffsetText, UpdateSourceTrigger=PropertyChanged}"
-                 MinHeight="40" Margin="0,4,0,0"
+                 MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,4,0,0"
                  ToolTip="Số dương đẩy nội dung xuống, số âm kéo lên. Từ -20 đến 20." />
         <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                    Text="Khổ tem 86 × 12 mm, lề 0. Số dương đẩy nội dung xuống, số âm kéo lên. Nhớ riêng theo từng máy in."
@@ -73,7 +73,7 @@
                 ToolTip="Bỏ chọn: luôn ghi chỉ. Chọn: 0,1 chỉ → 1 phân; 0,01 chỉ → 1 ly. Gram vẫn hiện trên tem." />
       <TextBlock Text="Số bản in" Style="{StaticResource WhFieldLabelStyle}" />
       <TextBox Text="{Binding CopiesText, UpdateSourceTrigger=PropertyChanged}"
-               MinHeight="40" Margin="0,4,0,0" />
+               MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,4,0,0" />
 
       <TextBlock Text="{Binding ErrorMessage}"
                  Foreground="{DynamicResource DangerBrush}"

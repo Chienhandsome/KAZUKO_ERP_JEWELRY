@@ -22,7 +22,7 @@
       <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
       <Style x:Key="DialogFieldStyle" TargetType="TextBox" BasedOn="{StaticResource FinanceRoundedTextBoxStyle}">
-        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
         <Setter Property="Margin" Value="0,0,0,12" />
       </Style>
     </ResourceDictionary>
@@ -104,12 +104,12 @@
             <Button DockPanel.Dock="Right" Content="Quản lý loại" Command="{Binding ManageCategoriesCommand}"
                     Style="{StaticResource FinanceOutlineButtonStyle}" Margin="8,0,0,0" />
             <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" DisplayMemberPath="Name"
-                      Style="{StaticResource FinanceFilterComboStyle}" MinHeight="40" AutomationProperties.Name="Loại thu/chi" />
+                      Style="{StaticResource FinanceFilterComboStyle}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" AutomationProperties.Name="Loại thu/chi" />
           </DockPanel>
         </StackPanel>
 
         <TextBlock Text="Ngày" Style="{StaticResource FinanceFieldLabelStyle}" />
-        <DatePicker SelectedDate="{Binding VoucherDate}" MinHeight="40" Margin="0,0,0,12"
+        <DatePicker SelectedDate="{Binding VoucherDate}" MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,12"
                     VerticalContentAlignment="Center" />
 
         <!-- 3 ô phương thức thanh toán luôn hiển thị -->
@@ -152,12 +152,12 @@
         <ComboBox ItemsSource="{Binding Funds}" SelectedItem="{Binding SelectedFund}"
                   DisplayMemberPath="Name"
                   Style="{StaticResource FinanceFilterComboStyle}"
-                  MinHeight="40" Margin="0,0,0,12" />
+                  MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,12" />
 
         <TextBlock Text="Tài khoản ngân hàng (cho CK/thẻ)" Style="{StaticResource FinanceFieldLabelStyle}" />
         <ComboBox ItemsSource="{Binding Banks}" SelectedItem="{Binding SelectedBank}"
                   Style="{StaticResource FinanceFilterComboStyle}"
-                  MinHeight="40" Margin="0,0,0,12">
+                  MinHeight="{DynamicResource SingleLineFieldMinHeight}" Margin="0,0,0,12">
           <ComboBox.ItemTemplate>
             <DataTemplate>
               <TextBlock>

@@ -44,7 +44,7 @@
       <TextBlock Text="KH (ký hiệu) *" Style="{StaticResource WhFieldLabelStyle}" />
       <TextBox Text="{Binding Code, UpdateSourceTrigger=PropertyChanged}"
                Style="{StaticResource WhRoundedTextBoxStyle}"
-               MinHeight="40" MaxLength="40" />
+               MinHeight="{DynamicResource SingleLineFieldMinHeight}" MaxLength="40" />
     </StackPanel>
   </DockPanel>
 </Window>

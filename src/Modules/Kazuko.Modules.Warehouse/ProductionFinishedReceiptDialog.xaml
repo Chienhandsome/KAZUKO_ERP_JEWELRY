@@ -36,19 +36,19 @@
 
       <Style x:Key="ReceiptFieldStyle" TargetType="TextBox"
              BasedOn="{StaticResource WhRoundedTextBoxStyle}">
-        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
         <Setter Property="Padding" Value="10,4" />
       </Style>
 
       <Style x:Key="ReceiptReadonlyFieldStyle" TargetType="TextBox"
              BasedOn="{StaticResource WhReadonlyFieldStyle}">
-        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
         <Setter Property="Padding" Value="10,4" />
       </Style>
 
       <Style x:Key="ReceiptComboStyle" TargetType="ComboBox"
              BasedOn="{StaticResource WhComboStyle}">
-        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="MinHeight" Value="{DynamicResource SingleLineFieldMinHeight}" />
       </Style>
 
       <Style x:Key="ReceiptGridHeaderStyle" TargetType="DataGridColumnHeader"
