@@ -2,6 +2,7 @@ using Kazuko.Core.Authentication;
 using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.Finance;
 
@@ -14,8 +15,7 @@ public sealed class FinanceModule : IKazukoModule
 
     public void RegisterServices(IServiceRegistry services)
     {
-        // Dialog tất toán công nợ dùng chung: mở từ module Công nợ nhưng
-        // implementation WPF (CashVoucherDialog) thuộc module Tài chính.
+        // Dialog tất toán công nợ dùng chung cho các tab Tài chính.
         services.AddSingleton<IDebtSettlementDialogService>(
             new FinanceDebtSettlementDialogService(
                 services.GetRequiredService<IFinanceVoucherService>(),
@@ -34,21 +34,40 @@ public sealed class FinanceModule : IKazukoModule
         var funds = GetRequiredService<ICashFundRepository>(services);
         var banks = GetRequiredService<IBankAccountRepository>(services);
 
+        var authorization = GetRequiredService<IAuthorizationService>(services);
+        var debtTabs = GetRequiredService<IDebtTabFactory>(services);
+        var categories = GetRequiredService<IVoucherCategoryService>(services);
+
+        FinanceView CreateView(bool openDebt) => new(debtTabs, authorization.Current, openDebt)
+        {
+            DataContext = new FinanceViewModel(dashboard, vouchers, payables, receivables, session,
+                funds, banks, authorization, categories)
+        };
+
         navigation.Register(new NavigationItem(
             "FINANCE",
             "TÀI CHÍNH",
             string.Empty,
             55,
             null,
-            () => new FinanceView
-            {
-                DataContext = new FinanceViewModel(dashboard, vouchers, payables, receivables, session, funds, banks,
-                    GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services),
-                    GetRequiredService<IVoucherCategoryService>(services))
-            },
+            () => CreateView(openDebt: false),
             AssetRoot + "TC.png",
-            "Thu chi tiền, phiếu thu/chi\nvà tổng quan tài chính",
+            "Quản lý thu chi, quỹ tiền\nvà công nợ",
             ShowInSidebar: true,
+            ShowOnHome: true,
+            IsPlaceholder: false));
+
+        // Giữ lối tắt Trang chủ đã lưu, mở thẳng tab công nợ trong Tài chính.
+        navigation.Register(new NavigationItem(
+            "DEBT",
+            "CÔNG NỢ",
+            string.Empty,
+            50,
+            null,
+            () => CreateView(openDebt: true),
+            AssetRoot + "TC.png",
+            "Theo dõi công nợ tiền và vàng\ntrong Tài chính",
+            ShowInSidebar: false,
             ShowOnHome: true,
             IsPlaceholder: false));
     }

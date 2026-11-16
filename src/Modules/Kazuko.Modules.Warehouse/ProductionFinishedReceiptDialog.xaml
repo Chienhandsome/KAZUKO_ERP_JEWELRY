@@ -15,6 +15,7 @@
     <KeyBinding Key="F2" Command="{Binding EditCommand}" />
     <KeyBinding Key="Delete" Command="{Binding DeleteCommand}" />
     <KeyBinding Key="P" Modifiers="Control" Command="{Binding PrintReceiptCommand}" />
+    <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
   </Window.InputBindings>
   <Window.Resources>
     <ResourceDictionary>
@@ -82,7 +83,7 @@
                TextWrapping="Wrap"
                Margin="0,0,0,8"
                Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
-  <Expander Header="Tiến độ từng mẫu: đơn đặt / SX / nhập" IsExpanded="True" Margin="0,6,0,6">
+  <Expander Header="Tiến độ từng mẫu: đơn đặt / SX / nhập" IsExpanded="False" Margin="0,6,0,6">
     <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="warehouse.ProductionFinishedReceiptDialog.LineProgress" ItemsSource="{Binding LineProgress}" Style="{StaticResource WhEditableDataGridStyle}" IsReadOnly="True" AutoGenerateColumns="False" MaxHeight="180" CanUserAddRows="False">
       <DataGrid.Columns>
         <DataGridTextColumn grid:DataGridColumnLayout.Key="Model" Header="Mẫu" Binding="{Binding Model,Mode=OneWay}" Width="320">
@@ -117,8 +118,10 @@
       <!-- Cột 1: định danh / phân loại -->
       <StackPanel Grid.Column="0">
   <TextBlock Text="{Binding ReceiptState}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,6"/>
-  <TextBlock Text="Dòng mẫu LSX (nhập đủ từng mẫu):" Style="{StaticResource ReceiptFormLabelStyle}"/>
-  <ComboBox ItemsSource="{Binding OrderLines}" SelectedItem="{Binding SelectedLine}" DisplayMemberPath="ModelName" Style="{StaticResource ReceiptComboStyle}"/>
+  <StackPanel Visibility="{Binding ShowLineSelector,Converter={StaticResource BoolToVis}}">
+   <TextBlock Text="Dòng mẫu LSX (nhập đủ từng mẫu):" Style="{StaticResource ReceiptFormLabelStyle}"/>
+   <ComboBox ItemsSource="{Binding OrderLines}" SelectedItem="{Binding SelectedLine}" DisplayMemberPath="ModelName" Style="{StaticResource ReceiptComboStyle}"/>
+  </StackPanel>
 
   <TextBlock Text="Ghi chú phiếu:" Style="{StaticResource ReceiptFormLabelStyle}"/>
   <TextBox Text="{Binding ReceiptNotes,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ReceiptFieldStyle}"/>
@@ -432,23 +435,19 @@
                 Command="{Binding DeleteCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="130" MinHeight="40" Margin="0,0,8,0" />
-        <Button access:PermissionAccess.Rule="INV_FINISHED_RECEIPT:Add" Content="Ghi sổ nhập kho"
-                Command="{Binding SaveCommand}"
-                Style="{StaticResource WhPrimaryButtonStyle}"
-                MinWidth="140" MinHeight="40" Margin="0,0,8,0" />
         <Button Content="Bỏ món đang nhập"
+                Visibility="{Binding ShowCancelEditor,Converter={StaticResource BoolToVis}}"
                 Command="{Binding CancelEditCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
                 MinWidth="80" MinHeight="40" Margin="0,0,8,0" />
         <Button Content="Hủy"
                 Command="{Binding CancelCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"
-                MinWidth="80" MinHeight="40"
-                IsCancel="True" />
+                MinWidth="80" MinHeight="40" />
       </WrapPanel>
       <WrapPanel>
-        <Button Content="Kiểm tra kết quả" Command="{Binding CheckResultCommand}" Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="8,0,0,0"/>
-        <Button access:PermissionAccess.Rule="CRAFT_ORDER" Content="Mở đơn / Giao hàng" Command="{Binding OpenDeliveryCommand}" Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="8,0,0,0"/>
+        <Button Content="Kiểm tra kết quả" Command="{Binding CheckResultCommand}" Visibility="{Binding ShowResultCheck,Converter={StaticResource BoolToVis}}" Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="8,0,0,0"/>
+        <Button access:PermissionAccess.Rule="CRAFT_ORDER" Content="Mở đơn / Giao hàng" Command="{Binding OpenDeliveryCommand}" Visibility="{Binding ShowDelivery,Converter={StaticResource BoolToVis}}" Style="{StaticResource WhOutlineButtonStyle}" MinHeight="40" Margin="8,0,0,0"/>
         <Button Content="In tem đang chọn"
                 Command="{Binding PrintSelectedLabelsCommand}"
                 Style="{StaticResource WhOutlineButtonStyle}"

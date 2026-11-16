@@ -15,13 +15,16 @@ if(args.Length!=2||args[0] is not ("start" or "verify")||!Path.GetFileName(args[
 var testPath=Path.GetFullPath(args[1]);
 var root=Path.GetFullPath("artifacts/price-board-host-check");Directory.CreateDirectory(root);
 Environment.SetEnvironmentVariable("KAZUKO_TV_SETTINGS_ROOT",Path.Combine(root,"settings"));
-FirebirdDatabase.ApplyProfileForCurrentProcess(ConnectionProfileStore.Load(testPath) with {DatabasePath=testPath,UseEmbedded=false});
+// Match the runtime shipped with ERP, including the shared embedded engine mode.
+var app=Path.GetFullPath("src/Kazuko.App/bin/Debug/net8.0-windows/KAZUKO_ERP_JEWELRY.exe");
+Environment.SetEnvironmentVariable("KAZUKO_FIREBIRD_HOME",Path.Combine(Path.GetDirectoryName(app)!,"firebird"));
+var embedded = Environment.GetEnvironmentVariable("KAZUKO_HOST_CHECK_EMBEDDED") == "1";
+FirebirdDatabase.ApplyProfileForCurrentProcess(ConnectionProfileStore.Load(testPath) with {DatabasePath=testPath,UseEmbedded=embedded});
 await using var db=FirebirdDatabase.CreateConnection();await db.OpenAsync();
 var user=await db.QueryFirstAsync<long>("SELECT U.ID FROM USERS U JOIN ROLES R ON R.ID=U.ROLE_ID WHERE U.IS_ACTIVE=TRUE AND R.CODE='ADMIN' ORDER BY U.ID");
 var branch=await db.QueryFirstAsync<long>("SELECT B.ID FROM BRANCHES B JOIN COMPANIES C ON C.ID=B.COMPANY_ID WHERE C.CODE='KAZUKO' ORDER BY B.ID");
 var company=await db.QuerySingleAsync<long>("SELECT COMPANY_ID FROM BRANCHES WHERE ID=@branch",new{branch});
 var session=new AuthenticatedSession(user,"host-test","Host Test","ADMIN",branch,"TEST","Test");
-var app=Path.GetFullPath("src/Kazuko.App/bin/Debug/net8.0-windows/KAZUKO_ERP_JEWELRY.exe");
 var factory=new PriceBoardTvHostClientFactory(app,Path.ChangeExtension(app,".dll"));
 var client=await factory.ConnectAsync(session,company);
 var status=await client.StatusAsync();

@@ -35,7 +35,10 @@ public sealed class FinishedReceiptLayoutTests
                     var window=new ProductionFinishedReceiptDialog(vm){Width=1366,Height=820,WindowState=WindowState.Normal};
                     var root=(FrameworkElement)window.Content;((Panel)root).Background=(Brush)app.Resources["AppBackgroundBrush"];
                     root.Measure(new Size(1334,788));root.Arrange(new Rect(0,0,1334,788));root.UpdateLayout();
-                    var buttons=Descendants(root).OfType<Button>().Where(b=>b.Content as string=="Ghi sổ nhập kho").ToArray();Assert.Equal(2,buttons.Length);
+                    var buttons=Descendants(root).OfType<Button>().Where(b=>b.Content as string=="Ghi sổ nhập kho").ToArray();Assert.Single(buttons);
+                    Assert.False(Descendants(root).OfType<Expander>().Single(x=>x.Header as string=="Tiến độ từng mẫu: đơn đặt / SX / nhập").IsExpanded);
+                    foreach(var caption in new[]{"Bỏ món đang nhập","Kiểm tra kết quả","Mở đơn / Giao hàng"})
+                        Assert.Equal(Visibility.Collapsed,Descendants(root).OfType<Button>().Single(x=>x.Content as string==caption).Visibility);
                     foreach(var button in buttons){var point=button.TransformToAncestor(root).Transform(new Point());Assert.True(point.Y+button.ActualHeight<=789,"Posting action is cut off vertically.");}
                     if(theme=="Light"&&scale==1.5)
                     {

@@ -17,12 +17,21 @@ Ví dụ đúng:
 
 Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp vụ.
 
+## Nút, ô nhập và ô chọn
+
+- Dùng style chung trong Kazuko.Shared.UI. Form và hộp thoại dùng chiều cao tối thiểu 44 DIP, bo góc 10 DIP và lề ngang trong control 12 DIP. Các nút cùng hàng có cùng chiều cao và cách nhau 8 DIP. Cho phép control cao thêm theo cỡ chữ.
+- Bảng dữ liệu và thanh công cụ dùng phiên bản gọn với chiều cao tối thiểu 32 DIP và bo góc 6 DIP. Màu, chữ và trạng thái tương tác dùng cùng quy tắc với form.
+- Mỗi nhóm thao tác có một nút chính dùng nền PrimaryBrush và chữ OnPrimaryBrush. Nút phụ dùng nền theo theme, viền mảnh và chữ thông thường. Nút nguy hiểm dùng màu cảnh báo và nhãn nêu rõ thao tác, ví dụ **Xóa**.
+- Ô nhập có nhãn phía trên, canh trái. Ô chỉ đọc có nền dịu hơn và vẫn cho sao chép khi cần. Khi kiểm tra dữ liệu thất bại, dùng viền cảnh báo và thông báo ngay dưới ô liên quan.
+- ComboBox dùng cùng kích thước, viền, bo góc và cỡ chữ với ô nhập. Mũi tên ở mép phải. Mục đang chọn có dấu hiệu riêng với mục đang được trỏ tới hoặc được điều hướng tới bằng bàn phím.
+- Nút có trạng thái rê chuột, đang nhấn, focus bằng bàn phím và vô hiệu hóa. Khi đang xử lý, giữ kích thước nút. Kiểm tra theme sáng/tối và phím Tab.
+- Các style form hiện dùng ở màn đăng nhập nằm trong Kazuko.Shared.UI/Themes/FormControls.xaml. Dùng FormPrimaryButtonStyle cho **Đăng nhập** và **Tạo mới**, FormSecondaryButtonStyle cho **Chọn DB**. Ô tên file dùng FormTextBoxStyle ở chế độ chỉ đọc.
+
 ## Layout
 
 - Ưu tiên `Grid`, `DockPanel`, `WrapPanel`, `ItemsControl` và `ScrollViewer`.
 - Không đặt vị trí tuyệt đối bằng Canvas cho form nghiệp vụ.
 - Khai báo `MinWidth` hợp lý; khi nội dung không đủ chỗ, cho cuộn thay vì thu nhỏ chữ.
-- Chiều cao nút tùy ngữ cảnh: ưu tiên tối thiểu 40 px cho thao tác chính; nút trong bảng, toolbar hoặc pane gọn có thể dùng 28–36 px. Phải đọc được, có focus và không bị cắt ở các mức font/DPI được hỗ trợ; không ép mọi nút cùng một chiều cao.
 - Text quan trọng phải wrap hoặc trim kèm tooltip; không để chồng lấn.
 - Ô ngày dùng `RoundedDatePickerStyle` trong `Shared.UI/Themes/DatePicker.xaml`;
   style `DatePicker` mặc định kế thừa mẫu này. Style riêng phải `BasedOn` cùng mẫu,
@@ -36,6 +45,17 @@ Không dùng mã màu trực tiếp hoặc `FontSize="14"` trong View nghiệp v
 - Kiểm kê vẫn hỗ trợ số lượng phân nhóm Việt Nam (`1.250,5`), dùng `QuantityDecimalInput` để kiểm tra nhóm đúng cấu trúc; `0.5`/`0.023` là số thập phân, không được đọc thành 5/23. Riêng `1.250` tại ô số lượng có phân nhóm vẫn là 1250, còn ở ô trọng lượng thuần là 1,25. Không fallback bằng cách bỏ mọi dấu/ký tự. Tiền VND giữ formatter riêng. Danh sách kiểm tra và test ở `docs/manual-tests/decimal-input-review.md`.
 
 ## Application shell và trang chủ
+
+- Màn hình đăng nhập có lớp bong bóng viền mờ nổi từ dưới lên trong khung thương hiệu,
+  nằm sau nội dung và không nhận chuột/focus. Màu dùng `OnPrimaryBrush`; lớp trang trí
+  được cắt theo góc bo. Animation chỉ chạy khi view đang hiện, gỡ clock khi ẩn/đóng;
+  bỏ chuyển động khi Windows tắt client-area animation hoặc bật High Contrast.
+- Màn hình đăng nhập hiển thị tên file DB, đường dẫn đầy đủ khi rê chuột, và hai nút **Chọn DB** / **Tạo mới** dưới ô tên file.
+  **Tạo mới** khởi tạo một file mới với dữ liệu mặc định rồi mở lại ứng dụng để dùng file đó.
+  **Chọn DB** mở file `.fdb`
+  hiện có trên máy, kiểm tra schema đúng phiên bản và chi nhánh hoạt động trước khi
+  lưu profile rồi mở lại ứng dụng. Không tự nâng cấp, tạo mới hoặc xóa dữ liệu khi
+  chọn file. Lỗi/hủy chọn giữ DB cũ; không cho chọn DB đồng thời với đăng nhập.
 
 - Shell chuẩn có title bar màu chủ đạo, sidebar 330 px khi mở và 88 px khi thu gọn, content host và status bar.
 - Nút mở/thu sidebar nằm giữa theo chiều dọc, bám vào ranh giới bên phải sidebar để luôn truy cập được ở cả hai trạng thái.
@@ -71,7 +91,39 @@ cột báo cáo sau đăng nhập. Migration 93 và checklist: [table-column-lay
 
 Dialog tạo/sửa nghiệp vụ: Window riêng, owner-centered, `ScrollViewer`, Enter lưu / Escape hủy, không hard-code màu/font size.
 
+Template ComboBox tùy chỉnh phải truyền cả `SelectionBoxItemTemplate` và
+`ItemTemplateSelector` vào ContentPresenter để `DisplayMemberPath` hoạt động khi
+đóng dropdown. Module kho đã bổ sung binding selector ngày 30/10/2026, sửa ô dòng
+mẫu LSX hiển thị toàn bộ record thay vì tên mẫu. Đã kiểm tra tên mẫu/mã LSX ở ô
+đã chọn và tên trong dropdown trên Light/Dark bằng DTO giả, không thay đổi DB.
+
+Phiếu nhập kho thành phẩm: Hủy, Escape và nút X cùng kiểm tra điều kiện đóng.
+Tên/mã mẫu và loại vàng tự điền chưa được coi là món đang sửa. Nếu có thay đổi,
+cho xác nhận bỏ món đang nhập; từ chối hoặc hủy bước lưu nháp phải giữ nguyên dữ
+liệu. Các món đã thêm vẫn được hỏi lưu nháp; không cho bỏ yêu cầu ghi sổ chưa rõ
+kết quả. Nút Hủy dùng command và Escape binding, không dùng `IsCancel` để tránh
+WPF tự thử đóng lần nữa sau khi người dùng từ chối xác nhận.
+
+Thu gọn phiếu nhập thành phẩm (30/10/2026): bảng tiến độ mặc định thu lại; LSX
+chỉ có một mẫu tự chọn mẫu đó khi tải phiếu và sau khi thêm/bỏ món đang nhập,
+ẩn ô chọn mẫu. LSX nhiều mẫu vẫn chọn tường minh. Chỉ giữ nút Ghi sổ nhập kho
+ở cuối màn hình. Bỏ món đang nhập chỉ hiện khi có thay đổi; Kiểm tra kết quả
+chỉ hiện khi lần ghi sổ lỗi/chưa rõ kết quả; Mở đơn / Giao hàng chỉ hiện khi đã
+ghi sổ và LSX có đơn liên quan. Các cơ chế đối chiếu, ghi sổ và lưu nháp giữ nguyên.
+
 ## Kiểm thử bắt buộc cho View mới
+
+Kiểm kê (30/10/2026): danh sách phiếu dạng thẻ có trạng thái; khu thông tin,
+bảng chi tiết và khu ghi nhận dòng tách riêng. Dùng style kho cho ComboBox/TextBox,
+ghim thao tác lưu/đối chiếu/chốt ngoài phần cuộn. Quét serial và nút xác nhận
+đã thấy/không thấy chỉ hiện cho phiếu serial; nhập hàng loạt số 0 chỉ hiện cho
+NVL. Số lượng căn phải; kết quả đối chiếu có chữ và màu theo theme. Phiếu mới,
+danh sách rỗng và tìm kiếm không có kết quả có hướng dẫn riêng. Giữ SettingsKey
+và khóa các cột hiện có để tiếp tục dùng layout đã lưu.
+
+Đã render UserControl thật với dịch vụ giả ở Light/Dark, font 90/100/125/150%,
+viewport 1250×680 và 1700×800; gồm phiếu mới, NVL, serial, đã chốt, đang tải và lỗi.
+22 kiểm thử kiểm kê hiện có đạt. Không ghi DB; chưa kiểm tra DPI Windows thật.
 
 - Light và Dark.
 - Font scale 90%, 100%, 125%, 150%.

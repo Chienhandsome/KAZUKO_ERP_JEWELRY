@@ -27,7 +27,7 @@
                      Foreground="{DynamicResource PrimaryBrush}"
                      FontSize="{DynamicResource FontSize.Heading}"
                      FontWeight="Bold" />
-          <TextBlock Text="Tổng quan thu chi — phiếu thu / chi — số dư quỹ &amp; ngân hàng"
+          <TextBlock Text="Tổng quan thu chi — phiếu thu / chi — quỹ, ngân hàng và công nợ"
                      Foreground="{DynamicResource TextSecondaryBrush}"
                      FontSize="{DynamicResource FontSize.Body}"
                      TextWrapping="Wrap" />
@@ -36,7 +36,7 @@
     </Grid>
 
     <Border Grid.Row="1" Style="{DynamicResource CardBorderStyle}" Padding="12">
-      <TabControl SelectedIndex="{Binding SelectedTabIndex}"
+      <TabControl x:Name="FinanceTabs"
                   Background="Transparent"
                   BorderThickness="0"
                   ItemContainerStyle="{StaticResource FinanceTabItemStyle}">
@@ -49,6 +49,9 @@
         <TabItem access:PermissionAccess.Rule="FIN_CASH_OUT" Header="Chi">
           <local:VoucherListView DataContext="{Binding Expense}" Margin="0,12,0,0" />
         </TabItem>
+        <TabItem x:Name="CustomerDebtTab" access:PermissionAccess.Rule="DEBT_CUSTOMER" Header="Công nợ khách hàng" />
+        <TabItem x:Name="SupplierDebtTab" access:PermissionAccess.Rule="DEBT_CUSTOMER" Header="Công nợ nhà cung cấp" />
+        <TabItem x:Name="WorkerGoldDebtTab" access:PermissionAccess.Rule="DEBT_WORKER_GOLD" Header="Nợ vàng thợ" />
       </TabControl>
     </Border>
   </Grid>

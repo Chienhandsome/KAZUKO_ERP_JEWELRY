@@ -120,20 +120,16 @@
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="SidebarLogoutButtonStyle" TargetType="Button"
-               BasedOn="{StaticResource SidebarNavButtonStyle}">
-            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Margin" Value="15,7,15,0" />
+        <Style x:Key="AppBarWarningButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource FormButtonStyle}">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding DataContext.IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}"
-                             Value="True">
-                    <Setter Property="Margin" Value="10,7,10,0" />
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="MinHeight" Value="52" />
-                    <Setter Property="HorizontalContentAlignment" Value="Center" />
-                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                </Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
@@ -151,7 +147,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" MinWidth="135" />
-                    <ColumnDefinition Width="500" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="144" />
                 </Grid.ColumnDefinitions>
 
@@ -169,15 +165,18 @@
                         Content="❖  TỈ GIÁ" />
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal"
-                            VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <TextBlock Text="HOTLINE: 0917.66.4444  -  "
+                            VerticalAlignment="Center" Margin="12,0">
+                    <TextBlock Text="HOTLINE: 0917.66.4444  -  " VerticalAlignment="Center"
                                Foreground="{DynamicResource OnPrimaryBrush}"
                                FontSize="{DynamicResource FontSize.Body}" FontWeight="Bold" />
-                    <TextBlock FontSize="{DynamicResource FontSize.Body}" FontWeight="Bold">
+                    <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource FontSize.Body}" FontWeight="Bold">
                         <Hyperlink NavigateUri="http://www.kazukovietnam.com/"
                                    Foreground="{DynamicResource OnPrimaryBrush}"
                                    RequestNavigate="Website_RequestNavigate">www.kazukovietnam.com</Hyperlink>
                     </TextBlock>
+                    <Button Content="Đăng xuất" Command="{Binding LogoutCommand}"
+                            Style="{StaticResource AppBarWarningButtonStyle}"
+                            Margin="12,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="3" Orientation="Horizontal">
@@ -206,7 +205,6 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
@@ -371,66 +369,6 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
-
-                    <TextBlock Grid.Row="2" Text="Hotline tư vấn:&#x0a;0917.66.4444"
-                               Margin="0,8,0,4"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               TextAlignment="Center" Foreground="{DynamicResource PrimaryHoverBrush}"
-                               FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="Bold">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsSidebarCollapsed}" Value="True">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <Button Grid.Row="3"
-                            Command="{Binding LogoutCommand}"
-                            Style="{StaticResource SidebarLogoutButtonStyle}">
-                        <Grid>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                         Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
-                                <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="{DynamicResource FontSize.Display}"
-                                           Width="40" TextAlignment="Center"
-                                           VerticalAlignment="Center" />
-                                <TextBlock Text="ĐĂNG XUẤT" Margin="10,0,0,0"
-                                           VerticalAlignment="Center"
-                                           FontSize="{DynamicResource FontSize.Subtitle}"
-                                           FontWeight="Bold" />
-                            </StackPanel>
-                            <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="{DynamicResource FontSize.Heading}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                         Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Grid>
-                    </Button>
                 </Grid>
             </Border>
 

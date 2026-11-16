@@ -1,0 +1,43 @@
+<UserControl x:Class="Kazuko.Modules.Dashboard.AdministrationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI">
+    <UserControl.Resources>
+        <Style x:Key="AdministrationTabStyle" TargetType="TabItem">
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="HeaderBorder" Background="Transparent"
+                                BorderBrush="Transparent" BorderThickness="0,0,0,3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <TabControl x:Name="AdministrationTabs"
+                Background="{DynamicResource AppBackgroundBrush}"
+                BorderThickness="0" Padding="0"
+                ItemContainerStyle="{StaticResource AdministrationTabStyle}">
+        <TabItem x:Name="SettingsTab" Header="Cài đặt" access:PermissionAccess.Rule="SYS_SETTINGS|SYS_DATABASE" />
+        <TabItem x:Name="UsersTab" Header="Người dùng" access:PermissionAccess.Rule="SYS_USER_MANAGEMENT" />
+    </TabControl>
+</UserControl>

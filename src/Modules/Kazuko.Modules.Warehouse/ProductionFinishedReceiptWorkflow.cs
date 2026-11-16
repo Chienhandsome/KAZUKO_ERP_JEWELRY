@@ -16,6 +16,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
     private readonly long? _preferredOrderId;
     private int _detailRevision;
     private bool _detailLoading,_posted,_reconcileLoaded,_closingConfirmed;
+    private bool _postFailed;
     private Guid _requestId=Guid.NewGuid();
     private PostManualFinishedReceiptRequest? _pendingPost;
     private ProductionOrderLineDto? _selectedLine;
@@ -31,7 +32,13 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
     public bool IsDetailLoading{get=>_detailLoading;private set{SetProperty(ref _detailLoading,value);NotifyReceiptCommands();}}
     public bool IsPosted{get=>_posted;private set{SetProperty(ref _posted,value);NotifyReceiptCommands();}}
     public bool CanEdit=>!IsBusy&&!IsDetailLoading&&!IsPosted&&_pendingPost is null;
-    public bool HasPendingEditor=>IsEditing||!string.IsNullOrWhiteSpace(ProductName)||!string.IsNullOrWhiteSpace(TotalWeightText)||!string.IsNullOrWhiteSpace(CostPriceText);
+    public bool HasPendingEditor=>IsEditing
+        || ProductName!=(_selectedLine?.ModelName??"")
+        || ModelCode!=(_selectedLine?.ModelCode??"")
+        || GoldPurityCode!=(_selectedLine?.GoldTypeCode??"")
+        || QuantityText.Trim()!="1"
+        || new[]{TotalWeightText,StoneWeightText,GoldWeightText,CostPriceText,SalePriceText,
+            SaleLaborCostText,PurchaseLaborCostText,SupplierName,SymbolCode,FormNotes}.Any(value=>!string.IsNullOrWhiteSpace(value));
     public string ReceiptState=>IsPosted?$"Đã ghi sổ {_postedResult?.DocumentCode} — có thể in lại, không tạo thêm phiếu.":
         _pendingPost is not null?"Chưa rõ kết quả lần lưu trước. Bấm Lưu để xác minh/thử lại cùng yêu cầu; không nhập lại phiếu khác.":
         IsDetailLoading?"Đang tải LSX…":$"Bản nháp • Đã nhập {Products.Count}/{OrderLines.Sum(l=>l.PlannedQuantity)} món • Đối chiếu {(DebtRecorded?"đã xác nhận":"chưa xác nhận")}";
@@ -44,10 +51,11 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
         foreach(var command in new[]{SaveCommand,RecordDebtCommand,PrintSelectedLabelsCommand,PrintAllLabelsCommand,CheckResultCommand,OpenDeliveryCommand})
             (command as AsyncRelayCommand)?.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(ReceiptState));
+        OnPropertyChanged(nameof(ShowCancelEditor));OnPropertyChanged(nameof(ShowResultCheck));OnPropertyChanged(nameof(ShowDelivery));
     }
     private async Task LoadDetailAsync(ProductionFinishedReceiptOrderOption? item)
     {
-        var revision=++_detailRevision;IsDetailLoading=true;_reconcileLoaded=false;_detail=null;
+        var revision=++_detailRevision;IsDetailLoading=true;_reconcileLoaded=false;_detail=null;_postFailed=false;
         try
         {
             ErrorMessage="";ImageItems.Clear();WorkerOptions.Clear();GoldReconcileRows.Clear();OrderLines.Clear();SelectedLine=null;
@@ -98,6 +106,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
             if(draft?.Request.GoldSettlements is {} settlements)
                 foreach(var row in GoldReconcileRows){var saved=settlements.FirstOrDefault(s=>s.GoldPurityCode==row.PurityCode);if(saved is not null)row.LossWeightText=WeightDecimalInput.Format(saved.LossWeightChi);}
             IssuedStoneSummaryText="Đá đã giao: "+string.Join(", ",stones.Select(s=>$"{s.MaterialName}: {s.QuantityIssued:0.####} {s.UnitCode}"));
+            if(OrderLines.Count==1)SelectedLine=OrderLines[0];
             _reconcileLoaded=true;
         }
         catch(Exception ex){if(revision==_detailRevision)ErrorMessage=ex.Message;}
@@ -131,11 +140,11 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
     private PostManualFinishedReceiptRequest BuildRequest()=>new(ReceiptDate.Date,SelectedLocation?.Id??0,SelectedOrder?.Id,Products.ToArray(),
         ReceiptNotes,_requestId,ReadSettlements());
 
-    private void SaveDraft()
+    private void SaveDraft(bool discardPendingEditor=false)
     {
         if(_draftStore is null)throw new InvalidOperationException("Chưa cấu hình lưu nháp.");
         if(SelectedOrder is null)throw new InvalidOperationException("Chọn LSX trước khi lưu nháp.");
-        if(HasPendingEditor)throw new InvalidOperationException("Thêm/cập nhật hoặc hủy món đang gõ trước khi lưu nháp.");
+        if(HasPendingEditor&&!discardPendingEditor)throw new InvalidOperationException("Thêm/cập nhật hoặc hủy món đang gõ trước khi lưu nháp.");
         _draftStore.Save(_session.BranchId,_session.UserId,SelectedOrder.Id,new(_pendingPost??BuildRequest(),SelectedLine?.Id,_pendingPost is not null));
         ErrorMessage="Đã lưu nháp trên máy này. Chưa thay đổi tồn kho hoặc nợ vàng.";
     }
@@ -143,24 +152,28 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
     {
         if(IsBusy||IsDetailLoading)return false;
         if(_closingConfirmed||IsPosted)return true;
-        if(HasPendingEditor){ErrorMessage="Thêm/cập nhật hoặc hủy món đang nhập trước khi đóng.";return false;}
+        var discardEditor=HasPendingEditor;
+        if(discardEditor&&_confirmClose("Bỏ các thay đổi của món đang nhập và đóng phiếu? Món này chưa được thêm vào bảng.",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)
+            return false;
         if(Products.Count>0)
         {
-            var answer=MessageBox.Show("Lưu nháp nhập kho trên máy này trước khi đóng?","Đóng phiếu nhập",MessageBoxButton.YesNoCancel,MessageBoxImage.Question);
+            var answer=_confirmClose("Lưu nháp nhập kho trên máy này trước khi đóng?",MessageBoxButton.YesNoCancel);
             if(answer==MessageBoxResult.Cancel)return false;
             try
             {
-                if(answer==MessageBoxResult.Yes)SaveDraft();
+                if(answer==MessageBoxResult.Yes)SaveDraft(discardPendingEditor:discardEditor);
                 else if(_pendingPost is not null){ErrorMessage="Lần lưu trước chưa rõ kết quả: cần giữ nháp để xác minh.";return false;}
                 else if(SelectedOrder is not null)_draftStore?.Delete(_session.BranchId,_session.UserId,SelectedOrder.Id);
             }
             catch(Exception ex){ErrorMessage=ex.Message;return false;}
         }
+        if(discardEditor)ClearForm();
         _closingConfirmed=true;return true;
     }
     private async Task PostReceiptAsync()
     {
         ErrorMessage="";
+        var attemptedPost=false;
         try
         {
             if(_pendingPost is null)
@@ -175,18 +188,19 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
                 SaveDraft(); // Durable request ID exists before network/commit.
             }
             IsBusy=true;
+            attemptedPost=true;
             var result=await _application.PostManualFinishedReceiptAsync(_pendingPost,_session);
             SetPosted(result);
             try{_draftStore?.Delete(_session.BranchId,_session.UserId,SelectedOrder!.Id);}catch(Exception ex){ErrorMessage="Đã ghi sổ; chưa xóa được nháp cục bộ: "+ex.Message;}
         }
-        catch(InvalidOperationException ex){_pendingPost=null;ErrorMessage=ex.Message;}
-        catch(Exception ex){ErrorMessage="Chưa xác minh được kết quả. Giữ nguyên phiếu và bấm Lưu để thử lại an toàn. "+ex.Message;}
+        catch(InvalidOperationException ex){_postFailed=attemptedPost;_pendingPost=null;ErrorMessage=ex.Message;}
+        catch(Exception ex){_postFailed=attemptedPost;ErrorMessage="Chưa xác minh được kết quả. Giữ nguyên phiếu và bấm Lưu để thử lại an toàn. "+ex.Message;}
         finally{IsBusy=false;NotifyReceiptCommands();}
     }
     private void SetPosted(ManualFinishedReceiptResult result)
     {
         if(result.PostedRequest is null)throw new InvalidOperationException("Phiếu nhập thiếu dữ liệu đã lưu.");
-        _postedResult=result;_pendingPost=null;Products.Clear();
+        _postedResult=result;_pendingPost=null;_postFailed=false;Products.Clear();
         foreach(var product in result.PostedRequest.Items)Products.Add(product);
         ReceiptDate=result.PostedRequest.ReceiptDate;ReceiptNotes=result.PostedRequest.Notes??"";IsPosted=true;
         ErrorMessage="Đã nhập kho. Có thể in phiếu/tem hoặc đóng cửa sổ.";

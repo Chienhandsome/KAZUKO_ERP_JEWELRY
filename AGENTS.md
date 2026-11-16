@@ -4,7 +4,7 @@ Trước khi thay đổi code, đọc theo thứ tự:
 
 1. `docs/00-PROJECT-REQUIREMENTS.md`
 2. `docs/01-ARCHITECTURE.md`
-3. `docs/02-UI-AND-ACCESSIBILITY.md`
+3. `docs/02-UI-AND-ACCESSIBILITY.md` (áp dụng mục **Nút, ô nhập và ô chọn** khi sửa giao diện)
 4. `docs/03-MODULE-UPDATE-SYSTEM.md`
 5. `docs/04-DEVELOPMENT-WORKFLOW.md`
 6. `docs/09-REPORTING.md` khi làm báo cáo / in A4

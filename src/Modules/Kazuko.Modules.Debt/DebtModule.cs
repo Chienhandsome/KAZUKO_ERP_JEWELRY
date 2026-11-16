@@ -4,55 +4,35 @@ using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Suppliers;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.Debt;
 
 public sealed class DebtModule : IKazukoModule
 {
-    private const string AssetRoot = "/Kazuko.Modules.Debt;component/Assets/icons/";
-
     public string Id => "Kazuko.Debt";
     public Version Version => new(1, 0, 0);
 
     public void RegisterServices(IServiceRegistry services)
     {
+        services.AddSingleton<IDebtTabFactory>(new DebtTabFactory(services));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)
     {
-        var workbench = GetRequiredService<IDebtWorkbenchRepository>(services);
-        var customers = GetRequiredService<ICustomerRepository>(services);
-        var customerEditor = GetRequiredService<ICustomerEditorService>(services);
-        var supplierEditor = GetRequiredService<ISupplierEditorService>(services);
-        var session = GetRequiredService<ICurrentSessionAccessor>(services);
-
-        navigation.Register(new NavigationItem(
-            "DEBT",
-            "CÔNG NỢ",
-            string.Empty,
-            50,
-            null,
-            () =>
-            {
-                // IDebtSettlementDialogService do FinanceModule đăng ký — module Tài chính
-                // đứng sau Công nợ trong thứ tự khởi tạo nên phải resolve lazy ở đây,
-                // khi view thực sự được mở (lúc đó mọi RegisterServices đã chạy xong).
-                var settlementDialog = GetRequiredService<IDebtSettlementDialogService>(services);
-                return new DebtView
-                {
-                    DataContext = new DebtViewModel(
-                        workbench, customers, customerEditor, supplierEditor, session,
-                        settlementDialog, GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services))
-                };
-            },
-            AssetRoot + "TC.png",
-            "Theo dõi công nợ khách hàng\nvà nhà cung cấp",
-            ShowInSidebar: true,
-            ShowOnHome: true,
-            IsPlaceholder: false));
     }
 
-    private static T GetRequiredService<T>(IServiceProvider services) where T : class =>
-        services.GetService(typeof(T)) as T
-        ?? throw new InvalidOperationException($"Service {typeof(T).FullName} is not registered.");
+    private sealed class DebtTabFactory(IServiceRegistry services) : IDebtTabFactory
+    {
+        public object CreateView(DebtTabKind tab) =>
+            new DebtView(new DebtViewModel(
+                services.GetRequiredService<IDebtWorkbenchRepository>(),
+                services.GetRequiredService<ICustomerRepository>(),
+                services.GetRequiredService<ICustomerEditorService>(),
+                services.GetRequiredService<ISupplierEditorService>(),
+                services.GetRequiredService<ICurrentSessionAccessor>(),
+                services.GetRequiredService<IDebtSettlementDialogService>(),
+                tab,
+                services.GetRequiredService<IAuthorizationService>()), tab);
+    }
 }

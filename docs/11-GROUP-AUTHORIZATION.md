@@ -30,7 +30,13 @@ hiện tại. `NavigationAccess` ánh xạ route vào chức năng; sidebar, hom
 
 `PermissionAccess.Rule` gắn tường minh trong XAML cho nút/tab. Nút không có quyền
 bị vô hiệu hóa; tab không có quyền bị ẩn. Binding quyền kết hợp với binding cũ và
-CanExecute; các ViewModel Kho/Bán hàng/Công nợ/Tài chính chỉ tải các vùng được xem.
+CanExecute; các ViewModel Kho/Bán hàng/Tài chính chỉ tải các vùng được xem.
+Tài chính chứa các tab công nợ. Quyền DEBT_CUSTOMER hoặc DEBT_WORKER_GOLD cho phép
+mở Tài chính và xem các tab công nợ tương ứng. Các tab Tổng quan, Thu, Chi vẫn
+dùng quyền FIN_* riêng. Lối tắt Công nợ ở Trang chủ mở thẳng tab công nợ được phép.
+
+Quản trị chứa tab Cài đặt (SYS_SETTINGS hoặc SYS_DATABASE) và tab Người dùng
+(SYS_USER_MANAGEMENT). Lối tắt Người dùng ở Trang chủ mở thẳng tab này trong Quản trị.
 
 Tại composition root, repository/application service nghiệp vụ được bọc bằng
 `AuthorizedServiceProxy<T>`. `BackendAccess` là bảng ánh xạ contract/method sang

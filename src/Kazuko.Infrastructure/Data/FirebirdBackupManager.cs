@@ -194,6 +194,29 @@ internal sealed class GbakRunner : IGbakRunner
     {
         var executable = Path.Combine(runtime, "gbak.exe");
         if (!File.Exists(executable)) throw new FileNotFoundException("Không tìm thấy gbak.exe trong bộ runtime Firebird.");
+        if (arguments[0] == "-create_database")
+        {
+            // Verification restores a new local file, including Unicode Windows profile
+            // paths. Keep it in this UTF8 process instead of native gbak's ANSI argv.
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await Task.Run(() =>
+                {
+                    var local = profile with { DatabasePath = arguments[2], UseEmbedded = true };
+                    var restore = new FbRestore(FirebirdDatabase.BuildConnectionString(local))
+                        { Options = FbRestoreFlags.Create, Verbose = true };
+                    restore.BackupFiles.Add(new FbBackupFile(arguments[1]));
+                    restore.Execute();
+                }, CancellationToken.None);
+            }
+            catch (Exception error)
+            {
+                throw new IOException("Firebird không khôi phục được bản sao lưu: " + FirebirdBackupManager.Redact(error.Message, profile.Password), error);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return;
+        }
         if (profile.UseEmbedded && arguments[0] == "-backup_database")
         {
             // Embedded Super mode holds the file in this process. Use the same engine's

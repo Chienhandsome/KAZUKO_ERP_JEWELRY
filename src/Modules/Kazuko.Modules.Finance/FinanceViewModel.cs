@@ -1,13 +1,10 @@
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Finance;
-using Kazuko.Core.Mvvm;
 
 namespace Kazuko.Modules.Finance;
 
-public sealed class FinanceViewModel : ObservableObject
+public sealed class FinanceViewModel
 {
-    private int _selectedTabIndex;
-
     public FinanceViewModel(
         IFinanceDashboardRepository dashboard,
         IFinanceVoucherService voucherService,
@@ -21,8 +18,6 @@ public sealed class FinanceViewModel : ObservableObject
         Overview = new FinanceOverviewViewModel(dashboard, voucherService, payables, receivables, sessionAccessor, funds, banks, authorization, categories);
         Income = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.In, authorization, categories);
         Expense = new VoucherListViewModel(dashboard, voucherService, sessionAccessor, funds, banks, FinancialVoucherTypes.Out, authorization, categories);
-        if (authorization is not null && !authorization.Current.Allows("FIN_FUND"))
-            _selectedTabIndex = authorization.Current.Allows("FIN_CASH_IN") ? 1 : 2;
     }
 
     public FinanceOverviewViewModel Overview { get; }
@@ -30,10 +25,4 @@ public sealed class FinanceViewModel : ObservableObject
     public VoucherListViewModel Income { get; }
 
     public VoucherListViewModel Expense { get; }
-
-    public int SelectedTabIndex
-    {
-        get => _selectedTabIndex;
-        set => SetProperty(ref _selectedTabIndex, value);
-    }
 }

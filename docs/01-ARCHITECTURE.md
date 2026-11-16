@@ -252,6 +252,32 @@ DebtTab.SelectedCustomer, không lấy dòng chọn trong danh mục. Sau thu ti
 bộ lọc hiện có; hủy/đổi khách trong lúc tải bỏ phản hồi cũ. Xem
 `docs/manual-tests/customer-activity-filters.md`.
 
+## Khởi tạo dữ liệu cục bộ cho bản cài
+
+Trước đăng nhập, App gọi LocalDatabaseBootstrapper ở Infrastructure khi chưa có
+profile/DB cũ. Bản setup có marker local-first-run.enabled để ưu tiên profile
+đã cài thay cho portable environment cũ. Không có
+wizard chọn kết nối hoặc khôi phục. Bootstrap tạo DB staging từ resource schema
+v93 và seed hệ thống/danh mục sạch, tạo admin với mật khẩu trống mặc định, kiểm tra rồi công
+bố bằng move không ghi đè. Khóa file theo profile chống hai lần mở tạo trùng;
+profile được công bố sau DB, có thể phục hồi nếu bị ngắt giữa hai bước.
+Mật khẩu engine và thông báo admin lưu bằng DPAPI CurrentUser, profile JSON chỉ
+tham chiếu khóa. Tài khoản admin dùng PBKDF2 tương thích luồng đăng nhập hiện có.
+Notice admin giữ đến lần đăng nhập thành công. Bản 1.0.3 chỉ chuyển mật khẩu
+sinh mặc định cũ sang trống khi còn khớp notice và admin chưa từng đăng nhập;
+không đổi mật khẩu đã dùng hoặc chủ tài khoản đã sửa. Profile/DB cũ không bị reset,
+không tự chuyển DB lỗi sang DB trống. Nhánh host TV không khởi tạo DB.
+Chi tiết: [installation.md](installation.md), [baseline](../database/bootstrap/README.md).
+
+Đăng nhập có **Chọn DB** cho file cục bộ hiện có. ViewModel nhận callback từ App;
+`LoginDatabaseSelector` (Infrastructure) kiểm tra schema v93 và cấu trúc đăng nhập
+trước khi lưu profile, không migrate hoặc tạo lại dữ liệu. App mở lại để các service,
+cache và tác vụ nền dùng cùng DB; đợi backup khởi động cũ kết thúc trước khi đổi.
+`ConnectionProfileStore.Save` công bố JSON nguyên tử sau khi lưu khóa DPAPI mới,
+tham chiếu `CredentialFile` cho profile đã chọn, tiếp tục đọc profile legacy và
+`UseLocalCredential`. Khóa không hợp lệ/thiếu phải báo lỗi, không lấy nhầm secret từ
+environment. Hủy chọn hoặc kiểm tra thất bại không thay profile.
+
 ## Bảng giá TV
 
 PriceBoard hỗ trợ cửa sổ HDMI/Miracast và trang HTTP chỉ đọc trên LAN, dùng giá

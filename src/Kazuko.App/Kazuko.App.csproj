@@ -7,7 +7,9 @@
     <AssemblyName>KAZUKO_ERP_JEWELRY</AssemblyName>
     <RootNamespace>Kazuko.App</RootNamespace>
     <PlatformTarget>x64</PlatformTarget>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <FirebirdHome>$(MSBuildThisFileDirectory)..\..\firebird\Firebird-5.0.4.1812-0-windows-x64</FirebirdHome>
+    <FirebirdConfigurationOutput>$(MSBuildProjectDirectory)\obj\$(Configuration)\$(TargetFramework)\firebird-config\firebird.conf</FirebirdConfigurationOutput>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
@@ -33,10 +35,26 @@
   </ItemGroup>
   <ItemGroup Condition="Exists('$(FirebirdHome)\fbclient.dll')">
     <!-- Keep the supplied runtime complete, including gbak.exe required by backup/restore. -->
-    <Content Include="$(FirebirdHome)\**\*">
+    <Content Include="$(FirebirdHome)\**\*" Exclude="$(FirebirdHome)\firebird.conf">
       <Link>firebird\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content Include="$(FirebirdConfigurationOutput)" Link="firebird\firebird.conf"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- ERP and the detached TV host both attach to the embedded database. Super's
+       exclusive file access prevents the second process from attaching. Preserve
+       every vendor setting except ServerMode; never edit the supplied bundle. -->
+  <Target Name="PrepareSharedEmbeddedFirebirdConfiguration" BeforeTargets="PrepareForBuild"
+          Condition="Exists('$(FirebirdHome)\fbclient.dll')">
+    <PropertyGroup>
+      <_FirebirdVendorConfiguration Condition="Exists('$(FirebirdHome)\firebird.conf')">$([System.IO.File]::ReadAllText('$(FirebirdHome)\firebird.conf'))</_FirebirdVendorConfiguration>
+      <_FirebirdSharedConfiguration>$([System.Text.RegularExpressions.Regex]::Replace('$([MSBuild]::Escape($(_FirebirdVendorConfiguration)))', '(?im)^[ \t]*ServerMode[ \t]*=[^\r\n]*', ''))</_FirebirdSharedConfiguration>
+    </PropertyGroup>
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(FirebirdConfigurationOutput)'))" />
+    <WriteLinesToFile File="$(FirebirdConfigurationOutput)"
+                      Lines="$(_FirebirdSharedConfiguration)&#xA;# ERP and TV host share the embedded database.&#xA;ServerMode = SuperClassic"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" Encoding="UTF-8" />
+  </Target>
 </Project>

@@ -88,3 +88,15 @@ Build toàn solution: 0 warning/0 error. 21 test Shared.UI và 6 test persistenc
 cache đều đạt. Kiểm thử tích hợp Firebird đạt các bước ở trên; tiến trình kiểm tra
 mới đọc lại đúng snapshot do tiến trình trước lưu. Chưa kiểm tra tay đầy đủ phiên
 ERP với mọi theme/DPI hoặc đồng thời trên hai máy.
+
+## Sửa lỗi Closing khi đăng xuất (29/10/2026)
+
+FlushAsync có thể hoàn tất đồng bộ khi không có thay đổi; await không bảo đảm
+rời khỏi sự kiện Window.Closing. App dùng DeferredWindowCloseBehavior để hủy
+lượt đóng đầu và Dispatcher.Yield sang lượt UI mới trước khi chuẩn bị đóng,
+mở cửa sổ đăng nhập rồi đóng shell. Chỉ dispose layout session ở Closed.
+Bấm đóng nhiều lần trong lúc chờ không chạy trùng quá trình chuẩn bị.
+
+DeferredWindowCloseTests dùng cửa sổ WPF thật kiểm tra clean flush, timeout/
+offline đã được App xử lý, flush đang chờ và lỗi chuẩn bị ngoài dự kiến. Toàn
+bộ 26 test Shared.UI đạt; không ghi DB nghiệp vụ trong kiểm thử này.

@@ -1,213 +1,9 @@
 <UserControl x:Class="Kazuko.Modules.Authentication.LoginView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Kazuko.Modules.Authentication">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
-
-        <Style x:Key="LoginLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,14,0,8" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-        </Style>
-
-        <ControlTemplate x:Key="LoginRoundedTextBoxTemplate" TargetType="TextBox">
-            <Border x:Name="Bd"
-                    Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="10"
-                    SnapsToDevicePixels="True">
-                <ScrollViewer x:Name="PART_ContentHost"
-                              Margin="{TemplateBinding Padding}"
-                              VerticalAlignment="Center"
-                              Focusable="False" />
-            </Border>
-            <ControlTemplate.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
-                </Trigger>
-                <Trigger Property="IsKeyboardFocused" Value="True">
-                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                </Trigger>
-            </ControlTemplate.Triggers>
-        </ControlTemplate>
-
-        <ControlTemplate x:Key="LoginRoundedPasswordTemplate" TargetType="PasswordBox">
-            <Border x:Name="Bd"
-                    Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="10"
-                    SnapsToDevicePixels="True">
-                <ScrollViewer x:Name="PART_ContentHost"
-                              Margin="{TemplateBinding Padding}"
-                              VerticalAlignment="Center"
-                              Focusable="False" />
-            </Border>
-            <ControlTemplate.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
-                </Trigger>
-                <Trigger Property="IsKeyboardFocused" Value="True">
-                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                </Trigger>
-            </ControlTemplate.Triggers>
-        </ControlTemplate>
-
-        <Style x:Key="LoginInputStyle" TargetType="TextBox">
-            <Setter Property="MinHeight" Value="44" />
-            <Setter Property="Padding" Value="12,0,12,0" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="BorderThickness" Value="1.5" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Template" Value="{StaticResource LoginRoundedTextBoxTemplate}" />
-        </Style>
-
-        <Style x:Key="LoginPasswordStyle" TargetType="PasswordBox">
-            <Setter Property="MinHeight" Value="44" />
-            <Setter Property="Padding" Value="12,0,60,0" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="BorderThickness" Value="1.5" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Template" Value="{StaticResource LoginRoundedPasswordTemplate}" />
-        </Style>
-
-        <ControlTemplate x:Key="LoginComboToggleTemplate" TargetType="ToggleButton">
-            <Border x:Name="Bd"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1.5"
-                    CornerRadius="10"
-                    SnapsToDevicePixels="True">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="34" />
-                    </Grid.ColumnDefinitions>
-                    <Border Grid.Column="1" Background="Transparent">
-                        <Path HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Data="M 0 0 L 8 0 L 4 5 Z"
-                              Fill="{DynamicResource PrimaryBrush}" />
-                    </Border>
-                </Grid>
-            </Border>
-            <ControlTemplate.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                </Trigger>
-                <Trigger Property="IsChecked" Value="True">
-                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
-                </Trigger>
-            </ControlTemplate.Triggers>
-        </ControlTemplate>
-
-        <ControlTemplate x:Key="LoginComboTemplate" TargetType="ComboBox">
-            <Grid>
-                <ToggleButton x:Name="ToggleButton"
-                              Template="{StaticResource LoginComboToggleTemplate}"
-                              Focusable="False"
-                              ClickMode="Press"
-                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
-                <ContentPresenter x:Name="ContentSite"
-                                  IsHitTestVisible="False"
-                                  Margin="12,0,36,0"
-                                  VerticalAlignment="Center"
-                                  HorizontalAlignment="Left"
-                                  Content="{TemplateBinding SelectionBoxItem}"
-                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                  ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
-                <TextBlock x:Name="Placeholder"
-                           Margin="12,0,36,0"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           Text="—"
-                           Visibility="Collapsed"
-                           IsHitTestVisible="False" />
-                <Popup x:Name="Popup"
-                       Placement="Bottom"
-                       IsOpen="{TemplateBinding IsDropDownOpen}"
-                       AllowsTransparency="True"
-                       Focusable="False"
-                       PopupAnimation="Slide">
-                    <Border x:Name="DropDownBorder"
-                            MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                            MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1.5"
-                            CornerRadius="10"
-                            Margin="0,4,0,0"
-                            Padding="2">
-                        <ScrollViewer Margin="2" SnapsToDevicePixels="True">
-                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
-                        </ScrollViewer>
-                    </Border>
-                </Popup>
-            </Grid>
-            <ControlTemplate.Triggers>
-                <Trigger Property="HasItems" Value="False">
-                    <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.85" />
-                </Trigger>
-            </ControlTemplate.Triggers>
-        </ControlTemplate>
-
-        <Style x:Key="LoginComboStyle" TargetType="ComboBox">
-            <Setter Property="MinHeight" Value="44" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
-            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
-            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
-            <Setter Property="Template" Value="{StaticResource LoginComboTemplate}" />
-            <Setter Property="ItemContainerStyle">
-                <Setter.Value>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Padding" Value="10,8" />
-                        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ComboBoxItem">
-                                    <Border x:Name="ItemBd"
-                                            Background="{TemplateBinding Background}"
-                                            CornerRadius="6"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsHighlighted" Value="True">
-                                            <Setter TargetName="ItemBd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBd" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Background="{DynamicResource AppBackgroundBrush}">
@@ -217,9 +13,11 @@
                 <ColumnDefinition Width="60*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Margin="0,0,16,0" Padding="24"
+            <Border Grid.Column="0" Margin="0,0,16,0"
                     Background="{DynamicResource PrimaryBrush}" CornerRadius="26">
                 <Grid>
+                    <local:LoginBubbleBackground />
+                <Grid Margin="24">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -254,15 +52,11 @@
                                Foreground="{DynamicResource OnPrimaryBrush}" Opacity="0.9" FontStyle="Italic"
                                TextAlignment="Center" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Body}" />
                 </Grid>
+                </Grid>
             </Border>
 
             <Border Grid.Column="1" Margin="0" Padding="32,24"
                     Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="22">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
                 <Grid VerticalAlignment="Center" MaxWidth="400">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -287,31 +81,32 @@
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Margin="0,6,0,0">
-                        <TextBlock Text="Chi nhánh" Style="{StaticResource LoginLabelStyle}" Margin="0,0,0,4" />
+                        <TextBlock Text="Chi nhánh" Style="{StaticResource FormLabelStyle}" Margin="0,0,0,4" />
                         <ComboBox ItemsSource="{Binding Branches}"
                                   SelectedItem="{Binding SelectedBranch}"
                                   DisplayMemberPath="Name"
-                                  Style="{StaticResource LoginComboStyle}"
+                                  Style="{StaticResource FormSelectionComboBoxStyle}"
                                   IsEnabled="{Binding IsFormEnabled}" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="2" Margin="0,2,0,0">
-                        <TextBlock Text="Tên đăng nhập" Style="{StaticResource LoginLabelStyle}" />
+                        <TextBlock Text="Tên đăng nhập" Style="{StaticResource FormLabelStyle}" />
                         <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource LoginInputStyle}"
+                                 Style="{StaticResource FormTextBoxStyle}"
                                  IsEnabled="{Binding IsFormEnabled}" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="3" Margin="0,2,0,0">
-                        <TextBlock Text="Mật khẩu" Style="{StaticResource LoginLabelStyle}" />
+                        <TextBlock Text="Mật khẩu" Style="{StaticResource FormLabelStyle}" />
                         <Grid MinHeight="44">
                             <PasswordBox x:Name="PasswordInput"
-                                         Style="{StaticResource LoginPasswordStyle}"
+                                         Style="{StaticResource FormPasswordStyle}"
+                                         Padding="12,6,60,6"
                                          PasswordChanged="PasswordBox_OnPasswordChanged"
                                          IsEnabled="{Binding IsFormEnabled}" />
                             <TextBox x:Name="VisiblePasswordInput"
-                                     Style="{StaticResource LoginInputStyle}"
-                                     Padding="12,0,60,0"
+                                     Style="{StaticResource FormTextBoxStyle}"
+                                     Padding="12,6,60,6"
                                      Visibility="Collapsed"
                                      TextChanged="VisiblePassword_OnTextChanged"
                                      IsEnabled="{Binding IsFormEnabled}" />
@@ -364,49 +159,39 @@
                     </TextBlock>
 
                     <Button Grid.Row="8" Content="ĐĂNG NHẬP" Margin="0,24,0,0"
-                            MinHeight="48" Padding="18,12" FontWeight="Bold" IsDefault="True"
+                            Style="{StaticResource FormPrimaryButtonStyle}"
+                            MinHeight="48" FontWeight="Bold" IsDefault="True"
                             FontSize="{DynamicResource FontSize.Subtitle}"
-                            Background="{DynamicResource PrimaryBrush}"
-                            Foreground="{DynamicResource OnPrimaryBrush}" BorderThickness="0"
-                            Cursor="Hand" Command="{Binding SignInCommand}"
-                            IsEnabled="{Binding IsFormEnabled}">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="ButtonBorder" CornerRadius="10"
-                                        Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                                               FontWeight="{TemplateBinding FontWeight}" FontSize="{TemplateBinding FontSize}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
-                                    </Trigger>
-                                    <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.85" />
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.55" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-                </Grid>
-                    <TextBlock Grid.Row="1" Text="{Binding ConnectionStatusText}"
-                               Margin="0,20,0,0" HorizontalAlignment="Center" TextWrapping="Wrap"
-                               FontSize="{DynamicResource FontSize.Body}" ToolTip="{Binding ConnectionDetails}">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                            Command="{Binding SignInCommand}" IsEnabled="{Binding IsFormEnabled}" />
+                    <StackPanel Grid.Row="10" Margin="0,6,0,0">
+                        <DockPanel Margin="0,14,0,8" LastChildFill="False">
+                            <TextBlock Text="Cơ sở dữ liệu" Style="{StaticResource FormLabelStyle}" Margin="0" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding ConnectionStatusText}"
+                                       VerticalAlignment="Center" Margin="8,0,0,0"
+                                       FontSize="{DynamicResource FontSize.Caption}" ToolTip="{Binding ConnectionDetails}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DockPanel>
+
+                        <TextBox Text="{Binding DatabaseFileName, Mode=OneWay}" IsReadOnly="True"
+                                 Style="{StaticResource FormTextBoxStyle}" ToolTip="{Binding DatabaseDisplayName}"
+                                 AutomationProperties.Name="Cơ sở dữ liệu" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                            <Button Content="Chọn DB" Command="{Binding ChooseDatabaseCommand}" Margin="0,0,8,0"
+                                    Style="{StaticResource FormSecondaryButtonStyle}" />
+                            <Button Content="Tạo mới" Command="{Binding CreateDatabaseCommand}"
+                                    Style="{StaticResource FormPrimaryButtonStyle}" />
+                        </StackPanel>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>

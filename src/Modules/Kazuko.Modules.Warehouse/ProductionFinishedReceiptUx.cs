@@ -20,6 +20,22 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
     public ObservableCollection<ReceiptLineProgress> LineProgress{get;}=[];
     public ICommand CheckResultCommand{get;}
     public ICommand OpenDeliveryCommand{get;}
+    public bool ShowLineSelector=>OrderLines.Count>1;
+    public bool ShowCancelEditor=>HasPendingEditor&&!IsPosted;
+    public bool ShowResultCheck=>!IsPosted&&(_pendingPost is not null||_postFailed);
+    public bool ShowDelivery=>IsPosted&&_detail?.SalesOrderId is >0&&_openDelivery is not null;
+
+    private void NotifyEditorVisibility(object? sender,System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if(args.PropertyName is nameof(ProductName) or nameof(ModelCode) or nameof(GoldPurityCode)
+            or nameof(QuantityText) or nameof(TotalWeightText) or nameof(StoneWeightText) or nameof(GoldWeightText)
+            or nameof(CostPriceText) or nameof(SalePriceText) or nameof(SaleLaborCostText)
+            or nameof(PurchaseLaborCostText) or nameof(SupplierName) or nameof(SymbolCode) or nameof(FormNotes) or nameof(IsEditing))
+        {
+            OnPropertyChanged(nameof(HasPendingEditor));
+            OnPropertyChanged(nameof(ShowCancelEditor));
+        }
+    }
 
     private void RefreshLineProgress()
     {

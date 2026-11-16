@@ -12,7 +12,7 @@ public static class BackendAccess
         PermissionAction SaveAction() => Value(args.FirstOrDefault(), "Id") is long id && id > 0 ? PermissionAction.Edit : PermissionAction.Add;
         string VoucherType() => (args.FirstOrDefault(x => x is string) as string
             ?? Value(args.FirstOrDefault(), "VoucherType") as string ?? "").ToUpperInvariant();
-        bool Lookup() => new[] { "SALES", "WAREHOUSE", "PRODUCTION", "DEBT", "FINANCE", "CUSTOMER", "SUPPLIER", "HR", "USER_MANAGEMENT", "PRICE_BOARD", "REPORT", "SETTINGS" }
+        bool Lookup() => Has("DEBT_SETTLEMENT") || new[] { "SALES", "WAREHOUSE", "PRODUCTION", "FINANCE", "CUSTOMER", "SUPPLIER", "HR", "USER_MANAGEMENT", "PRICE_BOARD", "REPORT", "SETTINGS" }
             .Any(route => NavigationAccess.Allows(rights, route));
         if (contract == "IPayrollReportService") return (method is "GetAsync" or "GetEmployeesAsync") && Has("REP_VIEW") && Has("HR_PAYROLL");
         if (contract.EndsWith("ReportService", StringComparison.Ordinal)) return Has("REP_VIEW");
@@ -132,7 +132,7 @@ public static class BackendAccess
                 "SaveAsync" => Has(VoucherType() == "IN" ? "FIN_CASH_IN" : "FIN_CASH_OUT", SaveAction()), _ => false },
             "IFinanceDashboardRepository" => method == "SearchVouchersAsync" ? (VoucherType() == "" ? Has("FIN_CASH_IN") && Has("FIN_CASH_OUT") : Has(VoucherType() == "IN" ? "FIN_CASH_IN" : "FIN_CASH_OUT"))
                 : method == "GetVoucherDetailAsync" ? Any("FIN_CASH_IN", "FIN_CASH_OUT") : Has("FIN_FUND"),
-            "ICashFundRepository" or "IBankAccountRepository" => NavigationAccess.Allows(rights, "SALES") || NavigationAccess.Allows(rights, "FINANCE") || Any("DEBT_SETTLEMENT", "INV_MATERIAL_RECEIPT", "PROD_ORDER"),
+            "ICashFundRepository" or "IBankAccountRepository" => NavigationAccess.Allows(rights, "SALES") || Any("FIN_FUND", "FIN_CASH_IN", "FIN_CASH_OUT", "DEBT_SETTLEMENT", "INV_MATERIAL_RECEIPT", "PROD_ORDER"),
             "IUserManagementRepository" => method switch {
                 "SaveUserAsync" or "SaveGroupAsync" => Has("SYS_USER_MANAGEMENT", SaveAction()),
                 "DeleteUserAsync" or "DeleteGroupAsync" => Has("SYS_USER_MANAGEMENT", PermissionAction.Delete),

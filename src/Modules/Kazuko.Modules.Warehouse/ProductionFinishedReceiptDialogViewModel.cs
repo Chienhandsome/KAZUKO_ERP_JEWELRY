@@ -40,6 +40,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
     private readonly IPrintTemplateStore _printTemplates;
     private readonly ICompanyProfileService _companyProfile;
     private readonly FinishedGoodsLabelPrintService _labelPrintService;
+    private readonly Func<string, MessageBoxButton, MessageBoxResult> _confirmClose;
     private readonly Dictionary<string, int> _codeSequences = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<ManualFinishedProductItem> _printChecked = new();
 
@@ -90,7 +91,8 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         AuthenticatedSession session,
         IPrintTemplateStore printTemplates,
         ICompanyProfileService companyProfile, IGoldTypeCatalogService? goldTypes=null, IFinishedReceiptDraftStore? draftStore=null, IFinishedReceiptDocuments? documents=null, long? preferredOrderId=null,
-        ICraftOrderApplicationService? craftOrders=null, Func<long,Task>? openDelivery=null)
+        ICraftOrderApplicationService? craftOrders=null, Func<long,Task>? openDelivery=null,
+        Func<string, MessageBoxButton, MessageBoxResult>? confirmClose=null)
     {
         _goldTypes=goldTypes;_draftStore=draftStore;_documents=documents;_preferredOrderId=preferredOrderId;
         _warehouse = warehouse;
@@ -100,6 +102,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         _printTemplates = printTemplates;
         _companyProfile = companyProfile;
         _craftOrders=craftOrders;_openDelivery=openDelivery;
+        _confirmClose=confirmClose??((message,buttons)=>MessageBox.Show(message,"Đóng phiếu nhập",buttons,MessageBoxImage.Question));
         CheckResultCommand=new AsyncRelayCommand(CheckResultAsync,()=>!IsBusy&&!IsDetailLoading&&SelectedOrder is not null&&_documents is not null);
         OpenDeliveryCommand=new AsyncRelayCommand(OpenDeliveryAsync,()=>!IsBusy&&IsPosted&&_detail?.SalesOrderId is >0&&_openDelivery is not null);
         _labelPrintService = new FinishedGoodsLabelPrintService(printTemplates);
@@ -129,6 +132,8 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         SaveDraftCommand=new RelayCommand(()=>{try{SaveDraft();}catch(Exception ex){ErrorMessage=ex.Message;}},()=>CanEdit&&SelectedOrder is not null);
 
         Products.CollectionChanged += OnProductsChanged;
+        PropertyChanged += NotifyEditorVisibility;
+        OrderLines.CollectionChanged += (_,_) => OnPropertyChanged(nameof(ShowLineSelector));
         _ = LoadLookupsAsync();
     }
 
@@ -152,7 +157,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
             if(IsBusy||_pendingPost is not null||IsPosted||HasPendingEditor){ErrorMessage="Hoàn tất hoặc hủy món đang nhập trước khi đổi LSX.";OnPropertyChanged();return;}
             try {if(_selectedOrder is not null&&Products.Count>0)SaveDraft();}
             catch(Exception ex){ErrorMessage=ex.Message;OnPropertyChanged();return;}
-            if (SetProperty(ref _selectedOrder, value)) {Products.Clear();ClearForm();_requestId=Guid.NewGuid();_ = LoadDetailAsync(value);}
+            if (SetProperty(ref _selectedOrder, value)) {Products.Clear();ClearForm(selectSingleLine:false);_requestId=Guid.NewGuid();_ = LoadDetailAsync(value);}
         }
     }
 
@@ -969,7 +974,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
             ClearForm();
     }
 
-    private void ClearForm()
+    private void ClearForm(bool selectSingleLine=true)
     {
         SelectedLine=null;
         ProductName = string.Empty;
@@ -992,6 +997,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         FormNotes = string.Empty;
         _editingIndex = -1;
         IsEditing = false;
+        if(selectSingleLine&&OrderLines.Count==1)SelectedLine=OrderLines[0];
         OnPropertyChanged(nameof(PreviewProductCode));
     }
 

@@ -36,12 +36,12 @@ public static class NavigationAccess
         "PRODUCTION" => ["PROD_ORDER", "PROD_MATERIAL_ISSUE", "PROD_GOLD_RECONCILE"],
         "WAREHOUSE" => ["INV_STOCK_VIEW", "INV_HISTORY", "INV_MATERIAL_RECEIPT", "INV_FINISHED_RECEIPT", "INV_TRANSFER", "INV_STOCKTAKE", "INV_SALES_INTAKE"],
         "SALES" => ["SALES_RETAIL", "SALES_WHOLESALE", "OLD_GOLD_PURCHASE", "CRAFT_ORDER", "SALES_HISTORY"],
-        "DEBT" => ["DEBT_CUSTOMER", "DEBT_WORKER_GOLD", "DEBT_SETTLEMENT"],
-        "FINANCE" => ["FIN_FUND", "FIN_CASH_IN", "FIN_CASH_OUT"],
+        "DEBT" => ["DEBT_CUSTOMER", "DEBT_WORKER_GOLD"],
+        "FINANCE" => ["FIN_FUND", "FIN_CASH_IN", "FIN_CASH_OUT", "DEBT_CUSTOMER", "DEBT_WORKER_GOLD"],
         "CUSTOMER" => ["CAT_CUSTOMERS"], "SUPPLIER" => ["CAT_SUPPLIERS"], "HR" => ["CAT_EMPLOYEES", "HR_PAYROLL"],
         "REPORT" => ["REP_VIEW"], "PRICE_BOARD" or "WAREHOUSE_GOLD_PRICES" => ["CAT_GOLD_PRICE"],
         "WAREHOUSE_EXTERNAL_WORKERS" => ["CAT_EXTERNAL_WORKERS"], "USER_MANAGEMENT" => ["SYS_USER_MANAGEMENT"],
-        "SETTINGS" => ["SYS_SETTINGS", "SYS_DATABASE"], _ => []
+        "SETTINGS" => ["SYS_SETTINGS", "SYS_DATABASE", "SYS_USER_MANAGEMENT"], _ => []
     };
     public static bool Allows(PermissionSnapshot snapshot, string route) => route.Equals("DASHBOARD", StringComparison.OrdinalIgnoreCase)
         || Functions(route).Any(f => snapshot.Allows(f));

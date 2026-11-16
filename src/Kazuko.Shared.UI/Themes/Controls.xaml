@@ -4,6 +4,7 @@
                     xmlns:behaviors="clr-namespace:Kazuko.Shared.UI.Behaviors">
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="DatePicker.xaml" />
+        <ResourceDictionary Source="FormControls.xaml" />
     </ResourceDictionary.MergedDictionaries>
     <conv:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
     <conv:VietnameseMoneyConverter x:Key="ViMoneyConverter" />

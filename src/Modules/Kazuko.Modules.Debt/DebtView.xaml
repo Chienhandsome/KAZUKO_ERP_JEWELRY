@@ -4,7 +4,7 @@
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
              xmlns:local="clr-namespace:Kazuko.Modules.Debt"
              xmlns:grid="clr-namespace:Kazuko.Shared.UI.DataGridLayout;assembly=Kazuko.Shared.UI"
-             MinWidth="960" MinHeight="560">
+             Loaded="OnLoaded">
   <UserControl.Resources>
     <local:BooleanToVisibilityConverter x:Key="BoolToVis" />
     <local:BooleanToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
@@ -328,823 +328,681 @@
       <Setter Property="Height" Value="32" />
     </Style>
 
-    <Style x:Key="DebtTabItemStyle" TargetType="TabItem">
-      <Setter Property="Padding" Value="14,8" />
-      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
-      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="TabItem">
-            <Border x:Name="TabBorder" Background="Transparent" BorderThickness="0,0,0,3"
-                    BorderBrush="Transparent" Padding="{TemplateBinding Padding}" Margin="0,0,4,0"
-                    CornerRadius="6,6,0,0">
-              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.55" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
+    <DataTemplate x:Key="CustomerDebtTemplate">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="0.72*" MinHeight="160" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="1.28*" MinHeight="220" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button Content="Tìm kiếm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                    Command="{Binding SearchCommand}" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Làm mới" Style="{StaticResource OutlineButtonStyle}"
+                    Command="{Binding RefreshCommand}" MinWidth="100" Margin="0" />
+          </StackPanel>
+          <WrapPanel VerticalAlignment="Center">
+            <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}" />
+            <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
+                        VerticalContentAlignment="Center" />
+            <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}" />
+            <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
+                        VerticalContentAlignment="Center" />
+            <TextBox Width="200" Style="{StaticResource FilterFieldStyle}"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Tìm kiếm (mã, tên, SĐT)...">
+              <TextBox.InputBindings>
+                <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
+              </TextBox.InputBindings>
+            </TextBox>
+            <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
+                      ItemsSource="{Binding Groups}"
+                      SelectedItem="{Binding SelectedGroup}"
+                      DisplayMemberPath="Name" />
+            <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
+                      ItemsSource="{Binding StatusOptions}"
+                      SelectedItem="{Binding SelectedStatus}"
+                      DisplayMemberPath="DisplayName" />
+          </WrapPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+          <DataGrid ItemsSource="{Binding Customers}"
+                    SelectedItem="{Binding SelectedCustomer}"
+                    Style="{StaticResource DebtDataGridStyle}"
+                    ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
+                    grid:DataGridColumnLayout.SettingsKey="debt-customers"
+                    grid:DataGridColumnLayout.EnableHeaderMenu="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
+                                  Binding="{Binding Index, Mode=OneWay}" Width="50" />
+              <DataGridTextColumn Header="Mã KH" grid:DataGridColumnLayout.Key="Code"
+                                  Binding="{Binding Code, Mode=OneWay}" Width="90" />
+              <DataGridTextColumn Header="Tên khách hàng" grid:DataGridColumnLayout.Key="Name"
+                                  Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" />
+              <DataGridTextColumn Header="SĐT" grid:DataGridColumnLayout.Key="Phone"
+                                  Binding="{Binding Phone, Mode=OneWay}" Width="110" />
+              <DataGridTextColumn Header="Tổng phát sinh" grid:DataGridColumnLayout.Key="Incurred"
+                                  Binding="{Binding TotalIncurredText, Mode=OneWay}" Width="110" />
+              <DataGridTextColumn Header="Đã thanh toán" grid:DataGridColumnLayout.Key="Paid"
+                                  Binding="{Binding PaidText, Mode=OneWay}" Width="110" />
+              <DataGridTemplateColumn Header="Còn nợ" grid:DataGridColumnLayout.Key="Remaining" Width="110">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
+                               FontWeight="SemiBold"
+                               Foreground="{Binding RemainingVnd, Converter={StaticResource ReceiveBrush}}"
+                               VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Ngày nợ cuối" grid:DataGridColumnLayout.Key="LastDebt"
+                                  Binding="{Binding LastDebtDateText, Mode=OneWay}" Width="100" />
+              <DataGridTemplateColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Width="120">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
+                            Background="{Binding StatusCode, Converter={StaticResource StatusBrush}}">
+                      <TextBlock Text="{Binding StatusText, Mode=OneWay}"
+                                 Foreground="{DynamicResource OnPrimaryBrush}"
+                                 FontSize="{DynamicResource FontSize.Caption}"
+                                 FontWeight="SemiBold" />
+                    </Border>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="200">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu toàn bộ"
+                              Style="{StaticResource RoundedSuccessButtonStyle}"
+                              Margin="0,0,6,0"
+                              Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
+                              Command="{Binding DataContext.CollectCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                              CommandParameter="{Binding}"
+                              ToolTip="Thu toàn bộ số phải thu trên đơn hàng" />
+                      <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi toàn bộ"
+                              Style="{StaticResource RoundedDangerButtonStyle}"
+                              Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
+                              Command="{Binding DataContext.PayCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                              CommandParameter="{Binding}"
+                              ToolTip="Chi toàn bộ số DN đang nợ khách hàng" />
+                    </StackPanel>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+          <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                  Visibility="{Binding IsBusyOverlayVisible, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Đang tải..." HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource PrimaryBrush}"
+                       FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
+          </Border>
+          <TextBlock Text="Không có dữ liệu công nợ khách hàng."
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     Visibility="{Binding IsCustomerEmpty, Converter={StaticResource BoolToVis}}" />
+        </Grid>
+
+        <DockPanel Grid.Row="2" Margin="0,8,0,4">
+          <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
+                     Foreground="{DynamicResource DangerBrush}"
+                     FontSize="{DynamicResource FontSize.Body}"
+                     Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+          <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
+                     HorizontalAlignment="Right"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="{DynamicResource FontSize.Caption}" />
+        </DockPanel>
+
+        <Grid Grid.Row="3" Margin="0,4,0,0"
+              Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="280" />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="1.4*" MinWidth="360" />
+          </Grid.ColumnDefinitions>
+
+          <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="14">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <DockPanel Margin="0,0,0,12">
+                  <Button access:PermissionAccess.Rule="DEBT_CUSTOMER:Edit" Content="Sửa"
+                          DockPanel.Dock="Right"
+                          HorizontalAlignment="Right"
+                          Style="{StaticResource RoundedPrimaryButtonStyle}"
+                          Command="{Binding EditSelectedCommand}"
+                          MinWidth="90" MinHeight="32" Padding="12,4" />
+                  <TextBlock Text="{Binding DetailTitle}"
+                             Foreground="{DynamicResource PrimaryBrush}"
+                             FontSize="{DynamicResource FontSize.Subtitle}"
+                             FontWeight="Bold"
+                             VerticalAlignment="Center" />
+                </DockPanel>
+                <TextBlock Text="Mã" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Họ và tên" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Số điện thoại" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedPhone, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Nhóm" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedGroupName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Địa chỉ" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedAddress, Mode=OneWay}" Style="{StaticResource DetailValueStyle}"
+                        TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
+                        VerticalContentAlignment="Top" />
+                <TextBlock Text="Công nợ hiện tại" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedRemainingText, Mode=OneWay, StringFormat={}{0} VND}"
+                        Style="{StaticResource DetailValueStyle}"
+                        FontWeight="Bold"
+                        Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource ReceiveBrush}}" />
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+
+          <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10"
+                         Text="Lịch sử giao dịch"
+                         Foreground="{DynamicResource PrimaryBrush}"
+                         FontSize="{DynamicResource FontSize.Body}"
+                         FontWeight="Bold" />
+              <DataGrid ItemsSource="{Binding LedgerEntries}"
+                        Style="{StaticResource DebtDataGridStyle}"
+                        ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
+                        grid:DataGridColumnLayout.SettingsKey="debt-customer-ledger"
+                        grid:DataGridColumnLayout.EnableHeaderMenu="True">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Ngày" Binding="{Binding EntryDateText, Mode=OneWay}" Width="80"
+                                      grid:DataGridColumnLayout.Key="Date" />
+                  <DataGridTextColumn Header="Chứng từ" Binding="{Binding DocumentCode, Mode=OneWay}" Width="90"
+                                      grid:DataGridColumnLayout.Key="Doc" />
+                  <DataGridTextColumn Header="Diễn giải" Binding="{Binding Description, Mode=OneWay}" Width="*"
+                                      grid:DataGridColumnLayout.Key="Desc" />
+                  <DataGridTextColumn Header="Thu" Binding="{Binding ReceiptText, Mode=OneWay}" Width="80"
+                                      grid:DataGridColumnLayout.Key="Receipt">
+                    <DataGridTextColumn.ElementStyle>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{Binding Entry.ReceiptAmountVnd, Converter={StaticResource ReceiveBrush}}" />
+                      </Style>
+                    </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
+                  <DataGridTextColumn Header="Chi" Binding="{Binding PaymentText, Mode=OneWay}" Width="80"
+                                      grid:DataGridColumnLayout.Key="Payment">
+                    <DataGridTextColumn.ElementStyle>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{Binding Entry.PaymentAmountVnd, Converter={StaticResource PayBrush}}" />
+                      </Style>
+                    </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
+                  <DataGridTextColumn Header="Dư" Binding="{Binding BalanceText, Mode=OneWay}" Width="90"
+                                      grid:DataGridColumnLayout.Key="Balance" />
+                  <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu"
+                                  Style="{StaticResource RoundedSuccessButtonStyle}"
+                                  Margin="0,0,6,0"
+                                  Visibility="{Binding CanShowCollectButton, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}" />
+                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi"
+                                  Style="{StaticResource RoundedDangerButtonStyle}"
+                                  Visibility="{Binding CanShowPayButton, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </Border>
+        </Grid>
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SupplierDebtTemplate">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="0.72*" MinHeight="160" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="1.28*" MinHeight="220" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button Content="Tìm kiếm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                    Command="{Binding SearchCommand}" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Làm mới" Style="{StaticResource OutlineButtonStyle}"
+                    Command="{Binding RefreshCommand}" MinWidth="100" Margin="0" />
+          </StackPanel>
+          <WrapPanel VerticalAlignment="Center">
+            <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}" />
+            <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
+                        VerticalContentAlignment="Center" />
+            <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}" />
+            <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
+                        VerticalContentAlignment="Center" />
+            <TextBox Width="200" Style="{StaticResource FilterFieldStyle}"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Tìm kiếm (mã, tên, SĐT)...">
+              <TextBox.InputBindings>
+                <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
+              </TextBox.InputBindings>
+            </TextBox>
+            <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
+                      ItemsSource="{Binding StatusOptions}"
+                      SelectedItem="{Binding SelectedStatus}"
+                      DisplayMemberPath="DisplayName" />
+          </WrapPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+          <DataGrid ItemsSource="{Binding Suppliers}"
+                    SelectedItem="{Binding SelectedSupplier}"
+                    Style="{StaticResource DebtDataGridStyle}"
+                    ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
+                    grid:DataGridColumnLayout.SettingsKey="debt-suppliers"
+                    grid:DataGridColumnLayout.EnableHeaderMenu="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
+                                  Binding="{Binding Index, Mode=OneWay}" Width="50" />
+              <DataGridTextColumn Header="Mã NCC" grid:DataGridColumnLayout.Key="Code"
+                                  Binding="{Binding Code, Mode=OneWay}" Width="90" />
+              <DataGridTextColumn Header="Tên nhà cung cấp" grid:DataGridColumnLayout.Key="Name"
+                                  Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" />
+              <DataGridTextColumn Header="SĐT" grid:DataGridColumnLayout.Key="Phone"
+                                  Binding="{Binding Phone, Mode=OneWay}" Width="110" />
+              <DataGridTextColumn Header="Tổng phát sinh" grid:DataGridColumnLayout.Key="Incurred"
+                                  Binding="{Binding TotalIncurredText, Mode=OneWay}" Width="110" />
+              <DataGridTextColumn Header="Đã thanh toán" grid:DataGridColumnLayout.Key="Paid"
+                                  Binding="{Binding PaidText, Mode=OneWay}" Width="110" />
+              <DataGridTemplateColumn Header="Còn nợ" grid:DataGridColumnLayout.Key="Remaining" Width="110">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
+                               FontWeight="SemiBold"
+                               Foreground="{Binding RemainingVnd, Converter={StaticResource PayBrush}}"
+                               VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Ngày nợ cuối" grid:DataGridColumnLayout.Key="LastDebt"
+                                  Binding="{Binding LastDebtDateText, Mode=OneWay}" Width="100" />
+              <DataGridTemplateColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Width="120">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
+                            Background="{Binding StatusCode, Converter={StaticResource StatusBrush}}">
+                      <TextBlock Text="{Binding StatusText, Mode=OneWay}"
+                                 Foreground="{DynamicResource OnPrimaryBrush}"
+                                 FontSize="{DynamicResource FontSize.Caption}"
+                                 FontWeight="SemiBold" />
+                    </Border>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="200">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu toàn bộ"
+                              Style="{StaticResource RoundedSuccessButtonStyle}"
+                              Margin="0,0,6,0"
+                              Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
+                              Command="{Binding DataContext.CollectSupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                              CommandParameter="{Binding}"
+                              ToolTip="Thu toàn bộ số NCC đang nợ" />
+                      <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi toàn bộ"
+                              Style="{StaticResource RoundedDangerButtonStyle}"
+                              Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
+                              Command="{Binding DataContext.PaySupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                              CommandParameter="{Binding}"
+                              ToolTip="Chi toàn bộ số DN đang nợ NCC" />
+                    </StackPanel>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+          <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                  Visibility="{Binding IsBusyOverlayVisible, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Đang tải..." HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource PrimaryBrush}"
+                       FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
+          </Border>
+          <TextBlock Text="Không có dữ liệu công nợ nhà cung cấp."
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     Visibility="{Binding IsSupplierEmpty, Converter={StaticResource BoolToVis}}" />
+        </Grid>
+
+        <DockPanel Grid.Row="2" Margin="0,8,0,4">
+          <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
+                     Foreground="{DynamicResource DangerBrush}"
+                     FontSize="{DynamicResource FontSize.Body}"
+                     Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+          <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
+                     HorizontalAlignment="Right"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="{DynamicResource FontSize.Caption}" />
+        </DockPanel>
+
+        <Grid Grid.Row="3" Margin="0,4,0,0"
+              Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="280" />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="1.4*" MinWidth="360" />
+          </Grid.ColumnDefinitions>
+
+          <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="14">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <DockPanel Margin="0,0,0,12">
+                  <Button Content="Sửa"
+                          DockPanel.Dock="Right"
+                          HorizontalAlignment="Right"
+                          Style="{StaticResource RoundedPrimaryButtonStyle}"
+                          Command="{Binding EditSelectedCommand}"
+                          MinWidth="90" MinHeight="32" Padding="12,4" />
+                  <TextBlock Text="{Binding DetailTitle}"
+                             Foreground="{DynamicResource PrimaryBrush}"
+                             FontSize="{DynamicResource FontSize.Subtitle}"
+                             FontWeight="Bold"
+                             VerticalAlignment="Center" />
+                </DockPanel>
+                <TextBlock Text="Mã" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Tên nhà cung cấp" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Số điện thoại" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedPhone, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Nhóm" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedGroupName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
+                <TextBlock Text="Địa chỉ" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedAddress, Mode=OneWay}" Style="{StaticResource DetailValueStyle}"
+                        TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
+                        VerticalContentAlignment="Top" />
+                <TextBlock Text="Công nợ hiện tại" Style="{StaticResource DetailLabelStyle}" />
+                <TextBox Text="{Binding SelectedRemainingText, Mode=OneWay, StringFormat={}{0} VND}"
+                        Style="{StaticResource DetailValueStyle}"
+                        FontWeight="Bold"
+                        Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource PayBrush}}" />
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+
+          <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10"
+                         Text="Lịch sử giao dịch"
+                         Foreground="{DynamicResource PrimaryBrush}"
+                         FontSize="{DynamicResource FontSize.Body}"
+                         FontWeight="Bold" />
+              <DataGrid ItemsSource="{Binding LedgerEntries}"
+                        Style="{StaticResource DebtDataGridStyle}"
+                        ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
+                        grid:DataGridColumnLayout.SettingsKey="debt-supplier-ledger"
+                        grid:DataGridColumnLayout.EnableHeaderMenu="True">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Ngày" Binding="{Binding EntryDateText, Mode=OneWay}" Width="80"
+                                      grid:DataGridColumnLayout.Key="Date" />
+                  <DataGridTextColumn Header="Chứng từ" Binding="{Binding DocumentCode, Mode=OneWay}" Width="90"
+                                      grid:DataGridColumnLayout.Key="Doc" />
+                  <DataGridTextColumn Header="Diễn giải" Binding="{Binding Description, Mode=OneWay}" Width="*"
+                                      grid:DataGridColumnLayout.Key="Desc" />
+                  <DataGridTextColumn Header="Thu" Binding="{Binding ReceiptText, Mode=OneWay}" Width="80"
+                                      grid:DataGridColumnLayout.Key="Receipt">
+                    <DataGridTextColumn.ElementStyle>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{Binding Entry.ReceiptAmountVnd, Converter={StaticResource ReceiveBrush}}" />
+                      </Style>
+                    </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
+                  <DataGridTextColumn Header="Chi" Binding="{Binding PaymentText, Mode=OneWay}" Width="80"
+                                      grid:DataGridColumnLayout.Key="Payment">
+                    <DataGridTextColumn.ElementStyle>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{Binding Entry.PaymentAmountVnd, Converter={StaticResource PayBrush}}" />
+                      </Style>
+                    </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
+                  <DataGridTextColumn Header="Dư" Binding="{Binding BalanceText, Mode=OneWay}" Width="90"
+                                      grid:DataGridColumnLayout.Key="Balance" />
+                  <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <Button Content="Thu"
+                                  Style="{StaticResource RoundedSuccessButtonStyle}"
+                                  Margin="0,0,6,0"
+                                  Visibility="{Binding CanShowCollectButton, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}" />
+                          <Button Content="Chi"
+                                  Style="{StaticResource RoundedDangerButtonStyle}"
+                                  Visibility="{Binding CanShowPayButton, Converter={StaticResource BoolToVis}}"
+                                  Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  CommandParameter="{Binding}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </Border>
+        </Grid>
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="WorkerGoldDebtTemplate">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" MinHeight="200" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button Content="Tìm kiếm" Style="{StaticResource RoundedPrimaryButtonStyle}"
+                    Command="{Binding SearchCommand}" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Làm mới" Style="{StaticResource OutlineButtonStyle}"
+                    Command="{Binding RefreshCommand}" MinWidth="100" Margin="0" />
+          </StackPanel>
+          <WrapPanel VerticalAlignment="Center">
+            <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}" />
+            <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
+                        VerticalContentAlignment="Center" />
+            <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="{DynamicResource FontSize.Caption}" />
+            <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
+                        VerticalContentAlignment="Center" />
+            <TextBox Width="220" Style="{StaticResource FilterFieldStyle}"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Tìm thợ, mã NV, mã lệnh SX...">
+              <TextBox.InputBindings>
+                <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
+              </TextBox.InputBindings>
+            </TextBox>
+            <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
+                      ItemsSource="{Binding GoldPurityOptions}"
+                      SelectedItem="{Binding SelectedGoldPurity}"
+                      DisplayMemberPath="DisplayName"
+                      ToolTip="Lọc theo loại vàng" />
+            <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
+                      ItemsSource="{Binding WorkerDebtStatusOptions}"
+                      SelectedItem="{Binding SelectedWorkerDebtStatus}"
+                      DisplayMemberPath="DisplayName"
+                      ToolTip="Lọc theo tình trạng trả nợ" />
+          </WrapPanel>
+        </DockPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+          <Border Style="{DynamicResource CardBorderStyle}" Padding="12,8" Margin="0,0,8,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="Tổng còn nợ: " VerticalAlignment="Center"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="{DynamicResource FontSize.Caption}" />
+              <TextBlock Text="{Binding KpiWorkerGoldRemainingText, Mode=OneWay}"
+                         FontWeight="Bold" VerticalAlignment="Center"
+                         Foreground="{DynamicResource SuccessBrush}"
+                         FontSize="{DynamicResource FontSize.Body}" />
+              <TextBlock Text=" chỉ" VerticalAlignment="Center"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="{DynamicResource FontSize.Caption}" />
+            </StackPanel>
+          </Border>
+          <Border Style="{DynamicResource CardBorderStyle}" Padding="12,8">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="Thợ còn nợ: " VerticalAlignment="Center"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="{DynamicResource FontSize.Caption}" />
+              <TextBlock Text="{Binding KpiWorkerGoldDebtorCountText, Mode=OneWay}"
+                         FontWeight="Bold" VerticalAlignment="Center"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         FontSize="{DynamicResource FontSize.Body}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <Grid Grid.Row="2">
+          <DataGrid ItemsSource="{Binding WorkerGoldDebts}"
+                    SelectedItem="{Binding SelectedWorkerGoldDebt}"
+                    Style="{StaticResource DebtDataGridStyle}"
+                    ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
+                    grid:DataGridColumnLayout.SettingsKey="debt-worker-gold"
+                    grid:DataGridColumnLayout.EnableHeaderMenu="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
+                                  Binding="{Binding Index, Mode=OneWay}" Width="50" />
+              <DataGridTextColumn Header="Mã nợ" grid:DataGridColumnLayout.Key="Code"
+                                  Binding="{Binding Code, Mode=OneWay}" Width="110" />
+              <DataGridTextColumn Header="Thợ" grid:DataGridColumnLayout.Key="Worker"
+                                  Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="*" MinWidth="170" />
+              <DataGridTextColumn Header="Loại thợ" grid:DataGridColumnLayout.Key="WorkerType"
+                                  Binding="{Binding WorkerTypeText, Mode=OneWay}" Width="90" />
+              <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="Purity"
+                                  Binding="{Binding GoldPurityText, Mode=OneWay}" Width="90" />
+              <DataGridTextColumn Header="Nợ (chỉ)" grid:DataGridColumnLayout.Key="Weight"
+                                  Binding="{Binding WeightText, Mode=OneWay}" Width="90" />
+              <DataGridTextColumn Header="Đã trả (chỉ)" grid:DataGridColumnLayout.Key="Paid"
+                                  Binding="{Binding WeightPaidText, Mode=OneWay}" Width="100" />
+              <DataGridTemplateColumn Header="Còn lại (chỉ)" grid:DataGridColumnLayout.Key="Remaining" Width="110">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
+                               FontWeight="SemiBold"
+                               Foreground="{Binding RemainingChi, Converter={StaticResource ReceiveBrush}}"
+                               VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Lệnh SX" grid:DataGridColumnLayout.Key="Order"
+                                  Binding="{Binding ProductionOrderCode, Mode=OneWay}" Width="120" />
+              <DataGridTextColumn Header="Ngày ghi" grid:DataGridColumnLayout.Key="CreatedAt"
+                                  Binding="{Binding CreatedAtText, Mode=OneWay}" Width="100" />
+              <DataGridTemplateColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Width="120">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
+                            Background="{Binding StatusBrushCode, Converter={StaticResource StatusBrush}}">
+                      <TextBlock Text="{Binding StatusText, Mode=OneWay}"
+                                 Foreground="{DynamicResource OnPrimaryBrush}"
+                                 FontSize="{DynamicResource FontSize.Caption}"
+                                 FontWeight="SemiBold" />
+                    </Border>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="140">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Button access:PermissionAccess.Rule="DEBT_WORKER_GOLD:Edit" Content="Ghi trả vàng"
+                            Style="{StaticResource RoundedSuccessButtonStyle}"
+                            Visibility="{Binding CanRecordRepayment, Converter={StaticResource BoolToVis}}"
+                            Command="{Binding DataContext.RecordRepaymentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                            CommandParameter="{Binding}"
+                            ToolTip="Ghi nhận thợ trả vàng cho khoản nợ này" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+          <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                  Visibility="{Binding IsBusyOverlayVisible, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Đang tải..." HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource PrimaryBrush}"
+                       FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
+          </Border>
+          <TextBlock Text="Không có dữ liệu nợ vàng thợ."
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     Visibility="{Binding IsWorkerGoldDebtEmpty, Converter={StaticResource BoolToVis}}" />
+        </Grid>
+
+        <DockPanel Grid.Row="3" Margin="0,8,0,4">
+          <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
+                     Foreground="{DynamicResource DangerBrush}"
+                     FontSize="{DynamicResource FontSize.Body}"
+                     Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
+          <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
+                     HorizontalAlignment="Right"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="{DynamicResource FontSize.Caption}" />
+        </DockPanel>
+      </Grid>
+    </DataTemplate>
   </UserControl.Resources>
 
-  <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="18">
+  <Grid Margin="0,12,0,0">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" MinHeight="280" />
+      <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <!-- Header: giống KHÁCH HÀNG -->
-    <Grid Grid.Row="0" Margin="0,0,0,14">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
-      </Grid.ColumnDefinitions>
-      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <Image Source="/Kazuko.Modules.Debt;component/Assets/icons/TC.png"
-               Width="48" Height="48" Stretch="Uniform" Margin="0,0,12,0" />
-        <StackPanel VerticalAlignment="Center">
-          <TextBlock Text="CÔNG NỢ"
-                     Foreground="{DynamicResource PrimaryBrush}"
-                     FontSize="{DynamicResource FontSize.Heading}"
-                     FontWeight="Bold" />
-          <TextBlock Text="Quản lý công nợ khách hàng / nhà cung cấp — thu / chi — đối chiếu"
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="{DynamicResource FontSize.Body}"
-                     TextWrapping="Wrap" />
-        </StackPanel>
-      </StackPanel>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-        <Button Content="{Binding AddPartyButtonText}"
-                Style="{StaticResource RoundedPrimaryButtonStyle}"
-                Command="{Binding AddPartyCommand}"
-                Margin="0,0,8,0"
-                MinWidth="180" />
-        <Button Content="? Hướng dẫn"
-                Style="{StaticResource OutlineButtonStyle}"
-                Command="{Binding GuideCommand}"
-                MinWidth="120"
-                Margin="0" />
-      </StackPanel>
-    </Grid>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+      <Button Content="{Binding AddPartyButtonText}"
+              Style="{StaticResource RoundedPrimaryButtonStyle}"
+              Command="{Binding AddPartyCommand}"
+              Visibility="{Binding IsWorkerGoldDebtTab, Converter={StaticResource InverseBoolToVis}}"
+              Margin="0,0,8,0"
+              MinWidth="180" />
+      <Button Content="? Hướng dẫn"
+              Style="{StaticResource OutlineButtonStyle}"
+              Command="{Binding GuideCommand}"
+              MinWidth="120"
+              Margin="0" />
+    </StackPanel>
 
-    <!-- KPI -->
-    <Grid Grid.Row="1" Margin="0,0,0,12">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="8" />
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="8" />
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="8" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-
-      <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-        <StackPanel>
-          <TextBlock Text="Tổng công nợ khách hàng" Style="{StaticResource DetailLabelStyle}" />
-          <TextBlock FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="Bold"
-                     Foreground="{DynamicResource DangerBrush}">
-            <Run Text="{Binding KpiCustomerRemainingText, Mode=OneWay}" />
-            <Run Text=" VND" />
-          </TextBlock>
-          <TextBlock Margin="0,6,0,0" FontSize="{DynamicResource FontSize.Caption}"
-                     Foreground="{DynamicResource TextSecondaryBrush}">
-            <Run Text="Còn phải thu: " />
-            <Run Text="{Binding KpiCustomerCollectText, Mode=OneWay}" FontWeight="SemiBold"
-                 Foreground="{DynamicResource TextPrimaryBrush}" />
-          </TextBlock>
-          <TextBlock FontSize="{DynamicResource FontSize.Caption}"
-                     Foreground="{DynamicResource TextSecondaryBrush}">
-            <Run Text="Đã thu: " />
-            <Run Text="{Binding KpiCustomerPaidText, Mode=OneWay}" />
-          </TextBlock>
-        </StackPanel>
-      </Border>
-
-      <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-        <StackPanel>
-          <TextBlock Text="Tổng công nợ nhà cung cấp" Style="{StaticResource DetailLabelStyle}" />
-          <TextBlock FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="Bold"
-                     Foreground="{DynamicResource DangerBrush}">
-            <Run Text="{Binding KpiSupplierRemainingText, Mode=OneWay}" />
-            <Run Text=" VND" />
-          </TextBlock>
-          <TextBlock Margin="0,6,0,0" FontSize="{DynamicResource FontSize.Caption}"
-                     Foreground="{DynamicResource TextSecondaryBrush}">
-            <Run Text="Còn phải trả: " />
-            <Run Text="{Binding KpiSupplierPayText, Mode=OneWay}" FontWeight="SemiBold"
-                 Foreground="{DynamicResource TextPrimaryBrush}" />
-          </TextBlock>
-          <TextBlock FontSize="{DynamicResource FontSize.Caption}"
-                     Foreground="{DynamicResource TextSecondaryBrush}">
-            <Run Text="Đã trả: " />
-            <Run Text="{Binding KpiSupplierPaidText, Mode=OneWay}" />
-          </TextBlock>
-        </StackPanel>
-      </Border>
-
-      <Border Grid.Column="4" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-        <StackPanel>
-          <TextBlock Text="Công nợ quá hạn (KH)" Style="{StaticResource DetailLabelStyle}" />
-          <TextBlock FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="Bold"
-                     Foreground="{DynamicResource PrimaryBrush}">
-            <Run Text="{Binding KpiCustomerOverdueText, Mode=OneWay}" />
-            <Run Text=" VND" />
-          </TextBlock>
-          <TextBlock Margin="0,6,0,0"
-                     Text="{Binding KpiCustomerOverdueCountText, Mode=OneWay}"
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="{DynamicResource FontSize.Caption}" />
-        </StackPanel>
-      </Border>
-
-      <Border Grid.Column="6" Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-        <StackPanel>
-          <TextBlock Text="Công nợ quá hạn (NCC)" Style="{StaticResource DetailLabelStyle}" />
-          <TextBlock FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="Bold"
-                     Foreground="{DynamicResource PrimaryBrush}">
-            <Run Text="{Binding KpiSupplierOverdueText, Mode=OneWay}" />
-            <Run Text=" VND" />
-          </TextBlock>
-          <TextBlock Margin="0,6,0,0"
-                     Text="{Binding KpiSupplierOverdueCountText, Mode=OneWay}"
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="{DynamicResource FontSize.Caption}" />
-        </StackPanel>
-      </Border>
-    </Grid>
-
-    <!-- Main card + tabs -->
-    <Border Grid.Row="2" Style="{DynamicResource CardBorderStyle}" Padding="12">
-      <TabControl x:Name="DebtTabControl"
-                  SelectedIndex="{Binding SelectedTabIndex}"
-                  Background="Transparent"
-                  BorderThickness="0"
-                  ItemContainerStyle="{StaticResource DebtTabItemStyle}">
-
-        <TabItem access:PermissionAccess.Rule="DEBT_CUSTOMER" Header="Công nợ khách hàng">
-          <Grid Margin="0,12,0,0">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="0.72*" MinHeight="160" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="1.28*" MinHeight="220" />
-            </Grid.RowDefinitions>
-
-            <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Tìm kiếm" Style="{StaticResource RoundedPrimaryButtonStyle}"
-                        Command="{Binding SearchCommand}" MinWidth="110" Margin="0,0,8,0" />
-                <Button Content="Làm mới" Style="{StaticResource OutlineButtonStyle}"
-                        Command="{Binding RefreshCommand}" MinWidth="100" Margin="0" />
-              </StackPanel>
-              <WrapPanel VerticalAlignment="Center">
-                <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
-                            VerticalContentAlignment="Center" />
-                <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
-                            VerticalContentAlignment="Center" />
-                <TextBox Width="200" Style="{StaticResource FilterFieldStyle}"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Tìm kiếm (mã, tên, SĐT)...">
-                  <TextBox.InputBindings>
-                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
-                  </TextBox.InputBindings>
-                </TextBox>
-                <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
-                          ItemsSource="{Binding Groups}"
-                          SelectedItem="{Binding SelectedGroup}"
-                          DisplayMemberPath="Name" />
-                <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
-                          ItemsSource="{Binding StatusOptions}"
-                          SelectedItem="{Binding SelectedStatus}"
-                          DisplayMemberPath="DisplayName" />
-              </WrapPanel>
-            </DockPanel>
-
-            <Grid Grid.Row="1">
-              <DataGrid ItemsSource="{Binding Customers}"
-                        SelectedItem="{Binding SelectedCustomer}"
-                        Style="{StaticResource DebtDataGridStyle}"
-                        ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
-                        grid:DataGridColumnLayout.SettingsKey="debt-customers"
-                        grid:DataGridColumnLayout.EnableHeaderMenu="True">
-                <DataGrid.Columns>
-                  <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
-                                      Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                  <DataGridTextColumn Header="Mã KH" grid:DataGridColumnLayout.Key="Code"
-                                      Binding="{Binding Code, Mode=OneWay}" Width="90" />
-                  <DataGridTextColumn Header="Tên khách hàng" grid:DataGridColumnLayout.Key="Name"
-                                      Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" />
-                  <DataGridTextColumn Header="SĐT" grid:DataGridColumnLayout.Key="Phone"
-                                      Binding="{Binding Phone, Mode=OneWay}" Width="110" />
-                  <DataGridTextColumn Header="Tổng phát sinh" grid:DataGridColumnLayout.Key="Incurred"
-                                      Binding="{Binding TotalIncurredText, Mode=OneWay}" Width="110" />
-                  <DataGridTextColumn Header="Đã thanh toán" grid:DataGridColumnLayout.Key="Paid"
-                                      Binding="{Binding PaidText, Mode=OneWay}" Width="110" />
-                  <DataGridTemplateColumn Header="Còn nợ" grid:DataGridColumnLayout.Key="Remaining" Width="110">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{Binding RemainingVnd, Converter={StaticResource ReceiveBrush}}"
-                                   VerticalAlignment="Center" />
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTextColumn Header="Ngày nợ cuối" grid:DataGridColumnLayout.Key="LastDebt"
-                                      Binding="{Binding LastDebtDateText, Mode=OneWay}" Width="100" />
-                  <DataGridTemplateColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Width="120">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                Background="{Binding StatusCode, Converter={StaticResource StatusBrush}}">
-                          <TextBlock Text="{Binding StatusText, Mode=OneWay}"
-                                     Foreground="{DynamicResource OnPrimaryBrush}"
-                                     FontSize="{DynamicResource FontSize.Caption}"
-                                     FontWeight="SemiBold" />
-                        </Border>
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="200">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu toàn bộ"
-                                  Style="{StaticResource RoundedSuccessButtonStyle}"
-                                  Margin="0,0,6,0"
-                                  Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
-                                  Command="{Binding DataContext.CollectCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                  CommandParameter="{Binding}"
-                                  ToolTip="Thu toàn bộ số phải thu trên đơn hàng" />
-                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi toàn bộ"
-                                  Style="{StaticResource RoundedDangerButtonStyle}"
-                                  Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
-                                  Command="{Binding DataContext.PayCustomerAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                  CommandParameter="{Binding}"
-                                  ToolTip="Chi toàn bộ số DN đang nợ khách hàng" />
-                        </StackPanel>
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                </DataGrid.Columns>
-              </DataGrid>
-              <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
-                      Visibility="{Binding IsBusyOverlayVisible, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="Đang tải..." HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{DynamicResource PrimaryBrush}"
-                           FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
-              </Border>
-              <TextBlock Text="Không có dữ liệu công nợ khách hàng."
-                         HorizontalAlignment="Center" VerticalAlignment="Center"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         Visibility="{Binding IsCustomerEmpty, Converter={StaticResource BoolToVis}}" />
-            </Grid>
-
-            <DockPanel Grid.Row="2" Margin="0,8,0,4">
-              <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
-                         Foreground="{DynamicResource DangerBrush}"
-                         FontSize="{DynamicResource FontSize.Body}"
-                         Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
-              <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
-                         HorizontalAlignment="Right"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="{DynamicResource FontSize.Caption}" />
-            </DockPanel>
-
-            <Grid Grid.Row="3" Margin="0,4,0,0"
-                  Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="280" />
-                <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="1.4*" MinWidth="360" />
-              </Grid.ColumnDefinitions>
-
-              <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="14">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                  <StackPanel>
-                    <DockPanel Margin="0,0,0,12">
-                      <Button access:PermissionAccess.Rule="DEBT_CUSTOMER:Edit" Content="Sửa"
-                              DockPanel.Dock="Right"
-                              HorizontalAlignment="Right"
-                              Style="{StaticResource RoundedPrimaryButtonStyle}"
-                              Command="{Binding EditSelectedCommand}"
-                              MinWidth="90" MinHeight="32" Padding="12,4" />
-                      <TextBlock Text="{Binding DetailTitle}"
-                                 Foreground="{DynamicResource PrimaryBrush}"
-                                 FontSize="{DynamicResource FontSize.Subtitle}"
-                                 FontWeight="Bold"
-                                 VerticalAlignment="Center" />
-                    </DockPanel>
-                    <TextBlock Text="Mã" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Họ và tên" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Số điện thoại" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedPhone, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Nhóm" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedGroupName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Địa chỉ" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedAddress, Mode=OneWay}" Style="{StaticResource DetailValueStyle}"
-                            TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
-                            VerticalContentAlignment="Top" />
-                    <TextBlock Text="Công nợ hiện tại" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedRemainingText, Mode=OneWay, StringFormat={}{0} VND}"
-                            Style="{StaticResource DetailValueStyle}"
-                            FontWeight="Bold"
-                            Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource ReceiveBrush}}" />
-                  </StackPanel>
-                </ScrollViewer>
-              </Border>
-
-              <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
-                <DockPanel>
-                  <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10"
-                             Text="Lịch sử giao dịch"
-                             Foreground="{DynamicResource PrimaryBrush}"
-                             FontSize="{DynamicResource FontSize.Body}"
-                             FontWeight="Bold" />
-                  <DataGrid ItemsSource="{Binding LedgerEntries}"
-                            Style="{StaticResource DebtDataGridStyle}"
-                            ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
-                            grid:DataGridColumnLayout.SettingsKey="debt-customer-ledger"
-                            grid:DataGridColumnLayout.EnableHeaderMenu="True">
-                    <DataGrid.Columns>
-                      <DataGridTextColumn Header="Ngày" Binding="{Binding EntryDateText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Date" />
-                      <DataGridTextColumn Header="Chứng từ" Binding="{Binding DocumentCode, Mode=OneWay}" Width="90"
-                                          grid:DataGridColumnLayout.Key="Doc" />
-                      <DataGridTextColumn Header="Diễn giải" Binding="{Binding Description, Mode=OneWay}" Width="*"
-                                          grid:DataGridColumnLayout.Key="Desc" />
-                      <DataGridTextColumn Header="Thu" Binding="{Binding ReceiptText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Receipt">
-                        <DataGridTextColumn.ElementStyle>
-                          <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{Binding Entry.ReceiptAmountVnd, Converter={StaticResource ReceiveBrush}}" />
-                          </Style>
-                        </DataGridTextColumn.ElementStyle>
-                      </DataGridTextColumn>
-                      <DataGridTextColumn Header="Chi" Binding="{Binding PaymentText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Payment">
-                        <DataGridTextColumn.ElementStyle>
-                          <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{Binding Entry.PaymentAmountVnd, Converter={StaticResource PayBrush}}" />
-                          </Style>
-                        </DataGridTextColumn.ElementStyle>
-                      </DataGridTextColumn>
-                      <DataGridTextColumn Header="Dư" Binding="{Binding BalanceText, Mode=OneWay}" Width="90"
-                                          grid:DataGridColumnLayout.Key="Balance" />
-                      <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="110">
-                        <DataGridTemplateColumn.CellTemplate>
-                          <DataTemplate>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                              <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu"
-                                      Style="{StaticResource RoundedSuccessButtonStyle}"
-                                      Margin="0,0,6,0"
-                                      Visibility="{Binding CanShowCollectButton, Converter={StaticResource BoolToVis}}"
-                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                      CommandParameter="{Binding}" />
-                              <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi"
-                                      Style="{StaticResource RoundedDangerButtonStyle}"
-                                      Visibility="{Binding CanShowPayButton, Converter={StaticResource BoolToVis}}"
-                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                      CommandParameter="{Binding}" />
-                            </StackPanel>
-                          </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                      </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                  </DataGrid>
-                </DockPanel>
-              </Border>
-            </Grid>
-          </Grid>
-        </TabItem>
-
-        <TabItem access:PermissionAccess.Rule="DEBT_CUSTOMER" Header="Công nợ nhà cung cấp">
-          <Grid Margin="0,12,0,0">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="0.72*" MinHeight="160" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="1.28*" MinHeight="220" />
-            </Grid.RowDefinitions>
-
-            <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Tìm kiếm" Style="{StaticResource RoundedPrimaryButtonStyle}"
-                        Command="{Binding SearchCommand}" MinWidth="110" Margin="0,0,8,0" />
-                <Button Content="Làm mới" Style="{StaticResource OutlineButtonStyle}"
-                        Command="{Binding RefreshCommand}" MinWidth="100" Margin="0" />
-              </StackPanel>
-              <WrapPanel VerticalAlignment="Center">
-                <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
-                            VerticalContentAlignment="Center" />
-                <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
-                            VerticalContentAlignment="Center" />
-                <TextBox Width="200" Style="{StaticResource FilterFieldStyle}"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Tìm kiếm (mã, tên, SĐT)...">
-                  <TextBox.InputBindings>
-                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
-                  </TextBox.InputBindings>
-                </TextBox>
-                <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
-                          ItemsSource="{Binding StatusOptions}"
-                          SelectedItem="{Binding SelectedStatus}"
-                          DisplayMemberPath="DisplayName" />
-              </WrapPanel>
-            </DockPanel>
-
-            <Grid Grid.Row="1">
-              <DataGrid ItemsSource="{Binding Suppliers}"
-                        SelectedItem="{Binding SelectedSupplier}"
-                        Style="{StaticResource DebtDataGridStyle}"
-                        ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
-                        grid:DataGridColumnLayout.SettingsKey="debt-suppliers"
-                        grid:DataGridColumnLayout.EnableHeaderMenu="True">
-                <DataGrid.Columns>
-                  <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
-                                      Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                  <DataGridTextColumn Header="Mã NCC" grid:DataGridColumnLayout.Key="Code"
-                                      Binding="{Binding Code, Mode=OneWay}" Width="90" />
-                  <DataGridTextColumn Header="Tên nhà cung cấp" grid:DataGridColumnLayout.Key="Name"
-                                      Binding="{Binding Name, Mode=OneWay}" Width="*" MinWidth="140" />
-                  <DataGridTextColumn Header="SĐT" grid:DataGridColumnLayout.Key="Phone"
-                                      Binding="{Binding Phone, Mode=OneWay}" Width="110" />
-                  <DataGridTextColumn Header="Tổng phát sinh" grid:DataGridColumnLayout.Key="Incurred"
-                                      Binding="{Binding TotalIncurredText, Mode=OneWay}" Width="110" />
-                  <DataGridTextColumn Header="Đã thanh toán" grid:DataGridColumnLayout.Key="Paid"
-                                      Binding="{Binding PaidText, Mode=OneWay}" Width="110" />
-                  <DataGridTemplateColumn Header="Còn nợ" grid:DataGridColumnLayout.Key="Remaining" Width="110">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{Binding RemainingVnd, Converter={StaticResource PayBrush}}"
-                                   VerticalAlignment="Center" />
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTextColumn Header="Ngày nợ cuối" grid:DataGridColumnLayout.Key="LastDebt"
-                                      Binding="{Binding LastDebtDateText, Mode=OneWay}" Width="100" />
-                  <DataGridTemplateColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Width="120">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                Background="{Binding StatusCode, Converter={StaticResource StatusBrush}}">
-                          <TextBlock Text="{Binding StatusText, Mode=OneWay}"
-                                     Foreground="{DynamicResource OnPrimaryBrush}"
-                                     FontSize="{DynamicResource FontSize.Caption}"
-                                     FontWeight="SemiBold" />
-                        </Border>
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="200">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Thu toàn bộ"
-                                  Style="{StaticResource RoundedSuccessButtonStyle}"
-                                  Margin="0,0,6,0"
-                                  Visibility="{Binding CanCollectAll, Converter={StaticResource BoolToVis}}"
-                                  Command="{Binding DataContext.CollectSupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                  CommandParameter="{Binding}"
-                                  ToolTip="Thu toàn bộ số NCC đang nợ" />
-                          <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="Chi toàn bộ"
-                                  Style="{StaticResource RoundedDangerButtonStyle}"
-                                  Visibility="{Binding CanPayAll, Converter={StaticResource BoolToVis}}"
-                                  Command="{Binding DataContext.PaySupplierAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                  CommandParameter="{Binding}"
-                                  ToolTip="Chi toàn bộ số DN đang nợ NCC" />
-                        </StackPanel>
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                </DataGrid.Columns>
-              </DataGrid>
-              <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
-                      Visibility="{Binding IsBusyOverlayVisible, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="Đang tải..." HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{DynamicResource PrimaryBrush}"
-                           FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
-              </Border>
-              <TextBlock Text="Không có dữ liệu công nợ nhà cung cấp."
-                         HorizontalAlignment="Center" VerticalAlignment="Center"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         Visibility="{Binding IsSupplierEmpty, Converter={StaticResource BoolToVis}}" />
-            </Grid>
-
-            <DockPanel Grid.Row="2" Margin="0,8,0,4">
-              <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
-                         Foreground="{DynamicResource DangerBrush}"
-                         FontSize="{DynamicResource FontSize.Body}"
-                         Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
-              <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
-                         HorizontalAlignment="Right"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="{DynamicResource FontSize.Caption}" />
-            </DockPanel>
-
-            <Grid Grid.Row="3" Margin="0,4,0,0"
-                  Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="280" />
-                <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="1.4*" MinWidth="360" />
-              </Grid.ColumnDefinitions>
-
-              <Border Grid.Column="0" Style="{DynamicResource CardBorderStyle}" Padding="14">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                  <StackPanel>
-                    <DockPanel Margin="0,0,0,12">
-                      <Button Content="Sửa"
-                              DockPanel.Dock="Right"
-                              HorizontalAlignment="Right"
-                              Style="{StaticResource RoundedPrimaryButtonStyle}"
-                              Command="{Binding EditSelectedCommand}"
-                              MinWidth="90" MinHeight="32" Padding="12,4" />
-                      <TextBlock Text="{Binding DetailTitle}"
-                                 Foreground="{DynamicResource PrimaryBrush}"
-                                 FontSize="{DynamicResource FontSize.Subtitle}"
-                                 FontWeight="Bold"
-                                 VerticalAlignment="Center" />
-                    </DockPanel>
-                    <TextBlock Text="Mã" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedCode, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Tên nhà cung cấp" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Số điện thoại" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedPhone, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Nhóm" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedGroupName, Mode=OneWay}" Style="{StaticResource DetailValueStyle}" />
-                    <TextBlock Text="Địa chỉ" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedAddress, Mode=OneWay}" Style="{StaticResource DetailValueStyle}"
-                            TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
-                            VerticalContentAlignment="Top" />
-                    <TextBlock Text="Công nợ hiện tại" Style="{StaticResource DetailLabelStyle}" />
-                    <TextBox Text="{Binding SelectedRemainingText, Mode=OneWay, StringFormat={}{0} VND}"
-                            Style="{StaticResource DetailValueStyle}"
-                            FontWeight="Bold"
-                            Foreground="{Binding SelectedRemainingVnd, Converter={StaticResource PayBrush}}" />
-                  </StackPanel>
-                </ScrollViewer>
-              </Border>
-
-              <Border Grid.Column="2" Style="{DynamicResource CardBorderStyle}" Padding="14">
-                <DockPanel>
-                  <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10"
-                             Text="Lịch sử giao dịch"
-                             Foreground="{DynamicResource PrimaryBrush}"
-                             FontSize="{DynamicResource FontSize.Body}"
-                             FontWeight="Bold" />
-                  <DataGrid ItemsSource="{Binding LedgerEntries}"
-                            Style="{StaticResource DebtDataGridStyle}"
-                            ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
-                            grid:DataGridColumnLayout.SettingsKey="debt-supplier-ledger"
-                            grid:DataGridColumnLayout.EnableHeaderMenu="True">
-                    <DataGrid.Columns>
-                      <DataGridTextColumn Header="Ngày" Binding="{Binding EntryDateText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Date" />
-                      <DataGridTextColumn Header="Chứng từ" Binding="{Binding DocumentCode, Mode=OneWay}" Width="90"
-                                          grid:DataGridColumnLayout.Key="Doc" />
-                      <DataGridTextColumn Header="Diễn giải" Binding="{Binding Description, Mode=OneWay}" Width="*"
-                                          grid:DataGridColumnLayout.Key="Desc" />
-                      <DataGridTextColumn Header="Thu" Binding="{Binding ReceiptText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Receipt">
-                        <DataGridTextColumn.ElementStyle>
-                          <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{Binding Entry.ReceiptAmountVnd, Converter={StaticResource ReceiveBrush}}" />
-                          </Style>
-                        </DataGridTextColumn.ElementStyle>
-                      </DataGridTextColumn>
-                      <DataGridTextColumn Header="Chi" Binding="{Binding PaymentText, Mode=OneWay}" Width="80"
-                                          grid:DataGridColumnLayout.Key="Payment">
-                        <DataGridTextColumn.ElementStyle>
-                          <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{Binding Entry.PaymentAmountVnd, Converter={StaticResource PayBrush}}" />
-                          </Style>
-                        </DataGridTextColumn.ElementStyle>
-                      </DataGridTextColumn>
-                      <DataGridTextColumn Header="Dư" Binding="{Binding BalanceText, Mode=OneWay}" Width="90"
-                                          grid:DataGridColumnLayout.Key="Balance" />
-                      <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="110">
-                        <DataGridTemplateColumn.CellTemplate>
-                          <DataTemplate>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                              <Button Content="Thu"
-                                      Style="{StaticResource RoundedSuccessButtonStyle}"
-                                      Margin="0,0,6,0"
-                                      Visibility="{Binding CanShowCollectButton, Converter={StaticResource BoolToVis}}"
-                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                      CommandParameter="{Binding}" />
-                              <Button Content="Chi"
-                                      Style="{StaticResource RoundedDangerButtonStyle}"
-                                      Visibility="{Binding CanShowPayButton, Converter={StaticResource BoolToVis}}"
-                                      Command="{Binding DataContext.SettleLedgerEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                      CommandParameter="{Binding}" />
-                            </StackPanel>
-                          </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                      </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                  </DataGrid>
-                </DockPanel>
-              </Border>
-            </Grid>
-          </Grid>
-        </TabItem>
-        <TabItem access:PermissionAccess.Rule="DEBT_WORKER_GOLD" Header="Nợ vàng thợ">
-          <Grid Margin="0,12,0,0">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="*" MinHeight="200" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Tìm kiếm" Style="{StaticResource RoundedPrimaryButtonStyle}"
-                        Command="{Binding SearchCommand}" MinWidth="110" Margin="0,0,8,0" />
-                <Button Content="Làm mới" Style="{StaticResource OutlineButtonStyle}"
-                        Command="{Binding RefreshCommand}" MinWidth="100" Margin="0" />
-              </StackPanel>
-              <WrapPanel VerticalAlignment="Center">
-                <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding FromDate}" Width="170" Margin="0,0,8,0"
-                            VerticalContentAlignment="Center" />
-                <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="{DynamicResource FontSize.Caption}" />
-                <DatePicker SelectedDate="{Binding ToDate}" Width="170" Margin="0,0,8,0"
-                            VerticalContentAlignment="Center" />
-                <TextBox Width="220" Style="{StaticResource FilterFieldStyle}"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Tìm thợ, mã NV, mã lệnh SX...">
-                  <TextBox.InputBindings>
-                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
-                  </TextBox.InputBindings>
-                </TextBox>
-                <ComboBox Width="150" Style="{StaticResource FilterComboStyle}"
-                          ItemsSource="{Binding GoldPurityOptions}"
-                          SelectedItem="{Binding SelectedGoldPurity}"
-                          DisplayMemberPath="DisplayName"
-                          ToolTip="Lọc theo loại vàng" />
-                <ComboBox Width="140" Style="{StaticResource FilterComboStyle}"
-                          ItemsSource="{Binding WorkerDebtStatusOptions}"
-                          SelectedItem="{Binding SelectedWorkerDebtStatus}"
-                          DisplayMemberPath="DisplayName"
-                          ToolTip="Lọc theo tình trạng trả nợ" />
-              </WrapPanel>
-            </DockPanel>
-
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-              <Border Style="{DynamicResource CardBorderStyle}" Padding="12,8" Margin="0,0,8,0">
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="Tổng còn nợ: " VerticalAlignment="Center"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             FontSize="{DynamicResource FontSize.Caption}" />
-                  <TextBlock Text="{Binding KpiWorkerGoldRemainingText, Mode=OneWay}"
-                             FontWeight="Bold" VerticalAlignment="Center"
-                             Foreground="{DynamicResource SuccessBrush}"
-                             FontSize="{DynamicResource FontSize.Body}" />
-                  <TextBlock Text=" chỉ" VerticalAlignment="Center"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             FontSize="{DynamicResource FontSize.Caption}" />
-                </StackPanel>
-              </Border>
-              <Border Style="{DynamicResource CardBorderStyle}" Padding="12,8">
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="Thợ còn nợ: " VerticalAlignment="Center"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             FontSize="{DynamicResource FontSize.Caption}" />
-                  <TextBlock Text="{Binding KpiWorkerGoldDebtorCountText, Mode=OneWay}"
-                             FontWeight="Bold" VerticalAlignment="Center"
-                             Foreground="{DynamicResource TextPrimaryBrush}"
-                             FontSize="{DynamicResource FontSize.Body}" />
-                </StackPanel>
-              </Border>
-            </StackPanel>
-
-            <Grid Grid.Row="2">
-              <DataGrid ItemsSource="{Binding WorkerGoldDebts}"
-                        SelectedItem="{Binding SelectedWorkerGoldDebt}"
-                        Style="{StaticResource DebtDataGridStyle}"
-                        ColumnHeaderStyle="{StaticResource DebtDataGridColumnHeaderStyle}"
-                        grid:DataGridColumnLayout.SettingsKey="debt-worker-gold"
-                        grid:DataGridColumnLayout.EnableHeaderMenu="True">
-                <DataGrid.Columns>
-                  <DataGridTextColumn Header="STT" grid:DataGridColumnLayout.Key="Index"
-                                      Binding="{Binding Index, Mode=OneWay}" Width="50" />
-                  <DataGridTextColumn Header="Mã nợ" grid:DataGridColumnLayout.Key="Code"
-                                      Binding="{Binding Code, Mode=OneWay}" Width="110" />
-                  <DataGridTextColumn Header="Thợ" grid:DataGridColumnLayout.Key="Worker"
-                                      Binding="{Binding WorkerDisplayName, Mode=OneWay}" Width="*" MinWidth="170" />
-                  <DataGridTextColumn Header="Loại thợ" grid:DataGridColumnLayout.Key="WorkerType"
-                                      Binding="{Binding WorkerTypeText, Mode=OneWay}" Width="90" />
-                  <DataGridTextColumn Header="Loại vàng" grid:DataGridColumnLayout.Key="Purity"
-                                      Binding="{Binding GoldPurityText, Mode=OneWay}" Width="90" />
-                  <DataGridTextColumn Header="Nợ (chỉ)" grid:DataGridColumnLayout.Key="Weight"
-                                      Binding="{Binding WeightText, Mode=OneWay}" Width="90" />
-                  <DataGridTextColumn Header="Đã trả (chỉ)" grid:DataGridColumnLayout.Key="Paid"
-                                      Binding="{Binding WeightPaidText, Mode=OneWay}" Width="100" />
-                  <DataGridTemplateColumn Header="Còn lại (chỉ)" grid:DataGridColumnLayout.Key="Remaining" Width="110">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <TextBlock Text="{Binding RemainingText, Mode=OneWay}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{Binding RemainingChi, Converter={StaticResource ReceiveBrush}}"
-                                   VerticalAlignment="Center" />
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTextColumn Header="Lệnh SX" grid:DataGridColumnLayout.Key="Order"
-                                      Binding="{Binding ProductionOrderCode, Mode=OneWay}" Width="120" />
-                  <DataGridTextColumn Header="Ngày ghi" grid:DataGridColumnLayout.Key="CreatedAt"
-                                      Binding="{Binding CreatedAtText, Mode=OneWay}" Width="100" />
-                  <DataGridTemplateColumn Header="Trạng thái" grid:DataGridColumnLayout.Key="Status" Width="120">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                Background="{Binding StatusBrushCode, Converter={StaticResource StatusBrush}}">
-                          <TextBlock Text="{Binding StatusText, Mode=OneWay}"
-                                     Foreground="{DynamicResource OnPrimaryBrush}"
-                                     FontSize="{DynamicResource FontSize.Caption}"
-                                     FontWeight="SemiBold" />
-                        </Border>
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="Thao tác" grid:DataGridColumnLayout.Key="Actions" Width="140">
-                    <DataGridTemplateColumn.CellTemplate>
-                      <DataTemplate>
-                        <Button access:PermissionAccess.Rule="DEBT_WORKER_GOLD:Edit" Content="Ghi trả vàng"
-                                Style="{StaticResource RoundedSuccessButtonStyle}"
-                                Visibility="{Binding CanRecordRepayment, Converter={StaticResource BoolToVis}}"
-                                Command="{Binding DataContext.RecordRepaymentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                CommandParameter="{Binding}"
-                                ToolTip="Ghi nhận thợ trả vàng cho khoản nợ này" />
-                      </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                </DataGrid.Columns>
-              </DataGrid>
-              <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
-                      Visibility="{Binding IsBusyOverlayVisible, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="Đang tải..." HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{DynamicResource PrimaryBrush}"
-                           FontSize="{DynamicResource FontSize.Subtitle}" FontWeight="SemiBold" />
-              </Border>
-              <TextBlock Text="Không có dữ liệu nợ vàng thợ."
-                         HorizontalAlignment="Center" VerticalAlignment="Center"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         Visibility="{Binding IsWorkerGoldDebtEmpty, Converter={StaticResource BoolToVis}}" />
-            </Grid>
-
-            <DockPanel Grid.Row="3" Margin="0,8,0,4">
-              <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
-                         Foreground="{DynamicResource DangerBrush}"
-                         FontSize="{DynamicResource FontSize.Body}"
-                         Visibility="{Binding ErrorMessage, Converter={StaticResource NotNullToVis}}" />
-              <TextBlock Text="{Binding StatusMessage, Mode=OneWay}"
-                         HorizontalAlignment="Right"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="{DynamicResource FontSize.Caption}" />
-            </DockPanel>
-          </Grid>
-        </TabItem>
-      </TabControl>
-    </Border>
+    <ContentPresenter x:Name="DebtContent" Grid.Row="1" Content="{Binding}" />
 
     <!-- Bottom actions: chỉ dùng cho 2 tab KH/NCC (tab nợ vàng thợ thao tác trên từng dòng) -->
-    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0"
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0"
                 Visibility="{Binding IsWorkerGoldDebtTab, Converter={StaticResource InverseBoolToVis}}">
       <Button access:PermissionAccess.Rule="DEBT_SETTLEMENT:Add" Content="{Binding CollectOrPayButtonText}"
               Style="{StaticResource RoundedPrimaryButtonStyle}"
@@ -1162,7 +1020,7 @@
       <Button access:PermissionAccess.Rule="DATA_EXPORT" Content="Xuất Excel"
               Style="{StaticResource OutlineButtonStyle}"
               Command="{Binding ExportExcelCommand}"
-              CommandParameter="{Binding ElementName=DebtTabControl}"
+              CommandParameter="{Binding ElementName=DebtContent}"
               MinWidth="110"
               Margin="0" />
     </StackPanel>

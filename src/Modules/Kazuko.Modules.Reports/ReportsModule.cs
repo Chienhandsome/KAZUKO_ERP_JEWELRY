@@ -49,7 +49,7 @@ public sealed class ReportsModule : IKazukoModule
             "REPORT",
             "BÁO CÁO",
             string.Empty,
-            90,
+            120,
             null,
             () => new ReportsView
             {

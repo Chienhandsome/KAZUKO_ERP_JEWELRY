@@ -126,3 +126,28 @@ khóa tài khoản thì ẩn giá và không cho sửa qua IPC, mở lại tài 
 dừng host giải phóng process/cổng. Mọi dữ liệu thử chỉ ghi vào bản restore test89.
 Đã render lại thông báo phát nền ở Light/Dark và font 90–150%; chưa thử phát lên
 TV HDMI/Miracast vật lý hoặc Windows sleep/logoff thật. Host thử nghiệm đã dừng.
+
+## Sửa lỗi mở TV với Firebird Embedded (30/10/2026)
+
+Runtime Firebird mặc định `ServerMode = Super` giữ file DB độc quyền. Khi ERP đã
+mở DB Embedded, host TV riêng bị lỗi `I/O error during CreateFile (open)` ngay
+trong bước kiểm tra quyền, trước khi trả trạng thái. Kiểm thử phát nền ban đầu
+chỉ dùng Firebird Server nên chưa bao phủ trường hợp này.
+
+Build/publish app sinh bản `firebird/firebird.conf` với `ServerMode = SuperClassic`,
+cho phép ERP và host cùng mở DB Embedded bằng cơ chế khóa của Firebird. Các cấu
+hình khác được giữ nguyên; bundle nguồn không bị sửa. Runtime tùy chỉnh qua
+`KAZUKO_FIREBIRD_HOME` cũng phải dùng chế độ chia sẻ này nếu chạy Embedded.
+Sau khi cập nhật cần đóng ERP và dừng host TV cũ ở khay hệ thống rồi mở lại để
+engine nạp cấu hình mới. Kết nối Firebird Server vẫn dùng cấu hình server riêng.
+
+Kiểm tra cấu hình: `powershell -File tests/Verify-FirebirdRuntimeConfiguration.ps1`.
+Kiểm tra tích hợp: build app, đặt `KAZUKO_HOST_CHECK_EMBEDDED=1`, chạy hai pha
+`start` rồi `verify` của `Kazuko.PriceBoardHost.IntegrationChecks` trên bản restore
+`test89_*.fdb`; bỏ biến này để chạy lại chế độ Server. Controller dùng đúng runtime
+đóng gói của app và giữ kết nối DB trong khi host mở kết nối riêng.
+
+Kết quả 30/10/2026: tái hiện lỗi với runtime mặc định, sau sửa các pha start/verify
+đều đạt ở cả Embedded và Server trên DB restore; kiểm thử sinh cấu hình giữ nguyên
+tham số vendor đạt; build solution 0 warning/0 error và publish đã chứa cấu hình
+SuperClassic. Các host thử nghiệm đã dừng. Chưa thử lại trên TV vật lý.

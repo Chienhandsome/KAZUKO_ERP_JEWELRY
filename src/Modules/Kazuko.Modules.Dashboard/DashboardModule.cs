@@ -48,15 +48,13 @@ public sealed class DashboardModule : IKazukoModule
                 "Danh mục và giao dịch\nnhà cung cấp", false),
             Feature("SALES", "BÁN HÀNG", "BAN_HANG.png", 40,
                 "Quản lý bán hàng,\nđơn hàng, hóa đơn", true),
-            Feature("DEBT", "CÔNG NỢ", "TC.png", 50,
-                "Theo dõi công nợ\ntiền và vàng", false),
             Feature("CUSTOMER", "KHÁCH HÀNG", "KH.png", 60,
                 "Quản lý thông tin\nkhách hàng", true),
             Feature("FINANCE", "TÀI CHÍNH", "TC.png", 70,
                 "Quản lý thu chi,\nquỹ tiền và ngân hàng", true),
             Feature("HR", "NHÂN SỰ", "NHAN_SU.png", 80,
                 "Quản lý nhân viên,\nchấm công, lương", true),
-            Feature("REPORT", "BÁO CÁO", "BC.png", 90,
+            Feature("REPORT", "BÁO CÁO", "BC.png", 120,
                 "Thống kê, báo cáo\ntổng hợp", true),
             Feature("PRICE_BOARD", "TỈ GIÁ", "TY_GIA.png", 100,
                 "Giá vàng, ngoại tệ,\nbảng giá bán", true, showInSidebar: false)
@@ -80,22 +78,44 @@ public sealed class DashboardModule : IKazukoModule
         var databaseManagement = GetRequiredService<IDatabaseManagementService>(services);
         var preferences = GetRequiredService<IPreferencesService>(services);
 
+        var authorization = GetRequiredService<IAuthorizationService>(services);
+
+        SettingsView CreateSettings() => new()
+        {
+            DataContext = new SettingsViewModel(
+                companyProfile, sessionAccessor, appearanceService, printTemplates,
+                databaseManagement, preferences, authorization,
+                GetRequiredService<ILabelDesignerService>(services),
+                services.GetService(typeof(IReceiptTemplatePreviewService)) as IReceiptTemplatePreviewService,
+                services.GetService(typeof(IReceiptDesignerService)) as IReceiptDesignerService)
+        };
+
+        AdministrationView CreateAdministration(bool openUsers) => new(
+            authorization,
+            CreateSettings,
+            () => GetRequiredService<IUserManagementViewFactory>(services).CreateView(),
+            openUsers);
+
         navigation.Register(new NavigationItem(
             "SETTINGS",
-            "CÀI ĐẶT",
+            "QUẢN TRỊ",
             string.Empty,
             110,
             null,
-            () => new SettingsView
-            {
-                DataContext = new SettingsViewModel(
-                    companyProfile, sessionAccessor, appearanceService, printTemplates,
-                    databaseManagement, preferences, GetRequiredService<IAuthorizationService>(services),
-                    GetRequiredService<ILabelDesignerService>(services),
-                    services.GetService(typeof(IReceiptTemplatePreviewService)) as IReceiptTemplatePreviewService,
-                    services.GetService(typeof(IReceiptDesignerService)) as IReceiptDesignerService)
-            },
+            () => CreateAdministration(openUsers: false),
             AssetRoot + "CAIDAT.png"));
+
+        navigation.Register(new NavigationItem(
+            "USER_MANAGEMENT",
+            "NGƯỜI DÙNG",
+            string.Empty,
+            90,
+            null,
+            () => CreateAdministration(openUsers: true),
+            AssetRoot + "CAIDAT.png",
+            "Người dùng và phân quyền\ntheo nhóm",
+            ShowInSidebar: false,
+            ShowOnHome: true));
     }
 
     private static NavigationItem Feature(

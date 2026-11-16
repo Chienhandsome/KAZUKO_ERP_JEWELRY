@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 
 namespace Kazuko.Infrastructure.Data;
 
@@ -12,8 +13,8 @@ public sealed record ConnectionProfile(
 
 /// <summary>
 /// Loads Firebird connection settings from environment variables and an optional LocalAppData profile.
-/// The Firebird engine password is never written to source control. It must be supplied via
-/// <c>KAZUKO_FIREBIRD_PASSWORD</c>. Optional LocalAppData JSON may store non-secret connection fields only.
+/// Legacy connections use KAZUKO_FIREBIRD_PASSWORD; saved and automatically created connections
+/// use DPAPI-protected credentials. JSON stores only non-secret connection fields.
 /// </summary>
 public static class ConnectionProfileStore
 {
@@ -24,23 +25,25 @@ public static class ConnectionProfileStore
         string UserName,
         bool? UseEmbedded);
 
-    private static string FilePath => Path.Combine(
+    public static string DirectoryPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "KazukoERPJewelry",
-        "connection.json");
+        "KazukoERPJewelry");
+    public static bool HasStoredProfile => File.Exists(Path.Combine(DirectoryPath,"connection.json"));
 
-    public static ConnectionProfile Load(string defaultDatabasePath)
+    public static ConnectionProfile Load(string defaultDatabasePath, string? profileDirectory = null)
     {
+        var directory = profileDirectory ?? DirectoryPath;
+        var filePath = Path.Combine(directory,"connection.json");
         var environment = FromEnvironment(defaultDatabasePath);
         if (IsPortableMode())
             return environment;
 
         try
         {
-            if (!File.Exists(FilePath))
+            if (!File.Exists(filePath))
                 return environment;
 
-            using var document = JsonDocument.Parse(File.ReadAllText(FilePath));
+            using var document = JsonDocument.Parse(File.ReadAllText(filePath));
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
                 return environment;
@@ -56,13 +59,31 @@ public static class ConnectionProfileStore
                 ? embeddedNode.GetBoolean()
                 : environment.UseEmbedded;
 
+            string? selectedPassword = null;
+            if (root.TryGetProperty("CredentialFile", out var credentialNode))
+            {
+                if (credentialNode.ValueKind != JsonValueKind.String)
+                    throw new CryptographicException("Invalid database credential reference.");
+                var name = credentialNode.GetString();
+                if (name is null || !System.Text.RegularExpressions.Regex.IsMatch(name, @"\Aconnection-[0-9a-f]{32}\.key\z"))
+                    throw new CryptographicException("Invalid database credential reference.");
+                selectedPassword = LocalDatabaseSecrets.Read(directory, name)
+                    ?? throw new CryptographicException("Missing selected database key.");
+            }
+
             return new ConnectionProfile(
                 string.IsNullOrWhiteSpace(host) ? environment.Host : host,
                 port,
                 string.IsNullOrWhiteSpace(databasePath) ? environment.DatabasePath : databasePath,
                 string.IsNullOrWhiteSpace(userName) ? environment.UserName : userName,
-                environment.Password,
+                selectedPassword ?? (root.TryGetProperty("UseLocalCredential",out var local) && local.ValueKind == JsonValueKind.True
+                    ? LocalDatabaseSecrets.Read(directory,"local-database.key") ?? throw new CryptographicException("Missing local database key.")
+                    : environment.Password),
                 useEmbedded);
+        }
+        catch (CryptographicException)
+        {
+            throw new InvalidOperationException("Không mở được khóa dữ liệu của tài khoản Windows này.");
         }
         catch
         {
@@ -70,16 +91,43 @@ public static class ConnectionProfileStore
         }
     }
 
-    public static void Save(ConnectionProfile profile)
+    public static void Save(ConnectionProfile profile, string? profileDirectory = null)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+        var directory = profileDirectory ?? DirectoryPath;
+        Directory.CreateDirectory(directory);
         var stored = new StoredProfile(
             profile.Host.Trim(),
             profile.Port,
             profile.DatabasePath.Trim(),
             profile.UserName.Trim(),
             profile.UseEmbedded);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(stored, new JsonSerializerOptions { WriteIndented = true }));
+        // Keep the local credential reference when editing the automatically created local DB.
+        var localPath = Path.Combine(directory,"data","DATA.FDB");
+        var local = profile.UseEmbedded && Path.GetFullPath(profile.DatabasePath).Equals(localPath,StringComparison.OrdinalIgnoreCase)
+            && File.Exists(Path.Combine(directory,"local-database.key"))
+            && LocalDatabaseSecrets.Read(directory,"local-database.key") == profile.Password;
+        var json = JsonSerializer.SerializeToNode(stored)!;
+        if(local) json["UseLocalCredential"]=true;
+        string? credentialFile = null;
+        var temporary = Path.Combine(directory, "connection." + Guid.NewGuid().ToString("N") + ".tmp");
+        var published = false;
+        try
+        {
+            if (!local)
+            {
+                credentialFile = "connection-" + Guid.NewGuid().ToString("N") + ".key";
+                LocalDatabaseSecrets.Create(directory, credentialFile, profile.Password);
+                json["CredentialFile"] = credentialFile;
+            }
+            File.WriteAllText(temporary, json.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temporary, Path.Combine(directory,"connection.json"), overwrite: true);
+            published = true;
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+            if (!published && credentialFile is not null) File.Delete(Path.Combine(directory, credentialFile));
+        }
     }
 
     private static ConnectionProfile FromEnvironment(string defaultDatabasePath)
@@ -94,7 +142,8 @@ public static class ConnectionProfileStore
             int.TryParse(Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PORT"), out var port) ? port : 3050,
             Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_DATABASE") ?? defaultDatabasePath,
             Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_USER") ?? "SYSDBA",
-            Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PASSWORD") ?? string.Empty,
+            Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PASSWORD")
+                ?? Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_PASSWORD",EnvironmentVariableTarget.User) ?? string.Empty,
             useEmbedded);
     }
 

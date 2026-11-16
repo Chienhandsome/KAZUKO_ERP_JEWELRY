@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using Kazuko.Core.Appearance;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Company;
@@ -64,8 +64,10 @@ public partial class App : Application
     private PriceBoardHostRuntime? _priceBoardHost;
     private Mutex? _priceBoardHostMutex;
     private bool _hostMode, _ownsHostMutex;
+    private LocalDatabaseBootstrapper? _localDatabase;
+    private Task _startupBackup = Task.CompletedTask;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         if (e.Args.FirstOrDefault() == "--price-board-host")
@@ -87,13 +89,43 @@ public partial class App : Application
             catch(Exception ex){System.Diagnostics.Trace.TraceError("TV host startup failed: {0}",ex.Message);Shutdown(1);}
             return;
         }
+        string? initialAdminPassword=null;
+        {
+            if(System.IO.File.Exists(System.IO.Path.Combine(AppContext.BaseDirectory,"local-first-run.enabled")))
+                Environment.SetEnvironmentVariable("KAZUKO_PORTABLE_MODE","0");
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            try
+            {
+                // Existing profiles and legacy databases keep their connection and data.
+                if(ConnectionProfileStore.HasStoredProfile||
+                    (!System.IO.File.Exists(FirebirdDatabase.DatabasePath)&&
+                     string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("KAZUKO_FIREBIRD_DATABASE"))))
+                {
+                    _localDatabase=new LocalDatabaseBootstrapper();
+                    var result=await _localDatabase.EnsureAsync();
+                    FirebirdDatabase.ApplyProfileForCurrentProcess(result.Profile);
+                    initialAdminPassword=result.InitialAdminPassword;
+                }
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show("Chưa chuẩn bị được dữ liệu. Dữ liệu hiện có được giữ nguyên.\n"+ex.Message,
+                    "Khởi tạo dữ liệu",MessageBoxButton.OK,MessageBoxImage.Error);
+                Shutdown(1);return;
+            }
+            ShutdownMode=ShutdownMode.OnLastWindowClose;
+        }
         TextBoxSelectAllBehavior.Register();
         Kazuko.Shared.UI.DataGridLayout.DataGridColumnLayoutStore.Configure(new JsonTableColumnLayoutStore());
         RegisterFoundation();
         RegisterModules();
         ApplySavedAppearance();
-        _ = RunAutoBackupAsync();
+        _startupBackup = RunAutoBackupAsync();
         ShowLogin();
+        if(initialAdminPassword is not null)
+            MessageBox.Show("Dữ liệu mới đã sẵn sàng.\n\nTên đăng nhập: admin\nMật khẩu: "+(initialAdminPassword.Length==0?"(để trống)":initialAdminPassword)+
+                "\n\nNhập tên đăng nhập, bỏ trống mật khẩu nếu đang dùng mặc định rồi bấm Đăng nhập.",
+                "Tài khoản quản trị",MessageBoxButton.OK,MessageBoxImage.Information);
     }
 
     /// <summary>
@@ -357,13 +389,24 @@ public partial class App : Application
     {
         (_services.GetService(typeof(IPriceBoardTvController)) as IPriceBoardTvController)?.Detach();
         _sessionAccessor.Clear();
-        var viewModel = new LoginViewModel(_services.GetRequiredService<IAuthenticationService>());
+        LoginWindow? window = null;
+        var profile = FirebirdDatabase.Profile;
+        var databaseName = profile.UseEmbedded ? profile.DatabasePath : $"{profile.Host}/{profile.Port}:{profile.DatabasePath}";
+        var viewModel = new LoginViewModel(_services.GetRequiredService<IAuthenticationService>(),
+            () => ChooseLoginDatabaseAsync(window!), databaseName, () => CreateLoginDatabaseAsync(window!));
         var loginView = new LoginView { DataContext = viewModel };
-        var window = new LoginWindow { Content = loginView };
+        window = new LoginWindow { Content = loginView };
 
         var signingIn = false;
         viewModel.SignedIn += async (_, session) =>
         {
+            if(session.Username.Equals("admin",StringComparison.OrdinalIgnoreCase) && _localDatabase is not null &&
+               FirebirdDatabase.UseEmbedded && string.Equals(FirebirdDatabase.DatabasePath, _localDatabase.DatabasePath, StringComparison.OrdinalIgnoreCase))
+            {
+                try { _localDatabase?.AcknowledgeAdminCredentials(); }
+                catch(System.IO.IOException ex) { System.Diagnostics.Trace.TraceWarning("Cannot clear initial credential notice: {0}",ex.Message); }
+                catch(UnauthorizedAccessException ex) { System.Diagnostics.Trace.TraceWarning("Cannot clear initial credential notice: {0}",ex.Message); }
+            }
             if (signingIn) return;
             signingIn = true;
             window.IsEnabled = false;
@@ -393,8 +436,6 @@ public partial class App : Application
             }
             MainWindow? shell = null;
             var loggingOut = false;
-            var closing = false;
-            var allowClose = false;
             var shellViewModel = new ShellViewModel(
                 session.DisplayName,
                 _navigation,
@@ -406,13 +447,8 @@ public partial class App : Application
                     shell?.Close();
                 }, layouts);
             shell = new MainWindow { DataContext = shellViewModel };
-            shell.Closing += async (_, args) =>
+            DeferredWindowCloseBehavior.Attach(shell, async () =>
             {
-                if (allowClose) return;
-                args.Cancel = true;
-                if (closing) return;
-                closing = true;
-                shell.IsEnabled = false;
                 try
                 {
                     DataGridColumnLayout.FlushPendingLayouts(shell);
@@ -421,18 +457,18 @@ public partial class App : Application
                 }
                 catch (OperationCanceledException) { /* The durable outbox is retried on next login. */ }
                 catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Cannot flush table layouts: {0}", ex.Message); }
-                finally
+            }, () =>
+            {
+                if (loggingOut)
                 {
-                    if (loggingOut)
-                    {
-                        authorization.Clear();
-                        ShowLogin();
-                    }
-                    allowClose = true;
-                    shell.Close();
-                    await layouts.DisposeAsync();
-                    if (ReferenceEquals(_tableLayouts, layouts)) _tableLayouts = null;
+                    authorization.Clear();
+                    ShowLogin();
                 }
+            });
+            shell.Closed += async (_, _) =>
+            {
+                await layouts.DisposeAsync();
+                if (ReferenceEquals(_tableLayouts, layouts)) _tableLayouts = null;
             };
             MainWindow = shell;
             shell.Show();
@@ -440,6 +476,94 @@ public partial class App : Application
         };
 
         window.Show();
+    }
+
+    private async Task ChooseLoginDatabaseAsync(Window owner)
+    {
+        var picker = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Chọn cơ sở dữ liệu KAZUKO",
+            Filter = "Cơ sở dữ liệu Firebird (*.fdb)|*.fdb",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (picker.ShowDialog(owner) != true) return;
+        owner.IsEnabled = false;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var selected = await new LoginDatabaseSelector().ValidateAsync(picker.FileName, FirebirdDatabase.Profile, timeout.Token);
+            await SwitchLoginDatabaseAsync(owner, selected);
+        }
+        catch (OperationCanceledException)
+        {
+            if (owner.IsLoaded) MessageBox.Show(owner, "Kiểm tra DB quá thời gian. DB đang dùng được giữ nguyên.",
+                "Chọn DB", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            if (owner.IsLoaded) MessageBox.Show(owner, ex is InvalidOperationException ? ex.Message :
+                "Chưa đổi được DB. Kiểm tra file đã chọn và quyền lưu cấu hình.", "Chọn DB", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { if (owner.IsLoaded) owner.IsEnabled = true; }
+    }
+
+    private async Task CreateLoginDatabaseAsync(Window owner)
+    {
+        var picker = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Tạo cơ sở dữ liệu KAZUKO mới",
+            Filter = "Cơ sở dữ liệu Firebird (*.fdb)|*.fdb",
+            DefaultExt = ".fdb",
+            AddExtension = true,
+            FileName = "DATA.FDB",
+            OverwritePrompt = false
+        };
+        if (picker.ShowDialog(owner) != true) return;
+
+        owner.IsEnabled = false;
+        try
+        {
+            var profile = await new LocalDatabaseBootstrapper().CreateNewAsync(picker.FileName);
+            if (!owner.IsLoaded) return;
+
+            MessageBox.Show(owner, "DB mới đã được tạo. Đăng nhập bằng tài khoản admin, mật khẩu để trống.",
+                "Tạo mới", MessageBoxButton.OK, MessageBoxImage.Information);
+            await SwitchLoginDatabaseAsync(owner, profile);
+        }
+        catch (Exception ex)
+        {
+            if (owner.IsLoaded)
+                MessageBox.Show(owner, ex is InvalidOperationException ? ex.Message :
+                    "Chưa hoàn tất tạo hoặc mở DB mới. Kiểm tra đường dẫn và quyền truy cập.",
+                    "Tạo mới", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { if (owner.IsLoaded) owner.IsEnabled = true; }
+    }
+
+    private async Task SwitchLoginDatabaseAsync(Window owner, ConnectionProfile selected)
+    {
+        await _startupBackup; // Let the previous DB's startup job finish before restarting.
+        if (!owner.IsLoaded) return;
+
+        var executable = Environment.ProcessPath ?? throw new InvalidOperationException("Không xác định được file chạy của ứng dụng.");
+        var start = new System.Diagnostics.ProcessStartInfo(executable) { UseShellExecute = false };
+        if (System.IO.Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            start.ArgumentList.Add(typeof(App).Assembly.Location);
+        // A development/portable launch must also honour the selected profile on restart.
+        start.Environment["KAZUKO_PORTABLE_MODE"] = "0";
+        ConnectionProfileStore.Save(selected);
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(start)
+                ?? throw new InvalidOperationException("Không mở được ứng dụng.");
+        }
+        catch
+        {
+            ConnectionProfileStore.Save(FirebirdDatabase.Profile);
+            throw new InvalidOperationException("Không mở lại được ứng dụng. DB đang dùng được giữ nguyên; vui lòng thử lại.");
+        }
+        Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)

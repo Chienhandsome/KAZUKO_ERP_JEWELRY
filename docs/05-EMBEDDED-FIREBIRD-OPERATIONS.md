@@ -12,7 +12,7 @@ Nhằm bảo đảm tính minh bạch trong quá trình phát triển và tránh
 | :--- | :--- | :--- |
 | **WPF Repository** | Đã tích hợp xác thực/kết nối Firebird | App đăng ký FirebirdAuthenticationService, cấu hình kết nối/runtime và repository nghiệp vụ. Không dùng mô tả TASK-001 ban đầu để kết luận các phần này chưa triển khai. Các chức năng cài đặt/cập nhật module vẫn phải đánh giá riêng theo tài liệu03. |
 | **Tệp người dùng / Dev chuẩn bị** | Cung cấp thủ công ngoài Git | Động cơ `Firebird-5.0.4.1812-0-windows-x64` tại thư mục `firebird/` và tệp cơ sở dữ liệu ban đầu `data/data.fdb` do lập trình viên/quản trị viên chuẩn bị cục bộ trên máy, không commit vào kho mã nguồn Git. |
-| **Bộ cài & Deployment** | Bố cục mục tiêu (Chưa hiện thực) | Dự án hiện tại **chưa lựa chọn hoặc hiện thực công cụ đóng gói release (installer)**. Bố cục sản phẩm được mô tả trong tài liệu này là bố cục mục tiêu (target layout) phục vụ định hướng kiến trúc, không phải là một quy trình cài đặt cố định đã triển khai. |
+| **Bộ cài & Deployment** | Inno Setup, cài theo tài khoản Windows | scripts/Build-Setup.ps1 publish self-contained win-x64 và tạo setup.exe. Hướng dẫn: [installation.md](installation.md). DB/profile nằm ngoài thư mục app; bố cục Program Files/ProgramData bên dưới dành cho triển khai all-users được quản trị riêng. |
 
 ---
 
@@ -27,6 +27,13 @@ Firebird 5.0.4 Embedded chạy dưới dạng thư viện liên kết động n�
 > Không tự ý lọc bỏ các tệp nhị phân riêng lẻ, vì danh mục plugin và các thư viện phụ thuộc có thể thay đổi tùy theo bản phân phối, cấu hình bảo mật hoặc mục tiêu triển khai cụ thể.
 
 ### 2.2. Các thành phần chính thường gặp trong gói bundle
+
+**Chế độ engine cho ERP và bảng giá TV:** Build/publish giữ nguyên bundle nguồn,
+nhưng sinh bản `firebird.conf` trong output với `ServerMode = SuperClassic` để
+ERP và tiến trình TV độc lập cùng mở DB Embedded. Các tham số vendor còn lại được
+giữ nguyên. `Super` mặc định mở DB độc quyền và làm host TV lỗi khi ERP đang mở.
+Runtime tùy chỉnh qua `KAZUKO_FIREBIRD_HOME` phải có cấu hình chia sẻ tương ứng.
+Đóng các tiến trình ERP/TV cũ trước khi chạy bản mới để nạp lại cấu hình engine.
 
 Dưới đây là các nhóm tệp và thư mục cốt lõi cần lưu ý khi kiểm tra tính toàn vẹn của gói runtime:
 
@@ -97,7 +104,10 @@ D:\Working\KAZUKO_ERP_JEWELRY\
 ### 3.2. Bố cục Môi trường Triển khai Khách hàng (Target Production Layout)
 
 > [!NOTE]
-> Dự án chưa triển khai bộ cài đặt tự động. Bố cục dưới đây là mô hình kiến trúc mục tiêu (target layout) khuyến nghị cho các tác vụ đóng gói release trong tương lai.
+> Bộ cài mặc định hiện dùng Inno Setup theo từng tài khoản: chương trình tại
+> %LOCALAPPDATA%\Programs\Kazuko ERP, DB tự tạo lần đầu tại
+> %LOCALAPPDATA%\KazukoERPJewelry\data. Xem [installation.md](installation.md).
+> Bố cục dưới đây là phương án all-users do quản trị viên triển khai riêng.
 
 Đối với máy trạm khách hàng, **bắt buộc phân tách hoàn toàn giữa thư mục nhị phân ứng dụng và thư mục dữ liệu nghiệp vụ**:
 

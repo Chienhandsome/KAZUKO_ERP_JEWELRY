@@ -8,6 +8,8 @@ namespace Kazuko.Modules.Authentication;
 public sealed class LoginViewModel : ObservableObject
 {
     private readonly IAuthenticationService _authentication;
+    private readonly Func<Task>? _chooseDatabase;
+    private readonly Func<Task>? _createDatabase;
     private string _username = "admin";
     private string _password = string.Empty;
     private string _errorMessage = string.Empty;
@@ -17,10 +19,16 @@ public sealed class LoginViewModel : ObservableObject
     private bool _rememberUsername = true;
     private BranchOption? _selectedBranch;
 
-    public LoginViewModel(IAuthenticationService authentication)
+    public LoginViewModel(IAuthenticationService authentication, Func<Task>? chooseDatabase = null,
+        string databaseDisplayName = "", Func<Task>? createDatabase = null)
     {
         _authentication = authentication;
+        _chooseDatabase = chooseDatabase;
+        _createDatabase = createDatabase;
+        DatabaseDisplayName = databaseDisplayName;
         SignInCommand = new AsyncRelayCommand(SignInAsync);
+        ChooseDatabaseCommand = new AsyncRelayCommand(() => RunDatabaseActionAsync(_chooseDatabase), () => _chooseDatabase is not null && IsFormEnabled);
+        CreateDatabaseCommand = new AsyncRelayCommand(() => RunDatabaseActionAsync(_createDatabase), () => _createDatabase is not null && IsFormEnabled);
         _ = LoadBranchesAsync();
     }
 
@@ -58,7 +66,11 @@ public sealed class LoginViewModel : ObservableObject
         private set
         {
             if (SetProperty(ref _isBusy, value))
+            {
                 OnPropertyChanged(nameof(IsFormEnabled));
+                ((AsyncRelayCommand)ChooseDatabaseCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)CreateDatabaseCommand).NotifyCanExecuteChanged();
+            }
         }
     }
 
@@ -68,7 +80,11 @@ public sealed class LoginViewModel : ObservableObject
         private set
         {
             if (SetProperty(ref _isLoadingBranches, value))
+            {
                 OnPropertyChanged(nameof(IsFormEnabled));
+                ((AsyncRelayCommand)ChooseDatabaseCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)CreateDatabaseCommand).NotifyCanExecuteChanged();
+            }
         }
     }
 
@@ -91,6 +107,23 @@ public sealed class LoginViewModel : ObservableObject
     }
 
     public ICommand SignInCommand { get; }
+    public ICommand ChooseDatabaseCommand { get; }
+    public ICommand CreateDatabaseCommand { get; }
+    public string DatabaseDisplayName { get; }
+    public string DatabaseFileName => DatabaseDisplayName[(DatabaseDisplayName.LastIndexOfAny(['\\', '/', ':']) + 1)..];
+
+    private async Task RunDatabaseActionAsync(Func<Task>? action)
+    {
+        if (!IsFormEnabled || action is null) return;
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try { await action(); }
+        catch (Exception)
+        {
+            ErrorMessage = "Chưa hoàn tất thao tác với cơ sở dữ liệu. Vui lòng thử lại.";
+        }
+        finally { IsBusy = false; }
+    }
 
     private async Task LoadBranchesAsync()
     {

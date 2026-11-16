@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
@@ -21,7 +21,7 @@ public sealed class DebtViewModel : ObservableObject
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IDebtSettlementDialogService _settlementDialog;
 
-    private int _selectedTabIndex;
+    private readonly DebtTabKind _tab;
     private string _searchText = string.Empty;
     private DateTime? _fromDate;
     private DateTime? _toDate;
@@ -36,18 +36,9 @@ public sealed class DebtViewModel : ObservableObject
     private string _errorMessage = string.Empty;
     private string _quickNote = string.Empty;
     private bool _isBusy;
+    private bool _groupsLoaded;
     private bool _suppressSelectionLoad;
 
-    private string _kpiCustomerRemainingText = "0";
-    private string _kpiCustomerCollectText = "0";
-    private string _kpiCustomerPaidText = "0";
-    private string _kpiSupplierRemainingText = "0";
-    private string _kpiSupplierPayText = "0";
-    private string _kpiSupplierPaidText = "0";
-    private string _kpiCustomerOverdueText = "0";
-    private string _kpiCustomerOverdueCountText = "0 khách hàng";
-    private string _kpiSupplierOverdueText = "0";
-    private string _kpiSupplierOverdueCountText = "0 nhà cung cấp";
     private string _kpiWorkerGoldRemainingText = "0";
     private string _kpiWorkerGoldDebtorCountText = "0 thợ";
 
@@ -58,6 +49,7 @@ public sealed class DebtViewModel : ObservableObject
         ISupplierEditorService supplierEditor,
         ICurrentSessionAccessor sessionAccessor,
         IDebtSettlementDialogService settlementDialog,
+        DebtTabKind tab,
         Kazuko.Core.UserManagement.IAuthorizationService? authorization = null)
     {
         _workbench = workbench;
@@ -67,7 +59,7 @@ public sealed class DebtViewModel : ObservableObject
         _sessionAccessor = sessionAccessor;
         _settlementDialog = settlementDialog;
         _permissions = authorization;
-        if (authorization is not null && !authorization.Current.Allows("DEBT_CUSTOMER")) _selectedTabIndex = 2;
+        _tab = tab;
 
         StatusOptions.Add(new StatusFilterOption(string.Empty, "Tất cả trạng thái"));
         StatusOptions.Add(new StatusFilterOption(DebtDisplayStatuses.Normal, "Bình thường"));
@@ -87,7 +79,7 @@ public sealed class DebtViewModel : ObservableObject
         SelectedGoldPurity = GoldPurityOptions[0];
 
         SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsBusy);
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsBusy);
+        RefreshCommand = new AsyncRelayCommand(SearchAsync, () => !IsBusy);
         AddCustomerCommand = new RelayCommand(AddCustomer, () => !IsBusy && IsCustomerTab);
         AddSupplierCommand = new RelayCommand(AddSupplier, () => !IsBusy && IsSupplierTab);
         AddPartyCommand = new RelayCommand(AddParty, () => !IsBusy && !IsWorkerGoldDebtTab);
@@ -108,8 +100,6 @@ public sealed class DebtViewModel : ObservableObject
                 "Hướng dẫn công nợ",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information));
-
-        _ = InitializeAsync();
     }
 
     public ObservableCollection<CustomerDebtRowViewModel> Customers { get; } = new();
@@ -121,30 +111,9 @@ public sealed class DebtViewModel : ObservableObject
     public ObservableCollection<WorkerDebtStatusFilterOption> WorkerDebtStatusOptions { get; } = new();
     public ObservableCollection<GoldPurityFilterOption> GoldPurityOptions { get; } = new();
 
-    public int SelectedTabIndex
-    {
-        get => _selectedTabIndex;
-        set
-        {
-            if (!SetProperty(ref _selectedTabIndex, value))
-                return;
-            OnPropertyChanged(nameof(IsCustomerTab));
-            OnPropertyChanged(nameof(IsSupplierTab));
-            OnPropertyChanged(nameof(IsWorkerGoldDebtTab));
-            OnPropertyChanged(nameof(AddPartyButtonText));
-            OnPropertyChanged(nameof(CollectOrPayButtonText));
-            OnPropertyChanged(nameof(DetailTitle));
-            ((RelayCommand)AddCustomerCommand).NotifyCanExecuteChanged();
-            ((RelayCommand)AddSupplierCommand).NotifyCanExecuteChanged();
-            ((RelayCommand)AddPartyCommand).NotifyCanExecuteChanged();
-            ((AsyncRelayCommand)CollectOrPayCommand).NotifyCanExecuteChanged();
-            _ = SearchAsync();
-        }
-    }
-
-    public bool IsCustomerTab => SelectedTabIndex == 0;
-    public bool IsSupplierTab => SelectedTabIndex == 1;
-    public bool IsWorkerGoldDebtTab => SelectedTabIndex == 2;
+    public bool IsCustomerTab => _tab == DebtTabKind.Customer;
+    public bool IsSupplierTab => _tab == DebtTabKind.Supplier;
+    public bool IsWorkerGoldDebtTab => _tab == DebtTabKind.WorkerGold;
     public string AddPartyButtonText => IsCustomerTab ? "Thêm khách hàng" : "Thêm nhà cung cấp";
     public string CollectOrPayButtonText => IsCustomerTab ? "Thu tiền" : "Chi tiền";
     public string DetailTitle => IsCustomerTab ? "Thông tin khách hàng" : "Thông tin nhà cung cấp";
@@ -296,66 +265,6 @@ public sealed class DebtViewModel : ObservableObject
     public bool IsWorkerGoldDebtEmpty => !IsBusy && IsWorkerGoldDebtTab && WorkerGoldDebts.Count == 0;
     public bool HasDetail => HasSelection;
 
-    public string KpiCustomerRemainingText
-    {
-        get => _kpiCustomerRemainingText;
-        private set => SetProperty(ref _kpiCustomerRemainingText, value);
-    }
-
-    public string KpiCustomerCollectText
-    {
-        get => _kpiCustomerCollectText;
-        private set => SetProperty(ref _kpiCustomerCollectText, value);
-    }
-
-    public string KpiCustomerPaidText
-    {
-        get => _kpiCustomerPaidText;
-        private set => SetProperty(ref _kpiCustomerPaidText, value);
-    }
-
-    public string KpiSupplierRemainingText
-    {
-        get => _kpiSupplierRemainingText;
-        private set => SetProperty(ref _kpiSupplierRemainingText, value);
-    }
-
-    public string KpiSupplierPayText
-    {
-        get => _kpiSupplierPayText;
-        private set => SetProperty(ref _kpiSupplierPayText, value);
-    }
-
-    public string KpiSupplierPaidText
-    {
-        get => _kpiSupplierPaidText;
-        private set => SetProperty(ref _kpiSupplierPaidText, value);
-    }
-
-    public string KpiCustomerOverdueText
-    {
-        get => _kpiCustomerOverdueText;
-        private set => SetProperty(ref _kpiCustomerOverdueText, value);
-    }
-
-    public string KpiCustomerOverdueCountText
-    {
-        get => _kpiCustomerOverdueCountText;
-        private set => SetProperty(ref _kpiCustomerOverdueCountText, value);
-    }
-
-    public string KpiSupplierOverdueText
-    {
-        get => _kpiSupplierOverdueText;
-        private set => SetProperty(ref _kpiSupplierOverdueText, value);
-    }
-
-    public string KpiSupplierOverdueCountText
-    {
-        get => _kpiSupplierOverdueCountText;
-        private set => SetProperty(ref _kpiSupplierOverdueCountText, value);
-    }
-
     public string KpiWorkerGoldRemainingText
     {
         get => _kpiWorkerGoldRemainingText;
@@ -386,18 +295,21 @@ public sealed class DebtViewModel : ObservableObject
     public ICommand ViewDetailCommand { get; }
     public ICommand GuideCommand { get; }
 
-    private async Task InitializeAsync()
+    internal async Task SearchAsync()
     {
+        if (IsBusy) return;
+
         try
         {
             IsBusy = true;
-            var session = RequireSession();
+            ErrorMessage = string.Empty;
+            if (IsCustomerTab && !_groupsLoaded)
+            {
+                foreach (var group in await _customers.GetGroupsAsync())
+                    Groups.Add(new GroupFilterOption(group.Id, group.Name));
 
-            Groups.Clear();
-            Groups.Add(new GroupFilterOption(0, "Tất cả nhóm KH"));
-            foreach (var group in await _customers.GetGroupsAsync())
-                Groups.Add(new GroupFilterOption(group.Id, group.Name));
-            SelectedGroup = Groups[0];
+                _groupsLoaded = true;
+            }
 
             await RefreshCoreAsync();
         }
@@ -411,33 +323,9 @@ public sealed class DebtViewModel : ObservableObject
         }
     }
 
-    private Task RefreshAsync() => SearchAsync(reloadSummary: true);
-
-    private Task SearchAsync() => SearchAsync(reloadSummary: false);
-
-    private async Task SearchAsync(bool reloadSummary)
-    {
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = string.Empty;
-            await RefreshCoreAsync(reloadSummary);
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    private async Task RefreshCoreAsync(bool reloadSummary = true)
+    private async Task RefreshCoreAsync()
     {
         var session = RequireSession();
-        if (reloadSummary && (_permissions?.Current.Allows("DEBT_CUSTOMER") ?? true))
-            await LoadSummaryAsync(session);
 
         if (IsCustomerTab)
             await LoadCustomersAsync(session);
@@ -445,21 +333,6 @@ public sealed class DebtViewModel : ObservableObject
             await LoadSuppliersAsync(session);
         else
             await LoadWorkerGoldDebtsAsync(session);
-    }
-
-    private async Task LoadSummaryAsync(AuthenticatedSession session)
-    {
-        var summary = await _workbench.GetSummaryAsync(session);
-        KpiCustomerRemainingText = FormatMoney(summary.CustomerRemainingTotal);
-        KpiCustomerCollectText = FormatMoney(summary.CustomerRemainingTotal);
-        KpiCustomerPaidText = FormatMoney(summary.CustomerCollectedTotal);
-        KpiSupplierRemainingText = FormatMoney(summary.SupplierRemainingTotal);
-        KpiSupplierPayText = FormatMoney(summary.SupplierRemainingTotal);
-        KpiSupplierPaidText = FormatMoney(summary.SupplierPaidTotal);
-        KpiCustomerOverdueText = FormatMoney(summary.CustomerOverdueTotal);
-        KpiCustomerOverdueCountText = $"{summary.CustomerOverdueCount} khách hàng";
-        KpiSupplierOverdueText = FormatMoney(summary.SupplierOverdueTotal);
-        KpiSupplierOverdueCountText = $"{summary.SupplierOverdueCount} nhà cung cấp";
     }
 
     private async Task LoadCustomersAsync(AuthenticatedSession session)
@@ -651,14 +524,14 @@ public sealed class DebtViewModel : ObservableObject
     {
         var result = _customerEditor.ShowCreate();
         if (result is not null)
-            _ = SearchAsync(reloadSummary: true);
+            _ = SearchAsync();
     }
 
     private void AddSupplier()
     {
         var result = _supplierEditor.ShowCreate();
         if (result is not null)
-            _ = SearchAsync(reloadSummary: true);
+            _ = SearchAsync();
     }
 
     private void EditSelected()
@@ -666,14 +539,14 @@ public sealed class DebtViewModel : ObservableObject
         if (IsCustomerTab && SelectedCustomer is not null)
         {
             if (_customerEditor.ShowEdit(SelectedCustomer.CustomerId) is not null)
-                _ = SearchAsync(reloadSummary: true);
+                _ = SearchAsync();
             return;
         }
 
         if (IsSupplierTab && SelectedSupplier is not null)
         {
             if (_supplierEditor.ShowEdit(SelectedSupplier.SupplierId) is not null)
-                _ = SearchAsync(reloadSummary: true);
+                _ = SearchAsync();
         }
     }
 
@@ -924,13 +797,7 @@ public sealed class DebtViewModel : ObservableObject
 
     private void ExportExcel(object? parameter)
     {
-        var grid = parameter switch
-        {
-            System.Windows.Controls.DataGrid g => g,
-            System.Windows.Controls.TabControl tc =>
-                ExcelExportService.FindDataGrid(tc.SelectedContent as DependencyObject),
-            _ => null
-        };
+        var grid = ExcelExportService.FindDataGrid(parameter as DependencyObject);
 
         if (IsCustomerTab)
         {
