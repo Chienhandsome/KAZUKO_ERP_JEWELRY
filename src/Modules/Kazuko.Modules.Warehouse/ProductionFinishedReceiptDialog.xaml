@@ -117,7 +117,8 @@
 
       <!-- Cột 1: định danh / phân loại -->
       <StackPanel Grid.Column="0">
-  <TextBlock Text="{Binding ReceiptState}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,6"/>
+  <TextBlock Text="{Binding ReceiptState}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,0,6"
+             Visibility="{Binding ReceiptState, Converter={StaticResource NotNullToVis}}"/>
   <StackPanel Visibility="{Binding ShowLineSelector,Converter={StaticResource BoolToVis}}">
    <TextBlock Text="Dòng mẫu LSX (nhập đủ từng mẫu):" Style="{StaticResource ReceiptFormLabelStyle}"/>
    <ComboBox ItemsSource="{Binding OrderLines}" SelectedItem="{Binding SelectedLine}" DisplayMemberPath="ModelName" Style="{StaticResource ReceiptComboStyle}"/>

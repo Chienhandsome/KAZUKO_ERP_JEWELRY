@@ -41,7 +41,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
             SaleLaborCostText,PurchaseLaborCostText,SupplierName,SymbolCode,FormNotes}.Any(value=>!string.IsNullOrWhiteSpace(value));
     public string ReceiptState=>IsPosted?$"Đã ghi sổ {_postedResult?.DocumentCode} — có thể in lại, không tạo thêm phiếu.":
         _pendingPost is not null?"Chưa rõ kết quả lần lưu trước. Bấm Lưu để xác minh/thử lại cùng yêu cầu; không nhập lại phiếu khác.":
-        IsDetailLoading?"Đang tải LSX…":$"Bản nháp • Đã nhập {Products.Count}/{OrderLines.Sum(l=>l.PlannedQuantity)} món • Đối chiếu {(DebtRecorded?"đã xác nhận":"chưa xác nhận")}";
+        IsDetailLoading?"Đang tải LSX…":string.Empty;
     public ICommand SaveDraftCommand{get;}
 
     private void NotifyReceiptCommands()

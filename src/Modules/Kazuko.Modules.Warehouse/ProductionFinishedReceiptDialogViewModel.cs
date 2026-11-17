@@ -624,12 +624,10 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
                 Orders.Add(item);
             if(_preferredOrderId is >0 && Orders.All(x=>x.Id!=_preferredOrderId))Orders.Add(new(_preferredOrderId.Value,"LSX đã nhập kho"));
             SelectedOrder = Orders.FirstOrDefault(x=>x.Id==_preferredOrderId);
-            if(_preferredOrderId is null)ErrorMessage="Chọn LSX hoàn thành để nhập hoặc tiếp tục bản nháp.";
-
             if (Locations.Count == 0)
                 ErrorMessage = "Chưa cấu hình kho thành phẩm cho chi nhánh.";
-            else if (Orders.Count == 0)
-                ErrorMessage = "Không có lệnh đã hoàn thành đang chờ nhập kho.";
+            else if (_preferredOrderId is null && Orders.Count > 0)
+                ErrorMessage = "Chọn LSX hoàn thành để nhập hoặc tiếp tục bản nháp.";
         }
         catch (Exception ex)
         {
