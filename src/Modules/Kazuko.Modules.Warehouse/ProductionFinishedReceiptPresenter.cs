@@ -19,7 +19,7 @@ public sealed class ProductionFinishedReceiptPresenter(IWarehouseRepository ware
     {
         if(!authorization.Current.Allows("INV_FINISHED_RECEIPT",PermissionAction.Add))throw new InvalidOperationException("Bạn chưa có quyền nhập thành phẩm.");
         var session=sessions.Current??throw new InvalidOperationException("Chưa đăng nhập.");
-        var vm=new ProductionFinishedReceiptDialogViewModel(warehouse,queries,application,session,templates,company,goldTypes,drafts,documents,orderId,craftOrders,openDelivery);
+        var vm=new ProductionFinishedReceiptDialogViewModel(warehouse,queries,application,session,templates,company,goldTypes,drafts,documents,orderId,craftOrders,openDelivery,catalogAuthorization:authorization);
         var window=new ProductionFinishedReceiptDialog(vm){Owner=Application.Current?.Windows.OfType<Window>().FirstOrDefault(w=>w.IsActive)};
         window.ShowDialog();return vm.IsPosted;
     }

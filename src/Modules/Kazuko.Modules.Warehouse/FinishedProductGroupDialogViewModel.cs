@@ -9,6 +9,9 @@ public sealed class FinishedProductGroupDialogViewModel : ObservableObject
 {
     private readonly IWarehouseRepository _warehouse;
     private readonly AuthenticatedSession _session;
+    private readonly long? _id;
+    public bool IsCodeReadOnly => _id is > 0;
+    public string Title => IsCodeReadOnly ? "Sửa nhóm hàng thành phẩm" : "Thêm nhóm hàng thành phẩm";
 
     private string _code = string.Empty;
     private string _name = string.Empty;
@@ -19,12 +22,15 @@ public sealed class FinishedProductGroupDialogViewModel : ObservableObject
 
     public FinishedProductGroupDialogViewModel(
         IWarehouseRepository warehouse,
-        AuthenticatedSession session)
+        AuthenticatedSession session, FinishedProductCatalogItem? item = null)
     {
         _warehouse = warehouse;
         _session = session;
+        _id = item?.Id;
+        _code = item?.Code ?? string.Empty;
+        _name = item?.Name ?? string.Empty;
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
-        CancelCommand = new RelayCommand(() => DialogResult = false);
+        CancelCommand = new RelayCommand(() => DialogResult = false, () => !IsBusy);
     }
 
     public FinishedProductGroupOption? CreatedGroup => _createdGroup;
@@ -75,7 +81,8 @@ public sealed class FinishedProductGroupDialogViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            _createdGroup = await _warehouse.CreateFinishedProductGroupAsync(Code, Name, _session);
+            var saved = await _warehouse.SaveFinishedProductCatalogAsync(false, _id, Code, Name, _session);
+            _createdGroup = new(saved.Id, saved.Code, saved.Name);
             DialogResult = true;
         }
         catch (Exception ex)

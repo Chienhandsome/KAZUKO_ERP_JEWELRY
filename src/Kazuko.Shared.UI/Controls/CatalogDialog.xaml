@@ -47,8 +47,7 @@
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                             <TextBlock Style="{StaticResource DetailLabel}" Margin="0,2,0,0">
                                 <Run Text="{Binding Code, Mode=OneWay}" />
-                                <Run Text=" · " />
-                                <Run Text="{Binding Phone, Mode=OneWay}" />
+                                <Run Text="{Binding Phone, Mode=OneWay, StringFormat='  {0}'}" />
                             </TextBlock>
                         </StackPanel>
                     </DataTemplate>
@@ -69,6 +68,7 @@
                                                 <TextBlock Text="{Binding DataContext.SelectedContext, RelativeSource={RelativeSource AncestorType=Window}}" />
                                                 <TextBlock Text="Mã" Style="{StaticResource DetailLabel}" />
                                                 <TextBlock Text="{Binding Code}" />
+                                                <StackPanel Visibility="{Binding ShowContactDetails, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
                                                 <TextBlock Text="Điện thoại" Style="{StaticResource DetailLabel}" />
                                                 <TextBlock Text="{Binding Phone}" />
                                                 <TextBlock Text="Nhóm" Style="{StaticResource DetailLabel}" />
@@ -77,6 +77,7 @@
                                                 <TextBlock Text="{Binding Address}" />
                                                 <TextBlock Text="Email" Style="{StaticResource DetailLabel}" />
                                                 <TextBlock Text="{Binding Email}" />
+                                                </StackPanel>
                                                 <TextBlock Text="Trạng thái" Style="{StaticResource DetailLabel}" />
                                                 <TextBlock>
                                                     <TextBlock.Style>

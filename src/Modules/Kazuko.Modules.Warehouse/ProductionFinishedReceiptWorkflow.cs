@@ -48,7 +48,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel
     {
         foreach(var command in new[]{AddCommand,CancelEditCommand,CancelCommand,OpenReconcileCommand,SaveDraftCommand,PrintReceiptCommand})
             (command as RelayCommand)?.NotifyCanExecuteChanged();
-        foreach(var command in new[]{SaveCommand,RecordDebtCommand,PrintSelectedLabelsCommand,PrintAllLabelsCommand,CheckResultCommand,OpenDeliveryCommand})
+        foreach(var command in new[]{SaveCommand,RecordDebtCommand,PrintSelectedLabelsCommand,PrintAllLabelsCommand,CheckResultCommand,OpenDeliveryCommand,CreateProductGroupCommand,CreateSymbolCommand})
             (command as AsyncRelayCommand)?.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(ReceiptState));
         OnPropertyChanged(nameof(ShowCancelEditor));OnPropertyChanged(nameof(ShowResultCheck));OnPropertyChanged(nameof(ShowDelivery));

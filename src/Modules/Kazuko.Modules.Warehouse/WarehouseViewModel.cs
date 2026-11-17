@@ -1650,7 +1650,7 @@ public sealed class WarehouseViewModel : ObservableObject
         var dialog = new ProductionFinishedReceiptDialog(
             new ProductionFinishedReceiptDialogViewModel(
                 _repository, _productionQueries, _productionApplication, session,
-                _printTemplates, _companyProfile, _goldTypes, _receiptDrafts, _receiptDocuments))
+                _printTemplates, _companyProfile, _goldTypes, _receiptDrafts, _receiptDocuments, catalogAuthorization: _permissions))
         {
             Owner = Application.Current?.MainWindow
         };

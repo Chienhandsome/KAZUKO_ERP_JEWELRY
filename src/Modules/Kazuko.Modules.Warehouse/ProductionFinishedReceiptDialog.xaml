@@ -175,11 +175,11 @@
                     SelectedItem="{Binding SelectedProductGroup}"
                     DisplayMemberPath="Name"
                     Style="{StaticResource ReceiptComboStyle}" />
-          <Button Grid.Column="3" Content="Thêm"
+          <Button Grid.Column="3" Content="Danh mục"
                   Command="{Binding CreateProductGroupCommand}"
-                  Style="{StaticResource WhOutlineButtonStyle}"
-                  MinHeight="30" Padding="12,4"
-                  ToolTip="Thêm nhóm hàng mới" />
+                  Style="{DynamicResource FormSecondaryButtonStyle}"
+                  MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="12,4"
+                  ToolTip="Danh mục nhóm hàng thành phẩm" AutomationProperties.Name="Danh mục nhóm hàng thành phẩm" />
         </Grid>
         <Grid Margin="0,0,0,6">
           <Grid.ColumnDefinitions>
@@ -325,11 +325,11 @@
                     SelectedItem="{Binding SelectedSymbol}"
                     DisplayMemberPath="Code"
                     Style="{StaticResource ReceiptComboStyle}" />
-          <Button Grid.Column="3" Content="Thêm KH"
+          <Button Grid.Column="3" Content="Danh mục"
                   Command="{Binding CreateSymbolCommand}"
-                  Style="{StaticResource WhOutlineButtonStyle}"
-                  MinHeight="30" Padding="12,4"
-                  ToolTip="Thêm ký hiệu mới" />
+                  Style="{DynamicResource FormSecondaryButtonStyle}"
+                  MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="12,4"
+                  ToolTip="Danh mục ký hiệu thành phẩm" AutomationProperties.Name="Danh mục ký hiệu thành phẩm" />
         </Grid>
         <TextBlock Text="Mỗi món một mã riêng; mã chính thức được cấp khi ghi sổ." TextWrapping="Wrap"/>
         <TextBlock Text="Ghi chú:" Style="{StaticResource WhFieldLabelStyle}" Margin="0,0,0,4" />

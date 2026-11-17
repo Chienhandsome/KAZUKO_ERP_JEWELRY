@@ -19,6 +19,87 @@ namespace Kazuko.Infrastructure.Warehouse;
 // - LineCount (tổng 2 COUNT(*)) được CAST AS INTEGER vì record khai báo int.
 public sealed class FirebirdWarehouseRepository : IWarehouseRepository
 {
+    public async Task<IReadOnlyList<FinishedProductCatalogItem>> GetFinishedProductCatalogAsync(
+        bool symbols, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var table = symbols ? "FINISHED_PRODUCT_SYMBOLS" : "FINISHED_PRODUCT_GROUPS";
+        var name = symbols ? "CODE" : "NAME";
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return (await connection.QueryAsync<FinishedProductCatalogItem>(new CommandDefinition($"""
+            SELECT ID AS Id, CODE AS Code, {name} AS Name, IS_ACTIVE AS IsActive
+            FROM {table}
+            WHERE COMPANY_ID = (SELECT ID FROM COMPANIES WHERE CODE = 'KAZUKO')
+            ORDER BY {name}, CODE
+            """, cancellationToken: cancellationToken))).AsList();
+    }
+
+    public async Task<FinishedProductCatalogItem> SaveFinishedProductCatalogAsync(
+        bool symbols, long? id, string code, string name, AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        code = symbols ? FinishedProductSymbolRules.Normalize(code) : code.Trim().ToUpperInvariant();
+        name = symbols ? code : name.Trim();
+        if (!symbols && (code.Length is 0 or > 30 || code.Any(c => c > 127)))
+            throw new InvalidOperationException("Mã nhóm hàng bắt buộc, tối đa 30 ký tự không dấu.");
+        if (name.Length is 0 or > 100)
+            throw new InvalidOperationException("Tên nhóm hàng bắt buộc, tối đa 100 ký tự.");
+        var table = symbols ? "FINISHED_PRODUCT_SYMBOLS" : "FINISHED_PRODUCT_GROUPS";
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = (FirebirdSql.Data.FirebirdClient.FbTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, transaction, cancellationToken);
+        var args = new { CID = companyId, ID = id ?? 0, CODE = code, NAME = name };
+        var duplicates = await connection.ExecuteScalarAsync<int>(new CommandDefinition($"""
+            SELECT COUNT(*) FROM {table}
+            WHERE COMPANY_ID = @CID AND UPPER(CODE) = UPPER(@CODE) AND ID <> @ID
+            """, args, transaction, cancellationToken: cancellationToken));
+        if (duplicates > 0)
+            throw new InvalidOperationException("Mã đã tồn tại trong danh mục.");
+        long savedId;
+        if (id is > 0)
+        {
+            // Group codes stay stable; existing products retain their symbol snapshots.
+            var sql = symbols
+                ? $"UPDATE {table} SET CODE = @CODE, IS_ACTIVE = TRUE WHERE COMPANY_ID = @CID AND ID = @ID"
+                : $"UPDATE {table} SET NAME = @NAME, IS_ACTIVE = TRUE, UPDATED_AT = CURRENT_TIMESTAMP WHERE COMPANY_ID = @CID AND ID = @ID AND CODE = @CODE";
+            if (await connection.ExecuteAsync(new CommandDefinition(sql, args, transaction, cancellationToken: cancellationToken)) != 1)
+                throw new InvalidOperationException("Không tìm thấy danh mục hoặc mã đã thay đổi.");
+            savedId = id.Value;
+        }
+        else
+        {
+            var sql = symbols
+                ? $"INSERT INTO {table} (COMPANY_ID, CODE, IS_ACTIVE) VALUES (@CID, @CODE, TRUE) RETURNING ID"
+                : $"INSERT INTO {table} (COMPANY_ID, CODE, NAME, IS_ACTIVE) VALUES (@CID, @CODE, @NAME, TRUE) RETURNING ID";
+            savedId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, args, transaction, cancellationToken: cancellationToken));
+        }
+        await AuditLogWriter.WriteAsync(connection, transaction, id is > 0 ? "FINISHED_CATALOG_UPDATED" : "FINISHED_CATALOG_CREATED",
+            session.UserId, session.Username, session.BranchId, table, savedId.ToString(), cancellationToken: cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new(savedId, code, name, true);
+    }
+
+    public async Task DeactivateFinishedProductCatalogAsync(bool symbols, long id, AuthenticatedSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var table = symbols ? "FINISHED_PRODUCT_SYMBOLS" : "FINISHED_PRODUCT_GROUPS";
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = (FirebirdSql.Data.FirebirdClient.FbTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, transaction, cancellationToken);
+        if (await connection.ExecuteAsync(new CommandDefinition(
+                $"UPDATE {table} SET IS_ACTIVE = FALSE WHERE COMPANY_ID = @CID AND ID = @ID AND IS_ACTIVE = TRUE",
+                new { CID = companyId, ID = id }, transaction, cancellationToken: cancellationToken)) != 1)
+            throw new InvalidOperationException("Danh mục đã ngừng dùng hoặc không tồn tại.");
+        await AuditLogWriter.WriteAsync(connection, transaction, "FINISHED_CATALOG_DEACTIVATED",
+            session.UserId, session.Username, session.BranchId, table, id.ToString(), cancellationToken: cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<FinishedProductGroupOption>> GetFinishedProductGroupsAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default)

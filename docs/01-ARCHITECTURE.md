@@ -38,6 +38,14 @@ retry bất đồng bộ, xem [table-column-layout.md](table-column-layout.md).
 
 ## Luồng chuẩn
 
+Phiếu nhập thành phẩm mở Nhóm hàng và Ký hiệu qua `CatalogDialog` chung với danh mục
+Khách hàng/Nhà cung cấp: tìm, thêm, sửa, ngừng dùng và chọn về phiếu. Các trường liên hệ
+được ẩn cho hai danh mục này. Danh mục ngừng dùng không còn trong ô chọn; sản phẩm
+đã nhập và dòng nháp giữ snapshot cũ. Mã nhóm hàng đã tạo được giữ ổn định; tên nhóm
+và ký hiệu có thể sửa. Lưu/ngừng dùng qua `IWarehouseRepository`, kiểm tra quyền
+`INV_FINISHED_RECEIPT` tương ứng Add/Edit/Delete ở UI và backend, ghi audit trong cùng
+transaction. Đóng danh mục sau thay đổi vẫn tải lại ô chọn và giữ dữ liệu đang nhập.
+
 ```text
 View → ViewModel → Application Service → Repository → Firebird
 ```

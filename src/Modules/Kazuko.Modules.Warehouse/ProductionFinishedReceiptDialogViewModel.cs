@@ -15,6 +15,8 @@ using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 using Kazuko.Core.Sales;
 using Kazuko.Modules.Warehouse.Printing;
+using Kazuko.Core.UserManagement;
+using Kazuko.Shared.UI.Controls;
 
 namespace Kazuko.Modules.Warehouse;
 
@@ -34,6 +36,7 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         ["Nội bộ", "Xưởng chế tác"];
 
     private readonly IWarehouseRepository _warehouse;
+    private readonly IAuthorizationService? _catalogAuthorization;
     private readonly IProductionQueryRepository _queries;
     private readonly IProductionApplicationService _application;
     private readonly AuthenticatedSession _session;
@@ -92,10 +95,12 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         IPrintTemplateStore printTemplates,
         ICompanyProfileService companyProfile, IGoldTypeCatalogService? goldTypes=null, IFinishedReceiptDraftStore? draftStore=null, IFinishedReceiptDocuments? documents=null, long? preferredOrderId=null,
         ICraftOrderApplicationService? craftOrders=null, Func<long,Task>? openDelivery=null,
-        Func<string, MessageBoxButton, MessageBoxResult>? confirmClose=null)
+        Func<string, MessageBoxButton, MessageBoxResult>? confirmClose=null,
+        IAuthorizationService? catalogAuthorization=null)
     {
         _goldTypes=goldTypes;_draftStore=draftStore;_documents=documents;_preferredOrderId=preferredOrderId;
         _warehouse = warehouse;
+        _catalogAuthorization = catalogAuthorization;
         _queries = queries;
         _application = application;
         _session = session;
@@ -120,8 +125,8 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         });
         RecordDebtCommand = new AsyncRelayCommand(RecordDebtAsync, () => CanEdit&&_reconcileLoaded);
         OpenReconcileCommand = new RelayCommand(OpenReconcileDialog,()=>CanEdit&&_reconcileLoaded);
-        CreateProductGroupCommand = new RelayCommand(CreateProductGroup, () => !IsBusy);
-        CreateSymbolCommand = new RelayCommand(CreateSymbol, () => !IsBusy);
+        CreateProductGroupCommand = new AsyncRelayCommand(() => OpenFinishedCatalogAsync(false), () => CanEdit);
+        CreateSymbolCommand = new AsyncRelayCommand(() => OpenFinishedCatalogAsync(true), () => CanEdit);
         PrintSelectedLabelsCommand = new AsyncRelayCommand(
             () => PrintLabelsAsync(onlyChecked: true),
             () => !IsBusy && IsPosted && Products.Count > 0);
@@ -385,8 +390,8 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
                 NotifyReceiptCommands();
                 (EditCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (DeleteCommand as RelayCommand)?.NotifyCanExecuteChanged();
-                (CreateProductGroupCommand as RelayCommand)?.NotifyCanExecuteChanged();
-                (CreateSymbolCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                (CreateProductGroupCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                (CreateSymbolCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (SaveCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (RecordDebtCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 (PrintSelectedLabelsCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
@@ -1012,78 +1017,70 @@ public sealed partial class ProductionFinishedReceiptDialogViewModel : Observabl
         dialog.ShowDialog();
     }
 
-    private void CreateProductGroup()
+    private async Task OpenFinishedCatalogAsync(bool symbols)
     {
+        if (_catalogAuthorization is null) return;
+        var previousId = symbols ? SelectedSymbol?.Id : SelectedProductGroup?.Id;
+        var previousSymbolCode = SymbolCode;
         try
         {
-            var viewModel = new FinishedProductGroupDialogViewModel(_warehouse, _session);
-            var dialog = new FinishedProductGroupDialog(viewModel);
-            var owner = Application.Current.Windows
-                .OfType<ProductionFinishedReceiptDialog>()
-                .FirstOrDefault();
-            if (owner is not null)
-                dialog.Owner = owner;
-
-            if (dialog.ShowDialog() != true || viewModel.CreatedGroup is null)
-                return;
-
-            _ = ReloadProductGroupsAsync(viewModel.CreatedGroup.Id);
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-    }
-
-    private async Task ReloadProductGroupsAsync(long? selectId)
-    {
-        try
-        {
-            var groups = await _warehouse.GetFinishedProductGroupsAsync(_session);
-            ProductGroups.Clear();
-            foreach (var group in groups)
-                ProductGroups.Add(group);
-
-            SelectedProductGroup = selectId is > 0
-                ? ProductGroups.FirstOrDefault(g => g.Id == selectId.Value) ?? ProductGroups.FirstOrDefault()
-                : ProductGroups.FirstOrDefault();
-            OnPropertyChanged(nameof(PreviewProductCode));
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-    }
-
-    private void CreateSymbol()
-    {
-        try
-        {
-            var viewModel = new FinishedProductSymbolDialogViewModel(_warehouse, _session);
-            var dialog = new FinishedProductSymbolDialog(viewModel);
-            var owner = Application.Current.Windows
-                .OfType<ProductionFinishedReceiptDialog>()
-                .FirstOrDefault();
-            if (owner is not null)
-                dialog.Owner = owner;
-
-            if (dialog.ShowDialog() != true || viewModel.CreatedSymbol is null)
-                return;
-
-            var created = viewModel.CreatedSymbol;
-            var existing = Symbols.FirstOrDefault(symbol =>
-                string.Equals(symbol.Code, created.Code, StringComparison.OrdinalIgnoreCase));
-            if (existing is null)
+            IsBusy = true;
+            var dialog = new CatalogDialog
             {
-                Symbols.Add(created);
-                existing = created;
+                Title = symbols ? "Danh mục ký hiệu thành phẩm" : "Danh mục nhóm hàng thành phẩm",
+                ShowContactDetails = false,
+                Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+            };
+            long? Edit(FinishedProductCatalogItem? item)
+            {
+                if (symbols)
+                {
+                    var editor = new FinishedProductSymbolDialogViewModel(_warehouse, _session, item);
+                    var window = new FinishedProductSymbolDialog(editor) { Owner = dialog };
+                    window.Closing += (_, e) => e.Cancel = editor.IsBusy && editor.DialogResult != true;
+                    return window.ShowDialog() == true ? editor.CreatedSymbol?.Id : null;
+                }
+                else
+                {
+                    var editor = new FinishedProductGroupDialogViewModel(_warehouse, _session, item);
+                    var window = new FinishedProductGroupDialog(editor) { Owner = dialog };
+                    window.Closing += (_, e) => e.Cancel = editor.IsBusy && editor.DialogResult != true;
+                    return window.ShowDialog() == true ? editor.CreatedGroup?.Id : null;
+                }
             }
-            SelectedSymbol = existing;
+            var catalog = new FinishedProductCatalogViewModel(_warehouse, _session, _catalogAuthorization,
+                symbols, Edit, message => MessageBox.Show(dialog, message, "Ngừng dùng danh mục",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
+            dialog.DataContext = catalog;
+            dialog.Loaded += async (_, _) => await catalog.LoadAsync(previousId);
+            dialog.Closing += (_, e) => e.Cancel = catalog.IsBusy;
+            catalog.Chosen += () => dialog.DialogResult = true;
+            dialog.ShowDialog();
+            if (!catalog.HasChanges && catalog.ChosenItem is null) return;
+
+            var selectedId = catalog.ChosenItem?.Id ?? previousId;
+            if (symbols)
+            {
+                var items = await _warehouse.GetFinishedProductSymbolsAsync(_session);
+                Symbols.Clear();
+                foreach (var item in items) Symbols.Add(item);
+                SelectedSymbol = Symbols.FirstOrDefault(x => x.Id == selectedId);
+                SymbolCode = SelectedSymbol?.Code ?? string.Empty;
+                if (SelectedSymbol is null && previousId is null && !string.IsNullOrWhiteSpace(previousSymbolCode))
+                    SelectSymbol(previousSymbolCode);
+            }
+            else
+            {
+                var items = await _warehouse.GetFinishedProductGroupsAsync(_session);
+                ProductGroups.Clear();
+                foreach (var item in items) ProductGroups.Add(item);
+                SelectedProductGroup = ProductGroups.FirstOrDefault(x => x.Id == selectedId);
+            }
+            if (selectedId is > 0 && (symbols ? SelectedSymbol is null : SelectedProductGroup is null))
+                ErrorMessage = "Danh mục đã ngừng dùng. Vui lòng chọn lại.";
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
+        catch (Exception ex) { ErrorMessage = ex.Message; }
+        finally { IsBusy = false; }
     }
 
     private void SelectSymbol(string? code)

@@ -29,6 +29,12 @@ public sealed class FinishedReceiptLayoutTests
                     app.Resources.MergedDictionaries.Clear();
                     foreach(var resource in new[]{theme,"Typography","Controls"})app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/Kazuko.Shared.UI;component/Themes/"+resource+".xaml")});
                     foreach(var font in new[]{"Caption","Body","Subtitle","Heading","Display"})app.Resources["FontSize."+font]=(double)app.Resources["FontSize."+font]*scale;
+                    var catalog=new Kazuko.Shared.UI.Controls.CatalogDialog{ShowContactDetails=false,DataContext=new CatalogPreview()};
+                    var catalogRoot=(FrameworkElement)catalog.Content;
+                    catalogRoot.Measure(new Size(628,380));catalogRoot.Arrange(new Rect(0,0,628,380));catalogRoot.UpdateLayout();
+                    foreach(var caption in new[]{"Thêm mới","Sửa","Xóa","Chọn","Đóng"})
+                        Assert.Single(Descendants(catalogRoot).OfType<Button>(),b=>b.Content as string==caption);
+                    Assert.DoesNotContain(Descendants(catalogRoot).OfType<TextBlock>(),t=>t.IsVisible&&t.Text=="Điện thoại");
                     var vm=new ProductionFinishedReceiptDialogViewModel(Stub<IWarehouseRepository>(),Stub<IProductionQueryRepository>(),Stub<IProductionApplicationService>(),new(1,"test","Test","ADMIN",1,"CN","Chi nhánh"),Stub<IPrintTemplateStore>(),Stub<ICompanyProfileService>());
                     vm.LineProgress.Add(new("Nhẫn mẫu dài để kiểm tra bố cục","750",2,2,1));
                     vm.LineProgress.Add(new("Dây chuyền","9999",1,1,0));
@@ -36,6 +42,9 @@ public sealed class FinishedReceiptLayoutTests
                     var root=(FrameworkElement)window.Content;((Panel)root).Background=(Brush)app.Resources["AppBackgroundBrush"];
                     root.Measure(new Size(1334,788));root.Arrange(new Rect(0,0,1334,788));root.UpdateLayout();
                     var buttons=Descendants(root).OfType<Button>().Where(b=>b.Content as string=="Ghi sổ nhập kho").ToArray();Assert.Single(buttons);
+                    var catalogButtons=Descendants(root).OfType<Button>().Where(b=>b.Content as string=="Danh mục").ToArray();
+                    Assert.Equal(2,catalogButtons.Length);
+                    Assert.DoesNotContain(Descendants(root).OfType<Button>(),b=>b.Content as string=="Thêm KH");
                     Assert.False(Descendants(root).OfType<Expander>().Single(x=>x.Header as string=="Tiến độ từng mẫu: đơn đặt / SX / nhập").IsExpanded);
                     foreach(var caption in new[]{"Bỏ món đang nhập","Kiểm tra kết quả","Mở đơn / Giao hàng"})
                         Assert.Equal(Visibility.Collapsed,Descendants(root).OfType<Button>().Single(x=>x.Content as string==caption).Visibility);
@@ -51,6 +60,18 @@ public sealed class FinishedReceiptLayoutTests
         });thread.SetApartmentState(ApartmentState.STA);thread.Start();thread.Join();if(error is not null)ExceptionDispatchInfo.Capture(error).Throw();
     }
     private static T Stub<T>() where T:class=>DispatchProxy.Create<T,NoDatabase>();
+    public sealed class CatalogPreview
+    {
+        public string SearchHint => "Tìm nhóm hàng hoặc ký hiệu";
+        public string Query { get; set; } = "";
+        public string Error => "";
+        public bool IsBusy => false;
+        public bool CanChoose => true;
+        public string SelectedContext => "Nhóm hàng thành phẩm";
+        public string SelectedGroupName => "";
+        public FinishedProductCatalogItem[] Rows { get; } = [new(1,"NHAN","Nhẫn thành phẩm tên dài",true)];
+        public FinishedProductCatalogItem? Selected { get; set; } = new(1,"NHAN","Nhẫn thành phẩm tên dài",true);
+    }
     public class NoDatabase:DispatchProxy {protected override object? Invoke(MethodInfo? method,object?[]? args)=>throw new NotSupportedException();}
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
     {for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);yield return child;foreach(var nested in Descendants(child))yield return nested;}}

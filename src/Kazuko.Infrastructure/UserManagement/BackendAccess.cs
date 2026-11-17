@@ -84,6 +84,9 @@ public static class BackendAccess
                 "ApproveAsync" or "RejectAsync" => Has("INV_SALES_INTAKE", PermissionAction.Edit),
                 "ListRequestsAsync" or "GetRequestDetailAsync" => Any("INV_SALES_INTAKE", "INV_TRANSFER"), _ => false },
             "IWarehouseRepository" => method switch {
+                "SaveFinishedProductCatalogAsync" => Has("INV_FINISHED_RECEIPT", args.ElementAtOrDefault(1) is long catalogId && catalogId > 0 ? PermissionAction.Edit : PermissionAction.Add),
+                "DeactivateFinishedProductCatalogAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Delete),
+                "GetFinishedProductCatalogAsync" => Has("INV_FINISHED_RECEIPT"),
                 "CreateFinishedProductGroupAsync" or "CreateFinishedProductSymbolAsync" => Has("INV_FINISHED_RECEIPT", PermissionAction.Add),
                 "GetLocationsAsync" or "GetFinishedProductGroupsAsync" or "GetFinishedProductSymbolsAsync" or "SearchMaterialsAsync" or "SearchIssueSalesOrdersAsync" or "SearchIssueCandidatesAsync" => NavigationAccess.Allows(rights, "WAREHOUSE") || NavigationAccess.Allows(rights, "SALES") || NavigationAccess.Allows(rights, "PRODUCTION"),
                 "SearchMaterialBalancesAsync" or "SearchFinishedProductStockAsync" or "SearchSaleItemStockAsync" => Has("INV_STOCK_VIEW"),

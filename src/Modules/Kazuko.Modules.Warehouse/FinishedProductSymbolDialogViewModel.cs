@@ -9,6 +9,8 @@ public sealed class FinishedProductSymbolDialogViewModel : ObservableObject
 {
     private readonly IWarehouseRepository _warehouse;
     private readonly AuthenticatedSession _session;
+    private readonly long? _id;
+    public string Title => _id is > 0 ? "Sửa ký hiệu thành phẩm" : "Thêm ký hiệu thành phẩm";
 
     private string _code = string.Empty;
     private string _errorMessage = string.Empty;
@@ -18,12 +20,14 @@ public sealed class FinishedProductSymbolDialogViewModel : ObservableObject
 
     public FinishedProductSymbolDialogViewModel(
         IWarehouseRepository warehouse,
-        AuthenticatedSession session)
+        AuthenticatedSession session, FinishedProductCatalogItem? item = null)
     {
         _warehouse = warehouse;
         _session = session;
+        _id = item?.Id;
+        _code = item?.Code ?? string.Empty;
         SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
-        CancelCommand = new RelayCommand(() => DialogResult = false);
+        CancelCommand = new RelayCommand(() => DialogResult = false, () => !IsBusy);
     }
 
     public FinishedProductSymbolOption? CreatedSymbol => _createdSymbol;
@@ -68,7 +72,8 @@ public sealed class FinishedProductSymbolDialogViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            _createdSymbol = await _warehouse.CreateFinishedProductSymbolAsync(Code, _session);
+            var saved = await _warehouse.SaveFinishedProductCatalogAsync(true, _id, Code, Code, _session);
+            _createdSymbol = new(saved.Id, saved.Code);
             DialogResult = true;
         }
         catch (Exception ex)

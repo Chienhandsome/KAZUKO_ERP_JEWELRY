@@ -209,6 +209,16 @@ public sealed record StockMovementSearchFilter(
 
 public interface IWarehouseRepository
 {
+    Task<IReadOnlyList<FinishedProductCatalogItem>> GetFinishedProductCatalogAsync(
+        bool symbols, AuthenticatedSession session, CancellationToken cancellationToken = default);
+
+    Task<FinishedProductCatalogItem> SaveFinishedProductCatalogAsync(
+        bool symbols, long? id, string code, string name, AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
+    Task DeactivateFinishedProductCatalogAsync(bool symbols, long id, AuthenticatedSession session,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<FinishedProductGroupOption>> GetFinishedProductGroupsAsync(
         AuthenticatedSession session,
         CancellationToken cancellationToken = default);
