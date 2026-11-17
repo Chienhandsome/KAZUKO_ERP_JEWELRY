@@ -28,8 +28,6 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="12" />
                     <ColumnDefinition Width="1.4*" />
-                    <ColumnDefinition Width="8" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="12" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -44,16 +42,22 @@
                 </StackPanel>
                 <StackPanel Grid.Column="4">
                     <TextBlock Text="Khách hàng" Style="{StaticResource SalesFieldLabelStyle}" />
-                    <ComboBox ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding SelectedCustomer}"
-                              DisplayMemberPath="DisplayName"
-                              Style="{StaticResource SalesComboStyle}" IsEditable="True" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding SelectedCustomer}"
+                                  DisplayMemberPath="DisplayName"
+                                  Style="{StaticResource SalesComboStyle}" IsEditable="True" />
+                        <Button access:PermissionAccess.Rule="CAT_CUSTOMERS" Grid.Column="1" Content="Danh mục"
+                                Style="{StaticResource SalesOutlineButtonStyle}"
+                                MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="12,4" Margin="8,0,0,0"
+                                Command="{Binding AddCustomerCommand}"
+                                ToolTip="Danh mục khách hàng" AutomationProperties.Name="Danh mục khách hàng" />
+                    </Grid>
                 </StackPanel>
-                <Button access:PermissionAccess.Rule="CAT_CUSTOMERS:Add" Grid.Column="6" Content="+"
-                        Style="{StaticResource SalesIconButtonStyle}"
-                        Margin="0,20,0,0"
-                        Command="{Binding AddCustomerCommand}"
-                        ToolTip="Thêm khách hàng" />
-                <StackPanel Grid.Column="8">
+                <StackPanel Grid.Column="6">
                     <TextBlock Text="Nhân viên" Style="{StaticResource SalesFieldLabelStyle}" />
                     <ComboBox ItemsSource="{Binding StaffOptions}" SelectedItem="{Binding SelectedStaff}"
                               DisplayMemberPath="DisplayName"

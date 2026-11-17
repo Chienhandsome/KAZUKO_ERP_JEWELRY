@@ -61,6 +61,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     private string _completionPreview = string.Empty;
 
     private readonly IGoldTypeCatalogService _goldTypes;
+    private readonly IGoldTypeEditorService? _goldTypeEditor;
     private readonly ICraftOrderApplicationService? _craftOrders;
     private readonly ICashFundRepository? _cashFunds;
     private readonly IBankAccountRepository? _bankAccounts;
@@ -97,7 +98,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ICashFundRepository? cashFunds = null,
         IBankAccountRepository? bankAccounts = null,
         ICustomerEditorService? customerEditor = null,
-        string? preferredOrderSource = null, IEmployeeEditorService? employeeEditor = null)
+        string? preferredOrderSource = null, IEmployeeEditorService? employeeEditor = null,
+        IGoldTypeEditorService? goldTypeEditor = null)
     {
         _orderId = orderId;
         _queries = queries;
@@ -108,6 +110,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         _externalWorkerEditor = externalWorkerEditor;
         _employeeEditor = employeeEditor;
         _goldTypes = goldTypes;
+        _goldTypeEditor = goldTypeEditor;
         _branchId = branchId;
         _craftOrders = craftOrders;
         _cashFunds = cashFunds;
@@ -1870,7 +1873,8 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
             IsDraft,
             goldStock,
             isNew ? null : line,
-            sellPrices);
+            sellPrices,
+            _goldTypeEditor is { } editor ? () => editor.ShowCreateAsync(RequireSession()) : null);
 
         var dialog = new ProductionLineEditDialog
         {

@@ -50,13 +50,19 @@ internal sealed class CustomerRepositoryFake : ICustomerRepository
         Saved.Add(request);
         return Task.FromResult(new CustomerEditResult(request.Id ?? 10, "KH000010", request.Name, request.Phone, request.Address, request.IsActive));
     }
-    public Task SetActiveAsync(long id, bool isActive, AuthenticatedSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task SetActiveAsync(long id, bool isActive, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        Customers = Customers.Select(row => row.Id == id ? row with { IsActive = isActive } : row).ToArray();
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class CustomerEditorFake : ICustomerEditorService
 {
     public CustomerEditResult? ShowCreate() => null;
     public CustomerEditResult? ShowEdit(long customerId) => null;
+    public CustomerCatalogResult ShowCatalog(bool selectCustomer = false, long? selectedId = null, bool allowWalkIn = true)
+        => new(null, false);
 }
 
 internal sealed class SettlementDialogFake : IDebtSettlementDialogService

@@ -1,4 +1,4 @@
-﻿<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
+<Window x:Class="Kazuko.Modules.Production.Dialogs.ProductionLineEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:access="clr-namespace:Kazuko.Shared.UI.Behaviors;assembly=Kazuko.Shared.UI"
@@ -79,27 +79,40 @@
                              ToolTip="Mã mẫu do hệ thống tự sinh" />
                     <TextBlock Grid.Row="0" Grid.Column="3" Text="Loại vàng *" Style="{StaticResource LineCompactLabelStyle}"
                                ToolTip="Loại vàng (kho NVL)" />
-                    <ComboBox Grid.Row="0" Grid.Column="4"
-                              ItemsSource="{Binding GoldStockOptions}"
-                              SelectedItem="{Binding SelectedGoldStock}"
-                              Style="{StaticResource LineCompactComboStyle}"
-                              IsEnabled="{Binding IsEditable}"
-                              ToolTip="Chọn vàng còn tồn tại kho xuất; mỗi dòng hiện tồn hiện tại">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock>
-                                    <Run Text="{Binding Code, Mode=OneWay}" />
-                                    <Run Text=" — " />
-                                    <Run Text="{Binding Name, Mode=OneWay}" />
-                                    <Run Text=" (" />
-                                    <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
-                                    <Run Text=" " />
-                                    <Run Text="{Binding UnitCode, Mode=OneWay}" />
-                                    <Run Text=")" />
-                                </TextBlock>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <Grid Grid.Row="0" Grid.Column="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox
+                                  ItemsSource="{Binding GoldStockOptions}"
+                                  SelectedItem="{Binding SelectedGoldStock}"
+                                  Style="{StaticResource LineCompactComboStyle}"
+                                  IsEnabled="{Binding IsEditable}"
+                                  ToolTip="Chọn vàng còn tồn tại kho xuất; mỗi dòng hiện tồn hiện tại">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock>
+                                        <Run Text="{Binding Code, Mode=OneWay}" />
+                                        <Run Text=" — " />
+                                        <Run Text="{Binding Name, Mode=OneWay}" />
+                                        <Run Text=" (" />
+                                        <Run Text="{Binding QuantityOnHand, Mode=OneWay, StringFormat=N3}" />
+                                        <Run Text=" " />
+                                        <Run Text="{Binding UnitCode, Mode=OneWay}" />
+                                        <Run Text=")" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="1" Content="Thêm loại vàng"
+                                Command="{Binding AddGoldTypeCommand}"
+                                access:PermissionAccess.Rule="CAT_GOLD_PRICE:Add"
+                                Visibility="{Binding CanCreateGoldType, Converter={StaticResource BoolToVis}}"
+                                Style="{StaticResource FormSecondaryButtonStyle}"
+                                MinHeight="{DynamicResource SingleLineFieldMinHeight}"
+                                Padding="12,2" Margin="8,0,0,0" />
+                    </Grid>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Tên SP *" Style="{StaticResource LineCompactLabelStyle}"
                                ToolTip="Tên sản phẩm" />

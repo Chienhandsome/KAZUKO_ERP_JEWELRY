@@ -11,7 +11,8 @@
 5. Khai báo thông tin cửa hàng, giá và dữ liệu nghiệp vụ theo nhu cầu.
 
 Dữ liệu mới có cửa hàng/chi nhánh chính, ba kho, quỹ tiền mặt, nhóm hàng/khách/NCC,
-danh mục loại vàng, ca làm việc, khách lẻ và quyền quản trị. Không có giao dịch,
+ca làm việc, khách lẻ và quyền quản trị. Thêm loại vàng theo nhu cầu sau khi đăng nhập.
+Không có giao dịch,
 tồn kho, công nợ, nhân viên, khách hàng thực tế hoặc tài khoản từ máy phát triển.
 Giá và số dư không được lấy từ máy build.
 

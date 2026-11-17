@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Input;
 using Kazuko.Core.Inventory;
 using Kazuko.Core.Mvvm;
+using Kazuko.Core.PriceBoard;
 using Kazuko.Core.Production;
 using Kazuko.Core.Warehouse;
 using Microsoft.Win32;
@@ -45,7 +46,8 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         bool isEditable,
         IReadOnlyList<ProductionMaterialStockOption> goldStockOptions,
         ProductionLineEditorViewModel? source = null,
-        IReadOnlyDictionary<long, decimal>? sellPriceByMaterialId = null)
+        IReadOnlyDictionary<long, decimal>? sellPriceByMaterialId = null,
+        Func<Task<GoldTypeOption?>>? createGoldType = null)
     {
         _attachments = attachments;
         _isEditable = isEditable;
@@ -97,6 +99,21 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         if (source is null || source.GoldUnitPricePerChi <= 0)
             ApplyDefaultGoldPriceFromSelection();
 
+        CanCreateGoldType = IsEditable && createGoldType is not null;
+        AddGoldTypeCommand = new AsyncRelayCommand(async () =>
+        {
+            try
+            {
+                if (createGoldType is not null && await createGoldType() is { } goldType)
+                    MessageBox.Show($"Đã thêm {goldType.Name}. Nhập vàng vào kho nguyên liệu của chi nhánh rồi mở lại hộp thoại Sản phẩm để chọn.",
+                        "Thêm loại vàng", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+        }, () => CanCreateGoldType);
+
         SaveCommand = new RelayCommand(Save, () => IsEditable);
         CancelCommand = new RelayCommand(Cancel);
         AddSampleImageCommand = new AsyncRelayCommand(
@@ -117,6 +134,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
 
     public int LineNumber { get; }
     public bool IsEditable => _isEditable;
+    public bool CanCreateGoldType { get; }
     public string WindowTitle => IsEditable
         ? (string.IsNullOrWhiteSpace(ModelName) ? $"Sản phẩm #{LineNumber}" : $"Sản phẩm #{LineNumber}: {ModelName}")
         : $"Xem sản phẩm #{LineNumber}";
@@ -358,6 +376,7 @@ public sealed class ProductionLineEditDialogViewModel : ObservableObject
         }
     }
 
+    public ICommand AddGoldTypeCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
     public ICommand AddSampleImageCommand { get; }

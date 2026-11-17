@@ -8,6 +8,33 @@ namespace Kazuko.Modules.Sales.Tests;
 public sealed class SalesViewModelTests
 {
     [Fact]
+    public async Task Catalog_selects_new_customer_and_clears_archived_customer_even_without_a_choice()
+    {
+        var editor = new FakeCustomerEditor();
+        var (vm, _, _, _, queries) = SalesTestFactory.Create(customerEditor: editor);
+        await WaitForIdleAsync(vm);
+
+        queries.Customers.Add(new(3, "KH002", "Khách vừa thêm", null, false));
+        editor.NextResult = new(3, "KH002", "Khách vừa thêm", "", "", true);
+        editor.CatalogChanged = true;
+        vm.BuyOldGold.AddCustomerCommand.Execute(null);
+        await WaitForIdleAsync(vm);
+
+        Assert.Equal((true, (long?)2, false), editor.CatalogRequest);
+        Assert.Equal(3, vm.BuyOldGold.SelectedCustomer?.Id);
+        Assert.Contains(vm.BuySell.CustomerOptions, option => option.Id == 3);
+
+        queries.Customers.RemoveAll(option => option.Id == 3);
+        editor.NextResult = null;
+        vm.BuyOldGold.AddCustomerCommand.Execute(null);
+        await WaitForIdleAsync(vm);
+
+        Assert.Null(vm.BuyOldGold.SelectedCustomer);
+        Assert.DoesNotContain(vm.BuySell.CustomerOptions, option => option.Id == 3);
+        Assert.Equal(1, vm.BuySell.SelectedCustomer?.Id);
+    }
+
+    [Fact]
     public async Task Initialize_replaces_mock_options_with_lookups()
     {
         var (vm, _, _, _, _) = SalesTestFactory.Create();

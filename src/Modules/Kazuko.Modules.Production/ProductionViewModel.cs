@@ -28,6 +28,7 @@ public sealed class ProductionViewModel : ObservableObject
     private readonly ICurrentSessionAccessor _sessionAccessor;
     private readonly IExternalWorkerEditorService _externalWorkerEditor;
     private readonly IEmployeeEditorService? _employeeEditor;
+    private readonly IGoldTypeEditorService? _goldTypeEditor;
     private readonly IGoldTypeCatalogService _goldTypes;
     private readonly ICraftOrderApplicationService _craftOrders;
     private readonly ICashFundRepository _cashFunds;
@@ -66,7 +67,7 @@ public sealed class ProductionViewModel : ObservableObject
         ICashFundRepository cashFunds,
         IBankAccountRepository bankAccounts,
         ICustomerEditorService customerEditor, IProductionFinishedReceiptPresenter? receiptPresenter=null,
-        IEmployeeEditorService? employeeEditor = null)
+        IEmployeeEditorService? employeeEditor = null, IGoldTypeEditorService? goldTypeEditor = null)
     {
         _queries = queries;_receiptPresenter=receiptPresenter;
         _application = application;
@@ -75,6 +76,7 @@ public sealed class ProductionViewModel : ObservableObject
         _sessionAccessor = sessionAccessor;
         _externalWorkerEditor = externalWorkerEditor;
         _employeeEditor = employeeEditor;
+        _goldTypeEditor = goldTypeEditor;
         _goldTypes = goldTypes;
         _craftOrders = craftOrders;
         _cashFunds = cashFunds;
@@ -505,7 +507,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _craftOrders,
                     _cashFunds,
                     _bankAccounts,
-                    _customerEditor, employeeEditor: _employeeEditor)
+                    _customerEditor, employeeEditor: _employeeEditor, goldTypeEditor: _goldTypeEditor)
             };
             dialog.ShowDialog();
             await LoadAsync();
@@ -540,7 +542,7 @@ public sealed class ProductionViewModel : ObservableObject
                     _craftOrders,
                     _cashFunds,
                     _bankAccounts,
-                    _customerEditor, employeeEditor: _employeeEditor)
+                    _customerEditor, employeeEditor: _employeeEditor, goldTypeEditor: _goldTypeEditor)
             };
             dialog.ShowDialog();
             await LoadAsync();

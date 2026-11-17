@@ -61,7 +61,7 @@ public sealed class ProductionOrderEditorService : IProductionOrderEditorService
             Require<ICashFundRepository>(),
             Require<IBankAccountRepository>(),
             Require<ICustomerEditorService>(),
-            preferredOrderSource, Require<IEmployeeEditorService>());
+            preferredOrderSource, Require<IEmployeeEditorService>(), Require<IGoldTypeEditorService>());
 
         var dialog = new ProductionOrderDialog
         {

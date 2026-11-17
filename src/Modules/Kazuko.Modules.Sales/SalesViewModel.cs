@@ -85,9 +85,12 @@ public sealed class SalesViewModel : ObservableObject
         BuySell.FindProductAsync = code => FindProductAsync(code);
         BuySell.SearchProductsAsync = SearchProductsAsync;
         BuySell.CountMatchingProductsAsync = CountMatchingProductsAsync;
-        BuySell.AddCustomerAction = () => AddCustomerForBuySell();
-        BuyOldGold.AddCustomerAction = () => AddCustomerForBuyOldGold();
-        Wholesale.AddCustomerAction = () => AddCustomerForWholesale();
+        BuySell.AddCustomerAction = () => OpenCustomerCatalog(BuySell.CustomerOptions,
+            BuySell.SelectedCustomer?.Id, customer => BuySell.SelectedCustomer = customer);
+        BuyOldGold.AddCustomerAction = () => OpenCustomerCatalog(BuyOldGold.CustomerOptions,
+            BuyOldGold.SelectedCustomer?.Id, customer => BuyOldGold.SelectedCustomer = customer, allowWalkIn: false);
+        Wholesale.AddCustomerAction = () => OpenCustomerCatalog(Wholesale.CustomerOptions,
+            Wholesale.SelectedCustomer?.Id, customer => Wholesale.SelectedCustomer = customer);
         Wholesale.FindProductAsync = (code, locationId) => FindWholesaleProductAsync(code, locationId);
         Wholesale.SearchProductsAsync = SearchWholesaleProductsAsync;
         BuySell.EditSellPriceAction = EditSellPrice;
@@ -106,7 +109,7 @@ public sealed class SalesViewModel : ObservableObject
             SuccessMessage = string.Empty;
         };
 
-        NewCommand = new AsyncRelayCommand(NewAsync, () => !IsPosting);
+        NewCommand = new AsyncRelayCommand(NewAsync, () => !IsPosting && !IsLoading);
         PayCommand = new AsyncRelayCommand(PayAsync, () => !IsPosting && !IsLoading && CanPayCurrentTab);
         PrintCommand = new AsyncRelayCommand(PrintAsync, () => !IsPosting && CanPrintCurrent);
 
@@ -155,7 +158,10 @@ public sealed class SalesViewModel : ObservableObject
         private set
         {
             if (SetProperty(ref _isLoading, value))
+            {
                 ((AsyncRelayCommand)PayCommand).NotifyCanExecuteChanged();
+                ((AsyncRelayCommand)NewCommand).NotifyCanExecuteChanged();
+            }
         }
     }
 
@@ -316,77 +322,72 @@ public sealed class SalesViewModel : ObservableObject
     private async Task ReloadCustomersAsync()
     {
         var session = RequireSession();
-        var customers = await _queries.SearchCustomersAsync(string.Empty, session);
-        var selectedBuySell = BuySell.SelectedCustomer?.Id;
-        var selectedOld = BuyOldGold.SelectedCustomer?.Id;
-        var selectedWholesale = Wholesale.SelectedCustomer?.Id;
+        var selectedBuySell = BuySell.SelectedCustomer;
+        var selectedOld = BuyOldGold.SelectedCustomer;
+        var selectedWholesale = Wholesale.SelectedCustomer;
+        var customers = (await _queries.SearchCustomersAsync(string.Empty, session)).ToList();
+        // The default lookup is capped. Recheck any selected customer outside that first page.
+        foreach (var selected in new[] { selectedBuySell, selectedOld, selectedWholesale }.OfType<SalesCustomerOption>().DistinctBy(x => x.Id))
+        {
+            if (customers.Any(x => x.Id == selected.Id))
+                continue;
+            var match = await FindCatalogCustomerAsync(selected.Id, selected.Code, session);
+            if (match is not null)
+                customers.Add(match);
+        }
         Replace(BuySell.CustomerOptions, customers);
         Replace(BuyOldGold.CustomerOptions, customers.Where(x => !x.IsWalkIn));
         Replace(Wholesale.CustomerOptions, customers);
-        BuySell.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedBuySell) ?? customers.FirstOrDefault();
-        BuyOldGold.SelectedCustomer = BuyOldGold.CustomerOptions.FirstOrDefault(x => x.Id == selectedOld) ?? BuyOldGold.CustomerOptions.FirstOrDefault();
-        Wholesale.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedWholesale) ?? customers.FirstOrDefault();
+        BuySell.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedBuySell?.Id);
+        BuyOldGold.SelectedCustomer = BuyOldGold.CustomerOptions.FirstOrDefault(x => x.Id == selectedOld?.Id);
+        Wholesale.SelectedCustomer = customers.FirstOrDefault(x => x.Id == selectedWholesale?.Id);
     }
 
-    private void AddCustomerForBuySell()
+    private async void OpenCustomerCatalog(
+        System.Collections.ObjectModel.ObservableCollection<SalesCustomerOption> options,
+        long? selectedId, Action<SalesCustomerOption> select, bool allowWalkIn = true)
     {
-        var created = ShowCreateCustomer();
-        if (created is null)
+        if (IsLoading || IsPosting)
             return;
-        EnsureCustomerOption(BuySell.CustomerOptions, created);
-        BuySell.SelectedCustomer = created;
-    }
 
-    private void AddCustomerForWholesale()
-    {
-        var created = ShowCreateCustomer();
-        if (created is null)
-            return;
-        EnsureCustomerOption(Wholesale.CustomerOptions, created);
-        Wholesale.SelectedCustomer = created;
-    }
-
-    private void AddCustomerForBuyOldGold()
-    {
-        var created = ShowCreateCustomer();
-        if (created is null)
-            return;
-        EnsureCustomerOption(BuyOldGold.CustomerOptions, created);
-        BuyOldGold.SelectedCustomer = created;
-    }
-
-    private SalesCustomerOption? ShowCreateCustomer()
-    {
         try
         {
-            _ = RequireSession();
-            var result = _customerEditor.ShowCreate();
-            if (result is null)
-                return null;
+            var session = RequireSession();
+            var catalog = _customerEditor.ShowCatalog(selectCustomer: true, selectedId: selectedId, allowWalkIn: allowWalkIn);
+            if (catalog.HasChanges)
+            {
+                IsLoading = true;
+                await ReloadCustomersAsync();
+            }
 
-            var code = result.Code.Trim();
-            var isWalkIn = result.IsWalkIn;
-            return new SalesCustomerOption(
-                result.Id,
-                code,
-                result.Name,
-                string.IsNullOrWhiteSpace(result.Phone) ? null : result.Phone.Trim(),
-                isWalkIn);
+            if (catalog.SelectedCustomer is { IsActive: true } result && (allowWalkIn || !result.IsWalkIn))
+            {
+                var option = options.FirstOrDefault(x => x.Id == result.Id);
+                if (option is null)
+                {
+                    IsLoading = true;
+                    option = await FindCatalogCustomerAsync(result.Id, result.Code, session);
+                    if (option is null || (!allowWalkIn && option.IsWalkIn))
+                    {
+                        ErrorMessage = "Khách hàng này không khả dụng cho phiếu hiện tại.";
+                        return;
+                    }
+                    options.Insert(0, option);
+                }
+                select(option);
+            }
         }
         catch (Exception ex)
         {
             ErrorMessage = FriendlyError(ex);
-            return null;
         }
+        finally { IsLoading = false; }
     }
 
-    private static void EnsureCustomerOption(
-        System.Collections.ObjectModel.ObservableCollection<SalesCustomerOption> options,
-        SalesCustomerOption customer)
+    private async Task<SalesCustomerOption?> FindCatalogCustomerAsync(long id, string code, AuthenticatedSession session)
     {
-        if (options.Any(x => x.Id == customer.Id))
-            return;
-        options.Insert(0, customer);
+        var matches = await _queries.SearchCustomersAsync(code, session);
+        return matches.FirstOrDefault(customer => customer.Id == id);
     }
 
     private void EditSellPrice()

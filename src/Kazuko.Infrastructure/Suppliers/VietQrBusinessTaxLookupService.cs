@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Kazuko.Core.Suppliers;
 
 namespace Kazuko.Infrastructure.Suppliers;
@@ -9,9 +8,8 @@ public sealed class VietQrBusinessTaxLookupService(HttpClient httpClient) : IBus
 {
     public async Task<BusinessTaxInfo?> LookupAsync(string taxCode, CancellationToken cancellationToken = default)
     {
-        var code = Regex.Replace(taxCode.Trim(), @"\s+", "");
-        if (!Regex.IsMatch(code, @"\A[0-9]{10}\z"))
-            throw new InvalidOperationException("Tra cứu chỉ hỗ trợ MST gốc 10 số. Với MST chi nhánh, vui lòng nhập thông tin thủ công.");
+        if (!BusinessTaxLookupInput.TryNormalize(taxCode, out var code))
+            throw new InvalidOperationException(BusinessTaxLookupInput.InvalidFormatMessage);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
         try

@@ -860,10 +860,8 @@ public sealed class CustomerViewModel : ObservableObject
 
     private void AddCustomer()
     {
-        var result = _editor.ShowCreate();
-        if (result is null)
-            return;
-        _ = RefreshAsync();
+        if (_editor.ShowCatalog(selectedId: SelectedCustomer?.Id).HasChanges)
+            _ = RefreshAsync();
     }
 
     private void EditSelected()

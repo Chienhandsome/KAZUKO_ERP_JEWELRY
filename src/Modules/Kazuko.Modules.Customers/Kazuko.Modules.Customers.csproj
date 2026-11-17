@@ -8,6 +8,7 @@
     <ProjectReference Include="..\..\Kazuko.Shared.UI\Kazuko.Shared.UI.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Kazuko.Modules.Customers.Tests" />
     <Resource Include="..\..\Assets\icons\KH.png">
       <Link>Assets\icons\KH.png</Link>
     </Resource>

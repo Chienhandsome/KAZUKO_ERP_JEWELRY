@@ -164,8 +164,10 @@ public partial class App : Application
             new FixedHostVersionProvider(1));
         ICustomerRepository customers = new FirebirdCustomerRepository();
         ISupplierRepository suppliers = new FirebirdSupplierRepository();
-        _services.AddSingleton<IBusinessTaxLookupService>(new VietQrBusinessTaxLookupService(
-            new System.Net.Http.HttpClient(new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false })));
+        var taxLookupHttp = new System.Net.Http.HttpClient(new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false });
+        _services.AddSingleton<IBusinessTaxLookupService>(new BusinessTaxLookupService(
+            taxLookupHttp, new VietQrBusinessTaxLookupService(taxLookupHttp),
+            Environment.GetEnvironmentVariable("KAZUKO_DOANHNGHIEP_API_KEY")));
         IWarehouseRepository warehouse = new FirebirdWarehouseRepository();
         IWarehouseGoldPriceRepository warehouseGoldPrices = new FirebirdWarehouseGoldPriceRepository();
         IHumanResourcesRepository humanResources = new FirebirdHumanResourcesRepository();

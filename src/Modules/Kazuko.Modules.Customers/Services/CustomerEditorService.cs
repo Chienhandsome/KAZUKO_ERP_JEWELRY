@@ -23,6 +23,23 @@ public sealed class CustomerEditorService : ICustomerEditorService
 
     public CustomerEditResult? ShowEdit(long customerId) => Show(customerId);
 
+    public CustomerCatalogResult ShowCatalog(bool selectCustomer = false, long? selectedId = null, bool allowWalkIn = true)
+    {
+        if (_authorization is null)
+            return new CustomerCatalogResult(null, false);
+
+        var dialog = new CustomerCatalogDialog { Owner = ResolveOwner() };
+        var viewModel = new CustomerCatalogViewModel(_repository, _sessionAccessor, _authorization, this,
+            selectCustomer, allowWalkIn, (message, title) =>
+                MessageBox.Show(dialog, message, title, MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
+        dialog.DataContext = viewModel;
+        dialog.Loaded += async (_, _) => await viewModel.LoadAsync(selectedId);
+        viewModel.CustomerChosen += () => dialog.DialogResult = true;
+        dialog.ShowDialog();
+        return new CustomerCatalogResult(viewModel.ChosenCustomer, viewModel.HasChanges);
+    }
+
     private CustomerEditResult? Show(long? customerId, CitizenIdentityScanData? initialScan = null)
     {
         var viewModel = new CustomerEditDialogViewModel(_repository, _sessionAccessor, customerId);

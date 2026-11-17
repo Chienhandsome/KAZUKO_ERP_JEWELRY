@@ -34,14 +34,12 @@ await using(var db=new FbConnection(FirebirdDatabase.BuildConnectionString(saved
 {
     await db.OpenAsync();
     var allowed=new HashSet<string>{"COMPANIES","BRANCHES","LOCATIONS","ROLES","PERMISSIONS","ROLE_PERMISSIONS","USER_GROUPS","GROUP_PERMISSIONS",
-        "USERS","CASH_FUNDS","CUSTOMER_GROUPS","CUSTOMERS","SUPPLIER_GROUPS","FINISHED_PRODUCT_GROUPS","GOLD_TYPES","GOLD_PRICES","WAREHOUSE_GOLD_PRICES","MATERIALS","HR_WORK_SHIFTS","VOUCHER_CATEGORIES","SCHEMA_MIGRATIONS"};
+        "USERS","CASH_FUNDS","CUSTOMER_GROUPS","CUSTOMERS","SUPPLIER_GROUPS","FINISHED_PRODUCT_GROUPS","HR_WORK_SHIFTS","VOUCHER_CATEGORIES","SCHEMA_MIGRATIONS"};
     foreach(var table in await db.QueryAsync<string>("SELECT TRIM(RDB$RELATION_NAME) FROM RDB$RELATIONS WHERE COALESCE(RDB$SYSTEM_FLAG,0)=0 AND RDB$VIEW_BLR IS NULL"))
         if(!allowed.Contains(table))Check(await db.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM "+table)==0,"empty business table "+table);
     Check(await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM USERS")==1,"no source users are copied");
     Check(await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM CUSTOMERS")==1,"only the walk-in customer is seeded");
     Check(await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM CUSTOMERS WHERE IS_WALK_IN=TRUE")==1,"walk-in customer is usable by checkout");
-    Check(await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM MATERIALS WHERE GOLD_TYPE_ID IS NOT NULL")==4,"gold catalog has linked raw materials");
-    Check(await db.ExecuteScalarAsync<decimal>("SELECT SUM(BUY_PRICE_PER_CHI+SELL_PRICE_PER_CHI) FROM GOLD_PRICES")==0,"no developer prices are copied");
     Check(await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM SCHEMA_MIGRATIONS")==93,"clean database has the complete v93 migration ledger");
     await db.ExecuteAsync("UPDATE COMPANIES SET NAME='Cửa hàng kiểm thử' WHERE CODE='KAZUKO'");
 }

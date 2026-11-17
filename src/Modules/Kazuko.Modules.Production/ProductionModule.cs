@@ -52,7 +52,7 @@ public sealed class ProductionModule : IKazukoModule
                     DataContext = new ProductionViewModel(
                         queries, application, attachments, printData, session, externalWorkerEditor, goldTypes,
                         craftOrders, cashFunds, bankAccounts, customerEditor, GetRequiredService<IProductionFinishedReceiptPresenter>(services),
-                        GetRequiredService<IEmployeeEditorService>(services))
+                        GetRequiredService<IEmployeeEditorService>(services), GetRequiredService<IGoldTypeEditorService>(services))
                 };
             },
             AssetRoot + "SX.png",

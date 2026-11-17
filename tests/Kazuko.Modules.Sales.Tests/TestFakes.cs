@@ -39,8 +39,15 @@ internal sealed class FakePaymentDialog : ISalesPaymentDialogService
 internal sealed class FakeCustomerEditor : ICustomerEditorService
 {
     public CustomerEditResult? NextResult { get; set; }
+    public bool CatalogChanged { get; set; }
+    public (bool SelectCustomer, long? SelectedId, bool AllowWalkIn) CatalogRequest { get; private set; }
     public CustomerEditResult? ShowCreate() => NextResult;
     public CustomerEditResult? ShowEdit(long customerId) => NextResult;
+    public CustomerCatalogResult ShowCatalog(bool selectCustomer = false, long? selectedId = null, bool allowWalkIn = true)
+    {
+        CatalogRequest = (selectCustomer, selectedId, allowWalkIn);
+        return new(NextResult, CatalogChanged);
+    }
 }
 
 internal sealed class FakeCustomerLookupDialog : ISalesCustomerLookupDialogService
@@ -259,7 +266,8 @@ internal static class SalesTestFactory
     public static (SalesViewModel Vm, FakeCheckoutService Checkout, FakePaymentDialog Payments, FakeReceiptPresenter Receipts, FakeQueryRepository Queries)
         Create(
             SalesPermissionSnapshot? permissions = null,
-            SalesPaymentDialogResult? paymentResult = null)
+            SalesPaymentDialogResult? paymentResult = null,
+            FakeCustomerEditor? customerEditor = null)
     {
         var session = new FakeSessionAccessor();
         session.Set(new AuthenticatedSession(9, "admin", "Admin", "ADMIN", 1, "BR", "Branch"));
@@ -274,7 +282,7 @@ internal static class SalesTestFactory
         var receipts = new FakeReceiptPresenter();
         var vm = new SalesViewModel(
             queries, checkout, auth, new FakeCashFunds(), new FakeBanks(),
-            session, payments, new FakeCustomerEditor(), new FakePriceOverrideDialog(), receipts,
+            session, payments, customerEditor ?? new FakeCustomerEditor(), new FakePriceOverrideDialog(), receipts,
             DispatchProxy.Create<ICraftOrderApplicationService, UnusedDependencyProxy>(),
             new FakeWholesaleSalesService(),
             DispatchProxy.Create<IWarehouseRepository, UnusedDependencyProxy>(),

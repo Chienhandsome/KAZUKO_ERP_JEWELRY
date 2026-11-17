@@ -1,4 +1,4 @@
-﻿# Kiến trúc
+# Kiến trúc
 
 ## Báo cáo lương nhân sự
 
@@ -7,12 +7,13 @@ HR mở workspace của module Reports qua `IEmployeeReportsPresenter` (Core), k
 ## Dependency direction
 
 Tra cứu MST nhà cung cấp dùng `IBusinessTaxLookupService` (Core), triển khai
-`VietQrBusinessTaxLookupService` (Infrastructure) qua HTTP như TestScan. Chỉ hỗ trợ
-tra cứu MST gốc 10 số; không tra chi nhánh hoặc tự bỏ hậu tố để điền công ty mẹ.
-MST chi nhánh vẫn nhập/lưu thủ công được. Không cần tài khoản/API key.
+`BusinessTaxLookupService` (Infrastructure). VietQR tra MST gốc 10 số. Khi có biến môi trường KAZUKO_DOANHNGHIEP_API_KEY,
+app thử tra MST đầy đủ qua Doanhnghiep.vn và kiểm tra mã trả về. Nếu chưa có kết quả,
+app dùng VietQR tra MST gốc và giữ MST chi nhánh. Tên người đại diện, nếu có, hiện
+trong kết quả tra cứu. Số điện thoại và người liên hệ được nhập trên form.
 Bấm Tra cứu chỉ điền MST/tên/địa chỉ vào bản nháp, không tự lưu. Không xóa trường
 thiếu trong phản hồi; kiểm tra MST phản hồi khớp yêu cầu, chặn lưu/chỉnh form trong
-lúc tra cứu và hủy yêu cầu khi đóng dialog. Timeout 15 giây, thông báo lỗi mạng,
+lúc tra cứu và hủy yêu cầu khi đóng dialog. Timeout 5 giây cho Doanhnghiep.vn và 15 giây cho VietQR, thông báo lỗi mạng,
 giới hạn lượt hoặc nguồn chưa có dữ liệu. Không migration. Form dùng hàng Grid
 chung cho hai cột để giữ căn hàng khi hiện lỗi/thông báo.
 Theo yêu cầu người dùng, bỏ tích hợp Xinvoice và giao diện cấu hình khóa.
@@ -72,6 +73,7 @@ Các route placeholder dùng để dựng khung giao diện trước khi module 
 
 - `AuthenticatedSession` + `ICurrentSessionAccessor` (Core) giữ UserId/Username/DisplayName/RoleCode/Branch* sau login; App đăng ký singleton và clear khi logout. Không chứa mật khẩu.
 - Module nghiệp vụ không tham chiếu lẫn nhau. Dialog/use case dùng chung (ví dụ khách hàng) expose contract WPF-neutral trong Core (`ICustomerEditorService`, `CustomerEditResult`) và implementation nằm trong module sở hữu.
+- Danh mục khách hàng dùng `ICustomerEditorService.ShowCatalog` cho màn hình Khách hàng và ba tab giao dịch bán hàng. Chế độ chọn trả về khách đang hoạt động phù hợp với phiếu. Kết quả báo có thay đổi kể cả khi đóng mà không chọn khách, để màn hình gọi cập nhật lại danh sách. Xóa trong danh mục dùng luồng ngừng giao dịch có audit hiện có.
 - SQL chỉ ở Infrastructure (`FirebirdCustomerRepository`). Module Customers tham chiếu Core + Shared.UI; repository được App đăng ký tại composition root.
 
 Tạo tài khoản trong UserManagement truyền `BranchId` của phiên đăng nhập qua

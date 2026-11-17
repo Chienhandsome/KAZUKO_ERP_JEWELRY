@@ -134,10 +134,13 @@ public sealed record CustomerTopSalesItem(
     int OrderCount,
     decimal TotalSales);
 
+public sealed record CustomerCatalogResult(CustomerEditResult? SelectedCustomer, bool HasChanges);
+
 public interface ICustomerEditorService
 {
     CustomerEditResult? ShowCreate();
     CustomerEditResult? ShowEdit(long customerId);
+    CustomerCatalogResult ShowCatalog(bool selectCustomer = false, long? selectedId = null, bool allowWalkIn = true);
 }
 
 public sealed record CustomerSalesSummary(bool IsWalkIn, int OrderCount, decimal TotalSales);

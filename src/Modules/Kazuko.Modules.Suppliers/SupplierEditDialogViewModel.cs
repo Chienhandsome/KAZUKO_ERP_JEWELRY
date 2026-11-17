@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
@@ -252,14 +252,27 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
     private async Task LookupTaxAsync()
     {
         var requestedCode = TaxCode;
-        IsBusy = true;
         FormError = string.Empty;
+        TaxLookupMessage = string.Empty;
+        if (string.IsNullOrWhiteSpace(requestedCode))
+        {
+            FormError = "Vui lòng nhập mã số thuế trước khi tra cứu.";
+            return;
+        }
+        if (!BusinessTaxLookupInput.TryGetLookupCodes(requestedCode, out var fullCode, out var rootCode))
+        {
+            FormError = "Nhập MST gốc 10 chữ số hoặc MST chi nhánh theo dạng 0123456789-001.";
+            return;
+        }
+
+        var isBranch = fullCode != rootCode;
+        IsBusy = true;
         TaxLookupMessage = "Đang tra cứu MST…";
         using var cancellation = new CancellationTokenSource();
         _taxLookupCts = cancellation;
         try
         {
-            var result = await _taxLookup.LookupAsync(requestedCode, cancellation.Token);
+            var result = await _taxLookup.LookupAsync(fullCode, cancellation.Token);
             if (cancellation.IsCancellationRequested || TaxCode != requestedCode)
             {
                 TaxLookupMessage = string.Empty;
@@ -267,10 +280,10 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
             }
             if (result is null)
             {
-                TaxLookupMessage = "VietQR chưa có dữ liệu cho MST này. Bạn có thể kiểm tra lại MST hoặc nhập thông tin thủ công.";
+                TaxLookupMessage = "Chưa tìm được dữ liệu cho MST này. Bạn có thể kiểm tra lại MST hoặc nhập thông tin thủ công.";
                 return;
             }
-            TaxCode = result.TaxCode;
+            TaxCode = isBranch ? fullCode : result.TaxCode;
             if (!string.IsNullOrWhiteSpace(result.Name))
             {
                 Name = result.Name;
@@ -278,7 +291,11 @@ public sealed class SupplierEditDialogViewModel : ObservableObject
             }
             if (!string.IsNullOrWhiteSpace(result.Address))
                 Address = result.Address;
-            TaxLookupMessage = "Đã điền thông tin doanh nghiệp. Vui lòng kiểm tra trước khi lưu.";
+            TaxLookupMessage = isBranch && result.TaxCode == rootCode
+                ? $"Đã điền thông tin từ MST gốc {rootCode}, giữ MST chi nhánh {fullCode}. Kiểm tra lại trước khi lưu."
+                : "Đã điền thông tin theo MST đã nhập. Vui lòng kiểm tra trước khi lưu.";
+            if (!string.IsNullOrWhiteSpace(result.LegalRepresentative))
+                TaxLookupMessage += $"{Environment.NewLine}Người đại diện theo kết quả tra cứu: {result.LegalRepresentative}";
         }
         catch (OperationCanceledException)
         {
