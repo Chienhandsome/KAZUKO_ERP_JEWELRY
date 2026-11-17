@@ -243,8 +243,9 @@
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
-                                <Button Grid.Column="1" Content="Thêm thợ SX"
-                                        access:PermissionAccess.Rule="CAT_EMPLOYEES:Add"
+                                <Button Grid.Column="1" Content="Danh mục"
+                                        access:PermissionAccess.Rule="CAT_EMPLOYEES"
+                                        ToolTip="Danh mục thợ sản xuất" AutomationProperties.Name="Danh mục thợ sản xuất"
                                         Command="{Binding CreateEmployeeCommand}"
                                         Style="{StaticResource FormSecondaryButtonStyle}"
                                         MinHeight="{DynamicResource SingleLineFieldMinHeight}"
@@ -266,12 +267,12 @@
                                           SelectedValue="{Binding ExternalWorkerId}" SelectedValuePath="Id"
                                           Style="{StaticResource ProductionCompactComboStyle}"
                                           IsEnabled="{Binding IsDraft}" />
-                                <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Add" Grid.Column="2" Content="Thêm thợ"
+                                <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS" Grid.Column="2" Content="Danh mục"
                                         Command="{Binding CreateExternalWorkerCommand}"
-                                        Style="{StaticResource ProductionPrimaryButtonStyle}"
-                                        MinHeight="28" Padding="12,2"
+                                        Style="{StaticResource FormSecondaryButtonStyle}"
+                                        MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="12,2"
                                         IsEnabled="{Binding IsDraft}"
-                                        ToolTip="Mở nhanh danh mục thêm/sửa thợ ngoài" />
+                                        ToolTip="Danh mục thợ ngoài" AutomationProperties.Name="Danh mục thợ ngoài" />
                             </Grid>
 
                             <TextBlock Grid.Row="5" Grid.Column="0" Text="Ghi chú" Style="{StaticResource ProductionCompactRowLabelStyle}" />

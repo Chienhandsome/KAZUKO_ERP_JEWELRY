@@ -132,13 +132,14 @@
                           </DataTemplate>
                         </ComboBox.ItemTemplate>
                       </ComboBox>
-                      <Button access:PermissionAccess.Rule="CAT_SUPPLIERS:Add" Grid.Column="2"
-                              Content="Tạo mới"
+                      <Button access:PermissionAccess.Rule="CAT_SUPPLIERS" Grid.Column="2"
+                              Content="Danh mục"
                               Style="{StaticResource WhOutlineButtonStyle}"
+                              MinHeight="{DynamicResource SingleLineFieldMinHeight}" Padding="12,4"
                               MinWidth="96"
                               Margin="0"
-                              Command="{Binding CreateSupplierCommand}"
-                              ToolTip="Tạo nhanh đối tác khi chưa có trong danh mục" />
+                              Command="{Binding OpenSupplierCatalogCommand}"
+                              ToolTip="Danh mục nhà cung cấp" AutomationProperties.Name="Danh mục nhà cung cấp" />
                     </Grid>
                   </StackPanel>
 

@@ -22,25 +22,34 @@ public sealed class ExternalWorkerEditorService : IExternalWorkerEditorService
 
     public ExternalWorkerEditResult? Show()
     {
+        var (viewModel, _) = OpenDialog(false, null);
+        return viewModel.LastSaved is { } saved
+            ? new ExternalWorkerEditResult(saved.Id, saved.Code, saved.Name, saved.IsActive)
+            : null;
+    }
+
+    public ExternalWorkerCatalogResult ShowCatalog(long? selectedId)
+    {
+        var (viewModel, accepted) = OpenDialog(true, selectedId);
+        var selected = accepted && viewModel.SelectedWorker is { IsActive: true } worker
+            ? new ExternalWorkerEditResult(worker.Id, worker.Code, worker.Name, worker.IsActive)
+            : null;
+        return new ExternalWorkerCatalogResult(selected, viewModel.HasChanges);
+    }
+
+    private (ExternalWorkerDialogViewModel ViewModel, bool Accepted) OpenDialog(bool canChoose, long? selectedId)
+    {
         var session = _sessionAccessor.Current
             ?? throw new InvalidOperationException("Phiên đăng nhập đã hết hạn.");
 
-        var viewModel = new ExternalWorkerDialogViewModel(_workers, _craft, session);
+        var viewModel = new ExternalWorkerDialogViewModel(_workers, _craft, session, canChoose, selectedId);
         var dialog = new ExternalWorkerDialog(viewModel)
         {
             Owner = ResolveOwner(),
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
 
-        dialog.ShowDialog();
-
-        if (viewModel.LastSaved is { } saved)
-            return new ExternalWorkerEditResult(saved.Id, saved.Code, saved.Name, saved.IsActive);
-
-        if (viewModel.SelectedWorker is { } selected)
-            return new ExternalWorkerEditResult(selected.Id, selected.Code, selected.Name, selected.IsActive);
-
-        return null;
+        return (viewModel, dialog.ShowDialog() == true);
     }
 
     private static Window? ResolveOwner()

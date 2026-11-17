@@ -31,17 +31,21 @@ internal sealed class CustomerCatalogViewModel : ObservableObject
         _editor = editor;
         _allowWalkIn = allowWalkIn;
         _confirm = confirm;
-        CanChooseCustomer = selectCustomer;
+        CanChoose = selectCustomer;
         AddCommand = new AsyncRelayCommand(() => OpenEditorAsync(null), () => Can(PermissionAction.Add));
         EditCommand = new AsyncRelayCommand(() => OpenEditorAsync(Selected?.Id),
             () => Selected is { IsWalkIn: false } && Can(PermissionAction.Edit));
         DeleteCommand = new AsyncRelayCommand(DeleteAsync,
             () => Selected is { IsActive: true, IsWalkIn: false } && Can(PermissionAction.Delete));
         ChooseCommand = new RelayCommand(Choose,
-            () => CanChooseCustomer && Selected is { IsActive: true } && Can(PermissionAction.View));
+            () => CanChoose && Selected is { IsActive: true } && Can(PermissionAction.View));
     }
 
-    public bool CanChooseCustomer { get; }
+    public bool CanChoose { get; }
+    public string SearchHint => "Tìm theo tên, mã hoặc số điện thoại";
+    public string DeleteHint => "Ngừng giao dịch với khách hàng";
+    public string? SelectedGroupName => Selected?.CustomerGroupName;
+    public string SelectedContext => Selected?.IsWalkIn == true ? "Hồ sơ khách vãng lai" : string.Empty;
     public bool HasChanges { get; private set; }
     public CustomerEditResult? ChosenCustomer { get; private set; }
     public event Action? CustomerChosen;
@@ -51,7 +55,7 @@ internal sealed class CustomerCatalogViewModel : ObservableObject
     public AsyncRelayCommand DeleteCommand { get; }
     public RelayCommand ChooseCommand { get; }
 
-    public IReadOnlyList<CustomerListItem> Customers
+    public IReadOnlyList<CustomerListItem> Rows
     {
         get => _customers;
         private set => SetProperty(ref _customers, value);
@@ -63,7 +67,11 @@ internal sealed class CustomerCatalogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _selected, value))
+            {
+                OnPropertyChanged(nameof(SelectedGroupName));
+                OnPropertyChanged(nameof(SelectedContext));
                 UpdateCommands();
+            }
         }
     }
 
@@ -124,7 +132,7 @@ internal sealed class CustomerCatalogViewModel : ObservableObject
             row.Phone.Contains(query, StringComparison.OrdinalIgnoreCase) ||
             row.Email.Contains(query, StringComparison.OrdinalIgnoreCase) ||
             row.TaxCode.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
-        Customers = customers;
+        Rows = customers;
         Selected = customers.FirstOrDefault(row => row.Id == selectedId) ?? customers.FirstOrDefault();
     }
 

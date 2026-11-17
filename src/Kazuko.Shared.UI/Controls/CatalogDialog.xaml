@@ -1,9 +1,9 @@
-<Window x:Class="Kazuko.Modules.Customers.CustomerCatalogDialog"
+<Window x:Class="Kazuko.Shared.UI.Controls.CatalogDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Danh mục khách hàng" Width="940" Height="640" MinWidth="660" MinHeight="420"
+        Width="940" Height="640" MinWidth="660" MinHeight="420"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{DynamicResource AppBackgroundBrush}" Closing="OnClosing">
+        Background="{DynamicResource AppBackgroundBrush}">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <Style TargetType="TextBlock">
@@ -24,11 +24,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <StackPanel Margin="0,0,0,12">
-            <TextBlock Text="Tìm theo tên, mã hoặc số điện thoại"
+            <TextBlock Text="{Binding SearchHint}"
                        Style="{StaticResource DetailLabel}" Margin="0,0,0,4" />
             <TextBox Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                      Style="{DynamicResource FormTextBoxStyle}"
-                     AutomationProperties.Name="Tìm khách hàng theo tên, mã hoặc số điện thoại" />
+                     AutomationProperties.Name="{Binding SearchHint}" />
         </StackPanel>
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -36,8 +36,8 @@
                 <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="5*" />
             </Grid.ColumnDefinitions>
-            <ListBox ItemsSource="{Binding Customers}" SelectedItem="{Binding Selected}"
-                     AutomationProperties.Name="Danh sách khách hàng"
+            <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                     AutomationProperties.Name="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
                      Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
                      SelectionChanged="OnCustomerSelectionChanged"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -66,14 +66,13 @@
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                            FontSize="{DynamicResource FontSize.Subtitle}" />
-                                                <TextBlock Text="Hồ sơ khách vãng lai" Style="{StaticResource DetailLabel}"
-                                                           Visibility="{Binding IsWalkIn, Converter={StaticResource BoolToVisibility}}" />
-                                                <TextBlock Text="Mã khách hàng" Style="{StaticResource DetailLabel}" />
+                                                <TextBlock Text="{Binding DataContext.SelectedContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <TextBlock Text="Mã" Style="{StaticResource DetailLabel}" />
                                                 <TextBlock Text="{Binding Code}" />
                                                 <TextBlock Text="Điện thoại" Style="{StaticResource DetailLabel}" />
                                                 <TextBlock Text="{Binding Phone}" />
-                                                <TextBlock Text="Nhóm khách hàng" Style="{StaticResource DetailLabel}" />
-                                                <TextBlock Text="{Binding CustomerGroupName}" />
+                                                <TextBlock Text="Nhóm" Style="{StaticResource DetailLabel}" />
+                                                <TextBlock Text="{Binding DataContext.SelectedGroupName, RelativeSource={RelativeSource AncestorType=Window}}" />
                                                 <TextBlock Text="Địa chỉ" Style="{StaticResource DetailLabel}" />
                                                 <TextBlock Text="{Binding Address}" />
                                                 <TextBlock Text="Email" Style="{StaticResource DetailLabel}" />
@@ -100,7 +99,7 @@
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="ContentControl">
-                                                    <TextBlock Text="Chọn một khách hàng để xem chi tiết."
+                                                    <TextBlock Text="Chọn một dòng để xem chi tiết."
                                                                Foreground="{DynamicResource TextSecondaryBrush}" />
                                                 </ControlTemplate>
                                             </Setter.Value>
@@ -121,11 +120,11 @@
                         Style="{DynamicResource FormPrimaryButtonStyle}" Margin="0,0,8,6" />
                 <Button Content="Sửa" Command="{Binding EditCommand}"
                         Style="{DynamicResource FormSecondaryButtonStyle}" Margin="0,0,8,6" />
-                <Button Content="Xóa" Command="{Binding DeleteCommand}" ToolTip="Ngừng giao dịch với khách hàng"
+                <Button Content="Xóa" Command="{Binding DeleteCommand}" ToolTip="{Binding DeleteHint}"
                         Foreground="{DynamicResource DangerBrush}"
                         Style="{DynamicResource FormSecondaryButtonStyle}" Margin="0,0,8,6" />
                 <Button Content="Chọn" Command="{Binding ChooseCommand}"
-                        Visibility="{Binding CanChooseCustomer, Converter={StaticResource BoolToVisibility}}"
+                        Visibility="{Binding CanChoose, Converter={StaticResource BoolToVisibility}}"
                         Style="{DynamicResource FormSecondaryButtonStyle}" Margin="0,0,8,6" />
                 <Button Content="Đóng" IsCancel="True" Style="{DynamicResource FormSecondaryButtonStyle}"
                         Margin="0,0,0,6" />

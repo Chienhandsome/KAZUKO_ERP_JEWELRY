@@ -3,6 +3,7 @@ using Kazuko.Core.DependencyInjection;
 using Kazuko.Core.Finance;
 using Kazuko.Core.Modules;
 using Kazuko.Core.Suppliers;
+using Kazuko.Core.UserManagement;
 
 namespace Kazuko.Modules.Suppliers;
 
@@ -18,7 +19,7 @@ public sealed class SuppliersModule : IKazukoModule
         var repository = GetRequiredService<ISupplierRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
         services.AddSingleton<ISupplierEditorService>(new SupplierEditorService(repository, session,
-            GetRequiredService<IBusinessTaxLookupService>(services)));
+            GetRequiredService<IBusinessTaxLookupService>(services), GetRequiredService<IAuthorizationService>(services)));
     }
 
     public void RegisterNavigation(IModuleNavigationRegistry navigation, IServiceProvider services)

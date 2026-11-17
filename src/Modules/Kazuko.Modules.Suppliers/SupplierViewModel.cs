@@ -1095,10 +1095,8 @@ public sealed class SupplierViewModel : ObservableObject
 
     private void AddSupplier()
     {
-        var result = _editor.ShowCreate();
-        if (result is null)
-            return;
-        _ = SearchAsync();
+        if (_editor.ShowCatalog(selectedId: SelectedSupplier?.Id).HasChanges)
+            _ = SearchAsync();
     }
 
     private void EditSelected()

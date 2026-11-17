@@ -213,14 +213,18 @@ public sealed record ExternalWorkerEditResult(
     string Name,
     bool IsActive);
 
+public sealed record ExternalWorkerCatalogResult(ExternalWorkerEditResult? SelectedWorker, bool HasChanges);
+
 public interface IExternalWorkerEditorService
 {
     /// <summary>Mở dialog danh mục thợ ngoài (thêm/sửa). Trả về thợ vừa lưu hoặc đang chọn khi đóng.</summary>
     ExternalWorkerEditResult? Show();
+    ExternalWorkerCatalogResult ShowCatalog(long? selectedId);
 }
 
 public interface IExternalWorkerRepository
 {
+    Task DeactivateAsync(long id, AuthenticatedSession session, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ExternalWorkerListItem>> SearchAsync(
         string searchText,
         bool activeOnly,

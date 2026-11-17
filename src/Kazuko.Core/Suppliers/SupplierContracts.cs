@@ -106,10 +106,13 @@ public sealed record SupplierTopPurchaseItem(
     int PurchaseCount,
     decimal TotalPurchases);
 
+public sealed record SupplierCatalogResult(SupplierEditResult? SelectedSupplier, bool HasChanges);
+
 public interface ISupplierEditorService
 {
     SupplierEditResult? ShowCreate();
     SupplierEditResult? ShowEdit(long supplierId);
+    SupplierCatalogResult ShowCatalog(bool selectSupplier = false, long? selectedId = null);
 }
 
 public interface ISupplierRepository

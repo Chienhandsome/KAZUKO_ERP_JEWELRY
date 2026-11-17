@@ -9,6 +9,7 @@ public partial class ExternalWorkerDialog : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        Closing += (_, args) => args.Cancel = viewModel.IsBusy;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 

@@ -56,7 +56,12 @@ public static class BackendAccess
                 "DeleteAttendanceMonthAsync" => Has("CAT_EMPLOYEES", PermissionAction.Delete),
                 "SearchAsync" or "GetByIdAsync" => Has("CAT_EMPLOYEES"),
                 "GetDepartmentsAsync" or "GetPositionsAsync" or "IsAttendanceCodeTakenAsync" or "SuggestNextAttendanceCodeAsync" or "GetWorkShiftsAsync" or "GetAttendanceMonthsAsync" or "GetAttendanceRecordsAsync" => Has("CAT_EMPLOYEES"), _ => false },
-            "IExternalWorkerRepository" => method == "SaveAsync" ? Has("CAT_EXTERNAL_WORKERS", SaveAction()) : Any("CAT_EXTERNAL_WORKERS", "PROD_ORDER", "PROD_MATERIAL_ISSUE", "PROD_GOLD_RECONCILE", "INV_FINISHED_RECEIPT", "DEBT_WORKER_GOLD"),
+            "IExternalWorkerRepository" => method switch
+            {
+                "SaveAsync" => Has("CAT_EXTERNAL_WORKERS", SaveAction()),
+                "DeactivateAsync" => Has("CAT_EXTERNAL_WORKERS", PermissionAction.Delete),
+                _ => Any("CAT_EXTERNAL_WORKERS", "PROD_ORDER", "PROD_MATERIAL_ISSUE", "PROD_GOLD_RECONCILE", "INV_FINISHED_RECEIPT", "DEBT_WORKER_GOLD")
+            },
             "IWarehouseGoldPriceRepository" => Has("CAT_GOLD_PRICE", method == "SaveAsync" ? PermissionAction.Edit : PermissionAction.View),
             "IGoldTypeCatalogService" => method switch {
                 "CreateAsync" => Has("CAT_GOLD_PRICE", PermissionAction.Add), "UpdateAsync" => Has("CAT_GOLD_PRICE", PermissionAction.Edit),

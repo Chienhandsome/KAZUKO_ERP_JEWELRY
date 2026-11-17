@@ -74,6 +74,13 @@ Các route placeholder dùng để dựng khung giao diện trước khi module 
 - `AuthenticatedSession` + `ICurrentSessionAccessor` (Core) giữ UserId/Username/DisplayName/RoleCode/Branch* sau login; App đăng ký singleton và clear khi logout. Không chứa mật khẩu.
 - Module nghiệp vụ không tham chiếu lẫn nhau. Dialog/use case dùng chung (ví dụ khách hàng) expose contract WPF-neutral trong Core (`ICustomerEditorService`, `CustomerEditResult`) và implementation nằm trong module sở hữu.
 - Danh mục khách hàng dùng `ICustomerEditorService.ShowCatalog` cho màn hình Khách hàng và ba tab giao dịch bán hàng. Chế độ chọn trả về khách đang hoạt động phù hợp với phiếu. Kết quả báo có thay đổi kể cả khi đóng mà không chọn khách, để màn hình gọi cập nhật lại danh sách. Xóa trong danh mục dùng luồng ngừng giao dịch có audit hiện có.
+- Khách hàng và Nhà cung cấp dùng chung bố cục `CatalogDialog` trong Shared.UI.
+  Phiếu Nhập NVL gọi `ISupplierEditorService.ShowCatalog` để chọn nhà cung cấp,
+  nạp lại danh sách đang hoạt động khi danh mục thay đổi và giữ các dòng NVL trên phiếu.
+- Nhân sự dùng `CatalogDialog` để quản lý nhân viên. Khi mở từ lệnh sản xuất,
+  chỉ chọn được nhân viên đang làm việc và còn hoạt động. Danh mục thợ ngoài
+  phân biệt chọn về lệnh và đóng cửa sổ. Tầng dữ liệu kiểm tra lệnh chưa kết thúc,
+  NVL chưa xử lý và công nợ chưa tất toán trước khi ngừng hoạt động thợ ngoài.
 - SQL chỉ ở Infrastructure (`FirebirdCustomerRepository`). Module Customers tham chiếu Core + Shared.UI; repository được App đăng ký tại composition root.
 
 Tạo tài khoản trong UserManagement truyền `BranchId` của phiên đăng nhập qua

@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Kazuko.Core.UserManagement;
+using Kazuko.Shared.UI.Controls;
 using Xunit;
 
 namespace Kazuko.Modules.Customers.Tests;
@@ -24,16 +25,16 @@ public sealed class CustomerCatalogTests
         await viewModel.LoadAsync(1);
 
         viewModel.Query = " trần ";
-        Assert.Equal(2, Assert.Single(viewModel.Customers).Id);
+        Assert.Equal(2, Assert.Single(viewModel.Rows).Id);
         viewModel.Query = "kh001";
-        Assert.Equal(1, Assert.Single(viewModel.Customers).Id);
+        Assert.Equal(1, Assert.Single(viewModel.Rows).Id);
         viewModel.Query = "0987";
-        Assert.Equal(2, Assert.Single(viewModel.Customers).Id);
+        Assert.Equal(2, Assert.Single(viewModel.Rows).Id);
         viewModel.Query = "không khớp";
-        Assert.Empty(viewModel.Customers);
+        Assert.Empty(viewModel.Rows);
         Assert.Null(viewModel.Selected);
         viewModel.Query = "";
-        Assert.Equal(2, viewModel.Customers.Count);
+        Assert.Equal(2, viewModel.Rows.Count);
     }
 
     [Fact]
@@ -46,7 +47,7 @@ public sealed class CustomerCatalogTests
         var viewModel = CreateViewModel(repository, allowWalkIn: false);
         await viewModel.LoadAsync(1);
 
-        Assert.Single(viewModel.Customers);
+        Assert.Single(viewModel.Rows);
         Assert.True(viewModel.ChooseCommand.CanExecute(null));
         viewModel.DeleteCommand.Execute(null);
 
@@ -71,7 +72,7 @@ public sealed class CustomerCatalogTests
         {
             var repository = new CustomerRepositoryFake();
             var viewModel = CreateViewModel(repository);
-            var dialog = new CustomerCatalogDialog { DataContext = viewModel };
+            var dialog = new CatalogDialog { Title = "Danh mục khách hàng", DataContext = viewModel };
             var view = (FrameworkElement)dialog.Content;
             foreach (System.Collections.DictionaryEntry resource in dialog.Resources)
                 view.Resources[resource.Key] = resource.Value;

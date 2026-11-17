@@ -347,8 +347,7 @@ public sealed class HumanResourcesViewModel : ObservableObject
 
     private void AddEmployee()
     {
-        var result = _editor.ShowCreate();
-        if (result is not null)
+        if (_editor.ShowCatalog(selectedId: SelectedEmployee?.Id).HasChanges)
             _ = SearchAsync();
     }
 

@@ -59,6 +59,39 @@ public sealed class FirebirdExternalWorkerRepository : IExternalWorkerRepository
         return rows.FirstOrDefault(x => x.Id == id);
     }
 
+    public async Task DeactivateAsync(long id, AuthenticatedSession session, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        StockPostingSupport.EnsureBranch(session);
+        await using var connection = FirebirdDatabase.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = (FbTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var companyId = await StockPostingSupport.GetCompanyIdAsync(connection, transaction, cancellationToken);
+        var affected = await connection.ExecuteAsync(new CommandDefinition("""
+            UPDATE EXTERNAL_WORKERS
+               SET IS_ACTIVE = FALSE, UPDATED_BY = @USER_ID, UPDATED_AT = CURRENT_TIMESTAMP
+             WHERE ID = @ID AND COMPANY_ID = @CID AND IS_ACTIVE = TRUE
+               AND NOT EXISTS (SELECT 1 FROM PRODUCTION_ORDERS P
+                   WHERE P.COMPANY_ID = @CID AND P.EXTERNAL_WORKER_ID = @ID
+                     AND P.STATUS_CODE NOT IN ('COMPLETED', 'CANCELLED'))
+               AND NOT EXISTS (SELECT 1 FROM EXTERNAL_WORKER_HOLDINGS H
+                   WHERE H.COMPANY_ID = @CID AND H.EXTERNAL_WORKER_ID = @ID
+                     AND H.STATUS_CODE IN ('IN_PROGRESS', 'PARTIAL_RETURN', 'VARIANCE'))
+               AND NOT EXISTS (SELECT 1 FROM PAYABLE_DEBTS D
+                   WHERE D.COMPANY_ID = @CID AND D.EXTERNAL_WORKER_ID = @ID AND D.STATUS_CODE IN ('OPEN', 'PARTIAL'))
+               AND NOT EXISTS (SELECT 1 FROM RECEIVABLE_DEBTS D
+                   WHERE D.COMPANY_ID = @CID AND D.EXTERNAL_WORKER_ID = @ID AND D.STATUS_CODE IN ('OPEN', 'PARTIAL'))
+            """, new { ID = id, CID = companyId, USER_ID = session.UserId }, transaction,
+            cancellationToken: cancellationToken));
+        if (affected != 1)
+            throw new InvalidOperationException("Không thể ngừng hoạt động. Thợ đã ngừng hoạt động hoặc còn lệnh sản xuất, NVL hay công nợ chưa tất toán.");
+
+        await AuditLogWriter.WriteAsync(connection, transaction, "EXTERNAL_WORKER_DEACTIVATED",
+            session.UserId, session.Username, session.BranchId, "EXTERNAL_WORKERS", id.ToString(),
+            cancellationToken: cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public async Task<ExternalWorkerListItem> SaveAsync(
         ExternalWorkerSaveRequest request,
         AuthenticatedSession session,
@@ -158,6 +191,10 @@ public sealed class FirebirdExternalWorkerRepository : IExternalWorkerRepository
                         cancellationToken: cancellationToken));
             }
 
+            await AuditLogWriter.WriteAsync(connection, transaction,
+                request.Id is > 0 ? "EXTERNAL_WORKER_UPDATED" : "EXTERNAL_WORKER_CREATED",
+                session.UserId, session.Username, session.BranchId, "EXTERNAL_WORKERS", id.ToString(),
+                cancellationToken: cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return (await GetByIdAsync(id, session, cancellationToken))!;
         }

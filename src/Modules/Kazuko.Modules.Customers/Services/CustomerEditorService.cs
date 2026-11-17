@@ -2,6 +2,7 @@ using System.Windows;
 using Kazuko.Core.Authentication;
 using Kazuko.Core.Customers;
 using Kazuko.Core.UserManagement;
+using Kazuko.Shared.UI.Controls;
 
 namespace Kazuko.Modules.Customers;
 
@@ -28,12 +29,13 @@ public sealed class CustomerEditorService : ICustomerEditorService
         if (_authorization is null)
             return new CustomerCatalogResult(null, false);
 
-        var dialog = new CustomerCatalogDialog { Owner = ResolveOwner() };
+        var dialog = new CatalogDialog { Title = "Danh mục khách hàng", Owner = ResolveOwner() };
         var viewModel = new CustomerCatalogViewModel(_repository, _sessionAccessor, _authorization, this,
             selectCustomer, allowWalkIn, (message, title) =>
                 MessageBox.Show(dialog, message, title, MessageBoxButton.YesNo,
                     MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
         dialog.DataContext = viewModel;
+        dialog.Closing += (_, e) => e.Cancel = viewModel.IsBusy;
         dialog.Loaded += async (_, _) => await viewModel.LoadAsync(selectedId);
         viewModel.CustomerChosen += () => dialog.DialogResult = true;
         dialog.ShowDialog();

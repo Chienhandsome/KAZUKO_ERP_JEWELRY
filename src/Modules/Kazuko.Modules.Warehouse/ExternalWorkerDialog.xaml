@@ -7,11 +7,22 @@
         Width="920" Height="640" MinWidth="780" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppBackgroundBrush}">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
     <DockPanel Margin="16">
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="Đóng" Style="{DynamicResource NavButtonStyle}" Command="{Binding CloseCommand}"
-                    MinHeight="40" IsCancel="True" />
-        </StackPanel>
+        <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Add" Content="Thêm mới" Command="{Binding NewCommand}"
+                    Style="{DynamicResource FormPrimaryButtonStyle}" Margin="0,0,8,4" />
+            <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Edit" Content="Sửa" Command="{Binding EditCommand}"
+                    Style="{DynamicResource FormSecondaryButtonStyle}" Margin="0,0,8,4" />
+            <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Delete" Content="Xóa" Command="{Binding DeleteCommand}"
+                    ToolTip="Ngừng hoạt động thợ ngoài" Style="{DynamicResource FormSecondaryButtonStyle}" Margin="0,0,8,4" />
+            <Button Content="Chọn" Command="{Binding ChooseCommand}" Visibility="{Binding CanChoose, Converter={StaticResource BoolToVisibility}}"
+                    Style="{DynamicResource FormSecondaryButtonStyle}" Margin="0,0,8,4" />
+            <Button Content="Đóng" Style="{DynamicResource FormSecondaryButtonStyle}" Command="{Binding CloseCommand}"
+                    IsCancel="True" Margin="0,0,0,4" />
+        </WrapPanel>
 
         <Grid>
             <Grid.RowDefinitions>
@@ -21,10 +32,6 @@
             </Grid.RowDefinitions>
 
             <StackPanel>
-                <TextBlock Text="Danh mục thợ ngoài" FontSize="{DynamicResource FontSize.Heading}"
-                           FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                <TextBlock Text="Dùng cho lệnh sản xuất OUTSOURCED và luồng giao NVL thợ ngoài. Nút theo dõi NVL giao thợ là danh sách tồn đang ở thợ, không phải danh mục này."
-                           Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
                            TextWrapping="Wrap" Margin="0,4,0,0" />
                 <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextSecondaryBrush}"
@@ -38,13 +45,12 @@
                     <ColumnDefinition Width="*" MinWidth="280" />
                 </Grid.ColumnDefinitions>
 
-                <DockPanel>
+                <DockPanel IsEnabled="{Binding CanBrowse}">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <Button DockPanel.Dock="Right" Content="Tìm" Style="{DynamicResource PrimaryButtonStyle}"
-                                Command="{Binding SearchCommand}" MinHeight="36" MinWidth="72" Margin="8,0,0,0" />
                         <CheckBox DockPanel.Dock="Right" Content="Chỉ đang hoạt động"
                                   IsChecked="{Binding ActiveOnly}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" MinHeight="{DynamicResource SingleLineFieldMinHeight}"
+                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{DynamicResource FormTextBoxStyle}"
+                                 AutomationProperties.Name="Lọc theo tên, mã, số điện thoại hoặc MST"
                                  VerticalContentAlignment="Center" />
                     </DockPanel>
                     <DataGrid grid:DataGridColumnLayout.EnableHeaderMenu="True" grid:DataGridColumnLayout.SettingsKey="warehouse.ExternalWorkerDialog.Workers" ItemsSource="{Binding Workers}" SelectedItem="{Binding SelectedWorker}"
@@ -65,27 +71,29 @@
                             <TextBlock Text="Chi tiết thợ" FontSize="{DynamicResource FontSize.Subtitle}"
                                        FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8" />
                             <TextBlock Text="Mã *" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
+                            <TextBox Style="{DynamicResource FormTextBoxStyle}" IsReadOnly="{Binding AreFieldsReadOnly}" Text="{Binding EditCode, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Tên *" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
+                            <TextBox Style="{DynamicResource FormTextBoxStyle}" IsReadOnly="{Binding AreFieldsReadOnly}" Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Điện thoại" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
+                            <TextBox Style="{DynamicResource FormTextBoxStyle}" IsReadOnly="{Binding AreFieldsReadOnly}" Text="{Binding EditPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Địa chỉ" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
+                            <TextBox Style="{DynamicResource FormTextBoxStyle}" IsReadOnly="{Binding AreFieldsReadOnly}" Text="{Binding EditAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="MST / CCCD" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditIdTaxNumber, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
+                            <TextBox Style="{DynamicResource FormTextBoxStyle}" IsReadOnly="{Binding AreFieldsReadOnly}" Text="{Binding EditIdTaxNumber, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Thông tin thanh toán" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditPaymentInfo, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
+                            <TextBox Style="{DynamicResource FormTextBoxStyle}" IsReadOnly="{Binding AreFieldsReadOnly}" Text="{Binding EditPaymentInfo, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" MinHeight="{DynamicResource SingleLineFieldMinHeight}" />
                             <TextBlock Text="Ghi chú" Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <TextBox Text="{Binding EditNotes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                            <TextBox Style="{DynamicResource FormTextBoxStyle}" IsReadOnly="{Binding AreFieldsReadOnly}" Text="{Binding EditNotes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                                      Height="64" AcceptsReturn="True" TextWrapping="Wrap" />
-                            <CheckBox Content="Đang hoạt động" IsChecked="{Binding EditIsActive}" Margin="0,0,0,12" />
-                            <StackPanel Orientation="Horizontal">
-                                <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Add" Content="Thêm mới" Style="{DynamicResource NavButtonStyle}"
-                                        Command="{Binding NewCommand}" MinHeight="40" Margin="0,0,8,0" />
-                                <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Add|CAT_EXTERNAL_WORKERS:Edit" Content="Lưu" Style="{DynamicResource PrimaryButtonStyle}"
-                                        Command="{Binding SaveCommand}" MinHeight="40" IsDefault="True" />
-                            </StackPanel>
+                            <CheckBox Content="Đang hoạt động" IsChecked="{Binding EditIsActive}"
+                                      IsEnabled="{Binding CanReactivate}" Margin="0,0,0,12" />
+                            <WrapPanel Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}">
+                                <Button access:PermissionAccess.Rule="CAT_EXTERNAL_WORKERS:Add|CAT_EXTERNAL_WORKERS:Edit" Content="Lưu"
+                                        Style="{DynamicResource FormPrimaryButtonStyle}" Command="{Binding SaveCommand}" IsDefault="True"
+                                        Margin="0,0,8,4" />
+                                <Button Content="Hủy sửa" Style="{DynamicResource FormSecondaryButtonStyle}"
+                                        Command="{Binding CancelEditCommand}" Margin="0,0,0,4" />
+                            </WrapPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </Border>

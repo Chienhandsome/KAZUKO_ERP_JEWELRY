@@ -149,7 +149,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         RemoveEmployeeCommand = new RelayCommand<ProductionEmployeeOption>(RemoveEmployee, _ => IsDraft && !IsBusy);
         RefreshWorkersCommand = new AsyncRelayCommand(LoadExternalWorkersAsync);
         CreateEmployeeCommand = new AsyncRelayCommand(CreateEmployeeAsync, () => _employeeEditor is not null && IsDraft && IsInHouse && !IsBusy);
-        CreateExternalWorkerCommand = new RelayCommand(CreateExternalWorker, () => IsDraft && !IsBusy);
+        CreateExternalWorkerCommand = new AsyncRelayCommand(OpenExternalWorkerCatalogAsync, () => IsDraft && !IsBusy);
         RefreshStockMaterialsCommand = new AsyncRelayCommand(LoadStockMaterialsAsync, () => CanIssueMaterials && !IsBusy);
         AddIssueLineCommand = new RelayCommand(AddIssueLine, () => CanIssueMaterials && !IsBusy);
         AddMinimumMaterialsToIssueCommand = new RelayCommand(
@@ -1162,7 +1162,16 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
 
     private async Task LoadEmployeesAsync()
     {
-        var items = await _queries.SearchWorkingEmployeesAsync(null);
+        var items = (await _queries.SearchWorkingEmployeesAsync(null)).ToList();
+        foreach (var assigned in SelectedEmployees)
+        {
+            if (items.Any(item => item.Id == assigned.Id))
+                continue;
+            var available = (await _queries.SearchWorkingEmployeesAsync(assigned.Code))
+                .FirstOrDefault(item => item.Id == assigned.Id);
+            if (available is not null)
+                items.Add(available);
+        }
         Employees.Clear();
         foreach (var item in items)
             Employees.Add(item);
@@ -1249,11 +1258,31 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
     {
         try
         {
-            if (_employeeEditor?.ShowCreate() is not { } created)
+            if (_employeeEditor is null)
                 return;
 
-            await LoadEmployeesAsync();
-            var worker = SelectableEmployees.FirstOrDefault(item => item.Id == created.Id);
+            IsBusy = true;
+            var catalog = _employeeEditor.ShowCatalog(selectProductionWorker: true,
+                selectedId: SelectedEmployees.FirstOrDefault()?.Id);
+            if (catalog.HasChanges)
+                await LoadEmployeesAsync();
+            if (catalog.SelectedEmployee is not { IsActive: true, StatusCode: EmployeeStatusCodes.Working } selected)
+                return;
+
+            var worker = SelectableEmployees.FirstOrDefault(item => item.Id == selected.Id && !item.IsInactive);
+            if (worker is null)
+            {
+                var eligible = (await _queries.SearchWorkingEmployeesAsync(selected.Code))
+                    .FirstOrDefault(item => item.Id == selected.Id);
+                if (eligible is null)
+                {
+                    ErrorMessage = "Nhân viên này không còn khả dụng cho lệnh sản xuất.";
+                    return;
+                }
+                Employees.Add(eligible);
+                SyncSelectableEmployees();
+                worker = SelectableEmployees.FirstOrDefault(item => item.Id == selected.Id);
+            }
             if (worker is not null)
                 worker.IsSelected = true;
         }
@@ -1261,27 +1290,44 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         {
             ErrorMessage = ex.Message;
         }
+        finally { IsBusy = false; }
     }
 
-    private void CreateExternalWorker()
+    private async Task OpenExternalWorkerCatalogAsync()
     {
         try
         {
-            var created = _externalWorkerEditor.Show();
-            _ = ReloadExternalWorkersAsync(created?.Id);
+            IsBusy = true;
+            var catalog = _externalWorkerEditor.ShowCatalog(ExternalWorkerId);
+            if (catalog.HasChanges || catalog.SelectedWorker is not null)
+                await ReloadExternalWorkersAsync(catalog.SelectedWorker?.Id, catalog.SelectedWorker?.Code);
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
         }
+        finally { IsBusy = false; }
     }
 
-    private async Task ReloadExternalWorkersAsync(long? selectId)
+    private async Task ReloadExternalWorkersAsync(long? selectId, string? code = null)
     {
         var previousId = selectId ?? ExternalWorkerId;
+        code ??= ExternalWorkers.FirstOrDefault(worker => worker.Id == previousId)?.Code;
         await LoadExternalWorkersAsync();
+        if (previousId is > 0 && code is not null && ExternalWorkers.All(item => item.Id != previousId))
+        {
+            var eligible = (await _queries.SearchActiveExternalWorkersAsync(code))
+                .FirstOrDefault(item => item.Id == previousId);
+            if (eligible is not null)
+                ExternalWorkers.Add(new ProductionExternalWorkerItemViewModel(eligible));
+        }
         if (previousId is > 0 && ExternalWorkers.Any(x => x.Id == previousId))
             ExternalWorkerId = previousId;
+        else if (previousId is > 0)
+        {
+            ExternalWorkerId = null;
+            ErrorMessage = "Thợ ngoài không còn khả dụng. Vui lòng chọn lại.";
+        }
     }
 
     private async Task LoadDetailAsync(long orderId)
@@ -2117,6 +2163,7 @@ public sealed class ProductionOrderDialogViewModel : ObservableObject
         ((ParameterRelayCommand)EditLineCommand).NotifyCanExecuteChanged();
         ((RelayCommand)CreateCustomerCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)CreateEmployeeCommand).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)CreateExternalWorkerCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)PostDepositCommand).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RefreshStockMaterialsCommand).NotifyCanExecuteChanged();
         ((RelayCommand)AddMinimumMaterialsToIssueCommand).NotifyCanExecuteChanged();
@@ -2215,10 +2262,12 @@ public sealed class ProductionExternalWorkerItemViewModel
     public ProductionExternalWorkerItemViewModel(ProductionExternalWorkerOption option)
     {
         Id = option.Id;
+        Code = option.Code;
         DisplayName = $"{option.Name} ({option.Code})";
     }
 
     public long Id { get; }
+    public string Code { get; }
     public string DisplayName { get; }
 
     public override string ToString() => DisplayName;

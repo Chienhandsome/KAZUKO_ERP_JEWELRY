@@ -19,7 +19,8 @@ public sealed class HumanResourcesModule : IKazukoModule
     {
         var repository = GetRequiredService<IHumanResourcesRepository>(services);
         var session = GetRequiredService<ICurrentSessionAccessor>(services);
-        services.AddSingleton<IEmployeeEditorService>(new EmployeeEditorService(repository, session));
+        services.AddSingleton<IEmployeeEditorService>(new EmployeeEditorService(repository, session,
+            GetRequiredService<Kazuko.Core.UserManagement.IAuthorizationService>(services)));
         services.AddSingleton<IShiftEditorService>(new ShiftEditorService(repository, session, GetRequiredService<IAuthorizationService>(services)));
     }
 

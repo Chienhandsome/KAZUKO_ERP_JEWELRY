@@ -22,6 +22,8 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     private readonly IBankAccountRepository _banks;
     private readonly AuthenticatedSession _session;
     private SupplierListItem? _selectedSupplier;
+    private bool _isRefreshingSuppliers;
+    private bool _mustReselectSupplier;
     private WarehouseLocationOption? _selectedLocation;
     private MaterialOption? _selectedMaterial;
     private decimal _lineQuantity = 1;
@@ -65,9 +67,9 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
 
         AddLineCommand = new RelayCommand(AddLine);
         RemoveLineCommand = new RelayCommand(RemoveSelectedLine, () => SelectedLine is not null);
-        CreateSupplierCommand = new RelayCommand(CreateSupplier);
+        OpenSupplierCatalogCommand = new AsyncRelayCommand(OpenSupplierCatalogAsync);
         CreateGoldTypeCommand = new AsyncRelayCommand(CreateGoldTypeAsync);
-        SaveCommand = new AsyncRelayCommand(SaveAsync);
+        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !_isRefreshingSuppliers);
         CancelCommand = new RelayCommand(() => DialogResult = false);
         _ = LoadLookupsAsync();
     }
@@ -286,7 +288,7 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
 
     public ICommand AddLineCommand { get; }
     public ICommand RemoveLineCommand { get; }
-    public ICommand CreateSupplierCommand { get; }
+    public ICommand OpenSupplierCatalogCommand { get; }
     public ICommand CreateGoldTypeCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
@@ -346,12 +348,33 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
     }
 
 
-    private void CreateSupplier()
+    private async Task OpenSupplierCatalogAsync()
     {
-        var created = _supplierEditor.ShowCreate();
-        if (created is null)
-            return;
-        _ = ReloadSuppliersAsync(created.Id);
+        try
+        {
+            var previousId = SelectedSupplier?.Id;
+            var catalog = _supplierEditor.ShowCatalog(selectSupplier: true, selectedId: previousId);
+            var selectedId = catalog.SelectedSupplier?.Id ?? previousId;
+            if (catalog.HasChanges || catalog.SelectedSupplier is not null)
+            {
+                _isRefreshingSuppliers = true;
+                ((AsyncRelayCommand)SaveCommand).NotifyCanExecuteChanged();
+                await ReloadSuppliersAsync(selectedId);
+                _mustReselectSupplier = SelectedSupplier is null && (_mustReselectSupplier || selectedId is not null);
+                ErrorMessage = _mustReselectSupplier
+                    ? "Nhà cung cấp không còn hoạt động. Vui lòng chọn lại."
+                    : string.Empty;
+            }
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "Không thể cập nhật danh sách nhà cung cấp.";
+        }
+        finally
+        {
+            _isRefreshingSuppliers = false;
+            ((AsyncRelayCommand)SaveCommand).NotifyCanExecuteChanged();
+        }
     }
 
     private async Task CreateGoldTypeAsync()
@@ -372,10 +395,11 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
         }
     }
 
-    private async Task ReloadSuppliersAsync(long selectId)
+    private async Task ReloadSuppliersAsync(long? selectId)
     {
+        var suppliers = await _suppliers.SearchAsync(new SupplierSearchFilter(string.Empty, 0, string.Empty, true));
         Suppliers.Clear();
-        foreach (var supplier in await _suppliers.SearchAsync(new SupplierSearchFilter(string.Empty, 0, string.Empty, true)))
+        foreach (var supplier in suppliers)
             Suppliers.Add(supplier);
         SelectedSupplier = Suppliers.FirstOrDefault(x => x.Id == selectId);
     }
@@ -399,6 +423,8 @@ public sealed class MaterialReceiptDialogViewModel : ObservableObject
             ErrorMessage = string.Empty;
             if (SelectedLocation is null)
                 throw new InvalidOperationException("Chọn kho nhận.");
+            if (_mustReselectSupplier && SelectedSupplier is null)
+                throw new InvalidOperationException("Vui lòng chọn lại nhà cung cấp đang hoạt động.");
 
             var payments = new List<PaymentAllocationDraft>();
             if (CashAmount > 0)

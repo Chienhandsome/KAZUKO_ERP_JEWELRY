@@ -14,7 +14,7 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
     private readonly AuthenticatedSession _session;
 
     private string _searchText = string.Empty;
-    private bool _activeOnly = true;
+    private bool _activeOnly;
     private string _errorMessage = string.Empty;
     private string _statusMessage = string.Empty;
     private string _holdingsSummary = string.Empty;
@@ -31,31 +31,62 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
     private bool? _dialogResult;
     private bool _suppressSelection;
     private ExternalWorkerListItem? _lastSaved;
+    private IReadOnlyList<ExternalWorkerListItem> _allWorkers = [];
+    private bool _isEditing;
+    private bool _isBusy;
+    private readonly long? _initialId;
 
     public ExternalWorkerDialogViewModel(
         IExternalWorkerRepository workers,
         IOutsourcedCraftService craft,
-        AuthenticatedSession session)
+        AuthenticatedSession session,
+        bool canChoose = false,
+        long? initialId = null)
     {
         _workers = workers;
         _craft = craft;
         _session = session;
-
-        SearchCommand = new AsyncRelayCommand(LoadAsync);
-        NewCommand = new RelayCommand(BeginNew);
-        SaveCommand = new AsyncRelayCommand(SaveAsync);
+        CanChoose = canChoose;
+        _initialId = initialId;
+        _activeOnly = canChoose;
+        NewCommand = new RelayCommand(BeginNew, () => CanBrowse);
+        EditCommand = new RelayCommand(() => IsEditing = true, () => CanBrowse && SelectedWorker is not null);
+        SaveCommand = new AsyncRelayCommand(SaveAsync, () => IsEditing && !IsBusy);
+        DeleteCommand = new AsyncRelayCommand(DeactivateAsync, () => CanBrowse && SelectedWorker?.IsActive == true);
+        CancelEditCommand = new RelayCommand(EndEdit, () => IsEditing && !IsBusy);
+        ChooseCommand = new RelayCommand(() => DialogResult = true, () => CanChoose && CanBrowse && SelectedWorker?.IsActive == true);
         CloseCommand = new RelayCommand(() => DialogResult = false);
         _ = InitializeAsync();
     }
 
     public ExternalWorkerListItem? LastSaved => _lastSaved;
+    public bool HasChanges { get; private set; }
+    public bool CanChoose { get; }
+    public bool CanBrowse => !IsEditing && !IsBusy;
+    public bool CanEditFields => IsEditing && !IsBusy;
+    public bool AreFieldsReadOnly => !CanEditFields;
+    public bool CanReactivate => CanEditFields && SelectedWorker?.IsActive == false;
+    public bool IsEditing
+    {
+        get => _isEditing;
+        private set { if (SetProperty(ref _isEditing, value)) UpdateActions(); }
+    }
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set { if (SetProperty(ref _isBusy, value)) UpdateActions(); }
+    }
 
     public ObservableCollection<ExternalWorkerRowViewModel> Workers { get; } = new();
 
     public string SearchText
     {
         get => _searchText;
-        set => SetProperty(ref _searchText, value);
+        set
+        {
+            if (SetProperty(ref _searchText, value))
+                ApplyFilter(SelectedWorker?.Id);
+        }
     }
 
     public bool ActiveOnly
@@ -64,7 +95,7 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _activeOnly, value))
-                _ = LoadAsync();
+                ApplyFilter(SelectedWorker?.Id);
         }
     }
 
@@ -75,9 +106,11 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
         {
             if (!SetProperty(ref _selectedWorker, value) || _suppressSelection)
                 return;
-            if (value is null)
-                return;
-            LoadEditor(value);
+            if (value is not null)
+                LoadEditor(value);
+            else
+                ClearEditor();
+            UpdateActions();
         }
     }
 
@@ -153,35 +186,56 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
         set => SetProperty(ref _dialogResult, value);
     }
 
-    public ICommand SearchCommand { get; }
-    public ICommand NewCommand { get; }
-    public ICommand SaveCommand { get; }
+    public RelayCommand NewCommand { get; }
+    public RelayCommand EditCommand { get; }
+    public AsyncRelayCommand SaveCommand { get; }
+    public AsyncRelayCommand DeleteCommand { get; }
+    public RelayCommand CancelEditCommand { get; }
+    public RelayCommand ChooseCommand { get; }
     public ICommand CloseCommand { get; }
 
     private async Task InitializeAsync()
     {
-        await LoadAsync();
-        await LoadHoldingsSummaryAsync();
-        BeginNew();
+        IsBusy = true;
+        try
+        {
+            await LoadAsync(_initialId);
+            await LoadHoldingsSummaryAsync();
+        }
+        finally { IsBusy = false; }
     }
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(long? selectedId)
     {
         try
         {
             ErrorMessage = string.Empty;
-            var rows = await _workers.SearchAsync(SearchText, ActiveOnly, _session);
-            _suppressSelection = true;
-            Workers.Clear();
-            foreach (var row in rows)
-                Workers.Add(new ExternalWorkerRowViewModel(row));
-            _suppressSelection = false;
-            StatusMessage = $"Có {Workers.Count} thợ ngoài.";
+            _allWorkers = await _workers.SearchAsync(string.Empty, false, _session);
+            ApplyFilter(selectedId);
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
         }
+    }
+
+    private void ApplyFilter(long? selectedId)
+    {
+        var query = SearchText.Trim();
+        _suppressSelection = true;
+        Workers.Clear();
+        foreach (var row in _allWorkers.Where(row => (!ActiveOnly || row.IsActive) &&
+            (row.Code.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+             row.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+             row.Phone.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+             row.IdTaxNumber.Contains(query, StringComparison.OrdinalIgnoreCase))))
+            Workers.Add(new ExternalWorkerRowViewModel(row));
+        _suppressSelection = false;
+        SelectedWorker = Workers.FirstOrDefault(worker => worker.Id == selectedId) ?? Workers.FirstOrDefault();
+        if (SelectedWorker is null)
+            ClearEditor();
+        UpdateActions();
+        StatusMessage = $"Có {Workers.Count} thợ ngoài.";
     }
 
     private async Task LoadHoldingsSummaryAsync()
@@ -206,6 +260,13 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
         _suppressSelection = true;
         SelectedWorker = null;
         _suppressSelection = false;
+        ClearEditor();
+        IsEditing = true;
+        StatusMessage = "Nhập thợ mới rồi bấm Lưu.";
+    }
+
+    private void ClearEditor()
+    {
         _editId = null;
         EditCode = string.Empty;
         EditName = string.Empty;
@@ -216,7 +277,6 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
         EditNotes = string.Empty;
         EditIsActive = true;
         ErrorMessage = string.Empty;
-        StatusMessage = "Nhập thợ mới rồi bấm Lưu.";
     }
 
     private void LoadEditor(ExternalWorkerRowViewModel row)
@@ -231,11 +291,11 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
         EditNotes = row.Notes;
         EditIsActive = row.IsActive;
         ErrorMessage = string.Empty;
-        StatusMessage = $"Đang sửa {row.Code}.";
     }
 
     private async Task SaveAsync()
     {
+        IsBusy = true;
         try
         {
             ErrorMessage = string.Empty;
@@ -253,25 +313,59 @@ public sealed class ExternalWorkerDialogViewModel : ObservableObject
                 _session);
 
             _lastSaved = saved;
-            await LoadAsync();
-            _suppressSelection = true;
-            SelectedWorker = Workers.FirstOrDefault(w => w.Id == saved.Id);
-            _suppressSelection = false;
-            if (SelectedWorker is not null)
-                LoadEditor(SelectedWorker);
-
+            HasChanges = true;
+            IsEditing = false;
+            SearchText = string.Empty;
+            await LoadAsync(saved.Id);
             StatusMessage = $"Đã lưu thợ {saved.Code}.";
-            MessageBox.Show(
-                $"Đã lưu thợ ngoài {saved.Code} — {saved.Name}.\nCó thể chọn trong lệnh sản xuất OUTSOURCED.",
-                "Thợ ngoài",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Thợ ngoài", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+        finally { IsBusy = false; }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (SelectedWorker is not { IsActive: true } worker ||
+            MessageBox.Show($"Ngừng hoạt động thợ {worker.Code} – {worker.Name}?", "Thợ ngoài",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            await _workers.DeactivateAsync(worker.Id, _session);
+            HasChanges = true;
+            _allWorkers = _allWorkers.Select(row => row.Id == worker.Id ? row with { IsActive = false } : row).ToArray();
+            ApplyFilter(worker.Id);
+        }
+        catch (Exception ex) { ErrorMessage = ex.Message; }
+        finally { IsBusy = false; }
+    }
+
+    private void EndEdit()
+    {
+        IsEditing = false;
+        if (SelectedWorker is { } worker)
+            LoadEditor(worker);
+        else
+            ClearEditor();
+    }
+
+    private void UpdateActions()
+    {
+        OnPropertyChanged(nameof(CanBrowse));
+        OnPropertyChanged(nameof(CanEditFields));
+        OnPropertyChanged(nameof(AreFieldsReadOnly));
+        OnPropertyChanged(nameof(CanReactivate));
+        NewCommand.NotifyCanExecuteChanged();
+        EditCommand.NotifyCanExecuteChanged();
+        SaveCommand.NotifyCanExecuteChanged();
+        DeleteCommand.NotifyCanExecuteChanged();
+        CancelEditCommand.NotifyCanExecuteChanged();
+        ChooseCommand.NotifyCanExecuteChanged();
     }
 }
 

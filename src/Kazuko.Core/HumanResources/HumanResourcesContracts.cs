@@ -195,10 +195,13 @@ public sealed record EmployeeEditResult(
     string StatusCode,
     bool IsActive);
 
+public sealed record EmployeeCatalogResult(EmployeeEditResult? SelectedEmployee, bool HasChanges);
+
 public interface IEmployeeEditorService
 {
     EmployeeEditResult? ShowCreate();
     EmployeeEditResult? ShowEdit(long employeeId);
+    EmployeeCatalogResult ShowCatalog(bool selectProductionWorker = false, long? selectedId = null);
 }
 
 public interface IHumanResourcesRepository
